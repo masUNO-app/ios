@@ -13,17 +13,37 @@ open MasUno.xcodeproj
 
 Debug builds accept `-screen registered|hosted|add|popup` as a launch argument to jump straight to a screen.
 
+## Architecture
+
+MVVM, one folder per layer:
+
+```
+MasUno/
+├── App/          # @main entry, root ContentView, Route
+├── Models/       # Pure data: SportsEvent, Venue, ChatMessage, Sport, Person
+├── Services/     # EventStore (source of truth + domain actions), MockData
+├── ViewModels/   # Per-screen presentation state & intents
+├── Views/        # SwiftUI screens: Map/, Plans/, Chat/, AddEvent/
+├── Components/   # Shared UI (Avatar, EventIconTile, OrangeCapsuleStyle, Triangle)
+├── Utilities/    # EventFormat date/duration formatting
+└── Theme/        # Figma color palette
+```
+
+Views bind to `@Observable` view models; view models read/mutate the model layer
+(`EventStore`, injected via environment). Views never mutate the store directly.
+
 ## Screens
 
-| Figma frame | SwiftUI |
-| --- | --- |
-| Sports event map | `Map/EventMapView.swift` |
-| Sports event map · Popup | `Map/EventPopup.swift` |
-| Sports event map · Add event | `AddEvent/AddEventSheet.swift` |
-| Registered events | `Plans/RegisteredEventsView.swift` |
-| Hosted events | `Plans/HostedEventsView.swift` |
+| Figma frame | View | ViewModel |
+| --- | --- | --- |
+| Sports event map | `Views/Map/EventMapView.swift` | `ViewModels/EventMapViewModel.swift` |
+| Sports event map · Popup | `Views/Map/EventPopup.swift` | `EventMapViewModel` |
+| Sports event map · Add event | `Views/AddEvent/AddEventSheet.swift` | `ViewModels/AddEventViewModel.swift` |
+| Registered events | `Views/Plans/RegisteredEventsView.swift` | `ViewModels/RegisteredEventsViewModel.swift` |
+| Hosted events | `Views/Plans/HostedEventsView.swift` | `ViewModels/HostedEventsViewModel.swift` |
 
-State lives in `Model/EventStore.swift`; mock content in `Model/MockData.swift`.
+Navigation/sheet state lives in `ViewModels/AppViewModel.swift`; data in
+`Services/EventStore.swift`; mock content in `Services/MockData.swift`.
 
 Organizer approval (Join requests / Accept–Decline) is post-MVP and intentionally left out — spots are first come, first served.
 
