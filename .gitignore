@@ -4,3 +4,20 @@ DerivedData/
 build/
 *.xcuserstate
 .ios-build/
+
+# Dependency managers
+Pods/
+.build/
+.swiftpm/
+Carthage/Build/
+
+# Release artifacts & signing
+*.ipa
+*.dSYM.zip
+*.xcarchive
+*.mobileprovision
+
+# Secrets
+.env
+*.env
+Secrets.xcconfig
