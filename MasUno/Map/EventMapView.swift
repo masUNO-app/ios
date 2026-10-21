@@ -8,27 +8,34 @@ struct EventMapView: View {
 
     @State private var position: MapCameraPosition = .region(MockData.initialRegion)
     @State private var selectedID: SportsEvent.ID?
+    @State private var cameraTracker = MapCameraTracker()
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 30)) { context in
-            map(now: context.date)
-        }
-        .overlay(alignment: .top) { topBackdrop }
-        .overlay(alignment: .top) {
-            VStack(alignment: .leading, spacing: 12) {
-                searchRow
-                nearbyChip
-                if let id = selectedID, let event = store.event(id) {
-                    EventPopup(event: event, path: $path)
-                        .transition(.scale(scale: 0.9, anchor: .topLeading).combined(with: .opacity))
-                }
+        MapReader { proxy in
+            TimelineView(.periodic(from: .now, by: 30)) { context in
+                map(now: context.date)
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 8)
+            .overlay(alignment: .top) { topBackdrop }
+            .overlay(alignment: .top) {
+                VStack(alignment: .leading, spacing: 12) {
+                    searchRow
+                    nearbyChip
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
+            }
+            .overlay {
+                PinPopupLayer(
+                    event: selectedID.flatMap { store.event($0) },
+                    proxy: proxy,
+                    cameraTracker: cameraTracker,
+                    path: $path
+                )
+            }
         }
         .safeAreaInset(edge: .bottom) { bottomActions }
         .toolbar(.hidden, for: .navigationBar)
-        .animation(.snappy, value: selectedID)
+        .animation(.spring(duration: 0.4, bounce: 0.22), value: selectedID)
         #if DEBUG
         .onAppear {
             if UserDefaults.standard.string(forKey: "screen") == "popup" {
@@ -63,6 +70,10 @@ struct EventMapView: View {
         }
         .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))
         .mapControlVisibility(.hidden)
+        // Keeps the popup pinned to its annotation while the map pans/zooms.
+        .onMapCameraChange(frequency: .continuous) { context in
+            cameraTracker.camera = context.camera
+        }
         .overlay { Theme.mapWarmth.allowsHitTesting(false) }
         .ignoresSafeArea()
     }
@@ -102,6 +113,10 @@ struct EventMapView: View {
                     Section("Bookmarked") {
                         ForEach(store.bookmarkedEvents) { event in
                             Button("\(event.sport.emoji) \(event.title)\(event.isFull ? " · Full" : "")") {
+                                // Bring the pin on screen so its popup has somewhere to grow from.
+                                withAnimation {
+                                    position = .region(MKCoordinateRegion(center: event.coordinate, span: MockData.initialRegion.span))
+                                }
                                 selectedID = event.id
                             }
                         }
@@ -194,6 +209,72 @@ struct EventMapView: View {
         .padding(.horizontal, 16)
         .frame(maxWidth: .infinity, minHeight: 48)
         .contentShape(.capsule)
+    }
+}
+
+// MARK: - Popup placement
+
+/// Holds the latest camera so only `PinPopupLayer` re-renders while the map moves,
+/// rather than the whole map view body.
+@Observable
+final class MapCameraTracker {
+    var camera: MapCamera?
+}
+
+/// Positions `EventPopup` next to its pin and scales it out of (and back into) the pin.
+private struct PinPopupLayer: View {
+    var event: SportsEvent?
+    var proxy: MapProxy
+    var cameraTracker: MapCameraTracker
+    @Binding var path: [Route]
+
+    @State private var popupHeight: CGFloat = 250
+
+    private let margin: CGFloat = 16
+    /// Height of a selected `EventPin` (label + bubble, scaled 1.15) plus a small gap.
+    private let pinClearance: CGFloat = 104
+    /// Keeps the popup clear of the search row and nearby chip.
+    private let topLimit: CGFloat = 116
+
+    var body: some View {
+        // Read the camera so this view re-lays out whenever the map moves.
+        let _ = cameraTracker.camera
+
+        GeometryReader { geo in
+            ZStack(alignment: .topLeading) {
+                Color.clear.allowsHitTesting(false)
+
+                if let event, let tip = pinTip(for: event, in: geo) {
+                    let width = min(320, geo.size.width - margin * 2)
+                    let minX = min(max(tip.x - width / 2, margin), geo.size.width - margin - width)
+                    let opensAbove = tip.y - pinClearance - popupHeight >= topLimit
+                    let anchor = UnitPoint(
+                        x: min(max((tip.x - minX) / width, 0), 1),
+                        y: opensAbove ? 1 : 0
+                    )
+
+                    EventPopup(event: event, path: $path)
+                        .frame(width: width)
+                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { popupHeight = $0 }
+                        .transition(.scale(scale: 0.1, anchor: anchor).combined(with: .opacity))
+                        // Place by the popup's own edges so no measured height is needed.
+                        .alignmentGuide(.leading) { _ in -minX }
+                        .alignmentGuide(.top) { d in
+                            opensAbove ? d.height - (tip.y - pinClearance) : -(tip.y + 8)
+                        }
+                        // New identity per event: the old popup shrinks into its pin
+                        // while the new one grows out of the tapped pin.
+                        .id(event.id)
+                }
+            }
+        }
+    }
+
+    /// The pin's tip (the annotation's coordinate) in this layer's local space.
+    private func pinTip(for event: SportsEvent, in geo: GeometryProxy) -> CGPoint? {
+        guard let point = proxy.convert(event.coordinate, to: .global) else { return nil }
+        let frame = geo.frame(in: .global)
+        return CGPoint(x: point.x - frame.minX, y: point.y - frame.minY)
     }
 }
 

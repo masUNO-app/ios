@@ -29,8 +29,11 @@ struct EventPopup: View {
                 } label: {
                     Image(systemName: event.isBookmarked ? "bookmark.fill" : "bookmark")
                         .foregroundStyle(Theme.orange)
-                        .frame(width: 32, height: 32)
+                        .frame(width: 36, height: 36)
+                        .contentShape(.circle)
                 }
+                .buttonStyle(.plain)
+                .glassEffect(.regular.interactive(), in: .circle)
                 .accessibilityLabel(event.isBookmarked ? "Remove bookmark" : "Bookmark")
             }
 
@@ -48,7 +51,7 @@ struct EventPopup: View {
                 .padding(.horizontal, 10)
                 .padding(.vertical, 8)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Theme.tan, in: .rect(cornerRadius: 8))
+                .background(Theme.tan.opacity(0.55), in: .rect(cornerRadius: 12))
 
             if !event.guests.isEmpty {
                 Text("Going: \(event.attendees.joined(separator: ", "))")
@@ -63,8 +66,8 @@ struct EventPopup: View {
                     .foregroundStyle(Theme.ink)
                     .padding(.horizontal, 16)
                     .frame(height: 40)
-                    .background(Theme.tan, in: .capsule)
-                    .overlay(Capsule().stroke(Theme.tanStroke))
+                    .background(Theme.tan.opacity(0.55), in: .capsule)
+                    .overlay(Capsule().stroke(Theme.tanStroke.opacity(0.5)))
 
                 primaryAction
                     .buttonStyle(OrangeCapsuleStyle(foreground: .white))
@@ -72,9 +75,9 @@ struct EventPopup: View {
         }
         .padding(16)
         .frame(maxWidth: 320, alignment: .leading)
-        .background(Theme.card, in: .rect(cornerRadius: 22))
-        .overlay(RoundedRectangle(cornerRadius: 22).stroke(Theme.tanStroke.opacity(0.6)))
-        .shadow(color: .black.opacity(0.12), radius: 16, y: 6)
+        // Regular glass with a warm card tint keeps text legible over the map
+        // while still picking up the map colors underneath.
+        .glassEffect(.regular.tint(Theme.card.opacity(0.6)), in: .rect(cornerRadius: 26))
     }
 
     @ViewBuilder
