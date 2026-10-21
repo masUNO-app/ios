@@ -1,0 +1,31 @@
+{
+  "status": "built",
+  "scheme": "MasUno",
+  "target": "MasUno",
+  "project": "/Users/rich/Documents/01-projects/masUNO/ios/MasUno.xcodeproj",
+  "build_log": "/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/run-kruhhv3k/build.log",
+  "app": {
+    "app": "/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.app",
+    "artifact_kind": "ios-simulator",
+    "platform_evidence": [
+      "iPhoneSimulator",
+      "iphonesimulator"
+    ],
+    "bundle_id": "com.masuno.app",
+    "product_version": "0.1",
+    "build_number": "1",
+    "executable": "/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.app/MasUno",
+    "minimum_os": "26.0",
+    "opening": "Install and launch with Xcode Simulator/simctl; cannot double-click as a Mac app or install on iPhone.",
+    "signature_verified": false,
+    "classification_basis": "Info.plist and Mach-O LC_BUILD_VERSION",
+    "macho_platforms": [
+      7
+    ],
+    "binary_platform_verified": true,
+    "executable_sha256": "10bca74a6ff1579753571658c82e7904fb31ac8517d93a2c9cc5a6271dc40839",
+    "payload_sha256": "ea16145fbe6e92ce6b9ada123a52c091b3327b87b49efc05207256dd4090a5d9"
+  },
+  "visual_review": "pending",
+  "interaction_test": "not performed"
+}

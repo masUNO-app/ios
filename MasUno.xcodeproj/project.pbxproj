@@ -7,58 +7,93 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		136089196D97036255798267 /* PlanComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3488DC2FA24E9A68FA856AB5 /* PlanComponents.swift */; };
+		050570E35D9764FBD4715F4E /* EventStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5BC157E81DE4FA5FA1AB59E /* EventStore.swift */; };
+		0859CBE3AC6B9381A657E8C9 /* AppViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 643D03B07B9FDFAEEF791BC1 /* AppViewModel.swift */; };
 		1EA02CCE4BDB67BEB1328C87 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 09D7A20397BDACB45EE42200 /* Assets.xcassets */; };
-		352B00F7FF7B5E4C0BB0C545 /* MockData.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8A266D2AB2D804AF4EF3B0A /* MockData.swift */; };
-		394C693A8565A9C50129AFF1 /* HostedEventsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 715604E28706B53FF7596137 /* HostedEventsView.swift */; };
-		5B1C2A5A8DD01F7C10AF956E /* SportsEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8987D6FC726F4E4BF96F2E7B /* SportsEvent.swift */; };
+		2533431F5F23E002C34072F3 /* Route.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8497EC1B3096267776A65142 /* Route.swift */; };
+		34A22B1765E3073D4D28BC80 /* AddEventViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65760751EE46F61AA6DB5FB6 /* AddEventViewModel.swift */; };
+		35A190C3EC63512F0CF00E96 /* Person.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77989CFF7D37FB390C2A1588 /* Person.swift */; };
+		4C6657F50CCBC04F90B58644 /* EventFormat.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC3BAF4313760CF35E423C03 /* EventFormat.swift */; };
+		564B5C6780951AE6F7FB9615 /* GroupChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC273C02CF0D7FDB1459E29F /* GroupChatView.swift */; };
+		579C67E6F1EB27AD86D88C47 /* EventMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD47D4D06245A1BCF1093FCF /* EventMapView.swift */; };
+		5E8A0284C5891082ECC14215 /* EventPopup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FEC5D2DC263F717C0EC825C /* EventPopup.swift */; };
+		6624A691ECFA06651824E8D4 /* HostedEventsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06100A6FA329191FDD232CF8 /* HostedEventsView.swift */; };
 		7552B3D9FA988D9A660AF2A6 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35D6EE39DF3247C878856FFA /* ContentView.swift */; };
-		75BDF1AE8822D0F830E9D47A /* GroupChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBA4ACAE494CEC3AD7DB8CC8 /* GroupChatView.swift */; };
 		7A9A6B0CD59E83DE29FAAD27 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76B08C16DDB41D82094BCB97 /* Theme.swift */; };
-		88F304BA0FBCB7FECA713CF2 /* EventStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC907B7640B1AEABA0BE14D7 /* EventStore.swift */; };
-		9FDEB9F783CE42494E48355E /* AddEventSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88600F95CB2B30B34986BC7C /* AddEventSheet.swift */; };
-		A4BC7A7EF9F42159A18BFC83 /* EventMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F539B792732E2AE845F5B68A /* EventMapView.swift */; };
+		7BDF3FCC5B40ACF3FED00B48 /* HostedEventsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E43F3205186B50E5F0C1C6F /* HostedEventsViewModel.swift */; };
+		94D332A6A0060DD3615731AC /* GroupChatViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ECC62D90570BD90B25EEAEB /* GroupChatViewModel.swift */; };
+		A538870C9E9008FD73BF0F7D /* AddEventSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F845ACA65A059D1E600B8AC1 /* AddEventSheet.swift */; };
+		A83597EEC8BFEE3F4884EC6D /* PlanComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10C05C66A21EDB6339F89E1 /* PlanComponents.swift */; };
 		BE0355AC6F74F7F412FD7A92 /* MasUnoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50CE10E190F7E3ADB9E7B186 /* MasUnoApp.swift */; };
-		C468B7456EF7D1D12E313640 /* EventPopup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54BFD68CDB95B770958A0DD0 /* EventPopup.swift */; };
-		C94D22526A0DDE223B2B87E7 /* RegisteredEventsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB24D8A591369982E531720E /* RegisteredEventsView.swift */; };
+		C3FF0FAE0F331C677A46B915 /* SportsEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8AE1EB6CD0DDBD354EA102C /* SportsEvent.swift */; };
+		C9A91525CF11F2466860489C /* Sport.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA20EEC0160AB38507659276 /* Sport.swift */; };
+		CDFB21F1DDFE39FEE4A320D9 /* EventMapViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E80D8880B87A2597EFAF897 /* EventMapViewModel.swift */; };
+		DEF9B93CFDDDD4B42722BEDF /* Venue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CC71EED67729B3061D04B46 /* Venue.swift */; };
 		E138AB62EC8E3DC00F9FD9AF /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBDE7B9E4CCF803FDF6F82CB /* Components.swift */; };
+		F00D700F7616BD37524F967F /* ChatMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0917EA9B336F33C6616D112F /* ChatMessage.swift */; };
+		F0F1721FA8D0B478C950E302 /* MapPins.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91B9A09B46BC341076A4B75E /* MapPins.swift */; };
+		F4EADBAF2B6B7CB64CFF233F /* RegisteredEventsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0F45711BA8378BEA858088A /* RegisteredEventsViewModel.swift */; };
+		FD3C3DF40B401D8FD99B28DF /* MockData.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEBA32C6045EA346740E8762 /* MockData.swift */; };
+		FE6F2BA60293156C69229CA1 /* RegisteredEventsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CE4873090D66DA937CAA363 /* RegisteredEventsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		06100A6FA329191FDD232CF8 /* HostedEventsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostedEventsView.swift; sourceTree = "<group>"; };
+		0917EA9B336F33C6616D112F /* ChatMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatMessage.swift; sourceTree = "<group>"; };
 		09D7A20397BDACB45EE42200 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		3488DC2FA24E9A68FA856AB5 /* PlanComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanComponents.swift; sourceTree = "<group>"; };
+		1ECC62D90570BD90B25EEAEB /* GroupChatViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupChatViewModel.swift; sourceTree = "<group>"; };
+		1FEC5D2DC263F717C0EC825C /* EventPopup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventPopup.swift; sourceTree = "<group>"; };
 		35D6EE39DF3247C878856FFA /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		3A6B5C347D3CCC59DD1227D0 /* MasUno.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = MasUno.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		4E43F3205186B50E5F0C1C6F /* HostedEventsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostedEventsViewModel.swift; sourceTree = "<group>"; };
 		50CE10E190F7E3ADB9E7B186 /* MasUnoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MasUnoApp.swift; sourceTree = "<group>"; };
-		54BFD68CDB95B770958A0DD0 /* EventPopup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventPopup.swift; sourceTree = "<group>"; };
-		715604E28706B53FF7596137 /* HostedEventsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostedEventsView.swift; sourceTree = "<group>"; };
+		643D03B07B9FDFAEEF791BC1 /* AppViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppViewModel.swift; sourceTree = "<group>"; };
+		65760751EE46F61AA6DB5FB6 /* AddEventViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddEventViewModel.swift; sourceTree = "<group>"; };
 		76B08C16DDB41D82094BCB97 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
-		88600F95CB2B30B34986BC7C /* AddEventSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddEventSheet.swift; sourceTree = "<group>"; };
-		8987D6FC726F4E4BF96F2E7B /* SportsEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportsEvent.swift; sourceTree = "<group>"; };
-		BBA4ACAE494CEC3AD7DB8CC8 /* GroupChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupChatView.swift; sourceTree = "<group>"; };
-		C8A266D2AB2D804AF4EF3B0A /* MockData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockData.swift; sourceTree = "<group>"; };
-		EB24D8A591369982E531720E /* RegisteredEventsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegisteredEventsView.swift; sourceTree = "<group>"; };
+		77989CFF7D37FB390C2A1588 /* Person.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Person.swift; sourceTree = "<group>"; };
+		7E80D8880B87A2597EFAF897 /* EventMapViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventMapViewModel.swift; sourceTree = "<group>"; };
+		8497EC1B3096267776A65142 /* Route.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Route.swift; sourceTree = "<group>"; };
+		8CE4873090D66DA937CAA363 /* RegisteredEventsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegisteredEventsView.swift; sourceTree = "<group>"; };
+		91B9A09B46BC341076A4B75E /* MapPins.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapPins.swift; sourceTree = "<group>"; };
+		9CC71EED67729B3061D04B46 /* Venue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Venue.swift; sourceTree = "<group>"; };
+		BC3BAF4313760CF35E423C03 /* EventFormat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventFormat.swift; sourceTree = "<group>"; };
+		BEBA32C6045EA346740E8762 /* MockData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockData.swift; sourceTree = "<group>"; };
+		D0F45711BA8378BEA858088A /* RegisteredEventsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegisteredEventsViewModel.swift; sourceTree = "<group>"; };
+		E8AE1EB6CD0DDBD354EA102C /* SportsEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportsEvent.swift; sourceTree = "<group>"; };
 		EBDE7B9E4CCF803FDF6F82CB /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
-		F539B792732E2AE845F5B68A /* EventMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventMapView.swift; sourceTree = "<group>"; };
-		FC907B7640B1AEABA0BE14D7 /* EventStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventStore.swift; sourceTree = "<group>"; };
+		F10C05C66A21EDB6339F89E1 /* PlanComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanComponents.swift; sourceTree = "<group>"; };
+		F5BC157E81DE4FA5FA1AB59E /* EventStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventStore.swift; sourceTree = "<group>"; };
+		F845ACA65A059D1E600B8AC1 /* AddEventSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddEventSheet.swift; sourceTree = "<group>"; };
+		FA20EEC0160AB38507659276 /* Sport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sport.swift; sourceTree = "<group>"; };
+		FC273C02CF0D7FDB1459E29F /* GroupChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupChatView.swift; sourceTree = "<group>"; };
+		FD47D4D06245A1BCF1093FCF /* EventMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventMapView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
-		01C745753A9FC8443D63E6AD /* Map */ = {
-			isa = PBXGroup;
-			children = (
-				F539B792732E2AE845F5B68A /* EventMapView.swift */,
-				54BFD68CDB95B770958A0DD0 /* EventPopup.swift */,
-			);
-			path = Map;
-			sourceTree = "<group>";
-		};
 		14B7A4F3A7CD49289BB22DDE /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				3A6B5C347D3CCC59DD1227D0 /* MasUno.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		1E75F9474AC7328AEA08DE9B /* Map */ = {
+			isa = PBXGroup;
+			children = (
+				FD47D4D06245A1BCF1093FCF /* EventMapView.swift */,
+				1FEC5D2DC263F717C0EC825C /* EventPopup.swift */,
+				91B9A09B46BC341076A4B75E /* MapPins.swift */,
+			);
+			path = Map;
+			sourceTree = "<group>";
+		};
+		3BCE1B009A8B0B8A6F8757BB /* AddEvent */ = {
+			isa = PBXGroup;
+			children = (
+				F845ACA65A059D1E600B8AC1 /* AddEventSheet.swift */,
+			);
+			path = AddEvent;
 			sourceTree = "<group>";
 		};
 		4441EA8E79E62343981147CB = {
@@ -69,6 +104,18 @@
 			);
 			sourceTree = "<group>";
 		};
+		4D823AB2B84D0D18AD3073A1 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				0917EA9B336F33C6616D112F /* ChatMessage.swift */,
+				77989CFF7D37FB390C2A1588 /* Person.swift */,
+				FA20EEC0160AB38507659276 /* Sport.swift */,
+				E8AE1EB6CD0DDBD354EA102C /* SportsEvent.swift */,
+				9CC71EED67729B3061D04B46 /* Venue.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
 		58C9A2B2583B2BF2512E7E25 /* Theme */ = {
 			isa = PBXGroup;
 			children = (
@@ -77,37 +124,73 @@
 			path = Theme;
 			sourceTree = "<group>";
 		};
+		5C01C20B6109BA5A1AF3D817 /* Plans */ = {
+			isa = PBXGroup;
+			children = (
+				06100A6FA329191FDD232CF8 /* HostedEventsView.swift */,
+				F10C05C66A21EDB6339F89E1 /* PlanComponents.swift */,
+				8CE4873090D66DA937CAA363 /* RegisteredEventsView.swift */,
+			);
+			path = Plans;
+			sourceTree = "<group>";
+		};
 		5F8099807F9EA225B108B7A2 /* App */ = {
 			isa = PBXGroup;
 			children = (
 				35D6EE39DF3247C878856FFA /* ContentView.swift */,
 				50CE10E190F7E3ADB9E7B186 /* MasUnoApp.swift */,
+				8497EC1B3096267776A65142 /* Route.swift */,
 			);
 			path = App;
+			sourceTree = "<group>";
+		};
+		7AF3427A9303B7C788ABC259 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				F5BC157E81DE4FA5FA1AB59E /* EventStore.swift */,
+				BEBA32C6045EA346740E8762 /* MockData.swift */,
+			);
+			path = Services;
 			sourceTree = "<group>";
 		};
 		7BA2A60A240609B5E219CAB8 /* MasUno */ = {
 			isa = PBXGroup;
 			children = (
 				09D7A20397BDACB45EE42200 /* Assets.xcassets */,
-				F1808F9238173FD02D1A4A67 /* AddEvent */,
 				5F8099807F9EA225B108B7A2 /* App */,
-				A914346E2141DAA49B9137A4 /* Chat */,
 				C3C73A41064319586CDE25E6 /* Components */,
-				01C745753A9FC8443D63E6AD /* Map */,
-				DC9E44EB4CA9064CA7D3ED50 /* Model */,
-				C90F8D7861DF165C5DE37AB5 /* Plans */,
+				4D823AB2B84D0D18AD3073A1 /* Models */,
+				7AF3427A9303B7C788ABC259 /* Services */,
 				58C9A2B2583B2BF2512E7E25 /* Theme */,
+				DEA3CB54232FF0AED15ADC1F /* Utilities */,
+				A9A551ED38B8CA43A5754E62 /* ViewModels */,
+				919BC46D4771D76B14D9160B /* Views */,
 			);
 			path = MasUno;
 			sourceTree = "<group>";
 		};
-		A914346E2141DAA49B9137A4 /* Chat */ = {
+		919BC46D4771D76B14D9160B /* Views */ = {
 			isa = PBXGroup;
 			children = (
-				BBA4ACAE494CEC3AD7DB8CC8 /* GroupChatView.swift */,
+				3BCE1B009A8B0B8A6F8757BB /* AddEvent */,
+				E9C45099E12C9E6286B3AFA0 /* Chat */,
+				1E75F9474AC7328AEA08DE9B /* Map */,
+				5C01C20B6109BA5A1AF3D817 /* Plans */,
 			);
-			path = Chat;
+			path = Views;
+			sourceTree = "<group>";
+		};
+		A9A551ED38B8CA43A5754E62 /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				65760751EE46F61AA6DB5FB6 /* AddEventViewModel.swift */,
+				643D03B07B9FDFAEEF791BC1 /* AppViewModel.swift */,
+				7E80D8880B87A2597EFAF897 /* EventMapViewModel.swift */,
+				1ECC62D90570BD90B25EEAEB /* GroupChatViewModel.swift */,
+				4E43F3205186B50E5F0C1C6F /* HostedEventsViewModel.swift */,
+				D0F45711BA8378BEA858088A /* RegisteredEventsViewModel.swift */,
+			);
+			path = ViewModels;
 			sourceTree = "<group>";
 		};
 		C3C73A41064319586CDE25E6 /* Components */ = {
@@ -118,32 +201,20 @@
 			path = Components;
 			sourceTree = "<group>";
 		};
-		C90F8D7861DF165C5DE37AB5 /* Plans */ = {
+		DEA3CB54232FF0AED15ADC1F /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
-				715604E28706B53FF7596137 /* HostedEventsView.swift */,
-				3488DC2FA24E9A68FA856AB5 /* PlanComponents.swift */,
-				EB24D8A591369982E531720E /* RegisteredEventsView.swift */,
+				BC3BAF4313760CF35E423C03 /* EventFormat.swift */,
 			);
-			path = Plans;
+			path = Utilities;
 			sourceTree = "<group>";
 		};
-		DC9E44EB4CA9064CA7D3ED50 /* Model */ = {
+		E9C45099E12C9E6286B3AFA0 /* Chat */ = {
 			isa = PBXGroup;
 			children = (
-				FC907B7640B1AEABA0BE14D7 /* EventStore.swift */,
-				C8A266D2AB2D804AF4EF3B0A /* MockData.swift */,
-				8987D6FC726F4E4BF96F2E7B /* SportsEvent.swift */,
+				FC273C02CF0D7FDB1459E29F /* GroupChatView.swift */,
 			);
-			path = Model;
-			sourceTree = "<group>";
-		};
-		F1808F9238173FD02D1A4A67 /* AddEvent */ = {
-			isa = PBXGroup;
-			children = (
-				88600F95CB2B30B34986BC7C /* AddEventSheet.swift */,
-			);
-			path = AddEvent;
+			path = Chat;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -216,20 +287,33 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				9FDEB9F783CE42494E48355E /* AddEventSheet.swift in Sources */,
+				A538870C9E9008FD73BF0F7D /* AddEventSheet.swift in Sources */,
+				34A22B1765E3073D4D28BC80 /* AddEventViewModel.swift in Sources */,
+				0859CBE3AC6B9381A657E8C9 /* AppViewModel.swift in Sources */,
+				F00D700F7616BD37524F967F /* ChatMessage.swift in Sources */,
 				E138AB62EC8E3DC00F9FD9AF /* Components.swift in Sources */,
 				7552B3D9FA988D9A660AF2A6 /* ContentView.swift in Sources */,
-				A4BC7A7EF9F42159A18BFC83 /* EventMapView.swift in Sources */,
-				C468B7456EF7D1D12E313640 /* EventPopup.swift in Sources */,
-				88F304BA0FBCB7FECA713CF2 /* EventStore.swift in Sources */,
-				75BDF1AE8822D0F830E9D47A /* GroupChatView.swift in Sources */,
-				394C693A8565A9C50129AFF1 /* HostedEventsView.swift in Sources */,
+				4C6657F50CCBC04F90B58644 /* EventFormat.swift in Sources */,
+				579C67E6F1EB27AD86D88C47 /* EventMapView.swift in Sources */,
+				CDFB21F1DDFE39FEE4A320D9 /* EventMapViewModel.swift in Sources */,
+				5E8A0284C5891082ECC14215 /* EventPopup.swift in Sources */,
+				050570E35D9764FBD4715F4E /* EventStore.swift in Sources */,
+				564B5C6780951AE6F7FB9615 /* GroupChatView.swift in Sources */,
+				94D332A6A0060DD3615731AC /* GroupChatViewModel.swift in Sources */,
+				6624A691ECFA06651824E8D4 /* HostedEventsView.swift in Sources */,
+				7BDF3FCC5B40ACF3FED00B48 /* HostedEventsViewModel.swift in Sources */,
+				F0F1721FA8D0B478C950E302 /* MapPins.swift in Sources */,
 				BE0355AC6F74F7F412FD7A92 /* MasUnoApp.swift in Sources */,
-				352B00F7FF7B5E4C0BB0C545 /* MockData.swift in Sources */,
-				136089196D97036255798267 /* PlanComponents.swift in Sources */,
-				C94D22526A0DDE223B2B87E7 /* RegisteredEventsView.swift in Sources */,
-				5B1C2A5A8DD01F7C10AF956E /* SportsEvent.swift in Sources */,
+				FD3C3DF40B401D8FD99B28DF /* MockData.swift in Sources */,
+				35A190C3EC63512F0CF00E96 /* Person.swift in Sources */,
+				A83597EEC8BFEE3F4884EC6D /* PlanComponents.swift in Sources */,
+				FE6F2BA60293156C69229CA1 /* RegisteredEventsView.swift in Sources */,
+				F4EADBAF2B6B7CB64CFF233F /* RegisteredEventsViewModel.swift in Sources */,
+				2533431F5F23E002C34072F3 /* Route.swift in Sources */,
+				C9A91525CF11F2466860489C /* Sport.swift in Sources */,
+				C3FF0FAE0F331C677A46B915 /* SportsEvent.swift in Sources */,
 				7A9A6B0CD59E83DE29FAAD27 /* Theme.swift in Sources */,
+				DEF9B93CFDDDD4B42722BEDF /* Venue.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

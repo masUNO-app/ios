@@ -1,0 +1,921 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -project /Users/rich/Documents/01-projects/masUNO/ios/MasUno.xcodeproj -scheme MasUno -configuration Debug -sdk iphonesimulator -destination "generic/platform=iOS Simulator" -derivedDataPath /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug CODE_SIGNING_ALLOWED=NO build
+
+Build settings from command line:
+    CODE_SIGNING_ALLOWED = NO
+    SDKROOT = iphonesimulator27.0
+
+2026-10-21 12:56:50.115 xcodebuild[76482:4533909] [MT] IDERunDestination: Supported platforms for the buildables in the current scheme is empty.
+ComputePackagePrebuildTargetDependencyGraph
+
+Prepare packages
+
+CreateBuildRequest
+
+SendProjectDescription
+
+CreateBuildOperation
+
+ComputeTargetDependencyGraph
+note: Building targets in dependency order
+note: Target dependency graph (1 target)
+    Target 'MasUno' in project 'MasUno' (no dependencies)
+
+GatherProvisioningInputs
+
+CreateBuildDescription
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator27.0.sdk -x c -c /dev/null
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/actool --print-asset-tag-combinations --output-format xml1 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Assets.xcassets
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/actool --version --output-format xml1
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc --version
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld -version_details
+
+Build description signature: 5e5a168129ea9248eb637fc3780c9042
+Build description path: /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/XCBuildData/5e5a168129ea9248eb637fc3780c9042.xcbuilddata
+CreateBuildDirectory /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/ModuleCache.noindex
+    cd /Users/rich/Documents/01-projects/masUNO/ios/MasUno.xcodeproj
+    builtin-create-build-directory /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/ModuleCache.noindex
+
+CreateBuildDirectory /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules
+    cd /Users/rich/Documents/01-projects/masUNO/ios/MasUno.xcodeproj
+    builtin-create-build-directory /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules
+
+CreateBuildDirectory /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/CompilationCache.noindex
+    cd /Users/rich/Documents/01-projects/masUNO/ios/MasUno.xcodeproj
+    builtin-create-build-directory /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/CompilationCache.noindex
+
+CreateBuildDirectory /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products
+    cd /Users/rich/Documents/01-projects/masUNO/ios/MasUno.xcodeproj
+    builtin-create-build-directory /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products
+
+ClangStatCache /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator27.0.sdk /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKStatCaches.noindex/iphonesimulator27.0-24A430-8dc58220667be655e1bcc261a7455254.sdkstatcache
+    cd /Users/rich/Documents/01-projects/masUNO/ios/MasUno.xcodeproj
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator27.0.sdk -o /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKStatCaches.noindex/iphonesimulator27.0-24A430-8dc58220667be655e1bcc261a7455254.sdkstatcache
+
+CreateBuildDirectory /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex
+    cd /Users/rich/Documents/01-projects/masUNO/ios/MasUno.xcodeproj
+    builtin-create-build-directory /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex
+
+CreateBuildDirectory /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules
+    cd /Users/rich/Documents/01-projects/masUNO/ios/MasUno.xcodeproj
+    builtin-create-build-directory /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules
+
+CreateBuildDirectory /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator
+    cd /Users/rich/Documents/01-projects/masUNO/ios/MasUno.xcodeproj
+    builtin-create-build-directory /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator
+
+CreateBuildDirectory /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/PrecompiledHeaders
+    cd /Users/rich/Documents/01-projects/masUNO/ios/MasUno.xcodeproj
+    builtin-create-build-directory /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/PrecompiledHeaders
+
+CreateBuildDirectory /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/ExplicitPrecompiledModules
+    cd /Users/rich/Documents/01-projects/masUNO/ios/MasUno.xcodeproj
+    builtin-create-build-directory /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/ExplicitPrecompiledModules
+
+CreateBuildDirectory /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphonesimulator
+    cd /Users/rich/Documents/01-projects/masUNO/ios/MasUno.xcodeproj
+    builtin-create-build-directory /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphonesimulator
+
+WriteAuxiliaryFile /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno-1442de798208b2533f0c6ba822317cb0-VFS-iphonesimulator/all-product-headers.yaml
+    cd /Users/rich/Documents/01-projects/masUNO/ios/MasUno.xcodeproj
+    write-file /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno-1442de798208b2533f0c6ba822317cb0-VFS-iphonesimulator/all-product-headers.yaml
+
+WriteAuxiliaryFile /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/empty-MasUno.plist (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    write-file /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/empty-MasUno.plist
+
+WriteAuxiliaryFile /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/MasUno.LinkFileList (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    write-file /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/MasUno.LinkFileList
+
+WriteAuxiliaryFile /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/MasUno_const_extract_protocols.json (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    write-file /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/MasUno_const_extract_protocols.json
+
+WriteAuxiliaryFile /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/MasUno.LinkFileList (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    write-file /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/MasUno.LinkFileList
+
+WriteAuxiliaryFile /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/MasUno-OutputFileMap.json (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    write-file /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/MasUno-OutputFileMap.json
+
+WriteAuxiliaryFile /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/MasUno-OutputFileMap.json (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    write-file /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/MasUno-OutputFileMap.json
+
+WriteAuxiliaryFile /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/MasUno_const_extract_protocols.json (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    write-file /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/MasUno_const_extract_protocols.json
+
+WriteAuxiliaryFile /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/MasUno.SwiftFileList (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    write-file /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/MasUno.SwiftFileList
+
+WriteAuxiliaryFile /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/MasUno.SwiftConstValuesFileList (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    write-file /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/MasUno.SwiftConstValuesFileList
+
+WriteAuxiliaryFile /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/MasUno.SwiftFileList (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    write-file /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/MasUno.SwiftFileList
+
+WriteAuxiliaryFile /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/MasUno.SwiftConstValuesFileList (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    write-file /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/MasUno.SwiftConstValuesFileList
+
+WriteAuxiliaryFile /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno.hmap (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    write-file /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno.hmap
+
+WriteAuxiliaryFile /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno.DependencyStaticMetadataFileList (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    write-file /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno.DependencyStaticMetadataFileList
+
+WriteAuxiliaryFile /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno.DependencyMetadataFileList (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    write-file /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno.DependencyMetadataFileList
+
+WriteAuxiliaryFile /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-project-headers.hmap (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    write-file /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-project-headers.hmap
+
+WriteAuxiliaryFile /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-own-target-headers.hmap (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    write-file /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-own-target-headers.hmap
+
+WriteAuxiliaryFile /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-generated-files.hmap (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    write-file /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-generated-files.hmap
+
+WriteAuxiliaryFile /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-all-target-headers.hmap (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    write-file /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-all-target-headers.hmap
+
+WriteAuxiliaryFile /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-all-non-framework-target-headers.hmap (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    write-file /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-all-non-framework-target-headers.hmap
+
+WriteAuxiliaryFile /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-DebugDylibPath-normal-x86_64.txt (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    write-file /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-DebugDylibPath-normal-x86_64.txt
+
+WriteAuxiliaryFile /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-DebugDylibPath-normal-arm64.txt (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    write-file /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-DebugDylibPath-normal-arm64.txt
+
+WriteAuxiliaryFile /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-DebugDylibInstallName-normal-x86_64.txt (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    write-file /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-DebugDylibInstallName-normal-x86_64.txt
+
+WriteAuxiliaryFile /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-DebugDylibInstallName-normal-arm64.txt (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    write-file /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-DebugDylibInstallName-normal-arm64.txt
+
+MkDir /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.app (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    /bin/mkdir -p /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.app
+
+MkDir /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/assetcatalog_output/thinned (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    /bin/mkdir -p /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/assetcatalog_output/thinned
+
+MkDir /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/assetcatalog_output/unthinned (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    /bin/mkdir -p /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/assetcatalog_output/unthinned
+
+Ld /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/Binary/__preview.dylib normal arm64 (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-ios26.0-simulator -dynamiclib -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator27.0.sdk -O0 -Xlinker -no_warn_duplicate_libraries -L/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator -F/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator -install_name @rpath/MasUno.debug.dylib -Xlinker -dead_strip -rdynamic -Xlinker -no_deduplicate -Xlinker -objc_abi_version -Xlinker 2 -Xlinker -dependency_info -Xlinker /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/MasUno_dependency_info.dat -o /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/Binary/__preview.dylib
+
+GenerateAssetSymbols /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Assets.xcassets (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    /Applications/Xcode.app/Contents/Developer/usr/bin/actool /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Assets.xcassets --compile /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.app --output-format human-readable-text --notices --warnings --export-dependency-info /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/assetcatalog_dependencies --output-partial-info-plist /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/assetcatalog_generated_info.plist --app-icon AppIcon --accent-color AccentColor --compress-pngs --enable-on-demand-resources YES --development-region en --target-device iphone --minimum-deployment-target 26.0 --platform iphonesimulator --bundle-identifier com.masuno.app --generate-swift-asset-symbol-extensions NO --generate-swift-asset-symbols /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/DerivedSources/GeneratedAssetSymbols.swift --generate-objc-asset-symbols /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/DerivedSources/GeneratedAssetSymbols.h --generate-asset-symbol-index /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/DerivedSources/GeneratedAssetSymbols-Index.plist
+/* com.apple.actool.compilation-results */
+/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/DerivedSources/GeneratedAssetSymbols-Index.plist
+/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/DerivedSources/GeneratedAssetSymbols.h
+/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/DerivedSources/GeneratedAssetSymbols.swift
+
+
+Ld /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/Binary/__preview.dylib normal x86_64 (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target x86_64-apple-ios26.0-simulator -dynamiclib -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator27.0.sdk -O0 -Xlinker -no_warn_duplicate_libraries -L/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator -F/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator -install_name @rpath/MasUno.debug.dylib -Xlinker -dead_strip -rdynamic -Xlinker -no_deduplicate -Xlinker -objc_abi_version -Xlinker 2 -Xlinker -dependency_info -Xlinker /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/MasUno_dependency_info.dat -o /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/Binary/__preview.dylib
+
+CompileAssetCatalogVariant thinned /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.app /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Assets.xcassets (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    /Applications/Xcode.app/Contents/Developer/usr/bin/actool /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Assets.xcassets --compile /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/assetcatalog_output/thinned --output-format human-readable-text --notices --warnings --export-dependency-info /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/assetcatalog_dependencies_thinned --output-partial-info-plist /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/assetcatalog_generated_info.plist_thinned --app-icon AppIcon --accent-color AccentColor --compress-pngs --enable-on-demand-resources YES --development-region en --target-device iphone --minimum-deployment-target 26.0 --platform iphonesimulator
+/* com.apple.actool.compilation-results */
+/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/assetcatalog_generated_info.plist_thinned
+/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/assetcatalog_output/thinned/Assets.car
+
+
+CreateUniversalBinary /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.app/__preview.dylib normal arm64\ x86_64 (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/lipo -create /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/Binary/__preview.dylib /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/Binary/__preview.dylib -output /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.app/__preview.dylib
+
+SwiftDriver MasUno normal x86_64 com.apple.xcode.tools.swift.compiler (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftDriver -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name MasUno -Onone @/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/MasUno.SwiftFileList -DDEBUG -default-isolation\=MainActor -enable-upcoming-feature InferIsolatedConformances -enable-upcoming-feature NonisolatedNonsendingByDefault -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator27.0.sdk -target x86_64-apple-ios26.0-simulator -g -module-cache-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator -F /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator -c -j8 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKStatCaches.noindex/iphonesimulator27.0-24A430-8dc58220667be655e1bcc261a7455254.sdkstatcache -output-file-map /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/MasUno-OutputFileMap.json -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/ModuleCache.noindex -sdk-module-cache-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules -emit-dependencies -emit-module -emit-module-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/MasUno.swiftmodule -serialize-diagnostics -dependency-scan-serialize-diagnostics-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/MasUno-dependency-scan.dia -validate-clang-modules-once -clang-build-session-file /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/ModuleCache.noindex/Session.modulevalidation -Xcc -fmodules-prune-interval\=86400 -Xcc -fmodules-prune-after\=345600 -emit-const-values -const-gather-protocols-list /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/MasUno_const_extract_protocols.json -Xcc -iquote -Xcc /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-generated-files.hmap -Xcc -I/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-own-target-headers.hmap -Xcc -I/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-all-target-headers.hmap -Xcc -iquote -Xcc /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-project-headers.hmap -Xcc -I/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/include -Xcc -I/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/DerivedSources-normal/x86_64 -Xcc -I/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/DerivedSources/x86_64 -Xcc -I/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/MasUno-Swift.h -working-directory /Users/rich/Documents/01-projects/masUNO/ios -experimental-emit-module-separately -disable-cmo
+
+SwiftDriver MasUno normal arm64 com.apple.xcode.tools.swift.compiler (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftDriver -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name MasUno -Onone @/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/MasUno.SwiftFileList -DDEBUG -default-isolation\=MainActor -enable-upcoming-feature InferIsolatedConformances -enable-upcoming-feature NonisolatedNonsendingByDefault -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator27.0.sdk -target arm64-apple-ios26.0-simulator -g -module-cache-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator -F /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator -c -j8 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKStatCaches.noindex/iphonesimulator27.0-24A430-8dc58220667be655e1bcc261a7455254.sdkstatcache -output-file-map /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/MasUno-OutputFileMap.json -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/ModuleCache.noindex -sdk-module-cache-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules -emit-dependencies -emit-module -emit-module-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/MasUno.swiftmodule -serialize-diagnostics -dependency-scan-serialize-diagnostics-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/MasUno-dependency-scan.dia -validate-clang-modules-once -clang-build-session-file /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/ModuleCache.noindex/Session.modulevalidation -Xcc -fmodules-prune-interval\=86400 -Xcc -fmodules-prune-after\=345600 -emit-const-values -const-gather-protocols-list /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/MasUno_const_extract_protocols.json -Xcc -iquote -Xcc /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-generated-files.hmap -Xcc -I/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-own-target-headers.hmap -Xcc -I/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-all-target-headers.hmap -Xcc -iquote -Xcc /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-project-headers.hmap -Xcc -I/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/include -Xcc -I/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/DerivedSources-normal/arm64 -Xcc -I/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/DerivedSources/arm64 -Xcc -I/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/MasUno-Swift.h -working-directory /Users/rich/Documents/01-projects/masUNO/ios -experimental-emit-module-separately -disable-cmo
+
+LinkAssetCatalog /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Assets.xcassets (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-linkAssetCatalog --thinned /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/assetcatalog_output/thinned --thinned-dependencies /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/assetcatalog_dependencies_thinned --thinned-info-plist-content /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/assetcatalog_generated_info.plist_thinned --unthinned /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/assetcatalog_output/unthinned --unthinned-dependencies /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/assetcatalog_dependencies_unthinned --unthinned-info-plist-content /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/assetcatalog_generated_info.plist_unthinned --output /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.app --plist-output /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/assetcatalog_generated_info.plist
+note: Emplaced /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.app/Assets.car (in target 'MasUno' from project 'MasUno')
+
+ProcessInfoPlistFile /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.app/Info.plist /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/empty-MasUno.plist (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-infoPlistUtility /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/empty-MasUno.plist -producttype com.apple.product-type.application -genpkginfo /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.app/PkgInfo -expandbuildsettings -format binary -platform iphonesimulator -additionalcontentfile /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/assetcatalog_generated_info.plist -o /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.app/Info.plist
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/_SwiftConcurrencyShims-2FQUJG3NNBI1KUG8DL10230U.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/_Builtin_stdbool-D8XRUKGROYNERKTIQA0R077JK.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/ptrcheck-2JD6E5F451NZCZ8W4MW53TGVR.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/DeveloperToolsSupport-DNEVIWVXIM78A4FTX6NXLN02R.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/_AvailabilityInternal-9H4G2NG1GOX5WDPUO8JNBOFZT.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/SwiftShims-41FCUAV7AWE24OC90I6FLGZPS.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/_Builtin_stdarg-285YTG6DXZWEHGZVHWBX6BFUV.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/_Builtin_float-R0RR4LYUL5ETKJ2PGXAUO57F.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/_SwiftConcurrencyShims-7EY3CUQD2ZHXTJOUZK5RNREQ0.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/_Builtin_stdarg-AVNC0FI2A14J37FZD6AUYWWL2.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/_Builtin_float-65E2RXLUDV92T7YL022AN3YIM.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/_Builtin_stddef-4ZNSFUHLKIQ2J1F8K6076I7HN.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/_Builtin_stdbool-1RR75K5U4CZ9O022L1XZT47EM.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/_DarwinFoundation1-B5WRTYP85M8TGF2GFVWEVW6YY.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/DeveloperToolsSupport-5EHX2E6KZ92V1Q173O28J2XK0.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/ptrauth-2086VMTGVTT3V96SZX9IGF73A.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/SwiftShims-1DHB7RGLE824BQ21EHTXGB109.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/_AvailabilityInternal-1ZYA4FWPKJRWVJNK801UGK7DC.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/_Builtin_stddef-1LRCGA2AKU5KCLHI8JC87RZGD.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/ptrcheck-916AT29CINW2FJRQL2HC2X2XF.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/ptrauth-750TKA4JV0YZ3CDFM6ZIC0V5O.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/_Builtin_limits-2EJNNWTI5FU6F0PO555L3RRHH.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/_DarwinFoundation2-BJK09TJQGFAUDI2E3W71T3C5.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/_DarwinFoundation1-DM8PFMEPVOJXDS934AQ2HWIQD.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/_Builtin_limits-ZKEZGC4RBD5LVKG5FMZWY5CE.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/_DarwinFoundation2-7OEIPLAVIX8VK3JEAMD8CHK9S.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/string_h-EQD71NSM6PNX2FIUB0JR7CUG5.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/_Builtin_tgmath-GK7GBSUNI68T6BM9IR5AELUM.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/_Builtin_stdint-8KP5ZW2BMUZCRS0JLHV2RX8EZ.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/sys_types-PORHM3YQGMW7GV1P53NQYYHG.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/_DarwinFoundation3-9PIZCVCT9SDR4SEMU7JG8ZOJK.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/_Builtin_stdatomic-4B48HR55JH5Q7XSY2CY3S8O2K.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/_Builtin_stdint-6AE9MV1UZWVBTBBYAEU1BXTSQ.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/string_h-3JLZE9CY5NCK9MCRA6QST90WD.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/sys_types-DRTN1LRJ5B170L38SGJY2PU28.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/_Builtin_tgmath-240M5T5STBWUQWIWCHG3BG65L.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/_Builtin_stdatomic-3GSASGDM3E6JBNKTYK1GZX4E3.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/_DarwinFoundation3-EU1R7412P1K18GE0I6I9YX7HE.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/_Builtin_intrinsics-13URT502O6V263YTS4NA89K3N.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/_Builtin_inttypes-77JNFTF3P0ZMWVRLEVQKFROXZ.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/_Builtin_intrinsics-7QSX7VBPKMGLRU5HE4L2S7HJM.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/Darwin-14AVQH9CP4W4GYP0XTWZIWF2S.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/_Builtin_inttypes-93U0ZGFLQJH1USKB6EFI2FAI0.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/Darwin-45O8ZCW87KSCFU7T6UQI1ALI.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/simd-S6HL3UQ7LGQ8KSWIKYI8KMFM.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/ObjectiveC-1NROGGXZ02UZ8TXU4TQR8OUS5.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/MachO-APKWD9JNZ9WJ9XD5ZF7WJQLN0.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/simd-D7817Z9ARQCP04L63TMHN61GG.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/os_object-64AX0K3X1638759RRJUD8Z7Q5.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/MachO-E4JI29SVT1I7WYS4U95390ET4.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/ObjectiveC-4EH6KYCUDZ48WFI9U3WQ7STKF.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/os_workgroup-EVB3J4CZBJVK7A7VU0CMZ63A0.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/os_object-5BQQMYLMID6ZYB0HR51X67X5L.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/Dispatch-S4G03KRMOFMNCFQMF2UJ4TH8.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/os_workgroup-3DM9WM5PAWQ7CW906QRTTO4Y9.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/Spatial-9I55J9NMS4DY2QS83RSJM21QR.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/CoreFoundation-D2VFGNC77RB0FC952EQ94BWNN.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/XPC-C0CQHUBFMCRFXRZ8BDZR2SH4D.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/Dispatch-8323PBFUCQ2Q5KWRUFJLVWV7E.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/os-9DW8JUZ6OAARCH7R4H2A2ED51.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/XPC-7O4Z456P1CRU19OLTWM3NRVVR.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/CoreFoundation-24TGMWFGSA0KDYRBMWEC551V9.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/Spatial-25N96L14C1HSXNFWB4T1RTSEL.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/CoreGraphics-84UVP96NGVYHJ8RDVLAW4IX7X.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/CoreAudioTypes-T6GO4FL1A4M2PDRT6UHCF8JK.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/CFNetwork-9CKNDPZQG5AS6FXRTUMZYN367.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/Security-CRZ7HFTJK1XGMCZKLY5JRILZB.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/os-LN0FK2FI7W6EAS6L9BIV2QBZ.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/CoreAudio-BF9DOMDRGV0UJRYAFOOJ021ZJ.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/CFNetwork-7D2Q5ASXAN1V2QHVJ14LPLDXO.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/CoreGraphics-AMBVIMV0B26MWRP3Z5VFVTKT8.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/CoreAudioTypes-2ZCXX433Q7S6VJE7X894FZRP5.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/ImageIO-EOOVLKCD1VCVV61K2BI13G1SI.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/CoreText-2PXY3HC09RFYEQARFL493JIGR.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/Security-CUBLRHYA6JFSH2D01Q6RW6OL.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/Foundation-39Z1ZZEASMY8EIJAB0GOEY06W.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/CoreAudio-31ATUFLO28YRN5SKW59F89C6P.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/CoreText-CGCB16D8M35GANLHWW39CTKYS.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/ImageIO-53LVYK04KB2EGXPYD62ML2U0L.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/Foundation-BRGU4O0KZN4NIIYGXHBJE0SFV.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/UniformTypeIdentifiers-6WN1ZGL6S3JFG5Z8I7RVZ7CXS.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/UIUtilities-816NTSPTO2359GDL904HN8W7R.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/OpenGLES-234D8FNCPI8PSP0NCT5K5AI5G.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/CoreTransferable-B4L7HOCXN5H7V8AJJ5WT4FZ25.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/FileProvider-24BRF72LDMRVYC2LAYRG3TM29.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/Symbols-3N8SX9AWDB9NNIZP7JM99W64H.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/UserNotifications-6UB5MNKH6L0IBKIHNFL8ZNI3E.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/OSLog-EY9BIBSPV5IY00ISBFP0VBDNF.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/Accessibility-6T5UMCKK1H2A0UKJ0HR2Q8OYR.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/CoreData-245I6SH24M8SQ5XILSOP1YOLH.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/DataDetection-7UK2S5UEC4U74X97AOPHM1AJ5.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/_LocationEssentials-CPMXDFFXR4MD9N6TCC0FL1VYC.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/IOSurface-J6L4LX8DIHYPV7ARPKLM1DMC.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/OpenGLES-396H519K1C2NEXG8CORU22EC3.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/CoreTransferable-B2YA76Q1FMIGGGDNY8JB6VXMS.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/OSLog-B3MPM3UZG1Z33HCP3MIYT6VH6.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/IOSurface-EOWLSWZB9YIAKBU4S71VCCDI8.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/Symbols-JMYNQZC5HDFLC1T7U9J7LOOU.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/_LocationEssentials-3PJPU9KXGDLBOXWFKEG1AWUFQ.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/CoreLocation-EGWAPMFP5DA7QOBXFSXPHVSU7.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/UIUtilities-2QHKZAQJRH77VJ319S5ABXT8.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/Metal-6GTFVCONCG5U69XKTA6YQ0DYJ.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/FileProvider-BISS2T8N86NJ5NMPFF6AMJGC8.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/UniformTypeIdentifiers-BCJJ2G08FDAJR2CH77JTV18ZW.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/DataDetection-5YWUM1S57Y7FRTFJG7GSBJV7V.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/CoreLocation-CZ9Y5YUGQOALJ9BCPF3MP0NQP.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/UserNotifications-4TB06LKSF405PUW3Y9EM75DUW.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/CoreMotion-BI55DPF1UCHFZY04J9XNIUHIV.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/Accessibility-8DH8JEUQZBBQI86O6G9N54XX5.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/CoreData-CPC0X7IMXT09FQH438GQ920ZE.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/Metal-ENJUYXBA1HCUGEWTQK1MV2TV5.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/CoreMotion-67E7TMJ7M1ECH3ZYAEOASSPIT.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/CoreVideo-6HQBDCKVGAF3FEV3WAWD3WTAI.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/QuartzCore-3CCX3XPAHY2IYTZVM1T7KD4Q1.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/CoreMedia-4V3GBNRLM41ILRZQ5WQSTWGC6.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/CoreImage-9XXWGNG4R7U0IY8GCD1KZ2PV7.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/CoreVideo-1TPTD0IR6VSKSDW4JAUG67GU0.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/CoreMedia-9A6N0YM2D6P7RMHZSK60155TA.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/QuartzCore-7M451URHPC78K4JOV215935JP.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/CoreImage-5766JHYVEGWA2ABID7FX0W1MN.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/SwiftUICore-1VZLI2O5DN51RQ3MBPDNLD2TK.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/UIKit-457RK6UX9MLCARACX02ERV9OZ.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/SwiftUICore-7IG8V8DX6UM3UPQWG4M0NHLIA.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/UIKit-9KFK2PC9N83UV6ODX0IQNNYFN.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/SwiftUI-PSZ3H1XZEO1YAODW5XZ5JOOG.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/MapKit-D9KRZWHOSZD53HB8K6X2LKC3F.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/MapKit-F0GDN1LN1JPRQ5HYH31OCHN4P.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules/SwiftUI-AUDUG1IPC3DTPJW647WS09MA9.pcm
+
+SwiftCompile normal x86_64 Compiling\ PlanComponents.swift,\ RegisteredEventsView.swift,\ RegisteredEventsViewModel.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Views/Plans/PlanComponents.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Views/Plans/RegisteredEventsView.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/ViewModels/RegisteredEventsViewModel.swift (in target 'MasUno' from project 'MasUno')
+
+SwiftCompile normal x86_64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Views/Plans/PlanComponents.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile PlanComponents.swift
+
+SwiftCompile normal x86_64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Views/Plans/RegisteredEventsView.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile RegisteredEventsView.swift
+
+SwiftCompile normal x86_64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/ViewModels/RegisteredEventsViewModel.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile RegisteredEventsViewModel.swift
+
+SwiftEmitModule normal x86_64 Emitting\ module\ for\ MasUno (in target 'MasUno' from project 'MasUno')
+
+SwiftCompile normal x86_64 (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    
+
+SwiftCompile normal x86_64 Compiling\ Theme.swift,\ Venue.swift,\ GeneratedAssetSymbols.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Theme/Theme.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Models/Venue.swift /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/DerivedSources/GeneratedAssetSymbols.swift (in target 'MasUno' from project 'MasUno')
+
+SwiftCompile normal x86_64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Theme/Theme.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile Theme.swift
+
+SwiftCompile normal x86_64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Models/Venue.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile Venue.swift
+
+SwiftCompile normal x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/DerivedSources/GeneratedAssetSymbols.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile GeneratedAssetSymbols.swift
+
+SwiftCompile normal x86_64 Compiling\ Route.swift,\ Sport.swift,\ SportsEvent.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/App/Route.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Models/Sport.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Models/SportsEvent.swift (in target 'MasUno' from project 'MasUno')
+
+SwiftCompile normal x86_64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/App/Route.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile Route.swift
+
+SwiftCompile normal x86_64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Models/Sport.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile Sport.swift
+
+SwiftCompile normal x86_64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Models/SportsEvent.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile SportsEvent.swift
+
+SwiftCompile normal x86_64 Compiling\ AddEventSheet.swift,\ AddEventViewModel.swift,\ AppViewModel.swift,\ ChatMessage.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Views/AddEvent/AddEventSheet.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/ViewModels/AddEventViewModel.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/ViewModels/AppViewModel.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Models/ChatMessage.swift (in target 'MasUno' from project 'MasUno')
+
+SwiftCompile normal x86_64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Views/AddEvent/AddEventSheet.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile AddEventSheet.swift
+
+SwiftCompile normal x86_64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/ViewModels/AddEventViewModel.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile AddEventViewModel.swift
+
+SwiftCompile normal x86_64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/ViewModels/AppViewModel.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile AppViewModel.swift
+
+SwiftCompile normal x86_64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Models/ChatMessage.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile ChatMessage.swift
+
+SwiftCompile normal x86_64 Compiling\ Components.swift,\ ContentView.swift,\ EventFormat.swift,\ EventMapView.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Components/Components.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/App/ContentView.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Utilities/EventFormat.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Views/Map/EventMapView.swift (in target 'MasUno' from project 'MasUno')
+
+SwiftCompile normal x86_64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Components/Components.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile Components.swift
+
+SwiftCompile normal x86_64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/App/ContentView.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile ContentView.swift
+
+SwiftCompile normal x86_64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Utilities/EventFormat.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile EventFormat.swift
+
+SwiftCompile normal x86_64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Views/Map/EventMapView.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile EventMapView.swift
+
+SwiftCompile normal x86_64 Compiling\ MasUnoApp.swift,\ MockData.swift,\ Person.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/App/MasUnoApp.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Services/MockData.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Models/Person.swift (in target 'MasUno' from project 'MasUno')
+
+SwiftCompile normal x86_64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/App/MasUnoApp.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile MasUnoApp.swift
+
+SwiftCompile normal x86_64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Services/MockData.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile MockData.swift
+
+SwiftCompile normal x86_64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Models/Person.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile Person.swift
+
+SwiftCompile normal x86_64 Compiling\ GroupChatViewModel.swift,\ HostedEventsView.swift,\ HostedEventsViewModel.swift,\ MapPins.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/ViewModels/GroupChatViewModel.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Views/Plans/HostedEventsView.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/ViewModels/HostedEventsViewModel.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Views/Map/MapPins.swift (in target 'MasUno' from project 'MasUno')
+
+SwiftCompile normal x86_64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/ViewModels/GroupChatViewModel.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile GroupChatViewModel.swift
+
+SwiftCompile normal x86_64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Views/Plans/HostedEventsView.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile HostedEventsView.swift
+
+SwiftCompile normal x86_64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/ViewModels/HostedEventsViewModel.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile HostedEventsViewModel.swift
+
+SwiftCompile normal x86_64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Views/Map/MapPins.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile MapPins.swift
+
+SwiftEmitModule normal arm64 Emitting\ module\ for\ MasUno (in target 'MasUno' from project 'MasUno')
+
+SwiftCompile normal arm64 (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    
+
+SwiftDriverJobDiscovery normal x86_64 Emitting module for MasUno (in target 'MasUno' from project 'MasUno')
+
+SwiftDriver\ Compilation\ Requirements MasUno normal x86_64 com.apple.xcode.tools.swift.compiler (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-Swift-Compilation-Requirements -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name MasUno -Onone @/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/MasUno.SwiftFileList -DDEBUG -default-isolation\=MainActor -enable-upcoming-feature InferIsolatedConformances -enable-upcoming-feature NonisolatedNonsendingByDefault -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator27.0.sdk -target x86_64-apple-ios26.0-simulator -g -module-cache-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator -F /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator -c -j8 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKStatCaches.noindex/iphonesimulator27.0-24A430-8dc58220667be655e1bcc261a7455254.sdkstatcache -output-file-map /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/MasUno-OutputFileMap.json -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/ModuleCache.noindex -sdk-module-cache-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules -emit-dependencies -emit-module -emit-module-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/MasUno.swiftmodule -serialize-diagnostics -dependency-scan-serialize-diagnostics-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/MasUno-dependency-scan.dia -validate-clang-modules-once -clang-build-session-file /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/ModuleCache.noindex/Session.modulevalidation -Xcc -fmodules-prune-interval\=86400 -Xcc -fmodules-prune-after\=345600 -emit-const-values -const-gather-protocols-list /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/MasUno_const_extract_protocols.json -Xcc -iquote -Xcc /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-generated-files.hmap -Xcc -I/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-own-target-headers.hmap -Xcc -I/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-all-target-headers.hmap -Xcc -iquote -Xcc /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-project-headers.hmap -Xcc -I/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/include -Xcc -I/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/DerivedSources-normal/x86_64 -Xcc -I/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/DerivedSources/x86_64 -Xcc -I/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/MasUno-Swift.h -working-directory /Users/rich/Documents/01-projects/masUNO/ios -experimental-emit-module-separately -disable-cmo
+
+SwiftDriverJobDiscovery normal x86_64 Compiling Route.swift, Sport.swift, SportsEvent.swift (in target 'MasUno' from project 'MasUno')
+
+SwiftCompile normal arm64 Compiling\ Components.swift,\ ContentView.swift,\ EventFormat.swift,\ EventMapView.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Components/Components.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/App/ContentView.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Utilities/EventFormat.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Views/Map/EventMapView.swift (in target 'MasUno' from project 'MasUno')
+
+SwiftCompile normal arm64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Components/Components.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile Components.swift
+
+SwiftCompile normal arm64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/App/ContentView.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile ContentView.swift
+
+SwiftCompile normal arm64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Utilities/EventFormat.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile EventFormat.swift
+
+SwiftCompile normal arm64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Views/Map/EventMapView.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile EventMapView.swift
+
+SwiftCompile normal arm64 Compiling\ AddEventSheet.swift,\ AddEventViewModel.swift,\ AppViewModel.swift,\ ChatMessage.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Views/AddEvent/AddEventSheet.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/ViewModels/AddEventViewModel.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/ViewModels/AppViewModel.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Models/ChatMessage.swift (in target 'MasUno' from project 'MasUno')
+
+SwiftCompile normal arm64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Views/AddEvent/AddEventSheet.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile AddEventSheet.swift
+
+SwiftCompile normal arm64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/ViewModels/AddEventViewModel.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile AddEventViewModel.swift
+
+SwiftCompile normal arm64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/ViewModels/AppViewModel.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile AppViewModel.swift
+
+SwiftCompile normal arm64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Models/ChatMessage.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile ChatMessage.swift
+
+SwiftDriverJobDiscovery normal arm64 Emitting module for MasUno (in target 'MasUno' from project 'MasUno')
+
+SwiftDriver\ Compilation\ Requirements MasUno normal arm64 com.apple.xcode.tools.swift.compiler (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-Swift-Compilation-Requirements -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name MasUno -Onone @/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/MasUno.SwiftFileList -DDEBUG -default-isolation\=MainActor -enable-upcoming-feature InferIsolatedConformances -enable-upcoming-feature NonisolatedNonsendingByDefault -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator27.0.sdk -target arm64-apple-ios26.0-simulator -g -module-cache-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator -F /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator -c -j8 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKStatCaches.noindex/iphonesimulator27.0-24A430-8dc58220667be655e1bcc261a7455254.sdkstatcache -output-file-map /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/MasUno-OutputFileMap.json -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/ModuleCache.noindex -sdk-module-cache-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules -emit-dependencies -emit-module -emit-module-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/MasUno.swiftmodule -serialize-diagnostics -dependency-scan-serialize-diagnostics-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/MasUno-dependency-scan.dia -validate-clang-modules-once -clang-build-session-file /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/ModuleCache.noindex/Session.modulevalidation -Xcc -fmodules-prune-interval\=86400 -Xcc -fmodules-prune-after\=345600 -emit-const-values -const-gather-protocols-list /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/MasUno_const_extract_protocols.json -Xcc -iquote -Xcc /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-generated-files.hmap -Xcc -I/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-own-target-headers.hmap -Xcc -I/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-all-target-headers.hmap -Xcc -iquote -Xcc /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-project-headers.hmap -Xcc -I/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/include -Xcc -I/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/DerivedSources-normal/arm64 -Xcc -I/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/DerivedSources/arm64 -Xcc -I/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/MasUno-Swift.h -working-directory /Users/rich/Documents/01-projects/masUNO/ios -experimental-emit-module-separately -disable-cmo
+
+SwiftDriverJobDiscovery normal x86_64 Compiling AddEventSheet.swift, AddEventViewModel.swift, AppViewModel.swift, ChatMessage.swift (in target 'MasUno' from project 'MasUno')
+
+Copy /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.swiftmodule/x86_64-apple-ios-simulator.swiftmodule /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/MasUno.swiftmodule (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/MasUno.swiftmodule /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.swiftmodule/x86_64-apple-ios-simulator.swiftmodule
+
+Copy /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.swiftmodule/x86_64-apple-ios-simulator.swiftdoc /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/MasUno.swiftdoc (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/MasUno.swiftdoc /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.swiftmodule/x86_64-apple-ios-simulator.swiftdoc
+
+Copy /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.swiftmodule/x86_64-apple-ios-simulator.abi.json /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/MasUno.abi.json (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/MasUno.abi.json /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.swiftmodule/x86_64-apple-ios-simulator.abi.json
+
+Copy /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.swiftmodule/Project/x86_64-apple-ios-simulator.swiftsourceinfo /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/MasUno.swiftsourceinfo (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/MasUno.swiftsourceinfo /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.swiftmodule/Project/x86_64-apple-ios-simulator.swiftsourceinfo
+
+SwiftDriverJobDiscovery normal x86_64 Compiling PlanComponents.swift, RegisteredEventsView.swift, RegisteredEventsViewModel.swift (in target 'MasUno' from project 'MasUno')
+
+SwiftDriverJobDiscovery normal x86_64 Compiling GroupChatViewModel.swift, HostedEventsView.swift, HostedEventsViewModel.swift, MapPins.swift (in target 'MasUno' from project 'MasUno')
+
+SwiftDriverJobDiscovery normal x86_64 Compiling Theme.swift, Venue.swift, GeneratedAssetSymbols.swift (in target 'MasUno' from project 'MasUno')
+
+SwiftMergeGeneratedHeaders /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/DerivedSources/MasUno-Swift.h /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/MasUno-Swift.h /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/MasUno-Swift.h (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-swiftHeaderTool -arch arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/MasUno-Swift.h -arch x86_64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/MasUno-Swift.h -o /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/DerivedSources/MasUno-Swift.h
+
+Copy /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.swiftmodule/arm64-apple-ios-simulator.swiftmodule /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/MasUno.swiftmodule (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/MasUno.swiftmodule /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.swiftmodule/arm64-apple-ios-simulator.swiftmodule
+
+Copy /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.swiftmodule/arm64-apple-ios-simulator.swiftdoc /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/MasUno.swiftdoc (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/MasUno.swiftdoc /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.swiftmodule/arm64-apple-ios-simulator.swiftdoc
+
+Copy /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.swiftmodule/arm64-apple-ios-simulator.abi.json /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/MasUno.abi.json (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/MasUno.abi.json /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.swiftmodule/arm64-apple-ios-simulator.abi.json
+
+Copy /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.swiftmodule/Project/arm64-apple-ios-simulator.swiftsourceinfo /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/MasUno.swiftsourceinfo (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/MasUno.swiftsourceinfo /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.swiftmodule/Project/arm64-apple-ios-simulator.swiftsourceinfo
+
+SwiftCompile normal arm64 Compiling\ PlanComponents.swift,\ RegisteredEventsView.swift,\ RegisteredEventsViewModel.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Views/Plans/PlanComponents.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Views/Plans/RegisteredEventsView.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/ViewModels/RegisteredEventsViewModel.swift (in target 'MasUno' from project 'MasUno')
+
+SwiftCompile normal arm64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Views/Plans/PlanComponents.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile PlanComponents.swift
+
+SwiftCompile normal arm64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Views/Plans/RegisteredEventsView.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile RegisteredEventsView.swift
+
+SwiftCompile normal arm64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/ViewModels/RegisteredEventsViewModel.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile RegisteredEventsViewModel.swift
+
+SwiftCompile normal arm64 Compiling\ EventMapViewModel.swift,\ EventPopup.swift,\ EventStore.swift,\ GroupChatView.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/ViewModels/EventMapViewModel.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Views/Map/EventPopup.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Services/EventStore.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Views/Chat/GroupChatView.swift (in target 'MasUno' from project 'MasUno')
+
+SwiftCompile normal arm64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/ViewModels/EventMapViewModel.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile EventMapViewModel.swift
+
+SwiftCompile normal arm64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Views/Map/EventPopup.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile EventPopup.swift
+
+SwiftCompile normal arm64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Services/EventStore.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile EventStore.swift
+
+SwiftCompile normal arm64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Views/Chat/GroupChatView.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile GroupChatView.swift
+
+SwiftCompile normal arm64 Compiling\ MasUnoApp.swift,\ MockData.swift,\ Person.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/App/MasUnoApp.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Services/MockData.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Models/Person.swift (in target 'MasUno' from project 'MasUno')
+
+SwiftCompile normal arm64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/App/MasUnoApp.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile MasUnoApp.swift
+
+SwiftCompile normal arm64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Services/MockData.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile MockData.swift
+
+SwiftCompile normal arm64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Models/Person.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile Person.swift
+
+SwiftCompile normal arm64 Compiling\ Theme.swift,\ Venue.swift,\ GeneratedAssetSymbols.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Theme/Theme.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Models/Venue.swift /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/DerivedSources/GeneratedAssetSymbols.swift (in target 'MasUno' from project 'MasUno')
+
+SwiftCompile normal arm64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Theme/Theme.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile Theme.swift
+
+SwiftCompile normal arm64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Models/Venue.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile Venue.swift
+
+SwiftCompile normal arm64 /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/DerivedSources/GeneratedAssetSymbols.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile GeneratedAssetSymbols.swift
+
+SwiftDriverJobDiscovery normal x86_64 Compiling Components.swift, ContentView.swift, EventFormat.swift, EventMapView.swift (in target 'MasUno' from project 'MasUno')
+
+SwiftCompile normal arm64 Compiling\ GroupChatViewModel.swift,\ HostedEventsView.swift,\ HostedEventsViewModel.swift,\ MapPins.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/ViewModels/GroupChatViewModel.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Views/Plans/HostedEventsView.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/ViewModels/HostedEventsViewModel.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Views/Map/MapPins.swift (in target 'MasUno' from project 'MasUno')
+
+SwiftCompile normal arm64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/ViewModels/GroupChatViewModel.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile GroupChatViewModel.swift
+
+SwiftCompile normal arm64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Views/Plans/HostedEventsView.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile HostedEventsView.swift
+
+SwiftCompile normal arm64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/ViewModels/HostedEventsViewModel.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile HostedEventsViewModel.swift
+
+SwiftCompile normal arm64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Views/Map/MapPins.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile MapPins.swift
+
+SwiftCompile normal arm64 Compiling\ Route.swift,\ Sport.swift,\ SportsEvent.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/App/Route.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Models/Sport.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Models/SportsEvent.swift (in target 'MasUno' from project 'MasUno')
+
+SwiftCompile normal arm64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/App/Route.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile Route.swift
+
+SwiftCompile normal arm64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Models/Sport.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile Sport.swift
+
+SwiftCompile normal arm64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Models/SportsEvent.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile SportsEvent.swift
+
+SwiftDriverJobDiscovery normal x86_64 Compiling MasUnoApp.swift, MockData.swift, Person.swift (in target 'MasUno' from project 'MasUno')
+
+SwiftCompile normal x86_64 Compiling\ EventMapViewModel.swift,\ EventPopup.swift,\ EventStore.swift,\ GroupChatView.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/ViewModels/EventMapViewModel.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Views/Map/EventPopup.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Services/EventStore.swift /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Views/Chat/GroupChatView.swift (in target 'MasUno' from project 'MasUno')
+
+SwiftCompile normal x86_64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/ViewModels/EventMapViewModel.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile EventMapViewModel.swift
+
+SwiftCompile normal x86_64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Views/Map/EventPopup.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile EventPopup.swift
+
+SwiftCompile normal x86_64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Services/EventStore.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile EventStore.swift
+
+SwiftCompile normal x86_64 /Users/rich/Documents/01-projects/masUNO/ios/MasUno/Views/Chat/GroupChatView.swift (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-SwiftPerFileCompile GroupChatView.swift
+
+SwiftDriverJobDiscovery normal arm64 Compiling Route.swift, Sport.swift, SportsEvent.swift (in target 'MasUno' from project 'MasUno')
+
+SwiftDriverJobDiscovery normal arm64 Compiling PlanComponents.swift, RegisteredEventsView.swift, RegisteredEventsViewModel.swift (in target 'MasUno' from project 'MasUno')
+
+SwiftDriverJobDiscovery normal arm64 Compiling Theme.swift, Venue.swift, GeneratedAssetSymbols.swift (in target 'MasUno' from project 'MasUno')
+
+SwiftDriverJobDiscovery normal arm64 Compiling MasUnoApp.swift, MockData.swift, Person.swift (in target 'MasUno' from project 'MasUno')
+
+SwiftDriverJobDiscovery normal arm64 Compiling GroupChatViewModel.swift, HostedEventsView.swift, HostedEventsViewModel.swift, MapPins.swift (in target 'MasUno' from project 'MasUno')
+
+SwiftDriverJobDiscovery normal arm64 Compiling AddEventSheet.swift, AddEventViewModel.swift, AppViewModel.swift, ChatMessage.swift (in target 'MasUno' from project 'MasUno')
+
+SwiftDriverJobDiscovery normal arm64 Compiling Components.swift, ContentView.swift, EventFormat.swift, EventMapView.swift (in target 'MasUno' from project 'MasUno')
+
+SwiftDriverJobDiscovery normal arm64 Compiling EventMapViewModel.swift, EventPopup.swift, EventStore.swift, GroupChatView.swift (in target 'MasUno' from project 'MasUno')
+
+SwiftDriver\ Compilation MasUno normal arm64 com.apple.xcode.tools.swift.compiler (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-Swift-Compilation -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name MasUno -Onone @/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/MasUno.SwiftFileList -DDEBUG -default-isolation\=MainActor -enable-upcoming-feature InferIsolatedConformances -enable-upcoming-feature NonisolatedNonsendingByDefault -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator27.0.sdk -target arm64-apple-ios26.0-simulator -g -module-cache-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator -F /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator -c -j8 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKStatCaches.noindex/iphonesimulator27.0-24A430-8dc58220667be655e1bcc261a7455254.sdkstatcache -output-file-map /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/MasUno-OutputFileMap.json -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/ModuleCache.noindex -sdk-module-cache-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules -emit-dependencies -emit-module -emit-module-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/MasUno.swiftmodule -serialize-diagnostics -dependency-scan-serialize-diagnostics-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/MasUno-dependency-scan.dia -validate-clang-modules-once -clang-build-session-file /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/ModuleCache.noindex/Session.modulevalidation -Xcc -fmodules-prune-interval\=86400 -Xcc -fmodules-prune-after\=345600 -emit-const-values -const-gather-protocols-list /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/MasUno_const_extract_protocols.json -Xcc -iquote -Xcc /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-generated-files.hmap -Xcc -I/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-own-target-headers.hmap -Xcc -I/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-all-target-headers.hmap -Xcc -iquote -Xcc /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-project-headers.hmap -Xcc -I/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/include -Xcc -I/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/DerivedSources-normal/arm64 -Xcc -I/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/DerivedSources/arm64 -Xcc -I/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/MasUno-Swift.h -working-directory /Users/rich/Documents/01-projects/masUNO/ios -experimental-emit-module-separately -disable-cmo
+
+Ld /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/Binary/MasUno.debug.dylib normal arm64 (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-ios26.0-simulator -dynamiclib -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator27.0.sdk -O0 -Xlinker -no_warn_duplicate_libraries -L/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphonesimulator -L/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator -F/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphonesimulator -F/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator -filelist /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/MasUno.LinkFileList -install_name @rpath/MasUno.debug.dylib -Xlinker -rpath -Xlinker @executable_path/Frameworks -Xlinker -dead_strip -Xlinker -object_path_lto -Xlinker /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/MasUno_lto.o -rdynamic -Xlinker -no_deduplicate -Xlinker -objc_abi_version -Xlinker 2 -Xlinker -dependency_info -Xlinker /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/MasUno_dependency_info.dat -fobjc-link-runtime -L/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/iphonesimulator -L/usr/lib/swift -Xlinker -add_ast_path -Xlinker /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/MasUno.swiftmodule -Xlinker -alias -Xlinker _main -Xlinker ___debug_main_executable_dylib_entry_point -o /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/Binary/MasUno.debug.dylib
+
+SwiftDriverJobDiscovery normal x86_64 Compiling EventMapViewModel.swift, EventPopup.swift, EventStore.swift, GroupChatView.swift (in target 'MasUno' from project 'MasUno')
+
+SwiftDriver\ Compilation MasUno normal x86_64 com.apple.xcode.tools.swift.compiler (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-Swift-Compilation -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name MasUno -Onone @/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/MasUno.SwiftFileList -DDEBUG -default-isolation\=MainActor -enable-upcoming-feature InferIsolatedConformances -enable-upcoming-feature NonisolatedNonsendingByDefault -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator27.0.sdk -target x86_64-apple-ios26.0-simulator -g -module-cache-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator -F /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator -c -j8 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKStatCaches.noindex/iphonesimulator27.0-24A430-8dc58220667be655e1bcc261a7455254.sdkstatcache -output-file-map /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/MasUno-OutputFileMap.json -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/ModuleCache.noindex -sdk-module-cache-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules -emit-dependencies -emit-module -emit-module-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/MasUno.swiftmodule -serialize-diagnostics -dependency-scan-serialize-diagnostics-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/MasUno-dependency-scan.dia -validate-clang-modules-once -clang-build-session-file /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/ModuleCache.noindex/Session.modulevalidation -Xcc -fmodules-prune-interval\=86400 -Xcc -fmodules-prune-after\=345600 -emit-const-values -const-gather-protocols-list /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/MasUno_const_extract_protocols.json -Xcc -iquote -Xcc /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-generated-files.hmap -Xcc -I/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-own-target-headers.hmap -Xcc -I/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-all-target-headers.hmap -Xcc -iquote -Xcc /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-project-headers.hmap -Xcc -I/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/include -Xcc -I/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/DerivedSources-normal/x86_64 -Xcc -I/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/DerivedSources/x86_64 -Xcc -I/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/MasUno-Swift.h -working-directory /Users/rich/Documents/01-projects/masUNO/ios -experimental-emit-module-separately -disable-cmo
+
+Ld /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/Binary/MasUno.debug.dylib normal x86_64 (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target x86_64-apple-ios26.0-simulator -dynamiclib -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator27.0.sdk -O0 -Xlinker -no_warn_duplicate_libraries -L/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphonesimulator -L/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator -F/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphonesimulator -F/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator -filelist /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/MasUno.LinkFileList -install_name @rpath/MasUno.debug.dylib -Xlinker -rpath -Xlinker @executable_path/Frameworks -Xlinker -dead_strip -Xlinker -object_path_lto -Xlinker /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/MasUno_lto.o -rdynamic -Xlinker -no_deduplicate -Xlinker -objc_abi_version -Xlinker 2 -Xlinker -dependency_info -Xlinker /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/MasUno_dependency_info.dat -fobjc-link-runtime -L/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/iphonesimulator -L/usr/lib/swift -Xlinker -add_ast_path -Xlinker /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/MasUno.swiftmodule -Xlinker -alias -Xlinker _main -Xlinker ___debug_main_executable_dylib_entry_point -o /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/Binary/MasUno.debug.dylib
+
+ConstructStubExecutorLinkFileList /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-ExecutorLinkFileList-normal-arm64.txt (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    construct-stub-executor-link-file-list /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/Binary/MasUno.debug.dylib /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib/libPreviewsJITStubExecutor_no_swift_entry_point.a /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib/libPreviewsJITStubExecutor.a --output /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-ExecutorLinkFileList-normal-arm64.txt
+note: Using stub executor library with Swift entry point. (in target 'MasUno' from project 'MasUno')
+
+ConstructStubExecutorLinkFileList /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-ExecutorLinkFileList-normal-x86_64.txt (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    construct-stub-executor-link-file-list /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/Binary/MasUno.debug.dylib /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib/libPreviewsJITStubExecutor_no_swift_entry_point.a /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib/libPreviewsJITStubExecutor.a --output /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-ExecutorLinkFileList-normal-x86_64.txt
+note: Using stub executor library with Swift entry point. (in target 'MasUno' from project 'MasUno')
+
+CreateUniversalBinary /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.app/MasUno.debug.dylib normal arm64\ x86_64 (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/lipo -create /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/Binary/MasUno.debug.dylib /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/Binary/MasUno.debug.dylib -output /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.app/MasUno.debug.dylib
+
+Ld /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/Binary/MasUno normal x86_64 (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target x86_64-apple-ios26.0-simulator -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator27.0.sdk -O0 -Xlinker -no_warn_duplicate_libraries -L/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator -F/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator -Xlinker -rpath -Xlinker @executable_path -Xlinker -rpath -Xlinker @executable_path/Frameworks -rdynamic -Xlinker -no_deduplicate -Xlinker -objc_abi_version -Xlinker 2 -e ___debug_blank_executor_main -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __debug_dylib -Xlinker /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-DebugDylibPath-normal-x86_64.txt -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __debug_instlnm -Xlinker /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-DebugDylibInstallName-normal-x86_64.txt -Xlinker -filelist -Xlinker /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-ExecutorLinkFileList-normal-x86_64.txt /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/Binary/MasUno.debug.dylib -o /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/Binary/MasUno
+
+Ld /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/Binary/MasUno normal arm64 (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-ios26.0-simulator -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator27.0.sdk -O0 -Xlinker -no_warn_duplicate_libraries -L/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator -F/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator -Xlinker -rpath -Xlinker @executable_path -Xlinker -rpath -Xlinker @executable_path/Frameworks -rdynamic -Xlinker -no_deduplicate -Xlinker -objc_abi_version -Xlinker 2 -e ___debug_blank_executor_main -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __debug_dylib -Xlinker /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-DebugDylibPath-normal-arm64.txt -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __debug_instlnm -Xlinker /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-DebugDylibInstallName-normal-arm64.txt -Xlinker -filelist -Xlinker /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno-ExecutorLinkFileList-normal-arm64.txt /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/Binary/MasUno.debug.dylib -o /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/Binary/MasUno
+
+CreateUniversalBinary /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.app/MasUno normal arm64\ x86_64 (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/lipo -create /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/Binary/MasUno /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/Binary/MasUno -output /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.app/MasUno
+
+CopySwiftLibs /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.app (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-swiftStdLibTool --copy --verbose --scan-executable /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.app/MasUno.debug.dylib --scan-folder /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.app/Frameworks --scan-folder /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.app/PlugIns --scan-folder /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.app/SystemExtensions --scan-folder /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.app/Extensions --platform iphonesimulator --toolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.app/Frameworks --strip-bitcode --strip-bitcode-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os
+Ignoring --strip-bitcode because --sign was not passed
+
+ExtractAppIntentsMetadata (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsmetadataprocessor --toolchain-dir /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --module-name MasUno --sdk-root /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator27.0.sdk --xcode-version 27A266a --platform-family iOS --deployment-target 26.0 --bundle-identifier com.masuno.app --output /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.app --target-triple arm64-apple-ios26.0-simulator --target-triple x86_64-apple-ios26.0-simulator --binary-file /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.app/MasUno --dependency-file /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/MasUno_dependency_info.dat --dependency-file /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/MasUno_dependency_info.dat --stringsdata-file /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/ExtractedAppShortcutsMetadata.stringsdata --stringsdata-file /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/ExtractedAppShortcutsMetadata.stringsdata --source-file-list /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/MasUno.SwiftFileList --source-file-list /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/MasUno.SwiftFileList --metadata-file-list /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno.DependencyMetadataFileList --static-metadata-file-list /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno.DependencyStaticMetadataFileList --swift-const-vals-list /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/arm64/MasUno.SwiftConstValuesFileList --swift-const-vals-list /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/Objects-normal/x86_64/MasUno.SwiftConstValuesFileList --compile-time-extraction --deployment-aware-processing --no-app-shortcuts-localization
+2026-10-21 12:57:04.774 appintentsmetadataprocessor[76734:4535139] Starting appintentsmetadataprocessor export
+2026-10-21 12:57:04.782 appintentsmetadataprocessor[76734:4535139] warning: Metadata extraction skipped, no AppIntents.framework dependency found
+
+AppIntentsSSUTraining (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsnltrainingprocessor --infoplist-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.app/Info.plist --temp-dir-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/ssu --bundle-id com.masuno.app --product-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.app --extracted-metadata-path /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.app/Metadata.appintents --metadata-file-list /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/MasUno.build/Debug-iphonesimulator/MasUno.build/MasUno.DependencyMetadataFileList --source-file /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.app/Info.plist --archive-ssu-assets
+2026-10-21 12:57:04.824 appintentsnltrainingprocessor[76736:4535150] Parsing options for appintentsnltrainingprocessor
+2026-10-21 12:57:04.824 appintentsnltrainingprocessor[76736:4535150] Starting AppIntents SSU YAML Generation
+2026-10-21 12:57:04.826 appintentsnltrainingprocessor[76736:4535150] No AppShortcuts found - Skipping.
+
+RegisterExecutionPolicyException /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.app (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-RegisterExecutionPolicyException /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.app
+
+Validate /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.app (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    builtin-validationUtility /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.app -shallow-bundle -infoplist-subpath Info.plist
+
+Touch /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.app (in target 'MasUno' from project 'MasUno')
+    cd /Users/rich/Documents/01-projects/masUNO/ios
+    /usr/bin/touch -c /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.app
+
+PruneExplicitPrecompiledModules /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/SDKExplicitPrecompiledModules
+
+PruneExplicitPrecompiledModules /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules
+
+PruneExplicitPrecompiledModules /Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Intermediates.noindex/ExplicitPrecompiledModules
+
+** BUILD SUCCEEDED **
+

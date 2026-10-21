@@ -1,21 +1,15 @@
 import SwiftUI
 
-enum Route: Hashable {
-    case registered
-    case hosted
-    case chat(SportsEvent.ID)
-}
-
 /// Root of the app: the map, with plans/chat pushed on top and Add event as a sheet.
 struct ContentView: View {
     @State private var store = EventStore()
-    @State private var path: [Route] = []
+    @State private var appViewModel = AppViewModel()
 
     var body: some View {
-        @Bindable var store = store
+        @Bindable var appViewModel = appViewModel
 
-        NavigationStack(path: $path) {
-            EventMapView(path: $path)
+        NavigationStack(path: $appViewModel.path) {
+            EventMapView()
                 .navigationDestination(for: Route.self) { route in
                     switch route {
                     case .registered: RegisteredEventsView()
@@ -24,31 +18,19 @@ struct ContentView: View {
                     }
                 }
         }
-        .sheet(isPresented: $store.isAddingEvent, onDismiss: { store.editingEventID = nil }) {
-            AddEventSheet(editing: store.editingEvent)
+        .sheet(isPresented: $appViewModel.isAddingEvent, onDismiss: { appViewModel.editingEventID = nil }) {
+            AddEventSheet(editing: appViewModel.editingEvent(in: store))
         }
         .overlay(alignment: .top) { NoticeBanner() }
         .environment(store)
+        .environment(appViewModel)
         .tint(Theme.orange)
         // The Figma is light-only for now.
         .preferredColorScheme(.light)
         #if DEBUG
-        .onAppear(perform: openDebugScreen)
+        .onAppear(perform: appViewModel.openDebugScreen)
         #endif
     }
-
-    #if DEBUG
-    /// Jump straight to a screen for design review, e.g. launch with `-screen hosted`.
-    /// Options: registered, hosted, add, popup (handled in EventMapView).
-    private func openDebugScreen() {
-        switch UserDefaults.standard.string(forKey: "screen") {
-        case "registered": path = [.registered]
-        case "hosted": path = [.hosted]
-        case "add": store.startAdding()
-        default: break
-        }
-    }
-    #endif
 }
 
 /// Stand-in for push notifications (e.g. "a spot opened in a game you bookmarked").

@@ -1,0 +1,95 @@
+{
+  "mode": "executed",
+  "app": {
+    "app": "/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.app",
+    "artifact_kind": "ios-simulator",
+    "platform_evidence": [
+      "iPhoneSimulator",
+      "iphonesimulator"
+    ],
+    "bundle_id": "com.masuno.app",
+    "product_version": "0.1",
+    "build_number": "1",
+    "executable": "/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.app/MasUno",
+    "minimum_os": "26.0",
+    "opening": "Install and launch with Xcode Simulator/simctl; cannot double-click as a Mac app or install on iPhone.",
+    "signature_verified": false,
+    "classification_basis": "Info.plist and Mach-O LC_BUILD_VERSION",
+    "macho_platforms": [
+      7
+    ],
+    "binary_platform_verified": true,
+    "executable_sha256": "10bca74a6ff1579753571658c82e7904fb31ac8517d93a2c9cc5a6271dc40839",
+    "payload_sha256": "ea16145fbe6e92ce6b9ada123a52c091b3327b87b49efc05207256dd4090a5d9"
+  },
+  "udid": "797A4813-B90D-4971-B6A5-F7AD408EF683",
+  "results": [
+    {
+      "argv": [
+        "xcrun",
+        "simctl",
+        "boot",
+        "797A4813-B90D-4971-B6A5-F7AD408EF683"
+      ],
+      "stdout": ""
+    },
+    {
+      "argv": [
+        "xcrun",
+        "simctl",
+        "bootstatus",
+        "797A4813-B90D-4971-B6A5-F7AD408EF683",
+        "-b"
+      ],
+      "stdout": "Monitoring boot status for iPhone 17 Pro (797A4813-B90D-4971-B6A5-F7AD408EF683).\n[2026-10-21 18:58:45 +0000] Status=1, isTerminal=NO, Elapsed=00:02.\n\tWaiting on BackBoard\n\n[2026-10-21 18:58:45 +0000] Status=2, isTerminal=NO, Elapsed=00:03.\n\tWaiting on Data Migration\n\t\tReason:(null)\n\t\tMigration Elapsed:00:00 seconds\n\n[2026-10-21 18:58:46 +0000] Status=4, isTerminal=NO, Elapsed=00:03.\n\tWaiting on System App\n\n[2026-10-21 18:58:48 +0000] Status=4, isTerminal=NO, Elapsed=00:05.\n\tWaiting on System App\n\n[2026-10-21 18:58:48 +0000] Status=4, isTerminal=NO, Elapsed=00:05.\n\tWaiting on System App\n\n[2026-10-21 18:58:51 +0000] Status=4294967295, isTerminal=YES, Elapsed=00:08.\n\tFinished\n\n"
+    },
+    {
+      "argv": [
+        "xcrun",
+        "simctl",
+        "install",
+        "797A4813-B90D-4971-B6A5-F7AD408EF683",
+        "/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/derived-data/Debug/Build/Products/Debug-iphonesimulator/MasUno.app"
+      ],
+      "stdout": ""
+    },
+    {
+      "argv": [
+        "xcrun",
+        "simctl",
+        "launch",
+        "--terminate-running-process",
+        "797A4813-B90D-4971-B6A5-F7AD408EF683",
+        "com.masuno.app"
+      ],
+      "stdout": "com.masuno.app: 77144\n"
+    },
+    {
+      "argv": [
+        "xcrun",
+        "simctl",
+        "get_app_container",
+        "797A4813-B90D-4971-B6A5-F7AD408EF683",
+        "com.masuno.app",
+        "app"
+      ],
+      "stdout": "/Users/rich/Library/Developer/CoreSimulator/Devices/797A4813-B90D-4971-B6A5-F7AD408EF683/data/Containers/Bundle/Application/B36CCC2D-30B1-43D9-97CA-7D271C705DE3/MasUno.app\n"
+    },
+    {
+      "argv": [
+        "xcrun",
+        "simctl",
+        "io",
+        "797A4813-B90D-4971-B6A5-F7AD408EF683",
+        "screenshot",
+        "/Users/rich/Documents/01-projects/masUNO/ios/.ios-build/run-i3azmhyy/screen.png"
+      ],
+      "stdout": ""
+    }
+  ],
+  "visual_review": "pending",
+  "interaction_test": "not performed",
+  "process_wait": "passed",
+  "screenshot_bytes": 373344,
+  "screenshot_retried": false
+}
