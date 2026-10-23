@@ -34,10 +34,11 @@ struct HostedEventsView: View {
                     } label: {
                         Text("Edit event")
                             .font(.subheadline.weight(.medium))
+                            .foregroundStyle(Theme.orange)
                             .frame(maxWidth: .infinity, minHeight: 34)
                     }
                     .buttonStyle(.glass)
-                    .tint(Theme.ink)
+                    .tint(Theme.orange)
 
                     // Join requests (Accept/Decline) go here once organizer approval ships.
 

@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// Shared scaffold for "Registered events" and "Hosted events".
+/// Shared scaffold for "Registered events" and "Hosted events": native large title,
+/// system back button, and a bottom toolbar (search, add, filter, profile).
 struct PlansScaffold<Content: View>: View {
     @Environment(AppViewModel.self) private var appViewModel
     @Environment(\.dismiss) private var dismiss
@@ -13,12 +14,6 @@ struct PlansScaffold<Content: View>: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(title)
-                        .font(.system(size: 34, weight: .bold))
-                    Text(subtitle)
-                        .foregroundStyle(Theme.secondaryInk)
-                }
                 content
             }
             .foregroundStyle(Theme.ink)
@@ -26,28 +21,35 @@ struct PlansScaffold<Content: View>: View {
             .padding(.bottom, 24)
         }
         .background(Theme.cream)
-        .navigationBarBackButtonHidden()
+        .navigationTitle(title)
+        .navigationSubtitle(subtitle)
+        .navigationBarTitleDisplayMode(.large)
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button { dismiss() } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "chevron.left")
-                        Text("Map")
-                    }
-                    .font(.subheadline.weight(.medium))
-                    .padding(.horizontal, 6)
-                }
-                .tint(Theme.ink)
-            }
             ToolbarItem(placement: .topBarTrailing) {
                 Text(countLabel)
                     .font(.subheadline)
                     .foregroundStyle(Theme.orange)
             }
             .sharedBackgroundVisibility(.hidden)
-        }
-        .safeAreaInset(edge: .bottom) {
-            PlansBottomBar(onSearch: { dismiss() }, onAdd: { appViewModel.startAdding() })
+
+            // Search lives on the map, so this takes you back there.
+            ToolbarItem(placement: .bottomBar) {
+                Button { dismiss() } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "magnifyingglass")
+                        Text("Search Events")
+                    }
+                }
+            }
+            ToolbarSpacer(.flexible, placement: .bottomBar)
+            ToolbarItemGroup(placement: .bottomBar) {
+                Button("Add event", systemImage: "plus") { appViewModel.startAdding() }
+                Button("Filters", systemImage: "line.3.horizontal.decrease") { dismiss() }
+                Button {} label: { // TODO: profile screen
+                    Avatar(name: Person.you, size: 30)
+                }
+                .accessibilityLabel("Profile")
+            }
         }
     }
 }
@@ -173,45 +175,5 @@ struct GroupChatPreview: View {
         }
         .padding(16)
         .background(Theme.chatBackground, in: .rect(cornerRadius: 18))
-    }
-}
-
-/// Bottom glass bar on the plans screens: search + (add, filter, settings).
-struct PlansBottomBar: View {
-    var onSearch: () -> Void
-    var onAdd: () -> Void
-
-    var body: some View {
-        GlassEffectContainer(spacing: 12) {
-            HStack(spacing: 12) {
-                Button(action: onSearch) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "magnifyingglass").font(.title3)
-                        Text("Search Events").lineLimit(1)
-                        Spacer(minLength: 0)
-                        Image(systemName: "mic").foregroundStyle(.secondary)
-                    }
-                    .padding(.horizontal, 16)
-                    .frame(height: 52)
-                    .contentShape(.capsule)
-                }
-                .glassEffect(.regular.interactive(), in: .capsule)
-
-                HStack(spacing: 18) {
-                    Button("Add event", systemImage: "plus", action: onAdd)
-                    Button("Filters", systemImage: "line.3.horizontal.decrease", action: onSearch)
-                    Button("Settings", systemImage: "gearshape") {} // TODO: settings screen
-                }
-                .labelStyle(.iconOnly)
-                .font(.title3)
-                .padding(.horizontal, 16)
-                .frame(height: 52)
-                .glassEffect(.regular.interactive(), in: .capsule)
-                .fixedSize()
-            }
-            .foregroundStyle(Theme.ink)
-        }
-        .padding(.horizontal, 20)
-        .padding(.bottom, 4)
     }
 }
