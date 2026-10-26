@@ -7,6 +7,8 @@ struct EventMapView: View {
     @Environment(AppViewModel.self) private var appViewModel
     @State private var viewModel = EventMapViewModel()
     @State private var cameraTracker = MapCameraTracker()
+    @State private var screenSize: CGSize = .zero
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     var body: some View {
         MapReader { proxy in
@@ -31,7 +33,11 @@ struct EventMapView: View {
                 )
             }
         }
-        .safeAreaInset(edge: .bottom) { bottomActions }
+        .toolbar { bottomActions }
+        .toolbarBackgroundVisibility(.hidden, for: .bottomBar)
+        .onGeometryChange(for: CGSize.self) { $0.size } action: { screenSize = $0 }
+        // Hidden here, but names the back button on pushed screens.
+        .navigationTitle("Map")
         .toolbar(.hidden, for: .navigationBar)
         .animation(.spring(duration: 0.4, bounce: 0.22), value: viewModel.selectedID)
         #if DEBUG
@@ -89,6 +95,7 @@ struct EventMapView: View {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
                     .font(.title3)
+                    .foregroundStyle(Theme.orange)
                 TextField("Search Events", text: $viewModel.searchText)
                     .textInputAutocapitalization(.never)
                     .submitLabel(.search)
@@ -115,10 +122,11 @@ struct EventMapView: View {
             } label: {
                 Image(systemName: "bookmark")
                     .font(.title3.weight(.medium))
+                    .foregroundStyle(Theme.orange)
                     .frame(width: 48, height: 48)
             }
             .glassEffect(.regular.interactive(), in: .circle)
-            .tint(.primary)
+            .tint(Theme.orange)
         }
         .foregroundStyle(.primary)
     }
@@ -136,64 +144,107 @@ struct EventMapView: View {
         .glassEffect(.regular, in: .capsule)
     }
 
-    private var bottomActions: some View {
-        GlassEffectContainer(spacing: 12) {
-            VStack(spacing: 12) {
-                HStack(spacing: 12) {
-                    Menu {
-                        Button("All sports") { viewModel.clearSportFilter() }
-                        Divider()
-                        ForEach(Sport.postable) { sport in
-                            Toggle("\(sport.emoji) \(sport.name)", isOn: Binding(
-                                get: { viewModel.sportFilter.contains(sport) },
-                                set: { _ in viewModel.toggleSport(sport) }
-                            ))
-                        }
-                    } label: {
-                        toolLabel(viewModel.filterLabel, systemImage: "line.3.horizontal.decrease")
-                    }
-                    .glassEffect(.regular.interactive(), in: .capsule)
-                    .tint(.primary)
-
-                    Menu {
-                        // TODO: real settings screen (profile, notifications, campus).
-                        Section("Demo") {
-                            Button("Simulate a player dropping out", systemImage: "person.fill.xmark") {
-                                viewModel.simulateDropOut(in: store)
-                            }
-                        }
-                    } label: {
-                        toolLabel("Settings", systemImage: "gearshape")
-                    }
-                    .glassEffect(.regular.interactive(), in: .capsule)
-                    .tint(.primary)
+    /// Bottom toolbar: filters · Add Event · profile avatar.
+    @ToolbarContentBuilder
+    private var bottomActions: some ToolbarContent {
+        ToolbarItem(placement: .bottomBar) {
+            Menu {
+                Button("All sports") { viewModel.clearSportFilter() }
+                Divider()
+                ForEach(Sport.postable) { sport in
+                    Toggle("\(sport.emoji) \(sport.name)", isOn: Binding(
+                        get: { viewModel.sportFilter.contains(sport) },
+                        set: { _ in viewModel.toggleSport(sport) }
+                    ))
                 }
-
-                Button {
-                    appViewModel.startAdding()
-                } label: {
-                    Label("Add Event", systemImage: "plus")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity, minHeight: 40)
-                }
-                .buttonStyle(.glassProminent)
-                .tint(Theme.actionBlue)
+            } label: {
+                Label("Filters", systemImage: "line.3.horizontal.decrease")
             }
+            // Count of active sport filters, since the icon button has no room for text.
+            .badge(viewModel.sportFilter.count)
+            .accessibilityLabel(viewModel.filterLabel)
         }
-        .padding(.horizontal, 20)
-        .padding(.bottom, 4)
+
+        // Narrow screens: centered and stretched. Wide screens (e.g. iPhone Duo's inner
+        // display): natural size, centered in portrait, left next to Filters in landscape.
+        if !(isWideLayout && isLandscape) {
+            ToolbarSpacer(.flexible, placement: .bottomBar)
+        }
+
+        ToolbarItem(placement: .bottomBar) {
+            // Explicit HStack: toolbars render `Label`s icon-only, but this needs its title.
+            Button {
+                appViewModel.startAdding()
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "plus")
+                    Text("Add Event")
+                }
+                .font(.headline)
+                .modifier(BottomBarWidth(width: isWideLayout ? nil : addButtonWidth))
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .tint(Theme.actionBlue)
+        }
+
+        ToolbarSpacer(.flexible, placement: .bottomBar)
+
+        ToolbarItem(placement: .bottomBar) {
+            Menu {
+                // TODO: real profile screen.
+                Section("Demo") {
+                    Button("Simulate a player dropping out", systemImage: "person.fill.xmark") {
+                        viewModel.simulateDropOut(in: store)
+                    }
+                }
+            } label: {
+                Avatar(name: Person.you, size: 32)
+            }
+            .accessibilityLabel("Profile")
+        }
     }
 
-    private func toolLabel(_ title: String, systemImage: String) -> some View {
-        HStack(spacing: 16) {
-            Image(systemName: systemImage)
-            Text(title)
-            Spacer(minLength: 0)
+    /// Screen width minus the toolbar margins and the two round side buttons.
+    private var addButtonWidth: CGFloat {
+        max(140, screenSize.width - 240)
+    }
+
+    /// From the view's own size rather than device orientation, which can mislead on foldables.
+    private var isLandscape: Bool {
+        screenSize.width > screenSize.height
+    }
+
+    /// Regular width (unfolded iPhone Duo, iPad) rather than a device check, so it
+    /// follows the space the app actually has.
+    private var isWideLayout: Bool {
+        horizontalSizeClass == .regular
+    }
+}
+
+/// Toolbar items size to fit, so this gives Add Event an explicit width to fill a
+/// horizontal bottom bar. When the system moves the toolbar into a vertical bar on
+/// one side (e.g. iPhone Duo half-open), the button keeps its natural size instead.
+/// A `nil` width also means natural size.
+private struct BottomBarWidth: ViewModifier {
+    var width: CGFloat?
+
+    func body(content: Content) -> some View {
+        if #available(iOS 27.1, *) {
+            content.modifier(VerticalBarAwareWidth(width: width))
+        } else {
+            content.frame(width: width)
         }
-        .foregroundStyle(.primary)
-        .padding(.horizontal, 16)
-        .frame(maxWidth: .infinity, minHeight: 48)
-        .contentShape(.capsule)
+    }
+}
+
+@available(iOS 27.1, *)
+private struct VerticalBarAwareWidth: ViewModifier {
+    var width: CGFloat?
+    @Environment(\.toolbarVerticalEdge) private var verticalEdge
+
+    func body(content: Content) -> some View {
+        content.frame(width: verticalEdge == nil ? width : nil)
     }
 }
 

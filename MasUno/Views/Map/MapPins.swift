@@ -43,12 +43,7 @@ struct UserPin: View {
             VStack(spacing: -6) {
                 ZStack {
                     Circle().fill(Theme.youRed).frame(width: 46, height: 46)
-                    Circle().fill(Color(.systemGray5)).frame(width: 40, height: 40)
-                        .overlay {
-                            Image(systemName: "person.fill")
-                                .font(.system(size: 20))
-                                .foregroundStyle(Color(.systemGray))
-                        }
+                    Avatar(name: Person.you, size: 40)
                 }
                 Triangle().fill(Theme.youRed).frame(width: 18, height: 14)
             }

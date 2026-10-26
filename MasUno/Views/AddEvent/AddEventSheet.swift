@@ -11,15 +11,29 @@ struct AddEventSheet: View {
     }
 
     var body: some View {
+        NavigationStack {
+            form
+                .navigationTitle(viewModel.title)
+                .navigationSubtitle(viewModel.subtitle)
+                .navigationBarTitleDisplayMode(.large)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button(role: .close) { dismiss() }
+                    }
+                }
+        }
+        .presentationDetents([.large])
+        .presentationDragIndicator(.visible)
+        .presentationBackground(Theme.card)
+    }
+
+    private var form: some View {
         @Bindable var viewModel = viewModel
 
-        ScrollView {
+        return ScrollView {
             VStack(alignment: .leading, spacing: 12) {
-                header
-
                 Text("Sport")
                     .font(.subheadline.weight(.semibold))
-                    .padding(.top, 8)
                 sportPicker
 
                 FieldBox("Event name") {
@@ -124,28 +138,6 @@ struct AddEventSheet: View {
             .padding(.bottom, 8)
         }
         .background(Theme.card)
-        .presentationDetents([.large])
-        .presentationDragIndicator(.visible)
-        .presentationBackground(Theme.card)
-    }
-
-    private var header: some View {
-        HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(viewModel.title)
-                    .font(.largeTitle.bold())
-                Text(viewModel.subtitle)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-            Button("Close", systemImage: "xmark") { dismiss() }
-                .labelStyle(.iconOnly)
-                .font(.headline)
-                .frame(width: 44, height: 44)
-                .glassEffect(.regular.interactive(), in: .circle)
-                .tint(.primary)
-        }
-        .padding(.top, 16)
     }
 
     private var sportPicker: some View {
