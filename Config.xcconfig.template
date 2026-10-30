@@ -1,0 +1,12 @@
+// Copy to Config.xcconfig (git-ignored) and fill in the real values:
+//   cp Config.xcconfig.template Config.xcconfig
+// Keys live in the shared password manager — never commit them.
+//
+// Debug → masuno-dev, Release (TestFlight / App Store) → masuno-prod.
+// `//` starts a comment in xcconfig files, so write URLs as https:/$()/…
+
+SUPABASE_URL[config=Debug] = https:/$()/YOUR-DEV-PROJECT-REF.supabase.co
+SUPABASE_ANON_KEY[config=Debug] = YOUR-DEV-ANON-KEY
+
+SUPABASE_URL[config=Release] = https:/$()/YOUR-PROD-PROJECT-REF.supabase.co
+SUPABASE_ANON_KEY[config=Release] = YOUR-PROD-ANON-KEY

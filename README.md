@@ -1,17 +1,34 @@
 # masUNO (iOS)
 
-Prelim SwiftUI build of the masUNO screens from Figma (`plusone-figma`, Page 1).
-iOS 26+, mock data only — no backend, no auth.
+masUNO helps Tec students find a pickup game — basketball, tennis, soccer or
+volleyball — on a map, host one, and fill the last open spots. SwiftUI, iOS 26+.
+The app currently runs on mock data; the Supabase backend is being built (see the spec).
 
-## Run
+- **Spec:** [`docs/SPEC.md`](docs/SPEC.md) · API contract: [`docs/API.md`](docs/API.md) · QA script: [`docs/QA.md`](docs/QA.md)
+- **Trello:** [2026 UnaMas](https://trello.com/b/mq7VsJY6/2026-unamas)
+
+## Setup
 
 ```sh
-brew install xcodegen   # once
-xcodegen generate       # regenerates MasUno.xcodeproj from project.yml
-open MasUno.xcodeproj
+brew install xcodegen                          # once
+git clone https://github.com/masUNO-app/ios.git && cd ios
+cp Config.xcconfig.template Config.xcconfig    # fill in keys from the password manager, or leave placeholders for mock data
+xcodegen generate                              # creates MasUno.xcodeproj from project.yml
+open MasUno.xcodeproj                          # run the MasUno scheme on a simulator
 ```
 
+`MasUno.xcodeproj` is generated and git-ignored — change `project.yml` instead, and
+re-run `xcodegen generate` after pulling or adding files. `Config.xcconfig` is
+git-ignored too: Debug points at `masuno-dev`, Release at `masuno-prod`.
+
 Debug builds accept `-screen registered|hosted|add|popup` as a launch argument to jump straight to a screen.
+
+## How we work
+
+- `main` is protected: open a PR, get one approval from the other coder, squash merge.
+- `CODEOWNERS` requests the right reviewer: views, view models and `DesignSystem/` → Ethan;
+  `Data/` and `supabase/` → Emilio; `docs/API.md` → both.
+- Every PR links its Trello card; screen changes need screenshots for Arianna.
 
 ## Architecture
 
@@ -19,14 +36,16 @@ MVVM, one folder per layer:
 
 ```
 MasUno/
-├── App/          # @main entry, root ContentView, Route
-├── Models/       # Pure data: SportsEvent, Venue, ChatMessage, Sport, Person
-├── Services/     # EventStore (source of truth + domain actions), MockData
-├── ViewModels/   # Per-screen presentation state & intents
-├── Views/        # SwiftUI screens: Map/, Plans/, Chat/, AddEvent/
-├── Components/   # Shared UI (Avatar, EventIconTile, OrangeCapsuleStyle, Triangle)
-├── Utilities/    # EventFormat date/duration formatting
-└── Theme/        # Figma color palette
+├── App/           # @main entry, root ContentView, Route
+├── Models/        # Pure data: SportsEvent, Venue, ChatMessage, Sport, Person
+├── Services/      # EventStore (source of truth + domain actions), MockData
+├── Data/          # Supabase data layer (Emilio): AuthService, repositories, GameStore
+├── ViewModels/    # Per-screen presentation state & intents
+├── Views/         # SwiftUI screens: Map/, Plans/, Chat/, AddEvent/
+├── DesignSystem/  # Theme (Figma palette) + shared UI (Avatar, EventIconTile, OrangeCapsuleStyle, Triangle)
+└── Utilities/     # EventFormat date/duration formatting
+supabase/          # Migrations, functions, seed (Emilio)
+docs/              # Spec, API contract, QA script
 ```
 
 Views bind to `@Observable` view models; view models read/mutate the model layer
