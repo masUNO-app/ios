@@ -26,7 +26,6 @@ Debug builds accept `-screen registered|hosted|add|popup` as a launch argument t
 ## How we work
 
 - `main` is protected: open a PR, get one approval from the other coder, squash merge.
-- Branch names: `ethan/…`, `emilio/…`. Keep them short-lived.
 - `CODEOWNERS` requests the right reviewer: views, view models and `DesignSystem/` → Ethan;
   `Data/` and `supabase/` → Emilio; `docs/API.md` → both.
 - Every PR links its Trello card; screen changes need screenshots for Arianna.
