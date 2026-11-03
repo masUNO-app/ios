@@ -177,21 +177,17 @@ struct EventMapView: View {
         ToolbarSpacer(.flexible, placement: .bottomBar)
 
         ToolbarItem(placement: .bottomBar) {
-            Menu {
-                // TODO(E12): avatar opens Me.
-                Button("Your plans", systemImage: "calendar") { appViewModel.path.append(.registered) }
-                Button("Hosting", systemImage: "person.2") { appViewModel.path.append(.hosted) }
-                Section("Demo") {
-                    #if DEBUG
-                    Button("Component gallery", systemImage: "swatchpalette") {
-                        appViewModel.path.append(.gallery)
-                    }
-                    #endif
-                }
+            Button {
+                appViewModel.path.append(.me())
             } label: {
-                Avatar(name: Person.you, size: 32)
+                Avatar(name: store.profile.fullName, size: 32)
             }
-            .accessibilityLabel("Profile")
+            .accessibilityLabel("Me")
+            #if DEBUG
+            .contextMenu {
+                Button("Component gallery", systemImage: "swatchpalette") { appViewModel.path.append(.gallery) }
+            }
+            #endif
         }
     }
 

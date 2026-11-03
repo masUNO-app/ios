@@ -123,16 +123,6 @@ final class EventStore {
         blockedPeople.removeAll { $0 == person }
     }
 
-    func sendMessage(_ text: String, to id: SportsEvent.ID) {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        mutate(id) { $0.messages.append(ChatMessage(sender: Person.you, text: trimmed, sentAt: .now)) }
-    }
-
-    func markRead(_ id: SportsEvent.ID) {
-        mutate(id) { $0.unreadCount = 0 }
-    }
-
     func save(_ draft: SportsEvent) {
         if let index = allEvents.firstIndex(where: { $0.id == draft.id }) {
             allEvents[index] = draft

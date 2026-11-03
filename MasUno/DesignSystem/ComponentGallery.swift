@@ -2,7 +2,7 @@
 import SwiftUI
 
 /// Every design-system token and component on one screen, for design review with Arianna.
-/// Open it from the map's profile menu (Demo › Component gallery) or launch with `-screen gallery`.
+/// Open it by long-pressing the avatar on the map, or launch with `-screen gallery`.
 struct ComponentGallery: View {
     @State private var reminders = true
     @State private var calendar = false

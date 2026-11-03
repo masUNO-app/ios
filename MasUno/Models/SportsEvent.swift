@@ -17,8 +17,6 @@ struct SportsEvent: Identifiable, Hashable {
     var meetUpSpot: String = ""
     var notes: String = ""
     var isCancelled = false
-    var messages: [ChatMessage] = []
-    var unreadCount: Int = 0
 
     var spotsLeft: Int { max(capacity - attendees.count, 0) }
     var isFull: Bool { spotsLeft == 0 }
@@ -34,8 +32,6 @@ struct SportsEvent: Identifiable, Hashable {
         let minutes = start.timeIntervalSince(now) / 60
         return minutes >= 0 && minutes <= 60
     }
-
-    func role(of person: String) -> String { person == host ? "Host" : "Attendee" }
 
     /// "Basketball · Hosted by Alex R." / "Basketball · Hosted by you".
     var hostLine: String {

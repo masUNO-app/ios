@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Root of the app: the map, with plans/chat pushed on top and Add event as a sheet.
+/// Root of the app: the map, with game detail, Me and Settings pushed on top and the game form as a sheet.
 struct ContentView: View {
     @State private var store = EventStore()
     @State private var appViewModel = AppViewModel()
@@ -12,11 +12,9 @@ struct ContentView: View {
             EventMapView()
                 .navigationDestination(for: Route.self) { route in
                     switch route {
-                    case .registered: RegisteredEventsView()
-                    case .hosted: HostedEventsView()
                     case .game(let id): EventDetailView(eventID: id)
                     case .blockedPeople: BlockedPeopleView()
-                    case .chat(let id): GroupChatView(eventID: id)
+                    case .me(let tab): MeView(tab: tab)
                     #if DEBUG
                     case .gallery: ComponentGallery()
                     #endif

@@ -1,10 +1,11 @@
 import SwiftUI
 
-/// Game summary card from the Me screen (Going / Hosting): tile, title, a compact
-/// trailing action, host line, date, place, status, then a footer below a divider.
+/// Game summary card from Me (Going / Hosting): tile, title, a compact trailing action,
+/// host line, date, place and status. An optional footer goes below a divider.
 struct GameCard<Accessory: View, Footer: View>: View {
     var event: SportsEvent
     var showsHost = true
+    /// Overrides the status line (e.g. "3 going · 3 spots left" on Hosting).
     var status: String?
     @ViewBuilder var accessory: Accessory
     @ViewBuilder var footer: Footer
@@ -16,6 +17,7 @@ struct GameCard<Accessory: View, Footer: View>: View {
                 Text(event.title)
                     .font(.title3.weight(.semibold))
                     .foregroundStyle(Theme.ink)
+                    .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 accessory
             }
@@ -23,53 +25,46 @@ struct GameCard<Accessory: View, Footer: View>: View {
             if showsHost {
                 HStack(spacing: 8) {
                     Avatar(name: event.host, size: 24)
-                    Text("Hosted by \(event.host)")
+                    Text("Hosted by \(Person.display(event.host))")
                         .font(.subheadline)
                         .foregroundStyle(Theme.muted)
                 }
             }
 
             VStack(alignment: .leading, spacing: 6) {
-                GameCardRow(systemImage: "calendar") {
-                    Text(EventFormat.dayAndTime(event.start))
+                Label(EventFormat.dayAndTime(event.start), systemImage: "calendar")
+                Label {
+                    Text(verbatim: "\(event.venue.name) · \(event.venue.street)")
+                } icon: {
+                    Image(systemName: "mappin")
                 }
-                GameCardRow(systemImage: "mappin") {
-                    Text(verbatim: "\(event.venue.titleLine)\n\(event.venue.city)")
+                if event.isCancelled {
+                    StatusChip(String(localized: "Cancelled"))
+                        .padding(.top, 2)
+                } else {
+                    Text(status ?? event.openLine)
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(Theme.ink)
+                        .padding(.top, 2)
                 }
-                Text(status ?? event.statusLine)
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(Theme.ink)
-                    .padding(.top, 4)
             }
             .font(.footnote)
             .foregroundStyle(Theme.muted)
+            .labelStyle(MutedIconLabelStyle())
 
-            Divider().overlay(Theme.hairline)
-
-            footer
+            if Footer.self != EmptyView.self {
+                Divider().overlay(Theme.hairline)
+                footer
+            }
         }
         .padding(16)
         .cardSurface()
     }
 }
 
-extension GameCard where Accessory == EmptyView {
-    init(event: SportsEvent, showsHost: Bool = true, status: String? = nil, @ViewBuilder footer: () -> Footer) {
-        self.init(event: event, showsHost: showsHost, status: status, accessory: { EmptyView() }, footer: footer)
-    }
-}
-
-private struct GameCardRow<Content: View>: View {
-    var systemImage: String
-    @ViewBuilder var content: Content
-
-    var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Image(systemName: systemImage)
-                .foregroundStyle(Theme.muted)
-                .frame(width: 16)
-            content
-        }
+extension GameCard where Footer == EmptyView {
+    init(event: SportsEvent, showsHost: Bool = true, status: String? = nil, @ViewBuilder accessory: () -> Accessory) {
+        self.init(event: event, showsHost: showsHost, status: status, accessory: accessory, footer: { EmptyView() })
     }
 }
 
