@@ -53,7 +53,7 @@
 | N14 | **Game hub ("group chat") ships read-only in 1.0**, reversing C2 in part: pinned date/place/meet-up spot, Who's going, system timeline, host edits the meet-up spot. **No composer and no placeholder messages** — sending is still Chat v1 (Appendix A). | The team wants the chat surface for demos; a disabled "coming soon" composer or fake messages would be rejected under 2.1. | ⚑ |
 | N15 | **Bookmarks + Saved list in 1.0, stored on the phone only.** Syncing and "Notify me if a spot opens" stay in 2.0 (B15, E17). | Already built; small. | — |
 | N16 | **Add to calendar, Invite a friend, Google Maps option (E19) and Past games + Edit profile & interests (E21) move to 1.0.** Invite shares the App Store link. Edit profile needs `complete_profile` live; otherwise it moves to 1.1. | Already built. Supersedes C3's timing. | — |
-| N17 | **Auto-repost** (proposed, not in 1.0): host toggle that bumps a game back to the top of the map when a full game frees a spot. Replaces the Figma's manual "Repost". Needs Arianna's sign-off and backend (§7.6.11); the UI stays hidden until then. | Ari's question on the PR: hosts want traction, not a manual bump. | ⚑ Arianna |
+| N17 | **Auto-repost in 1.0 (MVP):** host toggle (on by default) that bumps a game when a full game frees a spot, so the open spot fills. Replaces the Figma's manual "Repost". Backend added to B3 (§7.6.11, §8.3, §8.5). | Ari's question on the PR: hosts want traction, not a manual bump. Team decision Nov 3: part of the MVP. | ⚑ Arianna (look), Emilio (B3 scope) |
 | N18 | **Onboarding is built from §7.5 copy** (temp) ahead of the D2 frames; swap in the frames in 1.1. | Unblocks Nov 9. | — |
 
 ### Rev. 5 (still in force)
@@ -139,12 +139,14 @@ N1 builds at each demo day, 1.0 before Demo Day #3, 2.0 after it, launch Dec 16 
 
 **Also in 1.0 (already built; cut to 1.1 in the order below if they aren't live by Sat Nov 7):** Me (Going, Hosting, Past), game hub (read-only, N14), bookmarks + Saved list on the phone (N15), Add to calendar, Invite a friend, Google Maps option, Edit profile & interests (N16), map search and sport filter, basic empty/error/offline states.
 
+**Auto-repost (N17) is MVP:** it ships in 1.0 and is not on the cut list. If B3's repost logic isn't live by Sat Nov 7, the toggle can't ship as a dead setting — raise it at the Fri Nov 6 go/no-go.
+
 ### 2.0 scope
 - Notifications: a spot opened (Saved games), game changed, game cancelled, 30-min reminder, new game matching your interests, host updates; Notifications section in Settings; permission asked after the first join or hosted game.
 - Saved synced to the account (B15), "Notify me if a spot opens" on full games.
 - Spanish localization (strings, dates, sport names, notification text).
 - Location picker drag-to-adjust; "Happening now" state; "changed since you joined" banner.
-- Auto-repost (N17), if Arianna signs off and the backend fits.
+- Auto-repost + "A spot opened" push to people who saved the game.
 - Chat v1 sending only if it's pulled forward from January (Appendix A).
 - Full accessibility pass; metrics view; fixes from 1.0 feedback.
 
@@ -192,7 +194,7 @@ Program weeks shown; the Wednesday Team Session doubles as our weekly sync. Aria
 | --- | --- | --- | --- | --- |
 | **Now** (Oct 29–Nov 1) | Repo setup (E0); contract + protocols (E1); design system (E2) | Dev project (B1); contract + schema start (B3) | Finalize green system + token table (D1) | Supabase access for Emilio (O2); team Gmail (O3); kickoff (O1) |
 | **Wk 7** (Nov 2–8) · DD1 Thu · **1.0 RC Sun** | Upload 0.1 (E6); swap mocks for the live store screen by screen as Emilio's pieces land (E24); release hygiene (E14); RC + QA Sun | **Critical path:** Gmail SMTP (B2), auth hook (B4), schema/RPCs (B3), `AuthService` (B5), `GameStore` (B6), live repositories (B7), safety backend (B8), delete-account (B9), prod + demo campus (B12) | App icon (D3) by Fri; Privacy & Terms + support pages (D4) by Fri; screenshots (D7) Sun; DD1 deck (D5) | Venue list (O5); Tec inboxes (O4); policy copy (O6) Thu; listing copy into App Store Connect (O7) Sat; DD1 story (O10) |
-| **Wk 8** (Nov 9–15) · **submit 1.0 Mon** | Submit 1.0 (E15); answer review; 1.1 fixes; onboarding frames swap (E5) | Database tests (B10), CI (B11), fixes from review | Onboarding + missing-screen frames (D2); design QA of 1.0 (D6); Auto-repost decision | Recruit beta testers (O8) once Beta App Review clears; moderation starts (O11) |
+| **Wk 8** (Nov 9–15) · **submit 1.0 Mon** | Submit 1.0 (E15); answer review; 1.1 fixes; onboarding frames swap (E5) | Database tests (B10), CI (B11), fixes from review | Onboarding + missing-screen frames (D2); design QA of 1.0 (D6) | Recruit beta testers (O8) once Beta App Review clears; moderation starts (O11) |
 | **Wk 9** (Nov 16–22) · DD2 Thu | Submit 1.1 Mon; 2.0 screens start (E16) | 2.0 backend start (B13) | DD2 deck (D5); 2.0 frames (D8) | Beta + real games (O8, O9); DD2 numbers (O10) |
 | **Wk 10** (Nov 23–29) · Thanksgiving | 2.0: notification screens (E16), Saved screens (E17) | 2.0: notification backend (B13), `send-push` (B14), Saved backend (B15), device-token code (B16) | Design QA of 1.0 release | Spanish translation (O12); beta feedback summary (O8) |
 | **Wk 11** (Nov 30–Dec 6) · DD3 Thu | 2.0: Spanish (E18), calendar/invite/maps (E19), picker drag + banner (E20), Me Past + edit profile (E21), 1.0 fixes; 2.0 beta Tue | 2.0: metrics (B17), Spanish notifications (B18), 1.0 fixes | DD3 deck (D5); Spanish layout check (D9) | DD3 story + numbers (O10) |
@@ -274,7 +276,7 @@ Status as of Nov 3: "built" means the screen exists on mock data on `green-desig
 | E21 | **Me: Past games + Edit profile & interests** — moved to 1.0 (N16). | 1.0 | 3 h | Nov 7 | Built | Edited interests save and reload from the server. |
 | E22 | **Accessibility + UI tests**. | 2.0 | 4 h | Dec 7 | — | Core loop with VoiceOver at XXL text. |
 | E23 | **1.x fixes + 2.0 submission.** | 2.0 | 3 h | Dec 8 | — | 2.0 submitted. |
-| E25 | **Auto-repost UI** (N17) — built, hidden until approved + backend. | 2.0 | — | — | Built (placeholder) | Toggle bumps the game on the server. |
+| E25 | **Auto-repost** (N17): form toggle, hosting-card line, bumped pin ("Spot open" label, drawn on top for 2 h), bumped games first in search; wire to `auto_repost` / `reposted_at`. | 1.0 | 1.5 h | Nov 7 | Built on mocks (bump pin not yet) | When a player leaves a full game, the host's card shows "Reposted just now" and the pin is bumped on another phone. |
 
 ### 5.2 Emilio — backend (Supabase + Swift data layer)
 
@@ -284,7 +286,7 @@ Status as of Nov 3: "built" means the screen exists on mock data on `green-desig
 | --- | --- | --- | --- | --- | --- | --- |
 | B1 | **Supabase dev setup**: `masuno-dev`, CLI, `supabase/` folder, seed script (Tec, 4 sports, Ricardo's venues, test users, games), `Config.xcconfig` template. | 1.0 | 3 h | Nov 4 ⚑ | E0, O2, O5 | `supabase db reset` works locally for Ethan too. |
 | B2 | **Sign-in email via team Gmail** (§8.4): SMTP with app password, code-only template, 10-min expiry, raised rate limit, tested on Tec inboxes. | 1.0 | 1.5 h | Nov 5 ⚑ | O3, O4 | Codes reach Tec inboxes (not junk) within a minute. |
-| B3 | **Schema, RLS, RPCs** (§8.3–§8.5) incl. report/block, text filter, App Review demo campus; `docs/API.md` by Nov 4. | 1.0 | 13 h | Nov 6 ⚑ | E1 | Every 1.0 RPC works from the SQL editor as a test user. |
+| B3 | **Schema, RLS, RPCs** (§8.3–§8.5) incl. report/block, text filter, App Review demo campus, **auto-repost** (`auto_repost`, `reposted_at`, set in `leave_game`/`update_game`); `docs/API.md` by Nov 4. | 1.0 | 14 h | Nov 6 ⚑ | E1 | Every 1.0 RPC works from the SQL editor as a test user. |
 | B4 | **Auth hook** (deny by default), `auth_allowlist`, 2 review accounts with passwords, `sign_in_method(email)`. | 1.0 | 2 h | Nov 5 ⚑ | B1 | Non-Tec email gets the friendly error; review account signs in with a password. |
 | B5 | **`AuthService` (Swift)**: send/verify code, password path, session persistence, expired-session and suspended detection. | 1.0 | 4 h | Nov 6 ⚑ | E1, B4 | Ethan's onboarding screens sign in for real. |
 | B6 | **`GameStore` (Swift)**: `@Observable`, `LoadState`, optimistic join/leave + rollback, error-code → `DomainError`; remove `SkillLevel`, `Venue`, `Person.you` from the model layer. | 1.0 | 5 h | Nov 6 ⚑ | E1 | Store unit tests green on mock repositories. |
@@ -317,7 +319,8 @@ Status as of Nov 3: "built" means the screen exists on mock data on `green-desig
 | D5 | **Deck design** for Demo Days #1–#3 and the Product Launch (Ricardo writes the story). | DD1–Launch | 6 | Nov 5, Nov 19, Dec 3, Dec 16 |
 | D6 | **Design QA** of each build against Figma; Trello bugs with screenshots; review screenshots in UI PRs. | All | 1.5 per build | Nov 12 onward |
 | D7 | **App Store screenshots** (6.9") from the release candidate with short captions; redo for 2.0. | 1.0 / 2.0 | 3 | **Nov 8** / Dec 8 |
-| D8 | **2.0 frames**: notification primer, Notifications settings, "Notify me" state, "Happening now", "changed since you joined" banner, location picker drag; **Auto-repost** sign-off or alternative (N17). | 2.0 | 3 | Nov 22 (Auto-repost by Nov 11) |
+| D8 | **2.0 frames**: notification primer, Notifications settings, "Notify me" state, "Happening now", "changed since you joined" banner, location picker drag. | 2.0 | 3 | Nov 22 |
+| D11 | **Auto-repost look** (N17, 1.0): toggle in the form, "Auto-repost on" / "Reposted …" on hosting cards, bumped pin. Sign off what's built or send a frame. | 1.0 | 1 | **Nov 5** |
 | D9 | **Spanish layout check**: long strings, truncation, buttons. | 2.0 | 1 | Dec 4 |
 | D10 | *Optional:* small SwiftUI PRs (spacing/color tweaks found in design QA), reviewed by Ethan. | — | — | Any time |
 
@@ -422,12 +425,12 @@ Frames: `https://www.figma.com/design/5eKA3f0I90VVABrAuNMFD2/masuno-figma?node-i
 | Frame (node) | Treatment | Release · build / design |
 | --- | --- | --- |
 | Map (341:1979), Popup (341:2046) | As designed, incl. bookmark; no mic glyph; popup is a map callout that follows its pin | 1.0 · E4/E9 · D1 |
-| Add event (341:1849), Error (341:3054) | As designed + Meet-up spot field; Auto-repost toggle hidden (N17) | 1.0 · E7 · D1 |
+| Add event (341:1849), Error (341:3054) | As designed + Meet-up spot field + Auto-repost toggle (N17) | 1.0 · E7/E25 · D11 |
 | Choose location (341:2646) | Search + current location in 1.0; drag in 2.0 | 1.0 / 2.0 · E8/E20 · D8 |
 | Event detail (341:2586) | As designed + `…` menu + bookmark; other states drawn in D2 | 1.0 · E10 · D2 |
 | You're in (341:2989) | Open group chat (game hub) · Invite a friend; Add to calendar in the card | 1.0 · E10/E19 |
 | Who's going (341:2309) | Flag → Report / Block | 1.0 · E11 · D2 |
-| Me Going/Hosting (341:2165/2240) | As designed incl. "Group chat · N new"; initials; Repost → Auto-repost (N17) | 1.0 · E12/E21 · D1 |
+| Me Going/Hosting (341:2165/2240) | As designed incl. "Group chat · N new"; initials; the Repost button is replaced by the "Auto-repost on" / "Reposted …" line (N17) | 1.0 · E12/E25 · D11 |
 | Edit / Delete event (341:2703/2840) | "Cancel game" copy | 1.0 · E7 · D1 |
 | Settings (341:2144) | 1.0 rows only; notification toggles in 2.0; no calendar or name-visibility rows | 1.0 · E13 · D2/D8 |
 | Group chat (341:1791), Chat rules (341:2420), Edit meet-up (341:2507) | Game hub read-only in 1.0 (N14): pinned card, timeline of system rows, no composer; rules sheet shown once; host edits the meet-up spot | 1.0 · E24 · D2 |
@@ -506,8 +509,12 @@ Map with no games: "No open games right now. Start one?" Failed loads show a ret
 #### 7.6.10 Saved (N15, E17)
 Bookmark on the popup, Event detail and the Saved list; filled green icon when saved. 1.0 stores bookmarks on the phone (survive relaunch, not reinstall). 2.0 syncs them (`bookmarks`, B15) and adds "Notify me if a spot opens".
 
-#### 7.6.11 Auto-repost (N17 — proposed, not in 1.0)
-Host toggle in the game form (on by default) with "If someone drops out, we'll bump your game back to the top of the map." When a full game frees a spot (a player leaves, or the host raises capacity), the server sets `events.reposted_at = now()` inside `leave_game` / `update_game`; the map sorts by `coalesce(reposted_at, created_at)`. Hosting cards show "Auto-repost on" / "Reposted 25 min ago". Needs: Arianna's sign-off (replaces the Figma "Repost" button), `events.auto_repost bool default true` + `reposted_at`, and a sort on the map. 2.0 can pair it with the "A spot opened" push.
+#### 7.6.11 Auto-repost (N17, E25, B3 — 1.0)
+- **Form:** "Auto-repost" toggle under Players, on by default, with "If someone drops out, we'll bump your game back to the top of the map." Saved with the game.
+- **Trigger (server):** when a full game frees a spot — a player leaves (`leave_game`) or the host raises Players (`update_game`) — and `auto_repost` is on and the game isn't cancelled or ended, set `events.reposted_at = now()`.
+- **Bump (app):** for 2 hours after `reposted_at`, the game's pin draws above other pins with a "Spot open" label (instead of "Soon"), and it's listed first in search results. `game_cards` sorts by `coalesce(reposted_at, created_at) desc`.
+- **Host:** hosting cards show "Auto-repost on", or "Reposted 25 min ago" after a bump.
+- **Not in 1.0:** notifying anyone (2.0 pairs it with the "A spot opened" push to people who saved the game).
 
 ---
 
@@ -559,6 +566,7 @@ events (id uuid pk default gen_random_uuid(), university_id uuid, host_id uuid r
   place_name text, place_address text, lat float8, lng float8,
   meet_point text null check (char_length(meet_point) <= 80),
   material_change_at timestamptz null, cancelled_at timestamptz null,
+  auto_repost bool not null default true, reposted_at timestamptz null,  -- N17 (§7.6.11)
   created_at timestamptz default now(), updated_at timestamptz)
 
 rsvps (event_id uuid references events on delete cascade, user_id uuid references profiles on delete cascade,
@@ -583,7 +591,7 @@ notification_outbox (id bigserial pk, user_id uuid, kind text, event_id uuid, pa
   attempts int default 0, error text)
 ```
 
-**Read views (RLS applies):** `game_cards` (event + host first name/initial + `going_count`, `spots_left`, `my_role`, `my_joined_at`, `has_blocked_attendee`; 2.0 `is_bookmarked`), `game_attendees(event_id)` (excludes blocked people), `my_profile`.
+**Read views (RLS applies):** `game_cards` (event + host first name/initial + `going_count`, `spots_left`, `my_role`, `my_joined_at`, `has_blocked_attendee`, `auto_repost`, `reposted_at` (sorted by `coalesce(reposted_at, created_at) desc`); 2.0 `is_bookmarked`), `game_attendees(event_id)` (excludes blocked people), `my_profile`.
 
 ### 8.4 Security, sign-in & email
 - **Policies:** `profiles` readable within your university except blocked pairs; `profile_private` own row only; `events`/`rsvps` readable within your university unless the host is a blocked pair; all writes through RPCs; `reports` insert-only via RPC; `universities`, `activities`, `app_config` read-only; `auth_allowlist` no client access. Helpers `is_active(uid)` and `is_blocked_pair(a, b)`.
@@ -601,11 +609,11 @@ RPCs are `security definer`, pin `search_path`, check `auth.uid()` and `is_activ
 | `sign_in_method(email) → text` | `'otp'` or `'password'` (anonymous; reads the allowlist only) | — |
 | `complete_profile(first, last, grad_year, interests[], locale)` | Create/update profile | `invalid_text`, `invalid_input` |
 | `accept_guidelines()` | Record agreement | — |
-| `create_game(…) → uuid` | Validate sport, 7-day window, limit, text; insert game + host | `invalid_time`, `invalid_text`, `limit_reached`, `invalid_input` |
-| `update_game(id, …)` | Host only; players ≥ going; record material changes | `not_allowed`, `cancelled`, `ended`, `capacity_below_going`, `invalid_time`, `invalid_text` |
+| `create_game(…, auto_repost) → uuid` | Validate sport, 7-day window, limit, text; insert game + host | `invalid_time`, `invalid_text`, `limit_reached`, `invalid_input` |
+| `update_game(id, …, auto_repost)` | Host only; players ≥ going; record material changes; if capacity rises on a full game and `auto_repost`, set `reposted_at` | `not_allowed`, `cancelled`, `ended`, `capacity_below_going`, `invalid_time`, `invalid_text` |
 | `cancel_game(id)` | Host only; soft cancel | `not_allowed`, `ended` |
 | `join_game(id)` | Lock row; reject cancelled/ended/host/blocked; `full` if no spots; idempotent | `full`, `cancelled`, `ended`, `blocked`, `not_found` |
-| `leave_game(id)` | Lock row; remove; decrement | `not_allowed` (host), `ended` |
+| `leave_game(id)` | Lock row; remove; decrement; if the game was full and `auto_repost`, set `reposted_at` | `not_allowed` (host), `ended` |
 | `report(user?, game?, reason, note?)` | Insert report → alert | `invalid_input` |
 | `block(user_id)` / `unblock(user_id)` | Own blocks | `invalid_input` |
 | *2.0:* `register_device`, `toggle_bookmark`, `set_notification_prefs` | | — |
@@ -677,7 +685,7 @@ Plain language, at `masuno-app.github.io/privacy`, linked from onboarding, Setti
 - [ ] Contact us in the app (team Gmail) and support URL (website) in App Store Connect.
 - [ ] Privacy & Terms URL in the app and in App Store Connect; privacy label answered.
 - [ ] Delete account in the app, and it really deletes.
-- [ ] No placeholders, no "coming soon", no DEBUG menus, no mock data or mock location; the game hub has no composer; cut features hidden; screenshots from the real build; listing doesn't promise messaging or anything not in this version.
+- [ ] No placeholders, no "coming soon", no DEBUG menus, no mock data or mock location; the game hub has no composer; cut features hidden; Auto-repost really bumps the game on prod; screenshots from the real build; listing doesn't promise messaging or anything not in this version.
 - [ ] Location purpose string explains the use; (2.0) notifications asked in context.
 - [ ] Age-rating questionnaire answered (user-generated content; no messaging in 1.0).
 - [ ] Map lands on the campus (demo campus for review accounts) for someone far from Monterrey.
@@ -734,7 +742,7 @@ Alert in team chat → on-call person (Ricardo or Arianna) checks the report in 
 | R6-1 | N11/N12 — submit 1.0 Mon Nov 9 on the live backend; go/no-go Fri Nov 6; fall back to Mon Nov 16 if must-haves aren't live | Approve (Emilio confirms the B dates) |
 | R6-2 | N14 — read-only game hub in 1.0, no composer | Approve |
 | R6-3 | N15/N16 — Saved (on the phone), calendar, invite, Google Maps, Past, Edit profile in 1.0 if live by Nov 7 | Approve |
-| R6-4 | N17 — Auto-repost replaces the Figma "Repost"; not in 1.0 | Arianna decides by Nov 11 |
+| R6-4 | N17 — Auto-repost is MVP (1.0), replacing the Figma "Repost"; B3 grows by ~1 h | Decided (team, Nov 3); Arianna signs off the look by Nov 5 (D11) |
 
 ### Kickoff (Sun Nov 1)
 
