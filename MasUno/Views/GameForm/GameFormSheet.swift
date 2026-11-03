@@ -17,6 +17,13 @@ struct GameFormSheet: View {
             viewModel.time = Calendar.current.date(bySettingHour: 0, minute: 0, second: 0, of: .now) ?? .now
             viewModel.showsErrors = true
         }
+        // `-screen add-filled`: a filled-in Add game form (marketing screenshots).
+        if UserDefaults.standard.string(forKey: "screen") == "add-filled" {
+            viewModel.name = "After-work hoops"
+            viewModel.time = Calendar.current.date(bySettingHour: 19, minute: 30, second: 0, of: .now) ?? .now
+            viewModel.meetUpSpot = "North court bleachers"
+            viewModel.notes = "Casual 3-on-3. Bring a ball and some water!"
+        }
         // `-screen picker`: straight into "Where's the game?".
         _picksLocation = State(initialValue: UserDefaults.standard.string(forKey: "screen") == "picker")
         #endif

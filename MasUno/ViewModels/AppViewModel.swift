@@ -59,7 +59,7 @@ final class AppViewModel {
 
     #if DEBUG
     /// Jump straight to a screen for design review, e.g. launch with `-screen me`.
-    /// Options: update, signed-out, onboarding-email|code|about|interests|guidelines, suspended, me, me-hosting, profile, settings, add, form-error, edit,
+    /// Options: update, signed-out, onboarding-email|code|about|interests|guidelines, suspended, me, me-hosting, repost, profile, settings, add, add-filled, form-error, edit,
     /// picker, gallery, detail-*, who, report, blocked, calendar, chat, chat-host, meetup, popup (handled in `EventMapViewModel`).
     func openDebugScreen(in store: EventStore) {
         let screen = UserDefaults.standard.string(forKey: "screen") ?? ""
@@ -70,9 +70,18 @@ final class AppViewModel {
         case "suspended": session = .suspended
         case "me": path = [.me()]
         case "me-hosting": path = [.me(.hosting)]
+        case "repost":
+            // A player just dropped out of a hosted game and auto-repost fired.
+            path = [.me(.hosting)]
+            if let id = store.hostedEvents.first?.id {
+                Task {
+                    try? await Task.sleep(for: .seconds(1))
+                    store.autoRepostIfNeeded(id)
+                }
+            }
         case "profile": path = [.me(.going, editsProfile: true)]
         case "settings": path = [.me(), .settings]
-        case "add", "form-error", "picker": presentGameForm()
+        case "add", "add-filled", "form-error", "picker": presentGameForm()
         case "edit": presentGameForm(editing: store.hostedEvents.first?.id)
         case "gallery": path = [.gallery]
         case "chat", "chat-host", "meetup":
