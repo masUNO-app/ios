@@ -50,7 +50,7 @@
 | N11 | **Submit 1.0 on Mon Nov 9** instead of Sat Nov 21. Build 0.9 is folded into 1.0: one release candidate goes to App Review and the external TestFlight beta on the same days. | App Store Connect review waits are long; submitting 12 days early leaves room for a rejection and resubmit before Demo Day #2. | ⚑ |
 | N12 | **1.0 needs the live backend by Sat Nov 7.** A mock-data build can't pass review (report, block and delete account must really work; guideline 2.1). Emilio's 1.0 tasks are re-dated to Nov 5–8 (§5.2); go/no-go Fri Nov 6 evening (§4.1). | Follows from N11. | ⚑ Emilio |
 | N13 | **1.1 fast follow** (~Nov 16) takes anything cut from 1.0 (§3 cut order). | Keeps the Nov 9 build small. | — |
-| N14 | **Game hub ("group chat") ships read-only in 1.0**, reversing C2 in part: pinned date/place/meet-up spot, Who's going, system timeline, host edits the meet-up spot. **No composer and no placeholder messages** — sending is still Chat v1 (Appendix A). | The team wants the chat surface for demos; a disabled "coming soon" composer or fake messages would be rejected under 2.1. | ⚑ |
+| N14 | **Group chat in 1.0, with a fallback.** The chat screen stays as built (pinned card, timeline, composer, "Before you chat" sheet) and real messaging (Chat v1, Appendix A) is a 1.0 stretch goal (B20). **If messaging isn't live on prod by the Sun Nov 8 release candidate, the submitted build drops the composer and mock messages** and ships the read-only game hub (§7.6.9). Reverses C2. | The team wants group chat in the product; a disabled "coming soon" composer or fake messages would be rejected under 2.1, so they never go to review. | Decided (team, Nov 3) |
 | N15 | **Bookmarks + Saved list in 1.0, stored on the phone only.** Syncing and "Notify me if a spot opens" stay in 2.0 (B15, E17). | Already built; small. | — |
 | N16 | **Add to calendar, Invite a friend, Google Maps option (E19) and Past games + Edit profile & interests (E21) move to 1.0.** Invite shares the App Store link. Edit profile needs `complete_profile` live; otherwise it moves to 1.1. | Already built. Supersedes C3's timing. | — |
 | N17 | **Auto-repost in 1.0 (MVP):** host toggle (on by default) that bumps a game when a full game frees a spot, so the open spot fills. Replaces the Figma's manual "Repost". Backend added to B3 (§7.6.11, §8.3, §8.5). | Ari's question on the PR: hosts want traction, not a manual bump. Team decision Nov 3: part of the MVP. | ⚑ Arianna (look), Emilio (B3 scope) |
@@ -75,7 +75,7 @@ N1 builds at each demo day, 1.0 before Demo Day #3, 2.0 after it, launch Dec 16 
 | # | Change | Why | Sign-off |
 | - | --- | --- | --- |
 | C1 | Releases with fixed scope replace the open backlog. | Rev. 2 ≈ 95 dev-days; about 16 are available. | — |
-| C2 | *(Partly reversed by N14: a read-only game hub ships in 1.0.)* **No chat screen** during the program; meet-up spot and Who's going live on Event detail. Chat v1 design kept in Appendix A. Reverses decision 3. | A disabled "Messages are coming soon" composer invites an App Review 2.1 rejection; hub + timeline costs ~8 h. | ⚑ |
+| C2 | *(Reversed by N14: group chat in 1.0, read-only fallback.)* **No chat screen** during the program; meet-up spot and Who's going live on Event detail. Chat v1 design kept in Appendix A. Reverses decision 3. | A disabled "Messages are coming soon" composer invites an App Review 2.1 rejection; hub + timeline costs ~8 h. | ⚑ |
 | C3 | *(Timing changed by N16: in 1.0.)* **"Add to Calendar" button** (EventKitUI, no permission prompt) in 2.0 instead of calendar sync. Reverses decision 14. | 1.5 h instead of ~16 h; edited games don't update the calendar entry. | ⚑ |
 | C4 | **No profile photos** during the program; initials avatars. | No storage, upload or image moderation. | ⚑ |
 | C5 | **Names show as "First L."** (e.g. "Emilio G.") to others; no name-visibility setting. | Privacy-forward default, no settings screen. | ⚑ |
@@ -104,7 +104,7 @@ N1 builds at each demo day, 1.0 before Demo Day #3, 2.0 after it, launch Dec 16 
 3. Pass App Review's user-generated-content rules: agree to guidelines, text filter, report, block, act on reports within 24 h, contact info in the app, in-app account deletion.
 4. Numbers for each demo day: beta testers, verified sign-ups, games hosted, joins, games that filled.
 
-**Not in scope during the program:** sending messages (the 1.0 game hub is read-only), photos, calendar sync, dark mode, Android/web, organizer approval, recurring games, non-sport activities, other campuses, our own domain or branded email.
+**Not in scope during the program:** photos, calendar sync, dark mode, Android/web, organizer approval, recurring games, non-sport activities, other campuses, our own domain or branded email.
 
 **Release criteria for 1.0 and 2.0**
 - Core loop works on two physical phones against `masuno-prod`, including two people racing for the last spot.
@@ -137,7 +137,7 @@ N1 builds at each demo day, 1.0 before Demo Day #3, 2.0 after it, launch Dec 16 
 - Settings: Location, Blocked people, Community guidelines, Privacy & Terms, Contact us, version, Sign out, **Delete account (really deletes)**.
 - App icon; no placeholders, DEBUG menus or mock data in the Release build.
 
-**Also in 1.0 (already built; cut to 1.1 in the order below if they aren't live by Sat Nov 7):** Me (Going, Hosting, Past), game hub (read-only, N14), bookmarks + Saved list on the phone (N15), Add to calendar, Invite a friend, Google Maps option, Edit profile & interests (N16), map search and sport filter, basic empty/error/offline states.
+**Also in 1.0 (already built; cut to 1.1 in the order below if they aren't live by Sat Nov 7):** Me (Going, Hosting, Past), group chat (N14 — messaging if B20 lands, otherwise read-only), bookmarks + Saved list on the phone (N15), Add to calendar, Invite a friend, Google Maps option, Edit profile & interests (N16), map search and sport filter, basic empty/error/offline states.
 
 **Auto-repost (N17) is MVP:** it ships in 1.0 and is not on the cut list. If B3's repost logic isn't live by Sat Nov 7, the toggle can't ship as a dead setting — raise it at the Fri Nov 6 go/no-go.
 
@@ -147,14 +147,14 @@ N1 builds at each demo day, 1.0 before Demo Day #3, 2.0 after it, launch Dec 16 
 - Spanish localization (strings, dates, sport names, notification text).
 - Location picker drag-to-adjust; "Happening now" state; "changed since you joined" banner.
 - Auto-repost + "A spot opened" push to people who saved the game.
-- Chat v1 sending only if it's pulled forward from January (Appendix A).
+- Group chat messaging, if it missed 1.0 (B20, Appendix A).
 - Full accessibility pass; metrics view; fixes from 1.0 feedback.
 
 ### After the program (§13)
 Chat v1, profile photos, calendar sync, name-visibility setting, dark mode, links that open a specific game, organizer approval, recurring games, non-sport activities, new campuses, own domain/email.
 
 ### Cut order if we slip
-- **1.0 → 1.1**, decided at the Fri Nov 6 go/no-go and again Sun Nov 8: (1) Edit profile & interests; (2) game hub (hide its entry points); (3) Invite a friend; (4) Past games; (5) sport filter; (6) map search; (7) offline banner (keep retry). Hide cut features in the Release build — never ship a button that does nothing.
+- **1.0 → 1.1**, decided at the Fri Nov 6 go/no-go and again Sun Nov 8: (1) Edit profile & interests; (2) group chat — first fall back to read-only (drop the composer and mock messages), then hide its entry points if even that isn't live; (3) Invite a friend; (4) Past games; (5) sport filter; (6) map search; (7) offline banner (keep retry). Hide cut features in the Release build — never ship a button that does nothing.
 - **2.0** — (1) Google Maps option; (2) drag-to-adjust; (3) "changed since you joined" banner; (4) host-update notifications.
 - **Never cut** anything on the App Review checklist.
 
@@ -266,7 +266,7 @@ Status as of Nov 3: "built" means the screen exists on mock data on `green-desig
 | E13 | **Settings** + Delete account. | 1.0 | 2.5 h | Nov 7 | Built | Delete account signs you out and the account is gone. |
 | E14 | **States + release hygiene**: empty/error/offline basics; app icon; launch color; Release → prod; DEBUG-only demo tools; hide cut or unconnected features in Release. | 1.0 | 3 h | Nov 8 | To do | Release build has no DEBUG menus, mock data or dead buttons; airplane mode never strands a screen. |
 | E15 | **Submit 1.0**: privacy label, age rating, review notes; Ricardo enters the listing (O7). | 1.0 | 2 h | **Nov 9** | To do | 1.0 submitted. |
-| E24 | **Live wiring** *(new)*: move screens onto E1 models + Emilio's `GameStore`/`AuthService`; delete `EventStore`/`MockData` from Release; game hub read-only (drop the composer and mock messages, N14); Saved persisted on the phone (N15). | 1.0 | 6 h | Nov 7 | To do | Every 1.0 screen works on `masuno-dev` with no mock data. |
+| E24 | **Live wiring** *(new)*: move screens onto E1 models + Emilio's `GameStore`/`AuthService`; delete `EventStore`/`MockData` from Release; group chat on live data — messaging if B20 lands, otherwise the read-only fallback with the composer and mock messages removed (N14); Saved persisted on the phone (N15). | 1.0 | 6 h | Nov 7 | To do | Every 1.0 screen works on `masuno-dev` with no mock data. |
 | | *1.0 subtotal* | | *~60 h* | | *~48 h built* | |
 | E16 | **Notification screens**. | 2.0 | 3.5 h | Nov 29 | — | Tapping each notification type opens the right game. |
 | E17 | **Saved sync + Notify me** (local Saved already in 1.0). | 2.0 | 1.5 h | Nov 29 | Local version built | Saved survives reinstall; Notify me works. |
@@ -276,6 +276,7 @@ Status as of Nov 3: "built" means the screen exists on mock data on `green-desig
 | E21 | **Me: Past games + Edit profile & interests** — moved to 1.0 (N16). | 1.0 | 3 h | Nov 7 | Built | Edited interests save and reload from the server. |
 | E22 | **Accessibility + UI tests**. | 2.0 | 4 h | Dec 7 | — | Core loop with VoiceOver at XXL text. |
 | E23 | **1.x fixes + 2.0 submission.** | 2.0 | 3 h | Dec 8 | — | 2.0 submitted. |
+| E26 | **Group chat messaging** (stretch, N14): send with optimistic insert + retry, live updates, unread counts, text filter, report a message; on Sun Nov 8 either it works on prod or apply the fallback. | 1.0 | 4 h | Nov 7 | UI built (mock messages, disabled composer) | Two phones exchange messages on prod — or the RC has no composer. |
 | E25 | **Auto-repost** (N17): form toggle, hosting-card line, bumped pin ("Spot open" label, drawn on top for 2 h), bumped games first in search; wire to `auto_repost` / `reposted_at`. | 1.0 | 1.5 h | Nov 7 | Built on mocks (bump pin not yet) | When a player leaves a full game, the host's card shows "Reposted just now" and the pin is bumped on another phone. |
 
 ### 5.2 Emilio — backend (Supabase + Swift data layer)
@@ -297,6 +298,7 @@ Status as of Nov 3: "built" means the screen exists on mock data on `green-desig
 | B11 | **CI** (GitHub Actions): iOS generate → build → unit tests on PRs to `main`, plus the database tests. (`CODEOWNERS` and branch protection are in E0.) | 1.0 | 1.5 h | Nov 12 ⚑ | E0 | Ethan adds it as a required check on `main`. |
 | B12 | **Prod project**: latency test (Ricardo runs it from a phone in Monterrey), create `masuno-prod`, migrations, demo campus check, keep-alive + weekly backup (§8.1). | 1.0 | 1.5 h | Nov 6 ⚑ | B3 | TestFlight builds run on prod. |
 | | *1.0 subtotal* | | *44.5 h* | | | |
+| B20 | **Chat v1 backend** (stretch, N14; Appendix A items 1–4): `chat_messages`, `chat_reads`, RLS for members, rate limit, text filter, Realtime channel, `send_message` RPC. Only after the 1.0 must-haves (B1–B9, B12). | 1.0 stretch | 5 h | Nov 7 ⚑ | B3 | Two members exchange messages on `masuno-dev`; non-members can't read them. |
 | B13 | **Notification backend**: device tokens, preferences, outbox written by RPCs, 1-min drain job, 5-min reminder job, interest matches (max 2/day), changed/cancelled, host updates. | 2.0 | 8 h | Nov 28 | — | Each row of §8.7 produced by the right trigger. |
 | B14 | **`send-push` Edge Function** (APNs token auth, collapse per game, invalid-token cleanup). | 2.0 | 4 h | Nov 29 | APNs key | Test push reaches a TestFlight build from prod. |
 | B15 | **Saved backend**: `bookmarks`, `toggle_bookmark`, spot-opened fan-out, repository calls. | 2.0 | 1 h | Nov 28 | B13 | Leaving a full game queues a notification for everyone who saved it. |
@@ -313,7 +315,7 @@ Status as of Nov 3: "built" means the screen exists on mock data on `green-desig
 | ID | Task | For | ~Hours | Due |
 | --- | --- | --- | --- | --- |
 | D1 | **Finalize the green system in Figma**: confirm tokens (§7.1) as Figma variables; component set; fix known issues (unify copy per §7.2, green checkmarks, remove mic glyph, "· Read", meet-up photo, chat entry points, non-sport placeholder content). Hand Ethan the token table. | 0.1 | 3 | Nov 1 |
-| D2 | **Frames for screens built from the spec**: onboarding (6 screens), Event detail states (Full, Hosting, Ended, Cancelled), report sheet, block dialog, Blocked people, Settings, empty/error/offline, game hub without composer. Ethan swaps them in for 1.1. | 1.1 | 6 | Nov 12 |
+| D2 | **Frames for screens built from the spec**: onboarding (6 screens), Event detail states (Full, Hosting, Ended, Cancelled), report sheet, block dialog, Blocked people, Settings, empty/error/offline, group chat read-only fallback. Ethan swaps them in for 1.1. | 1.1 | 6 | Nov 12 |
 | D3 | **App icon** (1024 × 1024, no transparency) + launch-screen color. | 1.0 | 2 | **Nov 6** |
 | D4 | **Website pages** on `masuno-app.github.io`: Privacy & Terms and Support, using Ricardo's copy (O6). | 1.0 | 3 | **Nov 6** |
 | D5 | **Deck design** for Demo Days #1–#3 and the Product Launch (Ricardo writes the story). | DD1–Launch | 6 | Nov 5, Nov 19, Dec 3, Dec 16 |
@@ -334,7 +336,7 @@ Status as of Nov 3: "built" means the screen exists on mock data on `green-desig
 | O4 | **Tec email check**: student address format (`A0…@tec.mx`?) and whether staff share `@tec.mx`; 3–5 Tec inboxes Emilio can test with. | 1.0 | 1 | Nov 4 |
 | O5 | **Venue list**: 10–15 real places near Tec for pickup sports (name, address, coordinates, sports) for seed data and the demo campus. Run the Supabase latency test from a phone in Monterrey when Emilio sends the links. | 1.0 | 2 | Nov 3 |
 | O6 | **Policy + support copy** from the outline in §10.2; Emilio checks every data claim. | 1.0 | 2 | **Nov 5** |
-| O7 | **App Store listing**: name, subtitle, description, keywords, promo text, support/privacy URLs; enters them in App Store Connect. Describes only what that version does — the game hub shows plans, not messaging. | 1.0 / 2.0 | 2 | **Nov 7** / Dec 7 |
+| O7 | **App Store listing**: name, subtitle, description, keywords, promo text, support/privacy URLs; enters them in App Store Connect. Describes only what that version does — mention group messaging only if B20 shipped in that build. | 1.0 / 2.0 | 2 | **Nov 7** / Dec 7 |
 | O8 | **Beta**: recruit 15–30 Tec students from the waitlist; manage the external TestFlight group (1.0 build); short feedback Google Form; weekly summary at the Team Session. | 1.0 | 5 | Nov 9 – Dec 1 |
 | O9 | **Hosts & real games**: 2–3 real games during beta week and launch week; film a short clip for the decks. | DD2–Launch | 4 | Nov 19, Dec 16 |
 | O10 | **Demo-day stories, scripts and numbers** (testers, sign-ups, games, joins from App Store Connect and the metrics view). | DD1–Launch | 6 | Nov 5, Nov 19, Dec 3, Dec 16 |
@@ -392,9 +394,9 @@ Cards 16–20 pt radius with hairline border; pill buttons ~50 pt; boxed fields 
 | Cancel dialog | "Cancel After-work hoops?" / "We'll let the 3 people who are going know." / "This can't be undone." / **Cancel game** / **Keep game** | Delete event |
 | Leave | **Leave** → **Leave game** | Give up your spot |
 | Bottom bar | **+ Add game** | + Add event |
-| Before you go (1.0) | "Alex can see you joined. Check where to meet and who's going." | "Say hi in the group chat" (no sending in 1.0 — fix in E24) |
+| Before you go (1.0) | "Alex can see you joined. Say hi in the group chat so people know to wait for you." — if group chat falls back to read-only (N14), use "Alex can see you joined. Check where to meet and who's going." | — |
 | Before you go (2.0) | …+ "We'll remind you 30 min before." | — |
-| Game hub (1.0) | Button **Group chat** / "Group chat · 2 new"; footer "Messages are coming in a later update" must **not** appear — no composer at all in 1.0 (N14) | "Messages are coming soon" |
+| Group chat (1.0) | Button **Group chat** / "Group chat · 2 new"; composer "Message" — the dev-only "Messages are coming soon" composer never goes to review; the read-only fallback has no composer (N14) | — |
 | Saved | **Saved** list; bookmark **Bookmark** / **Remove bookmark** | Bookmarked |
 | Validation | Hint "Give it a real name, not just the sport"; "Add a name so people know what they're joining."; "9:00 AM has already passed today. Pick a later time." | — |
 
@@ -414,7 +416,7 @@ Launch → version check → session?
           ├─ Going → Event detail · Leave · Group chat · Past (14 days)
           └─ Hosting → Edit → Game form → Cancel · Group chat
 Event detail → Who's going (report/block) · Report game · Open in Maps (Apple/Google) · Add to calendar · Invite a friend · Group chat (going or hosting)
-Group chat (game hub, read-only) → Who's going · Where to meet (host)
+Group chat → Who's going · Where to meet (host)
 [2.0] Notification tap → Event detail
 ```
 
@@ -428,12 +430,12 @@ Frames: `https://www.figma.com/design/5eKA3f0I90VVABrAuNMFD2/masuno-figma?node-i
 | Add event (341:1849), Error (341:3054) | As designed + Meet-up spot field + Auto-repost toggle (N17) | 1.0 · E7/E25 · D11 |
 | Choose location (341:2646) | Search + current location in 1.0; drag in 2.0 | 1.0 / 2.0 · E8/E20 · D8 |
 | Event detail (341:2586) | As designed + `…` menu + bookmark; other states drawn in D2 | 1.0 · E10 · D2 |
-| You're in (341:2989) | Open group chat (game hub) · Invite a friend; Add to calendar in the card | 1.0 · E10/E19 |
+| You're in (341:2989) | Open group chat · Invite a friend; Add to calendar in the card | 1.0 · E10/E19 |
 | Who's going (341:2309) | Flag → Report / Block | 1.0 · E11 · D2 |
 | Me Going/Hosting (341:2165/2240) | As designed incl. "Group chat · N new"; initials; the Repost button is replaced by the "Auto-repost on" / "Reposted …" line (N17) | 1.0 · E12/E25 · D11 |
 | Edit / Delete event (341:2703/2840) | "Cancel game" copy | 1.0 · E7 · D1 |
 | Settings (341:2144) | 1.0 rows only; notification toggles in 2.0; no calendar or name-visibility rows | 1.0 · E13 · D2/D8 |
-| Group chat (341:1791), Chat rules (341:2420), Edit meet-up (341:2507) | Game hub read-only in 1.0 (N14): pinned card, timeline of system rows, no composer; rules sheet shown once; host edits the meet-up spot | 1.0 · E24 · D2 |
+| Group chat (341:1791), Chat rules (341:2420), Edit meet-up (341:2507) | As designed (N14), minus "· Read" and the meet-up photo; read-only fallback (no composer) if messaging misses the Nov 8 RC | 1.0 · E24/E26 · D1 |
 
 ### 7.5 Onboarding & sign-in (E5 screens · B5 `AuthService` · D2 frames)
 
@@ -499,12 +501,13 @@ Card: initials, your full name, "Class of 2029 · Tec de Monterrey", "Verified s
 #### 7.6.8 Empty, error, offline (E14)
 Map with no games: "No open games right now. Start one?" Failed loads show a retry card; failed actions show a short message and undo the optimistic change; offline shows "You're offline — showing the last games we loaded."
 
-#### 7.6.9 Game hub — "Group chat" (N14, E24)
+#### 7.6.9 Group chat (N14, E24/E26, B20)
 - Header: game title, "N going", avatar stack → Who's going.
 - Pinned card: date/time, place, meet-up spot; host sees **Edit** → "Where to meet" sheet ("Pinned at the top of the chat so nobody has to ask.", ≤ 80, text filter, **Save**).
-- Timeline: system rows only in 1.0, from game data — created, joined, left ("1 spot open"), meet-up updated, time/place changed, cancelled. **No composer, no placeholder messages** (guideline 2.1). Sending is Chat v1 (Appendix A).
-- "Before you chat" rules sheet once per account; opening marks activity read ("Group chat · N new").
-- Backend: system rows can be derived from `rsvps` and `events` change times; a `game_activity` view is enough for 1.0 (B3, ⚑ Emilio).
+- Timeline: messages ("Maya C. · Host · 5:42 PM") and system rows — created, joined, left ("1 spot open"), meet-up updated, time/place changed, cancelled ("Chat closed").
+- Composer (if B20 lands): text filter, ≤ 1000 characters, report a message; rules from Appendix A.
+- "Before you chat" rules sheet once per account; opening marks the chat read ("Group chat · N new").
+- **Submission rule:** the mock messages and the disabled "Messages are coming soon" composer are dev-only. If messaging isn't live on prod by the Sun Nov 8 RC, the submitted build ships the **read-only fallback**: pinned card + system rows only, no composer, and the "Before you go" copy reverts (§7.2). System rows can come from a `game_activity` view over `rsvps` and `events` change times (B3).
 
 #### 7.6.10 Saved (N15, E17)
 Bookmark on the popup, Event detail and the Saved list; filled green icon when saved. 1.0 stores bookmarks on the phone (survive relaunch, not reinstall). 2.0 syncs them (`bookmarks`, B15) and adds "Notify me if a spot opens".
@@ -685,7 +688,7 @@ Plain language, at `masuno-app.github.io/privacy`, linked from onboarding, Setti
 - [ ] Contact us in the app (team Gmail) and support URL (website) in App Store Connect.
 - [ ] Privacy & Terms URL in the app and in App Store Connect; privacy label answered.
 - [ ] Delete account in the app, and it really deletes.
-- [ ] No placeholders, no "coming soon", no DEBUG menus, no mock data or mock location; the game hub has no composer; cut features hidden; Auto-repost really bumps the game on prod; screenshots from the real build; listing doesn't promise messaging or anything not in this version.
+- [ ] No placeholders, no "coming soon", no DEBUG menus, no mock data or mock location; group chat either sends real messages or has no composer (N14); cut features hidden; Auto-repost really bumps the game on prod; screenshots from the real build; listing doesn't promise messaging or anything not in this version.
 - [ ] Location purpose string explains the use; (2.0) notifications asked in context.
 - [ ] Age-rating questionnaire answered (user-generated content; no messaging in 1.0).
 - [ ] Map lands on the campus (demo campus for review accounts) for someone far from Monterrey.
@@ -727,7 +730,7 @@ Alert in team chat → on-call person (Ricardo or Arianna) checks the report in 
 | K10 | Empty map at launch (end of semester) | High | Medium | Real games lined up for beta and launch weeks; the real campus push happens in February | Ricardo |
 | K11 | Last-spot race or data bug | Low | High | Row lock + capacity check + race test | Emilio |
 | K12 | "Verified student" untrue if staff share `@tec.mx` | Medium | Low | O4; pattern check or "Tec verified" badge | Ricardo |
-| K13 | Game hub read as placeholder content (2.1) | Medium | High | No composer or fake messages in 1.0 (§7.6.9); listing and review notes call it "game details and who's going"; if rejected, hide its entry points and resubmit | Ethan |
+| K13 | Group chat read as placeholder content (2.1), or messaging (B20) not ready | Medium | High | Sun Nov 8 rule: real messaging on prod, or the read-only fallback with no composer and no mock messages (§7.6.9); if rejected anyway, hide its entry points and resubmit | Ethan, Emilio |
 | K14 | Reviewers far from Monterrey see an empty map | High without fallback | High | Campus fallback (§7.6.1) + demo campus with auto-refreshed games (C12); remove the dev mock location (E9) | Ethan, Emilio |
 | K15 | Rushed RC ships a crash or a mock leftover | Medium | High | DEBUG-only demo tools; Release build checked for `MockData`/TEMP (E14); two-phone QA Sun Nov 8 | Ethan, Arianna |
 
@@ -740,7 +743,7 @@ Alert in team chat → on-call person (Ricardo or Arianna) checks the report in 
 | # | Decision | Default |
 | - | --- | --- |
 | R6-1 | N11/N12 — submit 1.0 Mon Nov 9 on the live backend; go/no-go Fri Nov 6; fall back to Mon Nov 16 if must-haves aren't live | Approve (Emilio confirms the B dates) |
-| R6-2 | N14 — read-only game hub in 1.0, no composer | Approve |
+| R6-2 | N14 — group chat in 1.0; messaging (B20) is a stretch; read-only fallback if it misses the Nov 8 RC | Decided (team, Nov 3); Emilio confirms B20 fits after the must-haves |
 | R6-3 | N15/N16 — Saved (on the phone), calendar, invite, Google Maps, Past, Edit profile in 1.0 if live by Nov 7 | Approve |
 | R6-4 | N17 — Auto-repost is MVP (1.0), replacing the Figma "Repost"; B3 grows by ~1 h | Decided (team, Nov 3); Arianna signs off the look by Nov 5 (D11) |
 
@@ -764,7 +767,7 @@ Alert in team chat → on-call person (Ricardo or Arianna) checks the report in 
 
 | When | What |
 | --- | --- |
-| January 2027 | Chat v1 (Appendix A), profile photos with moderation, calendar sync, name-visibility setting, links that open a specific game |
+| January 2027 | Chat push and retention (Appendix A items 8–9) if not done, profile photos with moderation, calendar sync, name-visibility setting, links that open a specific game |
 | Start of Tec's Feb–Jun semester | Campus launch (Ricardo): club hosts, recurring games, posters; own domain + email provider if sign-ups approach Gmail's limit; Supabase Pro for backups |
 | Later | Organizer approval, non-sport activities, IIT/UIC (new `universities` rows), dark mode, meet-up photo, pin clustering |
 
@@ -772,7 +775,7 @@ Alert in team chat → on-call person (Ricardo or Arianna) checks the report in 
 
 ## Appendix A — Chat v1 design (parked)
 
-*Rev. 6: the read-only game hub (§7.6.9) ships in 1.0; items 1–5, 8 and 9 below (sending) remain parked until January. Items 6 (consent sheet) and 7 (unread) are built.*
+*Rev. 6: pulled forward as a 1.0 stretch goal (N14, B20/E26) — items 1–4 for 1.0, items 8 (push) and 9 (retention) still later. Items 6 (consent sheet) and 7 (unread) are built. If it misses the Nov 8 RC, it lands in 1.1.*
 
 
 1. **Tables:** `chat_messages` (event, sender, kind system/user, body ≤ 1000, `client_id`, soft delete), `chat_reads`; `profile_private.chat_guidelines_accepted_at`; `app_config.chat_enabled`.
