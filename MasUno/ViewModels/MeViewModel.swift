@@ -2,7 +2,7 @@ import Observation
 import SwiftUI
 
 /// Me (SPEC §7.6.5): your profile card plus Going and Hosting lists.
-/// Past games and Edit profile & interests come in 2.0 (E21).
+/// Past games (last 14 days) and Edit profile & interests are E21.
 @Observable
 final class MeViewModel {
     enum Tab: Hashable {
@@ -12,6 +12,9 @@ final class MeViewModel {
     var tab: Tab
     /// Game waiting on the Leave confirmation.
     var leaving: SportsEvent?
+    var editsProfile = false
+    /// Past is collapsed until you open it.
+    var showsPast = false
 
     init(tab: Tab = .going) {
         self.tab = tab
@@ -21,6 +24,10 @@ final class MeViewModel {
     /// they would have ended.
     func going(in store: EventStore) -> [SportsEvent] {
         store.goingEvents.filter { !$0.hasEnded }
+    }
+
+    func past(in store: EventStore) -> [SportsEvent] {
+        store.pastEvents
     }
 
     func hosting(in store: EventStore) -> [SportsEvent] {

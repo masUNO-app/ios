@@ -1,14 +1,16 @@
 import SwiftUI
 
 /// Figma: "Me · Going" (341:2165) and "Me · Hosting" (341:2240). Replaces "Registered
-/// events" and "Hosted events". Repost and Edit profile & interests are not built yet.
+/// events" and "Hosted events". Repost is not built yet.
 struct MeView: View {
     @Environment(EventStore.self) private var store
     @Environment(AppViewModel.self) private var appViewModel
     @State private var viewModel: MeViewModel
 
-    init(tab: MeViewModel.Tab = .going) {
-        _viewModel = State(initialValue: MeViewModel(tab: tab))
+    init(tab: MeViewModel.Tab = .going, editsProfile: Bool = false) {
+        let viewModel = MeViewModel(tab: tab)
+        viewModel.editsProfile = editsProfile
+        _viewModel = State(initialValue: viewModel)
     }
 
     var body: some View {
@@ -56,6 +58,7 @@ struct MeView: View {
                 .tint(Theme.ink)
             }
         }
+        .sheet(isPresented: $viewModel.editsProfile) { EditProfileSheet(profile: store.profile) }
         .alert(
             Text("Leave \(viewModel.leaving?.title ?? "")?"),
             isPresented: Binding(get: { viewModel.leaving != nil }, set: { if !$0 { viewModel.leaving = nil } }),
@@ -98,6 +101,14 @@ struct MeView: View {
                     ForEach(profile.interests) { InterestChip(sport: $0) }
                 }
             }
+
+            Button("Edit profile & interests") { viewModel.editsProfile = true }
+                .buttonStyle(.glassProminent)
+                .tint(Theme.accentSoft)
+                .foregroundStyle(Theme.ink)
+                .controlSize(.large)
+                .buttonSizing(.flexible)
+                .fontWeight(.semibold)
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -128,6 +139,35 @@ struct MeView: View {
                 }
             }
             .buttonStyle(.plain)
+        }
+        pastSection
+    }
+
+    /// Last 14 days, collapsed.
+    @ViewBuilder
+    private var pastSection: some View {
+        @Bindable var viewModel = viewModel
+        let events = viewModel.past(in: store)
+        if !events.isEmpty {
+            DisclosureGroup(isExpanded: $viewModel.showsPast) {
+                VStack(spacing: 16) {
+                    ForEach(events) { event in
+                        NavigationLink(value: Route.game(event.id)) {
+                            GameCard(event: event, status: String(localized: "Ended · \(event.attendees.count) played")) {
+                                EmptyView()
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.top, 12)
+            } label: {
+                Text("Past · \(events.count)")
+                    .font(.headline)
+                    .foregroundStyle(Theme.ink)
+            }
+            .tint(Theme.ink)
+            .padding(.top, 8)
         }
     }
 

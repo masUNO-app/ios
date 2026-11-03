@@ -49,6 +49,15 @@ final class EventStore {
         events.filter { $0.isYouGoing && !$0.isHostedByYou }.sorted { $0.start < $1.start }
     }
 
+    /// Games you played or hosted that ended in the last 14 days, newest first, so you
+    /// can still report someone afterwards (E21).
+    var pastEvents: [SportsEvent] {
+        let cutoff = Date.now.addingTimeInterval(-14 * 24 * 3600)
+        return events
+            .filter { $0.isYouGoing && !$0.isCancelled && $0.hasEnded && $0.end > cutoff }
+            .sorted { $0.start > $1.start }
+    }
+
     /// Saved games that haven't ended, soonest first.
     var bookmarkedEvents: [SportsEvent] {
         events.filter { $0.isBookmarked && !$0.hasEnded }.sorted { $0.start < $1.start }

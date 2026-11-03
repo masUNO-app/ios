@@ -24,7 +24,7 @@ git-ignored too: Debug points at `masuno-dev`, Release at `masuno-prod`.
 Debug builds accept a `-screen` launch argument to jump straight to a screen for design review:
 `popup`, `add`, `form-error`, `edit`, `picker`, `detail-open|in|full|hosting|ended|cancelled`
 (add `-raceJoin YES` to `detail-open` for the last-spot race), `who`, `report`, `blocked`, `me`,
-`me-hosting`, `chat`, `chat-host`, `meetup`, `settings`, `update`, `signed-out`, `suspended`, `gallery`.
+`me-hosting`, `profile`, `calendar`, `chat`, `chat-host`, `meetup`, `settings`, `update`, `signed-out`, `suspended`, `gallery`.
 
 ## How we work
 
@@ -98,5 +98,7 @@ Placeholders that still need a real answer. Card IDs refer to SPEC §5.
 - [ ] Release hygiene (E14): app icon, launch color, Release → prod, keep `-screen` DEBUG-only
 - [ ] 2.0: Notify me + Saved backend (bookmarks are local only), notifications, calendar, invite, picker drag, Past games, Spanish
 - [ ] Chat backend: sending, real timeline, rules acceptance per account (`GroupChatView` is UI only)
-- [ ] Not built from the Figma yet: Repost on hosted games, Edit profile & interests (E21), Invite a friend (E19)
+- [ ] Not built from the Figma yet: Repost on hosted games
+- [ ] TODO/TEMP: "Invite a friend" shares an App Store search link (`AppConfig.inviteURL`) until the listing / TestFlight link exists
+- [ ] Profile edits and interests are local only until `complete_profile` is live (B7)
 - [ ] Post-MVP: organizer approval, profile photos, dark mode
