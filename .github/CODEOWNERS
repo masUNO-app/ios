@@ -1,0 +1,15 @@
+# GitHub requests a review from the owners of every file a PR touches.
+# Later rules win, so the specific paths below override this default.
+*                       @wen-ethan @eac1738
+
+# Ethan — screens, view logic, design system
+/MasUno/Views/          @wen-ethan
+/MasUno/ViewModels/     @wen-ethan
+/MasUno/DesignSystem/   @wen-ethan
+
+# Emilio — data layer and Supabase
+/MasUno/Data/           @eac1738
+/supabase/              @eac1738
+
+# The contract between the two: both review
+/docs/API.md            @wen-ethan @eac1738
