@@ -36,6 +36,7 @@ struct ContentView: View {
                     switch route {
                     case .game(let id): EventDetailView(eventID: id)
                     case .me(let tab): MeView(tab: tab)
+                    case .settings: SettingsView()
                     case .blockedPeople: BlockedPeopleView()
                     #if DEBUG
                     case .gallery: ComponentGallery()

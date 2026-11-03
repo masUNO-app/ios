@@ -59,7 +59,7 @@ final class AppViewModel {
 
     #if DEBUG
     /// Jump straight to a screen for design review, e.g. launch with `-screen me`.
-    /// Options: update, signed-out, suspended, me, me-hosting, add, form-error, edit,
+    /// Options: update, signed-out, suspended, me, me-hosting, settings, add, form-error, edit,
     /// picker, gallery, detail-*, who, report, blocked, popup (handled in `EventMapViewModel`).
     func openDebugScreen(in store: EventStore) {
         switch UserDefaults.standard.string(forKey: "screen") {
@@ -68,13 +68,14 @@ final class AppViewModel {
         case "suspended": session = .suspended
         case "me": path = [.me()]
         case "me-hosting": path = [.me(.hosting)]
+        case "settings": path = [.me(), .settings]
         case "add", "form-error", "picker": presentGameForm()
         case "edit": presentGameForm(editing: store.hostedEvents.first?.id)
         case "gallery": path = [.gallery]
         case "who", "report": path = Self.debugDetailID("detail-open", in: store).map { [.game($0)] } ?? []
         case "blocked":
             store.block("Jordan Lee")
-            path = [.blockedPeople]
+            path = [.me(), .settings, .blockedPeople]
         case let screen? where screen.hasPrefix("detail-"):
             if let id = Self.debugDetailID(screen, in: store) { path = [.game(id)] }
         default: break

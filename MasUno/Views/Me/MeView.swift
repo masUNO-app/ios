@@ -48,6 +48,13 @@ struct MeView: View {
         .background(Theme.background)
         .navigationTitle("Me")
         .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                NavigationLink(value: Route.settings) {
+                    Label("Settings", systemImage: "gearshape")
+                }
+            }
+        }
         .alert(
             Text("Leave \(viewModel.leaving?.title ?? "")?"),
             isPresented: Binding(get: { viewModel.leaving != nil }, set: { if !$0 { viewModel.leaving = nil } }),

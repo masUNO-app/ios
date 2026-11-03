@@ -77,28 +77,23 @@ Group chat is post-MVP too: no chat screens or entry points during the program.
 
 ## TODO
 
-Placeholders and judgment calls from the prelim build that still need a real answer.
+Placeholders that still need a real answer. Card IDs refer to SPEC §5.
 
-### Design
-- [ ] Dark mode — the app is forced to light (`.preferredColorScheme(.light)` in `MasUnoApp.swift`); needs a dark palette in `Theme.swift`
-- [ ] Profile photos — avatars and the "You" pin show initials / a person icon
-- [ ] Group chat screen — `GroupChatView` is a stand-in; no Figma frame yet
-- [ ] Settings screen — map Settings is a demo-only menu; Settings on the plans bottom bar does nothing
-- [ ] Map styling — MapKit standard style with a warm tint, not the Figma's custom map
-- [ ] Review additions not in Figma: popup bookmark toggle, "Hosted by · skill" and "Going:" lines, "Give up your spot" button, empty states
-- [ ] Navigation — confirm how users reach Your plans / Hosting (currently the map's bookmark menu) and what the plans bottom bar's Search / Filter should do (currently back to map)
+### Waiting on design (D2)
+- [ ] Onboarding (E5) — `WelcomeView` is a stand-in that signs straight in on mock auth
+- [ ] Event detail Full / Hosting / Ended / Cancelled, report sheet, Blocked people and Settings rows
+      were built from SPEC §7.6 copy; swap in Arianna's frames when they're Ready
+- [ ] Empty / error / offline states (E14)
+- [ ] Interest chip and activity tile colors for non-blue tints (only `chipSport` / `accentSoft` are tokens)
 
-### Product
-- [ ] Decide whether non-sport events (music, social, games) belong on the map — currently sports only
-- [ ] Confirm the posting window (today + next 2 days) and the sport list (Basketball, Tennis, Soccer, Volleyball)
-- [ ] Organizer approval (post-MVP) — Join requests UI from the "Hosted events" frame
-- [ ] Report / block
+### Waiting on backend (Emilio)
+- [ ] Domain models + repository protocols (E1) — screens still use `SportsEvent` / `EventStore` mocks
+- [ ] Live data (B6, B7): create / edit / cancel, join / leave, the last-spot race (`-raceJoin YES` fakes it)
+- [ ] Report, block and unblock RPCs (B8); delete-account function (B9); sign out via `AuthService` (B5)
+- [ ] `app_config` (min version, support email, privacy URL) — mocked in `AppConfig.mock`
 
-### Backend & auth
-- [ ] Student email verification before first RSVP (`EventStore.rsvp`)
-- [ ] Persist events — everything is in memory and resets on launch
-- [ ] Real-time group chat (or link out to an existing group chat for MVP)
-- [ ] Push notifications for bookmarked games when a spot opens (currently an in-app banner)
-- [ ] Game reminders before start
-- [ ] Real user location (currently a fixed mock coordinate) and real venue search in Add event
-- [ ] Replace `MockData` with real data; remove the demo "Simulate a player dropping out" option
+### Later
+- [ ] Live map location, campus fallback banner and pull to refresh (E9) — map uses a mock "you" coordinate
+- [ ] Release hygiene (E14): app icon, launch color, Release → prod, keep `-screen` DEBUG-only
+- [ ] 2.0: bookmarks / Saved, notifications, calendar, invite, picker drag, Past games, Spanish
+- [ ] Post-MVP: group chat, organizer approval, profile photos, dark mode
