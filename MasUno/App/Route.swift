@@ -5,6 +5,7 @@ enum Route: Hashable {
     case registered
     case hosted
     case game(SportsEvent.ID)
+    case blockedPeople
     case chat(SportsEvent.ID)
     #if DEBUG
     case gallery

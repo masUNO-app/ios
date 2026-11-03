@@ -114,7 +114,7 @@ struct GameFormSheet: View {
 
                 locationCard
 
-                FieldBox("Meet-up spot (optional)") {
+                FieldBox("Meet-up spot (optional)", error: viewModel.meetUpError) {
                     TextField("e.g. North court bleachers", text: $viewModel.meetUpSpot)
                 }
 
@@ -124,7 +124,7 @@ struct GameFormSheet: View {
                     }
                 }
 
-                FieldBox("Notes (optional)") {
+                FieldBox("Notes (optional)", error: viewModel.notesError) {
                     TextField("Casual 3-on-3. Bring a ball and some water!", text: $viewModel.notes, axis: .vertical)
                         .lineLimit(1...4)
                 }

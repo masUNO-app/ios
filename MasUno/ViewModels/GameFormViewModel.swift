@@ -85,7 +85,15 @@ final class GameFormViewModel {
         if name.trimmingCharacters(in: .whitespaces).isEmpty {
             return String(localized: "Add a name so people know what they're joining.")
         }
-        return nil
+        return TextFilter.isFriendly(name) ? nil : TextFilter.message
+    }
+
+    var meetUpError: String? {
+        showsErrors && !TextFilter.isFriendly(meetUpSpot) ? TextFilter.message : nil
+    }
+
+    var notesError: String? {
+        showsErrors && !TextFilter.isFriendly(notes) ? TextFilter.message : nil
     }
 
     var timeError: String? {
@@ -96,6 +104,7 @@ final class GameFormViewModel {
 
     private var isValid: Bool {
         !name.trimmingCharacters(in: .whitespaces).isEmpty && start > .now
+            && [name, meetUpSpot, notes].allSatisfy(TextFilter.isFriendly)
     }
 
     // MARK: Intents

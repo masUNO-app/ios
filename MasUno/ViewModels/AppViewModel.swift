@@ -24,7 +24,7 @@ final class AppViewModel {
 
     #if DEBUG
     /// Jump straight to a screen for design review, e.g. launch with `-screen hosted`.
-    /// Options: registered, hosted, add, form-error, edit, picker, gallery, detail-*, popup (handled in `EventMapViewModel`).
+    /// Options: registered, hosted, add, form-error, edit, picker, gallery, detail-*, who, report, blocked, popup (handled in `EventMapViewModel`).
     func openDebugScreen(in store: EventStore) {
         switch UserDefaults.standard.string(forKey: "screen") {
         case "registered": path = [.registered]
@@ -33,6 +33,10 @@ final class AppViewModel {
         case "form-error", "picker": startAdding()
         case "edit": startAdding(editing: store.hostedEvents.first?.id)
         case "gallery": path = [.gallery]
+        case "who", "report": path = Self.debugDetailID("detail-open", in: store).map { [.game($0)] } ?? []
+        case "blocked":
+            store.block("Jordan Lee")
+            path = [.blockedPeople]
         case let screen? where screen.hasPrefix("detail-"):
             if let id = Self.debugDetailID(screen, in: store) { path = [.game(id)] }
         default: break

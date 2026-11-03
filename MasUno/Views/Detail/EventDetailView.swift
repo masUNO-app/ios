@@ -60,14 +60,23 @@ struct EventDetailView: View {
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            if state == .going || state == .hosting {
-                ToolbarItem(placement: .topBarTrailing) { overflowMenu(event, state: state) }
-            }
+            ToolbarItem(placement: .topBarTrailing) { overflowMenu(event, state: state) }
         }
         .safeAreaInset(edge: .bottom) { bottomBar(event, state: state) }
         .sheet(isPresented: $viewModel.showsWhoIsGoing) {
             WhoIsGoingSheet(eventID: event.id)
         }
+        .sheet(item: $viewModel.reportTarget) { ReportSheet(target: $0) }
+        #if DEBUG
+        .onAppear {
+            // `-screen who` / `-screen report`: open the safety sheets on this game.
+            switch UserDefaults.standard.string(forKey: "screen") {
+            case "who": viewModel.showsWhoIsGoing = true
+            case "report": viewModel.reportTarget = .person(event.host)
+            default: break
+            }
+        }
+        #endif
         .alert(Text("Leave \(event.title)?"), isPresented: $viewModel.confirmsLeave) {
             Button("Leave game", role: .destructive) { viewModel.leave(in: store) }
             Button("Stay in", role: .cancel) {}
@@ -171,8 +180,8 @@ struct EventDetailView: View {
             viewModel.showsWhoIsGoing = true
         } label: {
             HStack(spacing: 10) {
-                AvatarStack(names: event.attendees, size: 30)
-                Text(viewModel.goingNames(for: event))
+                AvatarStack(names: store.visibleAttendees(of: event), size: 30)
+                Text(viewModel.goingNames(for: event, in: store))
                     .font(.subheadline)
                     .foregroundStyle(Theme.muted)
                     .lineLimit(1)
@@ -184,7 +193,7 @@ struct EventDetailView: View {
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(Text("Who's going: \(viewModel.goingNames(for: event))"))
+        .accessibilityLabel(Text("Who's going: \(viewModel.goingNames(for: event, in: store))"))
     }
 
     // MARK: Actions
@@ -192,18 +201,23 @@ struct EventDetailView: View {
     private func overflowMenu(_ event: SportsEvent, state: EventDetailViewModel.State) -> some View {
         Menu("More", systemImage: "ellipsis") {
             switch state {
-            case .going:
-                Button("Leave game", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) {
-                    viewModel.confirmsLeave = true
-                }
             case .hosting:
                 Button("Cancel game", systemImage: "xmark.circle", role: .destructive) {
                     viewModel.confirmsCancel = true
                 }
+            case .going:
+                Button("Leave game", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) {
+                    viewModel.confirmsLeave = true
+                }
+                reportGameButton(event)
             default:
-                EmptyView()
+                reportGameButton(event)
             }
         }
+    }
+
+    private func reportGameButton(_ event: SportsEvent) -> some View {
+        Button("Report game", systemImage: "flag") { viewModel.reportTarget = .game(event.id) }
     }
 
     @ViewBuilder

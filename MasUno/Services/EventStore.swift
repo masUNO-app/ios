@@ -8,8 +8,11 @@ import Observation
 /// that mutates them. Screen/presentation state lives in `ViewModels/`.
 @Observable
 final class EventStore {
-    var events: [SportsEvent]
+    /// Every game the phone knows about, including ones hidden by blocks.
+    private var allEvents: [SportsEvent]
     var profile: Profile
+    /// People you blocked, newest first. Hidden immediately, before the server answers (App Review checks this).
+    private(set) var blockedPeople: [String] = []
 
     /// Short toast text (failed actions, confirmations).
     var notice: String?
@@ -18,11 +21,21 @@ final class EventStore {
     var lastCreatedID: SportsEvent.ID?
 
     init(events: [SportsEvent] = MockData.events(), profile: Profile = MockData.profile) {
-        self.events = events
+        self.allEvents = events
         self.profile = profile
     }
 
     // MARK: Queries
+
+    /// Games you can see: none hosted by someone you blocked (`game_cards`, SPEC §8.3).
+    var events: [SportsEvent] {
+        allEvents.filter { !blockedPeople.contains($0.host) }
+    }
+
+    /// Who's going, minus anyone you blocked (`game_attendees`). Counts still include them.
+    func visibleAttendees(of event: SportsEvent) -> [String] {
+        event.attendees.filter { !blockedPeople.contains($0) }
+    }
 
     func event(_ id: SportsEvent.ID) -> SportsEvent? {
         events.first { $0.id == id }
@@ -41,6 +54,10 @@ final class EventStore {
 
     /// First come, first served: joining takes the spot immediately.
     func join(_ id: SportsEvent.ID) {
+        if let event = event(id), event.attendees.contains(where: blockedPeople.contains) {
+            notice = JoinFailure.blocked.message
+            return
+        }
         mutate(id) { event in
             guard !event.isFull, !event.isYouGoing, !event.isCancelled else { return }
             event.attendees.append(Person.you)
@@ -76,6 +93,36 @@ final class EventStore {
         notice = String(localized: "Game cancelled. We let everyone going know.")
     }
 
+    // MARK: Safety (backend: B8)
+
+    enum ReportReason: String, CaseIterable, Identifiable {
+        case harassment, inappropriate, spam, unsafe, other
+
+        var id: Self { self }
+
+        var title: String {
+            switch self {
+            case .harassment: String(localized: "Harassment or hate")
+            case .inappropriate: String(localized: "Inappropriate content")
+            case .spam: String(localized: "Spam or fake")
+            case .unsafe: String(localized: "Made me feel unsafe")
+            case .other: String(localized: "Something else")
+            }
+        }
+    }
+
+    /// TODO(B8): call the `report` RPC, which alerts the moderation channel.
+    func report(_ target: ReportTarget, reason: ReportReason, note: String) {}
+
+    func block(_ person: String) {
+        guard person != Person.you, !blockedPeople.contains(person) else { return }
+        blockedPeople.insert(person, at: 0)
+    }
+
+    func unblock(_ person: String) {
+        blockedPeople.removeAll { $0 == person }
+    }
+
     func sendMessage(_ text: String, to id: SportsEvent.ID) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
@@ -87,16 +134,24 @@ final class EventStore {
     }
 
     func save(_ draft: SportsEvent) {
-        if let index = events.firstIndex(where: { $0.id == draft.id }) {
-            events[index] = draft
+        if let index = allEvents.firstIndex(where: { $0.id == draft.id }) {
+            allEvents[index] = draft
         } else {
-            events.append(draft)
+            allEvents.append(draft)
             lastCreatedID = draft.id
         }
     }
 
     func mutate(_ id: SportsEvent.ID, _ change: (inout SportsEvent) -> Void) {
-        guard let index = events.firstIndex(where: { $0.id == id }) else { return }
-        change(&events[index])
+        guard let index = allEvents.firstIndex(where: { $0.id == id }) else { return }
+        change(&allEvents[index])
     }
+}
+
+/// What a report is about: a person or a game.
+enum ReportTarget: Hashable, Identifiable {
+    case person(String)
+    case game(SportsEvent.ID)
+
+    var id: Self { self }
 }

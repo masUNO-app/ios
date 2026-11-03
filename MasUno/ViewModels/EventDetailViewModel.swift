@@ -13,6 +13,7 @@ final class EventDetailViewModel {
     var confirmsLeave = false
     var confirmsCancel = false
     var showsWhoIsGoing = false
+    var reportTarget: ReportTarget?
 
     init(eventID: SportsEvent.ID) {
         self.eventID = eventID
@@ -48,9 +49,9 @@ final class EventDetailViewModel {
         state(of: event) == .going ? "checkmark.circle.fill" : nil
     }
 
-    /// "Alex R. (host), Ricardo T., you"
-    func goingNames(for event: SportsEvent) -> String {
-        event.attendees.map { name in
+    /// "Alex R. (host), Ricardo T., you" — without anyone you blocked.
+    func goingNames(for event: SportsEvent, in store: EventStore) -> String {
+        store.visibleAttendees(of: event).map { name in
             if name == Person.you {
                 return name == event.host ? String(localized: "you (host)") : String(localized: "you")
             }

@@ -30,8 +30,8 @@ struct EventPopup: View {
                 Label("\(EventFormat.dayAndTime(event.start)) · starts in \(EventFormat.countdown(to: event.start))", systemImage: "clock")
                 Label(event.venue.name, systemImage: "mappin.and.ellipse")
                 HStack(spacing: 8) {
-                    AvatarStack(names: event.attendees, size: 22)
-                    Text(event.attendees.map(Person.display).joined(separator: ", "))
+                    AvatarStack(names: store.visibleAttendees(of: event), size: 22)
+                    Text(store.visibleAttendees(of: event).map(Person.display).joined(separator: ", "))
                         .lineLimit(1)
                 }
             }
