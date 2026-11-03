@@ -54,7 +54,7 @@ struct EventMapView: View {
 
         // Native selection: tap a pin to select, tap empty map to dismiss the popup.
         return Map(position: $viewModel.position, selection: $viewModel.selectedID) {
-            Annotation("You", coordinate: MockData.userLocation, anchor: .bottom) {
+            Annotation("You", coordinate: MockData.userLocation, anchor: .center) {
                 UserPin()
             }
             .annotationTitles(.hidden)
@@ -73,14 +73,13 @@ struct EventMapView: View {
         .onMapCameraChange(frequency: .continuous) { context in
             cameraTracker.camera = context.camera
         }
-        .overlay { Theme.mapWarmth.allowsHitTesting(false) }
         .ignoresSafeArea()
     }
 
-    /// Soft cream fade behind the search bar ("Search backdrop" layer).
+    /// Soft fade behind the search bar ("Search backdrop" layer).
     private var topBackdrop: some View {
         LinearGradient(
-            colors: [Theme.cream.opacity(0.95), Theme.cream.opacity(0)],
+            colors: [Theme.background.opacity(0.95), Theme.background.opacity(0)],
             startPoint: .top, endPoint: .bottom
         )
         .frame(height: 212)
@@ -95,12 +94,10 @@ struct EventMapView: View {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
                     .font(.title3)
-                    .foregroundStyle(Theme.orange)
-                TextField("Search Events", text: $viewModel.searchText)
+                    .foregroundStyle(Theme.muted)
+                TextField("Search events", text: $viewModel.searchText)
                     .textInputAutocapitalization(.never)
                     .submitLabel(.search)
-                Image(systemName: "mic")
-                    .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 14)
             .frame(height: 48)
@@ -122,29 +119,28 @@ struct EventMapView: View {
             } label: {
                 Image(systemName: "bookmark")
                     .font(.title3.weight(.medium))
-                    .foregroundStyle(Theme.orange)
+                    .foregroundStyle(Theme.ink)
                     .frame(width: 48, height: 48)
             }
             .glassEffect(.regular.interactive(), in: .circle)
-            .tint(Theme.orange)
+            .accessibilityLabel("Plans and bookmarks")
         }
-        .foregroundStyle(.primary)
+        .foregroundStyle(Theme.ink)
     }
 
     private var nearbyChip: some View {
         HStack(spacing: 6) {
-            Circle().fill(Theme.actionBlue).frame(width: 7, height: 7)
-            Text("·")
-            Text("\(viewModel.mapEvents(in: store).count) nearby")
+            Circle().fill(Theme.accent).frame(width: 7, height: 7)
+            Text("\(viewModel.mapEvents(in: store).count) games nearby")
         }
         .font(.footnote)
-        .foregroundStyle(.secondary)
+        .foregroundStyle(Theme.muted)
         .padding(.horizontal, 12)
         .padding(.vertical, 7)
         .glassEffect(.regular, in: .capsule)
     }
 
-    /// Bottom toolbar: filters · Add Event · profile avatar.
+    /// Bottom toolbar: filters · Add event · profile avatar.
     @ToolbarContentBuilder
     private var bottomActions: some ToolbarContent {
         ToolbarItem(placement: .bottomBar) {
@@ -178,14 +174,14 @@ struct EventMapView: View {
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "plus")
-                    Text("Add Event")
+                    Text("Add event")
                 }
                 .font(.headline)
                 .modifier(BottomBarWidth(width: isWideLayout ? nil : addButtonWidth))
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.glassProminent)
             .controlSize(.large)
-            .tint(Theme.actionBlue)
+            .tint(Theme.accent)
         }
 
         ToolbarSpacer(.flexible, placement: .bottomBar)
@@ -197,6 +193,11 @@ struct EventMapView: View {
                     Button("Simulate a player dropping out", systemImage: "person.fill.xmark") {
                         viewModel.simulateDropOut(in: store)
                     }
+                    #if DEBUG
+                    Button("Component gallery", systemImage: "swatchpalette") {
+                        appViewModel.path.append(.gallery)
+                    }
+                    #endif
                 }
             } label: {
                 Avatar(name: Person.you, size: 32)
@@ -222,7 +223,7 @@ struct EventMapView: View {
     }
 }
 
-/// Toolbar items size to fit, so this gives Add Event an explicit width to fill a
+/// Toolbar items size to fit, so this gives Add event an explicit width to fill a
 /// horizontal bottom bar. When the system moves the toolbar into a vertical bar on
 /// one side (e.g. iPhone Duo half-open), the button keeps its natural size instead.
 /// A `nil` width also means natural size.

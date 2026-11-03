@@ -26,7 +26,7 @@ struct GroupChatView: View {
                     if let last = event.messages.last { withAnimation { proxy.scrollTo(last.id, anchor: .bottom) } }
                 }
             }
-            .background(Theme.cream)
+            .background(Theme.background)
             .navigationTitle(event.title)
             .navigationBarTitleDisplayMode(.inline)
             .safeAreaInset(edge: .bottom) { composer }
@@ -38,13 +38,13 @@ struct GroupChatView: View {
         let isMine = message.sender == Person.you
         return VStack(alignment: isMine ? .trailing : .leading, spacing: 3) {
             Text("\(message.sender) · \(event.role(of: message.sender))")
-                .font(.caption)
-                .foregroundStyle(message.sender == event.host ? Theme.orange : Theme.secondaryInk)
+                .font(.caption.weight(message.sender == event.host ? .semibold : .regular))
+                .foregroundStyle(Theme.muted)
             Text(message.text)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 9)
-                .foregroundStyle(isMine ? .white : Theme.ink)
-                .background(isMine ? Theme.orange : Theme.card, in: .rect(cornerRadius: 18))
+                .foregroundStyle(isMine ? Theme.onAccent : Theme.ink)
+                .background(isMine ? Theme.accent : Theme.card, in: .rect(cornerRadius: 18))
         }
         .frame(maxWidth: .infinity, alignment: isMine ? .trailing : .leading)
     }
@@ -66,7 +66,7 @@ struct GroupChatView: View {
             .frame(width: 44, height: 44)
             .buttonStyle(.glassProminent)
             .buttonBorderShape(.circle)
-            .tint(Theme.orange)
+            .tint(Theme.accent)
             .disabled(!viewModel.canSend)
         }
         .padding(.horizontal, 16)

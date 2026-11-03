@@ -28,20 +28,13 @@ struct HostedEventsView: View {
                 )
             }
             ForEach(upcoming) { event in
-                PlanEventCard(event: event, status: "You · Host", metaNoun: "people") {
-                    Button {
-                        appViewModel.startAdding(editing: event.id)
-                    } label: {
-                        Text("Edit event")
-                            .font(.subheadline.weight(.medium))
-                            .foregroundStyle(Theme.orange)
-                            .frame(maxWidth: .infinity, minHeight: 34)
-                    }
-                    .buttonStyle(.glass)
-                    .tint(Theme.orange)
-
+                GameCard(event: event, showsHost: false) {
+                    Button("Edit") { appViewModel.startAdding(editing: event.id) }
+                        .buttonStyle(.glassProminent)
+                        .tint(Theme.accentSoft)
+                        .foregroundStyle(Theme.ink)
+                } footer: {
                     // Join requests (Accept/Decline) go here once organizer approval ships.
-
                     GroupChatPreview(event: event)
                 }
             }

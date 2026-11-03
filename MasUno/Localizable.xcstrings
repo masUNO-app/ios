@@ -1,0 +1,276 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "%@ %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ %2$@"
+          }
+        }
+      }
+    },
+    "%@ %@%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ %2$@%3$@"
+          }
+        }
+      }
+    },
+    "%@ · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "%@ · Hosted by %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · Hosted by %2$@"
+          }
+        }
+      }
+    },
+    "%@ · starts in %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · starts in %2$@"
+          }
+        }
+      }
+    },
+    "%lld games nearby" : {
+
+    },
+    "%lld going · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld going · %2$@"
+          }
+        }
+      }
+    },
+    "%lld members" : {
+
+    },
+    "%lld players" : {
+
+    },
+    "%lld spots left" : {
+
+    },
+    "+%lld" : {
+
+    },
+    "1 spot left" : {
+
+    },
+    "Add a name so people know what they're joining." : {
+
+    },
+    "Add event" : {
+
+    },
+    "After-work hoops" : {
+
+    },
+    "All sports" : {
+
+    },
+    "Already passed" : {
+
+    },
+    "Bookmark" : {
+
+    },
+    "Bookmarked" : {
+
+    },
+    "Bring your neighborhood together." : {
+
+    },
+    "Casual 3-on-3. Bring a ball and some water!" : {
+
+    },
+    "Change" : {
+
+    },
+    "Coming up · %lld" : {
+
+    },
+    "Component gallery" : {
+
+    },
+    "Create event" : {
+
+    },
+    "Date" : {
+
+    },
+    "Demo" : {
+
+    },
+    "Duration" : {
+
+    },
+    "Edit" : {
+
+    },
+    "Edit event" : {
+
+    },
+    "Event name" : {
+
+    },
+    "Filters" : {
+
+    },
+    "Full" : {
+
+    },
+    "Full · Bookmark" : {
+
+    },
+    "Game ended" : {
+
+    },
+    "Get a game going nearby." : {
+
+    },
+    "Give it a real name, not just the sport" : {
+
+    },
+    "Good times nearby. Your people, all here." : {
+
+    },
+    "Group chat" : {
+
+    },
+    "Group chat · %lld new" : {
+
+    },
+    "Hosted by %@" : {
+
+    },
+    "Hosting" : {
+
+    },
+    "Including you" : {
+
+    },
+    "Join a game on the map and it shows up here." : {
+
+    },
+    "Join game" : {
+
+    },
+    "Keep the connection" : {
+
+    },
+    "Leave" : {
+
+    },
+    "Location" : {
+
+    },
+    "Manage game" : {
+
+    },
+    "Map" : {
+
+    },
+    "Message" : {
+
+    },
+    "No plans yet" : {
+
+    },
+    "Notes (optional)" : {
+
+    },
+    "Nothing hosted yet" : {
+
+    },
+    "Past · %lld" : {
+
+    },
+    "People counts include you" : {
+
+    },
+    "Plans and bookmarks" : {
+
+    },
+    "Players" : {
+
+    },
+    "Post a game in under a minute with Add event." : {
+
+    },
+    "Profile" : {
+
+    },
+    "Public game · visible to players nearby" : {
+
+    },
+    "Remove bookmark" : {
+
+    },
+    "Save changes" : {
+
+    },
+    "Search events" : {
+
+    },
+    "Send" : {
+
+    },
+    "Simulate a player dropping out" : {
+
+    },
+    "Skill level" : {
+
+    },
+    "Sport" : {
+
+    },
+    "Start time" : {
+
+    },
+    "Update the details for your group." : {
+
+    },
+    "Watching for a spot" : {
+
+    },
+    "You" : {
+
+    },
+    "You're in · View plans" : {
+
+    },
+    "You're the host" : {
+
+    },
+    "Your next neighborhood hang" : {
+
+    },
+    "Your plans" : {
+
+    }
+  },
+  "version" : "1.0"
+}

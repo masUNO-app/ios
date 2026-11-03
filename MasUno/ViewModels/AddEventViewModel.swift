@@ -36,9 +36,9 @@ final class AddEventViewModel {
 
     // MARK: Presentation
 
-    var title: String { editing == nil ? "Add event" : "Edit event" }
-    var subtitle: String { editing == nil ? "Get a game going nearby." : "Update the details for your group." }
-    var saveButtonTitle: String { editing == nil ? "Create event" : "Save changes" }
+    var title: String { editing == nil ? String(localized: "Add event") : String(localized: "Edit event") }
+    var subtitle: String { editing == nil ? String(localized: "Get a game going nearby.") : String(localized: "Update the details for your group.") }
+    var saveButtonTitle: String { editing == nil ? String(localized: "Create event") : String(localized: "Save changes") }
 
     var isNameValid: Bool {
         !name.trimmingCharacters(in: .whitespaces).isEmpty

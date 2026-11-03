@@ -24,7 +24,7 @@ struct AddEventSheet: View {
         }
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
-        .presentationBackground(Theme.card)
+        .presentationBackground(Theme.background)
     }
 
     private var form: some View {
@@ -34,9 +34,10 @@ struct AddEventSheet: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Sport")
                     .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Theme.ink)
                 sportPicker
 
-                FieldBox("Event name") {
+                FieldBox("Event name", hint: "Give it a real name, not just the sport") {
                     TextField("After-work hoops", text: $viewModel.name)
                         .textInputAutocapitalization(.sentences)
                 }
@@ -78,14 +79,18 @@ struct AddEventSheet: View {
                         HStack(spacing: 14) {
                             Image(systemName: "mappin.circle")
                                 .font(.title2)
-                                .foregroundStyle(Theme.actionBlue)
+                                .foregroundStyle(Theme.accent)
                             VStack(alignment: .leading, spacing: 2) {
-                                Text("Location").font(.caption).foregroundStyle(.secondary)
+                                Text("Location").font(.caption).foregroundStyle(Theme.muted)
                                 Text(viewModel.venue.name)
-                                Text(viewModel.venue.street + ", San Francisco").font(.footnote).foregroundStyle(.secondary)
+                                Text(verbatim: viewModel.venue.fullAddress).font(.footnote).foregroundStyle(Theme.muted)
                             }
                             Spacer()
-                            Image(systemName: "chevron.right").foregroundStyle(.secondary)
+                            Text("Change")
+                                .font(.subheadline.weight(.medium))
+                                .padding(.horizontal, 14)
+                                .frame(height: Theme.compactButtonHeight)
+                                .background(Theme.accentSoft, in: .capsule)
                         }
                     }
                 }
@@ -96,7 +101,7 @@ struct AddEventSheet: View {
                             ForEach(AddEventViewModel.playerCounts, id: \.self) { Text("\($0) players").tag($0) }
                         }
                     } label: {
-                        FieldBox("Players · including you", trailingChevron: true) { Text("\(viewModel.players) players") }
+                        FieldBox("Players", hint: "Including you", showsChevron: true) { Text("\(viewModel.players) players") }
                     }
 
                     Menu {
@@ -104,40 +109,37 @@ struct AddEventSheet: View {
                             ForEach(SkillLevel.allCases) { Text($0.rawValue).tag($0) }
                         }
                     } label: {
-                        FieldBox("Skill level", trailingChevron: true) { Text(viewModel.skill.rawValue) }
+                        FieldBox("Skill level", showsChevron: true) { Text(viewModel.skill.rawValue) }
                     }
                     .frame(maxWidth: 160)
                 }
 
-                FieldBox("Notes · optional") {
+                FieldBox("Notes (optional)") {
                     TextField("Casual 3-on-3. Bring a ball and some water!", text: $viewModel.notes, axis: .vertical)
                         .lineLimit(1...3)
                 }
 
-                Label("Public event · visible to players nearby", systemImage: "globe")
+                Label("Public game · visible to players nearby", systemImage: "globe")
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Theme.muted)
                     .frame(maxWidth: .infinity)
                     .padding(.top, 4)
             }
             .tint(Theme.ink)
-            .padding(.horizontal, 20)
+            .padding(.horizontal, Theme.gutter)
             .padding(.top, 8)
         }
         .scrollDismissesKeyboard(.interactively)
         .safeAreaInset(edge: .bottom) {
-            Button(action: save) {
-                Text(viewModel.saveButtonTitle)
-                    .font(.headline)
-                    .frame(maxWidth: .infinity, minHeight: 40)
-            }
-            .buttonStyle(.glassProminent)
-            .tint(Theme.actionBlue)
-            .disabled(!viewModel.isNameValid)
-            .padding(.horizontal, 20)
+            Button(viewModel.saveButtonTitle, action: save)
+                .buttonStyle(.glassProminent)
+                .controlSize(.large)
+                .buttonSizing(.flexible)
+                .disabled(!viewModel.isNameValid)
+                .padding(.horizontal, Theme.gutter)
             .padding(.bottom, 8)
         }
-        .background(Theme.card)
+        .background(Theme.background)
     }
 
     private var sportPicker: some View {
@@ -153,11 +155,11 @@ struct AddEventSheet: View {
                             Text(option.name)
                         }
                         .font(.subheadline.weight(isSelected ? .semibold : .regular))
-                        .foregroundStyle(isSelected ? Theme.actionBlue : .primary)
+                        .foregroundStyle(Theme.ink)
                         .padding(.horizontal, 18)
                         .frame(height: 40)
-                        .background(isSelected ? Theme.actionBlue.opacity(0.12) : Color.white, in: .capsule)
-                        .overlay(Capsule().stroke(isSelected ? Theme.actionBlue : Color(.systemGray4)))
+                        .background(isSelected ? Theme.accentSoft : Theme.card, in: .capsule)
+                        .overlay(Capsule().strokeBorder(isSelected ? Theme.accent : Theme.hairline, lineWidth: isSelected ? 1.5 : 1))
                     }
                     .buttonStyle(.plain)
                 }
@@ -169,38 +171,5 @@ struct AddEventSheet: View {
     private func save() {
         viewModel.save(in: store)
         dismiss()
-    }
-}
-
-/// Bordered field container with a small caption label.
-private struct FieldBox<Content: View>: View {
-    var label: String?
-    var trailingChevron = false
-    @ViewBuilder var content: Content
-
-    init(_ label: String?, trailingChevron: Bool = false, @ViewBuilder content: () -> Content) {
-        self.label = label
-        self.trailingChevron = trailingChevron
-        self.content = content()
-    }
-
-    var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                if let label {
-                    Text(label).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                }
-                content.foregroundStyle(.primary).lineLimit(1).minimumScaleFactor(0.75)
-            }
-            if trailingChevron {
-                Spacer(minLength: 4)
-                Image(systemName: "chevron.down").font(.footnote).foregroundStyle(.secondary)
-            }
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white, in: .rect(cornerRadius: 14))
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color(.systemGray5)))
     }
 }

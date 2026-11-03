@@ -17,74 +17,56 @@ struct EventPopup: View {
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
                         .foregroundStyle(Theme.ink)
-                    Text(event.capacitySummary)
+                    Text("\(event.sport.name) · Hosted by \(event.host)")
+                        .font(.footnote)
+                        .foregroundStyle(Theme.muted)
+                    Text(event.statusLine)
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Theme.orange)
-                    Text("Hosted by \(event.host) · \(event.skillLevel.rawValue)")
-                        .font(.caption)
-                        .foregroundStyle(Theme.secondaryInk)
+                        .foregroundStyle(Theme.ink)
                 }
                 Spacer(minLength: 0)
-                Button {
+                Button(
+                    event.isBookmarked ? "Remove bookmark" : "Bookmark",
+                    systemImage: event.isBookmarked ? "bookmark.fill" : "bookmark"
+                ) {
                     viewModel.toggleBookmark(event.id, in: store)
-                } label: {
-                    Image(systemName: event.isBookmarked ? "bookmark.fill" : "bookmark")
-                        .foregroundStyle(Theme.orange)
-                        .frame(width: 36, height: 36)
-                        .contentShape(.circle)
                 }
-                .buttonStyle(.plain)
-                .glassEffect(.regular.interactive(), in: .circle)
-                .accessibilityLabel(event.isBookmarked ? "Remove bookmark" : "Bookmark")
+                .labelStyle(.iconOnly)
+                .buttonStyle(.glass)
+                .buttonBorderShape(.circle)
+                .tint(Theme.ink)
             }
 
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Image(systemName: "clock")
-                    .foregroundStyle(Theme.youRed)
-                Text("\(event.start.formatted(date: .numeric, time: .shortened)) · \(EventFormat.countdown(to: event.start)) until start")
+            VStack(alignment: .leading, spacing: 6) {
+                Label("\(event.start.formatted(date: .omitted, time: .shortened)) · starts in \(EventFormat.countdown(to: event.start))", systemImage: "clock")
+                Label(event.venue.fullAddress, systemImage: "mappin.and.ellipse")
+                if !event.attendees.isEmpty {
+                    HStack(spacing: 8) {
+                        AvatarStack(names: event.attendees, size: 22)
+                        Text(event.attendees.joined(separator: ", "))
+                            .lineLimit(1)
+                    }
+                }
             }
             .font(.footnote)
             .foregroundStyle(Theme.ink)
+            .labelStyle(MutedIconLabelStyle())
 
-            Text(event.venue.fullAddress)
-                .font(.caption)
-                .foregroundStyle(Theme.ink)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 8)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Theme.tan.opacity(0.55), in: .rect(cornerRadius: 12))
-
-            if !event.guests.isEmpty {
-                Text("Going: \(event.attendees.joined(separator: ", "))")
-                    .font(.caption)
-                    .foregroundStyle(Theme.secondaryInk)
-                    .lineLimit(1)
-            }
-
-            HStack(spacing: 10) {
-                Text(event.sport.category)
-                    .font(.subheadline)
-                    .foregroundStyle(Theme.ink)
-                    .padding(.horizontal, 16)
-                    .frame(height: 40)
-                    .background(Theme.tan.opacity(0.55), in: .capsule)
-                    .overlay(Capsule().stroke(Theme.tanStroke.opacity(0.5)))
-
-                primaryAction
-                    .buttonStyle(OrangeCapsuleStyle(foreground: .white))
-            }
+            primaryAction
+                .buttonStyle(.glassProminent)
+                .controlSize(.large)
+                .buttonSizing(.flexible)
         }
         .padding(16)
         .frame(maxWidth: 320, alignment: .leading)
-        // Regular glass with a warm card tint keeps text legible over the map
-        // while still picking up the map colors underneath.
-        .glassEffect(.regular.tint(Theme.card.opacity(0.6)), in: .rect(cornerRadius: 26))
+        // Card-tinted glass keeps text legible over the map while picking up its colors.
+        .glassEffect(.regular.tint(Theme.card.opacity(0.85)), in: .rect(cornerRadius: Theme.Radius.dialog))
     }
 
     @ViewBuilder
     private var primaryAction: some View {
         if event.isHostedByYou {
-            Button("Manage event") { appViewModel.path.append(.hosted) }
+            Button("Manage game") { appViewModel.path.append(.hosted) }
         } else if event.isYouGoing {
             Button("You're in · View plans") { appViewModel.path.append(.registered) }
         } else if event.isFull {
@@ -93,7 +75,7 @@ struct EventPopup: View {
             }
         } else {
             // TODO(auth): verify student email before the first RSVP. No auth in the prelim build.
-            Button("RSVP Now") {
+            Button("Join game") {
                 viewModel.rsvp(event.id, in: store)
             }
         }

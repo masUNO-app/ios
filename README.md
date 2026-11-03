@@ -21,7 +21,7 @@ open MasUno.xcodeproj                          # run the MasUno scheme on a simu
 re-run `xcodegen generate` after pulling or adding files. `Config.xcconfig` is
 git-ignored too: Debug points at `masuno-dev`, Release at `masuno-prod`.
 
-Debug builds accept `-screen registered|hosted|add|popup` as a launch argument to jump straight to a screen.
+Debug builds accept `-screen registered|hosted|add|gallery|popup` as a launch argument to jump straight to a screen.
 
 ## How we work
 
@@ -42,7 +42,7 @@ MasUno/
 ├── Data/          # Supabase data layer (Emilio): AuthService, repositories, GameStore
 ├── ViewModels/    # Per-screen presentation state & intents
 ├── Views/         # SwiftUI screens: Map/, Plans/, Chat/, AddEvent/
-├── DesignSystem/  # Theme (Figma palette) + shared UI (Avatar, EventIconTile, OrangeCapsuleStyle, Triangle)
+├── DesignSystem/  # Theme (green tokens, SPEC §7.1) + components; DEBUG ComponentGallery
 └── Utilities/     # EventFormat date/duration formatting
 supabase/          # Migrations, functions, seed (Emilio)
 docs/              # Spec, API contract, QA script

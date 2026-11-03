@@ -1,0 +1,60 @@
+import SwiftUI
+
+/// Small soft-green capsule for a game's status: "Open · 4 spots left", "3 going · 3 spots left", "Full".
+struct StatusChip: View {
+    var text: String
+
+    init(_ text: String) {
+        self.text = text
+    }
+
+    var body: some View {
+        Text(text)
+            .font(.footnote.weight(.medium))
+            // Ink, not accent: accent on accentSoft is only 4.1:1 at this size.
+            .foregroundStyle(Theme.ink)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background(Theme.accentSoft, in: .capsule)
+    }
+}
+
+/// Interest on the Me card: "🏀 Basketball".
+struct InterestChip: View {
+    var sport: Sport
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Text(sport.emoji)
+            Text(sport.name)
+        }
+        .font(.footnote.weight(.medium))
+        .foregroundStyle(Theme.ink)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(Theme.chipSport, in: .capsule)
+    }
+}
+
+/// Rounded-square tile with a game's sport emoji (or symbol for non-sport mock events).
+struct ActivityTile: View {
+    var sport: Sport
+    var size: CGFloat = 44
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: size * 0.27)
+            .fill(Theme.accentSoft)
+            .frame(width: size, height: size)
+            .overlay {
+                if let symbol = sport.symbol {
+                    Image(systemName: symbol)
+                        .font(.system(size: size * 0.45))
+                        .foregroundStyle(Theme.accent)
+                } else {
+                    Text(sport.emoji)
+                        .font(.system(size: size * 0.55))
+                }
+            }
+            .accessibilityLabel(Text(sport.name))
+    }
+}

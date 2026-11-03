@@ -15,6 +15,9 @@ struct ContentView: View {
                     case .registered: RegisteredEventsView()
                     case .hosted: HostedEventsView()
                     case .chat(let id): GroupChatView(eventID: id)
+                    #if DEBUG
+                    case .gallery: ComponentGallery()
+                    #endif
                     }
                 }
         }
@@ -24,7 +27,7 @@ struct ContentView: View {
         .overlay(alignment: .top) { NoticeBanner() }
         .environment(store)
         .environment(appViewModel)
-        .tint(Theme.orange)
+        .tint(Theme.accent)
         // The Figma is light-only for now.
         .preferredColorScheme(.light)
         #if DEBUG

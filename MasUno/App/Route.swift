@@ -5,4 +5,7 @@ enum Route: Hashable {
     case registered
     case hosted
     case chat(SportsEvent.ID)
+    #if DEBUG
+    case gallery
+    #endif
 }

@@ -19,24 +19,24 @@ struct RegisteredEventsView: View {
                 ContentUnavailableView(
                     "No plans yet",
                     systemImage: "sportscourt",
-                    description: Text("RSVP to a game on the map and it shows up here.")
+                    description: Text("Join a game on the map and it shows up here.")
                 )
             }
             ForEach(upcoming) { event in
-                PlanEventCard(event: event, status: "Registered · You're going", statusIcon: "checkmark.circle") {
+                GameCard(event: event) {
+                    Button("Leave") { viewModel.leave(event.id, in: store) }
+                        .buttonStyle(.glassProminent)
+                        .tint(Theme.accentSoft)
+                        .foregroundStyle(Theme.ink)
+                } footer: {
                     GroupChatPreview(event: event)
-                    Button("Can't make it? Give up your spot", role: .destructive) {
-                        viewModel.leave(event.id, in: store)
-                    }
-                    .font(.footnote)
-                    .frame(maxWidth: .infinity)
                 }
             }
 
             if !past.isEmpty {
                 PlansSectionHeader(title: "Past · \(past.count)", trailing: "Keep the connection")
                 ForEach(past) { event in
-                    PlanEventCard(event: event, status: "Registered · Event ended", statusIcon: "checkmark.circle") {
+                    GameCard(event: event, status: String(localized: "Game ended")) {
                         GroupChatPreview(event: event)
                     }
                 }

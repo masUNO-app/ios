@@ -39,6 +39,13 @@ struct SportsEvent: Identifiable, Hashable {
         return "\(attendees.count)/\(capacity) | \(isFull ? "Full" : spots)"
     }
 
+    /// SPEC §7.2 status: "3 going · 3 spots left", "3 going · 1 spot left", "Full".
+    var statusLine: String {
+        if isFull { return String(localized: "Full") }
+        let spots = spotsLeft == 1 ? String(localized: "1 spot left") : String(localized: "\(spotsLeft) spots left")
+        return String(localized: "\(attendees.count) going · \(spots)")
+    }
+
     /// "Sports · 2/3 participants · 1 spot left"
     func metaLine(noun: String = "participants") -> String {
         let spots = isFull ? "Full" : (spotsLeft == 1 ? "1 spot left" : "\(spotsLeft) spots left")
