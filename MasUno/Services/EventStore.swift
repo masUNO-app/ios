@@ -52,6 +52,12 @@ final class EventStore {
         mutate(id) { $0.attendees.removeAll { $0 == Person.you } }
     }
 
+    /// Soft cancel: the game stays visible to people going, marked cancelled.
+    func cancel(_ id: SportsEvent.ID) {
+        mutate(id) { $0.isCancelled = true }
+        notice = String(localized: "Game cancelled. We let everyone going know.")
+    }
+
     func sendMessage(_ text: String, to id: SportsEvent.ID) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }

@@ -22,7 +22,7 @@ struct ContentView: View {
                 }
         }
         .sheet(isPresented: $appViewModel.isAddingEvent, onDismiss: { appViewModel.editingEventID = nil }) {
-            AddEventSheet(editing: appViewModel.editingEvent(in: store))
+            GameFormSheet(editing: appViewModel.editingEvent(in: store))
         }
         .overlay(alignment: .top) { NoticeBanner() }
         .environment(store)
@@ -31,7 +31,7 @@ struct ContentView: View {
         // The Figma is light-only for now.
         .preferredColorScheme(.light)
         #if DEBUG
-        .onAppear(perform: appViewModel.openDebugScreen)
+        .onAppear { appViewModel.openDebugScreen(in: store) }
         #endif
     }
 }

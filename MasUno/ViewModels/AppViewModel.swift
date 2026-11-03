@@ -1,7 +1,7 @@
 import Foundation
 import Observation
 
-/// Root presentation state: navigation path and the Add/Edit event sheet.
+/// Root presentation state: navigation path and the game form sheet.
 @Observable
 final class AppViewModel {
     var path: [Route] = []
@@ -24,12 +24,14 @@ final class AppViewModel {
 
     #if DEBUG
     /// Jump straight to a screen for design review, e.g. launch with `-screen hosted`.
-    /// Options: registered, hosted, add, gallery, popup (handled in `EventMapViewModel`).
-    func openDebugScreen() {
+    /// Options: registered, hosted, add, form-error, edit, gallery, popup (handled in `EventMapViewModel`).
+    func openDebugScreen(in store: EventStore) {
         switch UserDefaults.standard.string(forKey: "screen") {
         case "registered": path = [.registered]
         case "hosted": path = [.hosted]
         case "add": startAdding()
+        case "form-error": startAdding()
+        case "edit": startAdding(editing: store.hostedEvents.first?.id)
         case "gallery": path = [.gallery]
         default: break
         }
