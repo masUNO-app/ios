@@ -158,6 +158,9 @@
     "1 spot left" : {
 
     },
+    "A spot opened in %@ — it's back at the top of the map." : {
+
+    },
     "About" : {
 
     },
@@ -186,6 +189,12 @@
 
     },
     "Apple Maps" : {
+
+    },
+    "Auto-repost" : {
+
+    },
+    "Auto-repost on" : {
 
     },
     "Basketball" : {
@@ -398,6 +407,9 @@
     "I agree" : {
 
     },
+    "If someone drops out, we'll bump your game back to the top of the map." : {
+
+    },
     "If you think this is a mistake, email us at %@." : {
 
     },
@@ -561,6 +573,9 @@
 
     },
     "Report or block %@" : {
+
+    },
+    "Reposted %@" : {
 
     },
     "Save" : {

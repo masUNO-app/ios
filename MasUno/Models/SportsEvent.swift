@@ -19,6 +19,13 @@ struct SportsEvent: Identifiable, Hashable {
     var isCancelled = false
     /// You saved this game (bookmark).
     var isBookmarked = false
+    /// Host setting: when a spot opens in a full game, bump the game back to the top of the
+    /// map and feed so it fills again. Not a manual "repost" — it happens on its own.
+    /// TODO(backend): needs an `auto_repost` column + a bump (e.g. `reposted_at`) set by the
+    /// `leave_game` RPC when a full game frees a spot; the map would sort by it. Not in SPEC yet.
+    var autoRepost = true
+    /// Last automatic repost, shown on the host's card. TODO(backend): `events.reposted_at`.
+    var repostedAt: Date?
     /// Group chat. Not connected yet: mock content, no sending (post-MVP chat backend).
     var messages: [ChatMessage] = []
     var unreadCount = 0

@@ -125,6 +125,21 @@ struct GameFormSheet: View {
                     }
                 }
 
+                // Auto-repost (not in the Figma or SPEC yet — design + backend TBD).
+                FieldBox(nil) {
+                    Toggle(isOn: $viewModel.autoRepost) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Auto-repost")
+                                .foregroundStyle(Theme.ink)
+                            Text("If someone drops out, we'll bump your game back to the top of the map.")
+                                .font(.caption)
+                                .foregroundStyle(Theme.muted)
+                                .lineLimit(3)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+
                 FieldBox("Notes (optional)", error: viewModel.notesError) {
                     TextField("Casual 3-on-3. Bring a ball and some water!", text: $viewModel.notes, axis: .vertical)
                         .lineLimit(1...4)
@@ -157,7 +172,11 @@ struct GameFormSheet: View {
                 }
             }
             .padding(.horizontal, Theme.gutter)
+            .padding(.top, 12)
             .padding(.bottom, 8)
+            // Solid so the fields don't show through the buttons.
+            .background(Theme.background)
+            .overlay(alignment: .top) { Divider().overlay(Theme.hairline) }
         }
         .background(Theme.background)
     }

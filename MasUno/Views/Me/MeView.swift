@@ -181,7 +181,7 @@ struct MeView: View {
         }
         ForEach(events) { event in
             NavigationLink(value: Route.game(event.id)) {
-                GameCard(event: event, showsHost: false, status: event.statusLine) {
+                GameCard(event: event, showsHost: false, status: event.statusLine, showsRepost: true) {
                     Button("Edit") { appViewModel.presentGameForm(editing: event.id) }
                         .buttonStyle(.glassProminent)
                         .tint(Theme.accentSoft)

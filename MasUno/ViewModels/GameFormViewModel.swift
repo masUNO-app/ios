@@ -13,6 +13,8 @@ final class GameFormViewModel {
     var venue: Venue
     var meetUpSpot: String { didSet { if meetUpSpot.count > Self.meetUpLimit { meetUpSpot = String(meetUpSpot.prefix(Self.meetUpLimit)) } } }
     var players: Int
+    /// Bump the game back to the top when a spot opens (see `SportsEvent.autoRepost`).
+    var autoRepost: Bool
     var notes: String { didSet { if notes.count > Self.notesLimit { notes = String(notes.prefix(Self.notesLimit)) } } }
 
     /// Errors only show after the first Create/Save tap (Figma "Error" frame).
@@ -42,6 +44,7 @@ final class GameFormViewModel {
         meetUpSpot = editing?.meetUpSpot ?? ""
         players = editing?.capacity ?? 6
         notes = editing?.notes ?? ""
+        autoRepost = editing?.autoRepost ?? true
     }
 
     // MARK: Presentation
@@ -136,8 +139,12 @@ final class GameFormViewModel {
         event.meetUpSpot = meetUpSpot.trimmingCharacters(in: .whitespaces)
         event.capacity = max(players, event.attendees.count)
         event.notes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
+        event.autoRepost = autoRepost
+        // Raising capacity on a full game opens a spot too.
+        let wasFull = editing?.isFull ?? false
 
         store.save(event)
+        if wasFull, !event.isFull { store.autoRepostIfNeeded(event.id) }
         return true
     }
 

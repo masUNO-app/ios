@@ -7,6 +7,8 @@ struct GameCard<Accessory: View, Footer: View>: View {
     var showsHost = true
     /// Overrides the status line (e.g. "3 going · 3 spots left" on Hosting).
     var status: String?
+    /// Hosting cards: "Auto-repost on" / "Reposted 5 min ago".
+    var showsRepost = false
     @ViewBuilder var accessory: Accessory
     @ViewBuilder var footer: Footer
 
@@ -47,6 +49,11 @@ struct GameCard<Accessory: View, Footer: View>: View {
                         .foregroundStyle(Theme.ink)
                         .padding(.top, 2)
                 }
+                if showsRepost, event.autoRepost, !event.isCancelled {
+                    Label(repostLine, systemImage: "arrow.trianglehead.2.clockwise")
+                        .font(.caption)
+                        .foregroundStyle(Theme.muted)
+                }
             }
             .font(.footnote)
             .foregroundStyle(Theme.muted)
@@ -59,6 +66,13 @@ struct GameCard<Accessory: View, Footer: View>: View {
         }
         .padding(16)
         .cardSurface()
+    }
+}
+
+extension GameCard {
+    private var repostLine: String {
+        guard let repostedAt = event.repostedAt else { return String(localized: "Auto-repost on") }
+        return String(localized: "Reposted \(repostedAt.formatted(.relative(presentation: .named)))")
     }
 }
 

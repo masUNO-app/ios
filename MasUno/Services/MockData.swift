@@ -150,6 +150,8 @@ enum MockData {
                 title: "Volleyball night", sport: .volleyball, host: Person.you,
                 start: day(2, 18, 30), duration: 7200, capacity: 6,
                 attendees: [Person.you, "Alex Rivera", "Priya Shah", "Ben Ortiz"], venue: Venues.sportsCenter,
+                // Shows the "Reposted …" line on Me · Hosting.
+                repostedAt: minutesAgo(25),
                 messages: [
                     system("You created the chat · 4 people going", 200),
                     message("Priya Shah", "Is there a net already up or should we bring one?", 15),

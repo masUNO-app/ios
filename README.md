@@ -99,7 +99,9 @@ Placeholders that still need a real answer. Card IDs refer to SPEC §5.
 - [ ] Release hygiene (E14): app icon, launch color, Release → prod, keep `-screen` DEBUG-only
 - [ ] 2.0: Notify me + Saved backend (bookmarks are local only), notifications, calendar, invite, picker drag, Past games, Spanish
 - [ ] Chat backend: sending, real timeline, rules acceptance per account (`GroupChatView` is UI only)
-- [ ] Not built from the Figma yet: Repost on hosted games
+- [ ] Auto-repost (replaces the Figma's manual "Repost"): UI + local placeholder only. Needs design sign-off (Arianna),
+      a SPEC entry, and backend — an `auto_repost` flag and a `reposted_at` bump set by `leave_game` when a full game
+      frees a spot, with the map sorting by it (`EventStore.autoRepostIfNeeded`)
 - [ ] TODO/TEMP: "Invite a friend" shares an App Store search link (`AppConfig.inviteURL`) until the listing / TestFlight link exists
 - [ ] Profile edits and interests are local only until `complete_profile` is live (B7)
 - [ ] Post-MVP: organizer approval, profile photos, dark mode

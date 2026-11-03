@@ -102,6 +102,17 @@ final class EventStore {
     func leave(_ id: SportsEvent.ID) {
         guard let event = event(id), event.isYouGoing, !event.isHostedByYou else { return }
         mutate(id) { $0.attendees.removeAll { $0 == Person.you } }
+        if event.isFull { autoRepostIfNeeded(id) }
+    }
+
+    /// A full game just freed a spot: if the host turned on auto-repost, bump it.
+    /// PLACEHOLDER: local only. TODO(backend): the server does this inside `leave_game`
+    /// (and when a host raises capacity), so it also works when someone else leaves, and
+    /// tells the host. 2.0 could pair it with the "A spot opened" push to people who saved it.
+    func autoRepostIfNeeded(_ id: SportsEvent.ID) {
+        guard let event = event(id), event.autoRepost, !event.isFull, !event.hasEnded, !event.isCancelled else { return }
+        mutate(id) { $0.repostedAt = .now }
+        notice = String(localized: "A spot opened in \(event.title) — it's back at the top of the map.")
     }
 
     // MARK: Group chat (not connected)
