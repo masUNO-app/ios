@@ -1,10 +1,14 @@
 import Foundation
 
 enum EventFormat {
-    /// "32 min", "1 hr", "2 hr 15 min"
+    /// "32 min", "1 hr", "2 hr 15 min", "2 days"
     static func countdown(to date: Date, from now: Date = .now) -> String {
         let minutes = max(Int(date.timeIntervalSince(now) / 60), 0)
         if minutes < 60 { return String(localized: "\(minutes) min") }
+        if minutes >= 24 * 60 {
+            let days = minutes / (24 * 60)
+            return days == 1 ? String(localized: "1 day") : String(localized: "\(days) days")
+        }
         let hours = minutes / 60, rest = minutes % 60
         return rest == 0 ? String(localized: "\(hours) hr") : String(localized: "\(hours) hr \(rest) min")
     }

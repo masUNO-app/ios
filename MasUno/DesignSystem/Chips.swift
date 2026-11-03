@@ -3,19 +3,26 @@ import SwiftUI
 /// Small soft-green capsule for a game's status: "Open · 4 spots left", "3 going · 3 spots left", "Full".
 struct StatusChip: View {
     var text: String
+    var systemImage: String?
 
-    init(_ text: String) {
+    init(_ text: String, systemImage: String? = nil) {
         self.text = text
+        self.systemImage = systemImage
     }
 
     var body: some View {
-        Text(text)
-            .font(.footnote.weight(.medium))
-            // Ink, not accent: accent on accentSoft is only 4.1:1 at this size.
-            .foregroundStyle(Theme.ink)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 4)
-            .background(Theme.accentSoft, in: .capsule)
+        HStack(spacing: 4) {
+            if let systemImage {
+                Image(systemName: systemImage).foregroundStyle(Theme.accent)
+            }
+            Text(text)
+        }
+        .font(.footnote.weight(.medium))
+        // Ink, not accent: accent on accentSoft is only 4.1:1 at this size.
+        .foregroundStyle(Theme.ink)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 4)
+        .background(Theme.accentSoft, in: .capsule)
     }
 }
 

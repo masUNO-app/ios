@@ -14,6 +14,7 @@ struct ContentView: View {
                     switch route {
                     case .registered: RegisteredEventsView()
                     case .hosted: HostedEventsView()
+                    case .game(let id): EventDetailView(eventID: id)
                     case .chat(let id): GroupChatView(eventID: id)
                     #if DEBUG
                     case .gallery: ComponentGallery()

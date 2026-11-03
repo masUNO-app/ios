@@ -37,6 +37,12 @@ struct SportsEvent: Identifiable, Hashable {
 
     func role(of person: String) -> String { person == host ? "Host" : "Attendee" }
 
+    /// "Basketball · Hosted by Alex R." / "Basketball · Hosted by you".
+    var hostLine: String {
+        let host = isHostedByYou ? String(localized: "you") : Person.display(host)
+        return String(localized: "\(sport.name) · Hosted by \(host)")
+    }
+
     /// "4 spots left", "1 spot left", "Full".
     var spotsLine: String {
         if isFull { return String(localized: "Full") }

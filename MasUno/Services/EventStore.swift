@@ -47,6 +47,24 @@ final class EventStore {
         }
     }
 
+    /// Why a join the phone already showed was undone (server errors from `join_game`).
+    enum JoinFailure {
+        case full, blocked
+
+        var message: String {
+            switch self {
+            case .full: String(localized: "Someone just took the last spot.")
+            case .blocked: String(localized: "Someone you blocked is going.")
+            }
+        }
+    }
+
+    /// Undoes an optimistic join and says why.
+    func rollBackJoin(_ id: SportsEvent.ID, reason: JoinFailure) {
+        mutate(id) { $0.attendees.removeAll { $0 == Person.you } }
+        notice = reason.message
+    }
+
     func leave(_ id: SportsEvent.ID) {
         guard let event = event(id), event.isYouGoing, !event.isHostedByYou else { return }
         mutate(id) { $0.attendees.removeAll { $0 == Person.you } }

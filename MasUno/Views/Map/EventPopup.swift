@@ -17,7 +17,7 @@ struct EventPopup: View {
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
                         .foregroundStyle(Theme.ink)
-                    Text("\(event.sport.name) · Hosted by \(Person.display(event.host))")
+                    Text(event.hostLine)
                         .font(.footnote)
                         .foregroundStyle(Theme.muted)
                     Text(event.spotsLine)
@@ -39,10 +39,17 @@ struct EventPopup: View {
             .foregroundStyle(Theme.ink)
             .labelStyle(MutedIconLabelStyle())
 
-            primaryAction
-                .buttonStyle(.glassProminent)
-                .controlSize(.large)
-                .buttonSizing(.flexible)
+            HStack(spacing: 10) {
+                Button("Details") { appViewModel.path.append(.game(event.id)) }
+                    .buttonStyle(.glassProminent)
+                    .tint(Theme.accentSoft)
+                    .foregroundStyle(Theme.ink)
+                primaryAction
+                    .buttonStyle(.glassProminent)
+                    .buttonSizing(.flexible)
+            }
+            .controlSize(.large)
+            .fontWeight(.semibold)
         }
         .padding(16)
         .frame(maxWidth: 340, alignment: .leading)
@@ -55,7 +62,7 @@ struct EventPopup: View {
         if event.isHostedByYou {
             Button("Edit game") { appViewModel.startAdding(editing: event.id) }
         } else if event.isYouGoing {
-            Button("View game") { appViewModel.path.append(.registered) }
+            Button("View game") { appViewModel.path.append(.game(event.id)) }
         } else {
             // TODO(auth): verify student email before the first join (E5/B5).
             Button("Join game") { viewModel.join(event.id, in: store) }
