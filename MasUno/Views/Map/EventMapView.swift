@@ -202,6 +202,7 @@ struct EventMapView: View {
             // Count of active sport filters, since the icon button has no room for text.
             .badge(viewModel.sportFilter.count)
             .accessibilityLabel(viewModel.filterLabel)
+            .tint(Theme.ink)
         }
 
         // Narrow screens: centered and stretched. Wide screens (e.g. iPhone Duo's inner

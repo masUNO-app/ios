@@ -23,6 +23,7 @@ struct LocationPickerSheet: View {
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
                         Button(role: .close) { dismiss() }
+                            .tint(Theme.ink)
                     }
                 }
                 .alert(

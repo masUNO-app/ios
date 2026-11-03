@@ -219,6 +219,7 @@ struct ComponentGallery: View {
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
                         Button(role: .close) { showsSheet = false }
+                            .tint(Theme.ink)
                     }
                 }
         }
