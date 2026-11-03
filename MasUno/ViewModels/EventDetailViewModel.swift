@@ -1,6 +1,7 @@
 import MapKit
 import Observation
 import SwiftUI
+import UIKit
 
 /// Game detail (SPEC §7.6.4): which 1.0 state you're in, and the join/leave/cancel intents.
 @Observable
@@ -14,6 +15,8 @@ final class EventDetailViewModel {
     var confirmsCancel = false
     var showsWhoIsGoing = false
     var reportTarget: ReportTarget?
+    var choosesMapsApp = false
+    var addsToCalendar = false
 
     init(eventID: SportsEvent.ID) {
         self.eventID = eventID
@@ -91,8 +94,31 @@ final class EventDetailViewModel {
         withAnimation { store.cancel(eventID) }
     }
 
-    /// Apple Maps with walking directions (Google Maps is 2.0, E19).
+    /// "Join me for After-work hoops — Today · 7:35 PM at Tec basketball courts. 4 spots left on masUNO:"
+    func inviteMessage(for event: SportsEvent) -> String {
+        String(localized: "Join me for \(event.title) — \(EventFormat.dayAndTime(event.start)) at \(event.venue.name). \(event.spotsLine) on masUNO:")
+    }
+
+    /// Walking directions. Offers Google Maps too when it's installed (E19).
     func openInMaps(_ event: SportsEvent) {
+        if Self.hasGoogleMaps {
+            choosesMapsApp = true
+        } else {
+            openInAppleMaps(event)
+        }
+    }
+
+    static var hasGoogleMaps: Bool {
+        URL(string: "comgooglemaps://").map(UIApplication.shared.canOpenURL) ?? false
+    }
+
+    func openInGoogleMaps(_ event: SportsEvent) {
+        let destination = "\(event.venue.latitude),\(event.venue.longitude)"
+        guard let url = URL(string: "comgooglemaps://?daddr=\(destination)&directionsmode=walking") else { return }
+        UIApplication.shared.open(url)
+    }
+
+    func openInAppleMaps(_ event: SportsEvent) {
         let location = CLLocation(latitude: event.venue.latitude, longitude: event.venue.longitude)
         let item = MKMapItem(location: location, address: nil)
         item.name = event.venue.name

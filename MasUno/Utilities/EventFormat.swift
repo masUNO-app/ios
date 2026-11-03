@@ -29,6 +29,7 @@ enum EventFormat {
     /// "Starts in 35 min · about 1 hour" (or "Started · about 1 hour" once it's underway).
     static func startsIn(_ event: SportsEvent, now: Date = .now) -> String {
         let length = String(localized: "about \(duration(event.duration))")
+        if event.end <= now { return String(localized: "Ended · \(length)") }
         guard event.start > now else { return String(localized: "Started · \(length)") }
         return String(localized: "Starts in \(countdown(to: event.start, from: now)) · \(length)")
     }

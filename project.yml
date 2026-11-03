@@ -25,6 +25,8 @@ targets:
       properties:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        # Lets "Open in Maps" offer Google Maps when it's installed (E19).
+        LSApplicationQueriesSchemes: [comgooglemaps]
         # masuno://game/<id> → Event detail (SPEC E3; used by 2.0 notifications).
         CFBundleURLTypes:
           - CFBundleURLName: com.masuno.app

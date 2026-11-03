@@ -63,17 +63,26 @@ struct EventDetailView: View {
             ToolbarItem(placement: .topBarTrailing) { BookmarkButton(event: event, inToolbar: true) }
             ToolbarItem(placement: .topBarTrailing) { overflowMenu(event, state: state).tint(Theme.ink) }
         }
-        .safeAreaInset(edge: .bottom) { bottomBar(event, state: state) }
+        .safeAreaInset(edge: .bottom) {
+            bottomBar(event, state: state)
+                .padding(.top, 12)
+                .background(Theme.background)
+                .overlay(alignment: .top) { Divider().overlay(Theme.hairline) }
+        }
         .sheet(isPresented: $viewModel.showsWhoIsGoing) {
             WhoIsGoingSheet(eventID: event.id)
         }
         .sheet(item: $viewModel.reportTarget) { ReportSheet(target: $0) }
+        .sheet(isPresented: $viewModel.addsToCalendar) {
+            CalendarEditor(event: event).ignoresSafeArea()
+        }
         #if DEBUG
         .onAppear {
             // `-screen who` / `-screen report`: open the safety sheets on this game.
             switch UserDefaults.standard.string(forKey: "screen") {
             case "who": viewModel.showsWhoIsGoing = true
             case "report": viewModel.reportTarget = .person(event.host)
+            case "calendar": viewModel.addsToCalendar = true
             default: break
             }
         }
@@ -142,6 +151,18 @@ struct EventDetailView: View {
                 .foregroundStyle(Theme.ink)
                 .controlSize(.large)
                 .buttonSizing(.flexible)
+                .confirmationDialog("Open in", isPresented: $viewModel.choosesMapsApp) {
+                    Button("Apple Maps") { viewModel.openInAppleMaps(event) }
+                    Button("Google Maps") { viewModel.openInGoogleMaps(event) }
+                }
+            if state == .going || state == .hosting {
+                Button("Add to calendar", systemImage: "calendar.badge.plus") { viewModel.addsToCalendar = true }
+                    .buttonStyle(.glassProminent)
+                    .tint(Theme.accentSoft)
+                    .foregroundStyle(Theme.ink)
+                    .controlSize(.large)
+                    .buttonSizing(.flexible)
+            }
         }
         .padding(16)
         .cardSurface()
@@ -203,6 +224,7 @@ struct EventDetailView: View {
         Menu("More", systemImage: "ellipsis") {
             switch state {
             case .hosting:
+                inviteLink(event)
                 Button("Cancel game", systemImage: "xmark.circle", role: .destructive) {
                     viewModel.confirmsCancel = true
                 }
@@ -217,6 +239,18 @@ struct EventDetailView: View {
         }
     }
 
+    /// TODO/TEMP(E19): shares an App Store search link (`AppConfig.inviteURL`) until the
+    /// listing exists; the friend signs in with their own Tec email.
+    private func inviteLink(_ event: SportsEvent) -> some View {
+        ShareLink(
+            item: AppConfig.inviteURL,
+            subject: Text(event.title),
+            message: Text(viewModel.inviteMessage(for: event))
+        ) {
+            Label("Invite a friend", systemImage: "person.badge.plus")
+        }
+    }
+
     private func reportGameButton(_ event: SportsEvent) -> some View {
         Button("Report game", systemImage: "flag") { viewModel.reportTarget = .game(event.id) }
     }
@@ -228,7 +262,18 @@ struct EventDetailView: View {
             // TODO(auth): verify student email before the first join (E5/B5).
             barButton("Join game") { viewModel.join(in: store) }
         case .going:
-            barButton("Open group chat") { appViewModel.path.append(.chat(event.id)) }
+            VStack(spacing: 10) {
+                barButton("Open group chat") { appViewModel.path.append(.chat(event.id)) }
+                inviteLink(event)
+                    .buttonStyle(.glassProminent)
+                    .tint(Theme.accentSoft)
+                    .foregroundStyle(Theme.ink)
+                    .controlSize(.large)
+                    .buttonSizing(.flexible)
+                    .fontWeight(.semibold)
+                    .padding(.horizontal, Theme.gutter)
+                    .padding(.bottom, 8)
+            }
         case .hosting:
             VStack(spacing: 10) {
                 barButton("Open group chat") { appViewModel.path.append(.chat(event.id)) }
@@ -249,8 +294,7 @@ struct EventDetailView: View {
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity)
                 .padding(.horizontal, Theme.gutter)
-                .padding(.vertical, 12)
-                .background(Theme.background)
+                .padding(.bottom, 12)
         case .ended, .cancelled:
             EmptyView()
         }

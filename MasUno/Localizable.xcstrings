@@ -166,7 +166,13 @@
     "Add game" : {
 
     },
+    "Add to calendar" : {
+
+    },
     "All sports" : {
+
+    },
+    "Apple Maps" : {
 
     },
     "Basketball" : {
@@ -296,6 +302,9 @@
     "Edit game" : {
 
     },
+    "Ended · %@" : {
+
+    },
     "Event name" : {
 
     },
@@ -334,6 +343,9 @@
     "Going" : {
 
     },
+    "Google Maps" : {
+
+    },
     "Group chat" : {
 
     },
@@ -367,8 +379,21 @@
     "Including you" : {
 
     },
+    "Invite a friend" : {
+
+    },
     "Join game" : {
 
+    },
+    "Join me for %@ — %@ at %@. %@ on masUNO:" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Join me for %1$@ — %2$@ at %3$@. %4$@ on masUNO:"
+          }
+        }
+      }
     },
     "Keep account" : {
 
@@ -414,6 +439,9 @@
     "Meet-up spot updated" : {
 
     },
+    "Meet-up spot: %@" : {
+
+    },
     "Messages are coming soon" : {
 
     },
@@ -451,6 +479,9 @@
 
     },
     "Open group chat" : {
+
+    },
+    "Open in" : {
 
     },
     "Open in Maps" : {

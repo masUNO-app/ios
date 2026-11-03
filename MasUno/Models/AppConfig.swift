@@ -13,6 +13,11 @@ struct AppConfig: Hashable {
     /// App Store search, until the listing has an ID to link to directly.
     static let appStoreURL = URL(string: "itms-apps://search.itunes.apple.com/WebObjects/MZSearch.woa/wa/search?media=software&term=masUNO")!
 
+    /// TODO/TEMP(E19): the link "Invite a friend" shares. Swap for the App Store page once
+    /// the listing exists (the TestFlight public link while in beta). Opening a specific game
+    /// from the link needs Universal Links, which is after the program.
+    static let inviteURL = URL(string: "https://apps.apple.com/search?term=masUNO")!
+
     var supportMailURL: URL? { URL(string: "mailto:\(supportEmail)") }
 
     /// Whether this build is at least `minSupportedVersion`.
