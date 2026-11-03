@@ -70,7 +70,7 @@ struct AddEventSheet: View {
 
                 Menu {
                     Picker("Location", selection: $viewModel.venue) {
-                        ForEach(MockData.Venues.postable) { venue in
+                        ForEach(MockData.Venues.all) { venue in
                             Text(venue.name).tag(venue)
                         }
                     }
@@ -104,14 +104,6 @@ struct AddEventSheet: View {
                         FieldBox("Players", hint: "Including you", showsChevron: true) { Text("\(viewModel.players) players") }
                     }
 
-                    Menu {
-                        Picker("Skill level", selection: $viewModel.skill) {
-                            ForEach(SkillLevel.allCases) { Text($0.rawValue).tag($0) }
-                        }
-                    } label: {
-                        FieldBox("Skill level", showsChevron: true) { Text(viewModel.skill.rawValue) }
-                    }
-                    .frame(maxWidth: 160)
                 }
 
                 FieldBox("Notes (optional)") {

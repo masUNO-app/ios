@@ -13,14 +13,12 @@ struct SportsEvent: Identifiable, Hashable {
     /// Everyone going, host first.
     var attendees: [String]
     var venue: Venue
-    var skillLevel: SkillLevel = .allLevels
+    /// Optional "where exactly" note, e.g. "North court bleachers".
+    var meetUpSpot: String = ""
     var notes: String = ""
+    var isCancelled = false
     var messages: [ChatMessage] = []
     var unreadCount: Int = 0
-    /// Whether the current user bookmarked this event.
-    var isBookmarked = false
-    /// Mock count of other students watching this event (would come from the backend).
-    var otherBookmarkCount = 0
 
     var spotsLeft: Int { max(capacity - attendees.count, 0) }
     var isFull: Bool { spotsLeft == 0 }
@@ -31,24 +29,27 @@ struct SportsEvent: Identifiable, Hashable {
     var coordinate: CLLocationCoordinate2D { venue.coordinate }
     var guests: [String] { attendees.filter { $0 != host } }
 
+    /// Starts within the hour — the map labels these pins "Soon".
+    func isSoon(now: Date = .now) -> Bool {
+        let minutes = start.timeIntervalSince(now) / 60
+        return minutes >= 0 && minutes <= 60
+    }
+
     func role(of person: String) -> String { person == host ? "Host" : "Attendee" }
 
-    /// "2/3 | 1 Spot left"
-    var capacitySummary: String {
-        let spots = spotsLeft == 1 ? "1 Spot left" : "\(spotsLeft) Spots left"
-        return "\(attendees.count)/\(capacity) | \(isFull ? "Full" : spots)"
+    /// "4 spots left", "1 spot left", "Full".
+    var spotsLine: String {
+        if isFull { return String(localized: "Full") }
+        return spotsLeft == 1 ? String(localized: "1 spot left") : String(localized: "\(spotsLeft) spots left")
+    }
+
+    /// "Open · 4 spots left" / "Full".
+    var openLine: String {
+        isFull ? spotsLine : String(localized: "Open · \(spotsLine)")
     }
 
     /// SPEC §7.2 status: "3 going · 3 spots left", "3 going · 1 spot left", "Full".
     var statusLine: String {
-        if isFull { return String(localized: "Full") }
-        let spots = spotsLeft == 1 ? String(localized: "1 spot left") : String(localized: "\(spotsLeft) spots left")
-        return String(localized: "\(attendees.count) going · \(spots)")
-    }
-
-    /// "Sports · 2/3 participants · 1 spot left"
-    func metaLine(noun: String = "participants") -> String {
-        let spots = isFull ? "Full" : (spotsLeft == 1 ? "1 spot left" : "\(spotsLeft) spots left")
-        return "\(sport.category) · \(attendees.count)/\(capacity) \(noun) · \(spots)"
+        isFull ? spotsLine : String(localized: "\(attendees.count) going · \(spotsLine)")
     }
 }

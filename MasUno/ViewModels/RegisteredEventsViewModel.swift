@@ -4,7 +4,7 @@ import SwiftUI
 /// all data is derived from `EventStore`.
 struct RegisteredEventsViewModel {
     func events(in store: EventStore) -> [SportsEvent] {
-        store.registeredEvents
+        store.goingEvents
     }
 
     func upcoming(in store: EventStore) -> [SportsEvent] {

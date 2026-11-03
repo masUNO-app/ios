@@ -1,19 +1,23 @@
 import SwiftUI
 
-/// Blue sport pin with a "starts in" label (Figma "Sports event pin").
+/// Blue sport pin (Figma "Sports event pin"). "Soon" when it starts within the hour;
+/// grows with a halo when selected; dims while another game's popup is open.
 struct EventPin: View {
     var event: SportsEvent
     var now: Date
     var isSelected: Bool
+    var isDimmed: Bool
 
     var body: some View {
         VStack(spacing: 6) {
-            Text(EventFormat.countdown(to: event.start, from: now))
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(Theme.ink)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 4)
-                .glassEffect(.regular, in: .capsule)
+            if event.isSoon(now: now) {
+                Text("Soon")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Theme.ink)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .glassEffect(.regular, in: .capsule)
+            }
 
             VStack(spacing: -6) {
                 ZStack {
@@ -23,10 +27,22 @@ struct EventPin: View {
                 Triangle().fill(Theme.pin).frame(width: 18, height: 14)
             }
             .shadow(color: Theme.shadow, radius: 3, y: 3)
+            .background(alignment: .bottom) {
+                // Halo on the ground under the selected pin.
+                Ellipse()
+                    .fill(Theme.pin.opacity(0.25))
+                    .overlay(Ellipse().strokeBorder(Theme.pin.opacity(0.4)))
+                    .frame(width: 40, height: 14)
+                    .offset(y: 6)
+                    .opacity(isSelected ? 1 : 0)
+            }
         }
         .scaleEffect(isSelected ? 1.15 : 1, anchor: .bottom)
+        .opacity(isDimmed ? 0.45 : 1)
         .animation(.snappy, value: isSelected)
+        .animation(.snappy, value: isDimmed)
         .contentShape(.rect)
+        .accessibilityLabel(Text("\(event.sport.name): \(event.title)"))
     }
 }
 

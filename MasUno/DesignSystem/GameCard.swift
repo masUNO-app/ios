@@ -31,7 +31,7 @@ struct GameCard<Accessory: View, Footer: View>: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 GameCardRow(systemImage: "calendar") {
-                    Text(EventFormat.longDate(event.start))
+                    Text(EventFormat.dayAndTime(event.start))
                 }
                 GameCardRow(systemImage: "mappin") {
                     Text(verbatim: "\(event.venue.titleLine)\n\(event.venue.city)")

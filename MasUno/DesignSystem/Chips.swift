@@ -36,7 +36,7 @@ struct InterestChip: View {
     }
 }
 
-/// Rounded-square tile with a game's sport emoji (or symbol for non-sport mock events).
+/// Rounded-square tile with a game's sport emoji.
 struct ActivityTile: View {
     var sport: Sport
     var size: CGFloat = 44
@@ -46,14 +46,8 @@ struct ActivityTile: View {
             .fill(Theme.accentSoft)
             .frame(width: size, height: size)
             .overlay {
-                if let symbol = sport.symbol {
-                    Image(systemName: symbol)
-                        .font(.system(size: size * 0.45))
-                        .foregroundStyle(Theme.accent)
-                } else {
-                    Text(sport.emoji)
-                        .font(.system(size: size * 0.55))
-                }
+                Text(sport.emoji)
+                    .font(.system(size: size * 0.55))
             }
             .accessibilityLabel(Text(sport.name))
     }

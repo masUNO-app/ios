@@ -2,42 +2,46 @@ import MapKit
 import Observation
 import SwiftUI
 
-/// Presentation state and intents for the event map: search, sport filter,
-/// pin selection and camera position. Event data comes from `EventStore`.
+/// Presentation state and intents for the map: search, sport filter, pin
+/// selection and camera position. Game data comes from `EventStore`.
 @Observable
 final class EventMapViewModel {
     var searchText = ""
     /// Empty means "all sports".
     var sportFilter: Set<Sport> = []
     var selectedID: SportsEvent.ID?
-    var position: MapCameraPosition = .region(MockData.initialRegion)
+    var position: MapCameraPosition = .region(MockData.campusRegion)
 
     // MARK: Queries
 
-    /// The map only shows sports games you can actually join: open spots, not over.
+    /// Games you can actually join: not cancelled, ended or full (SPEC §7.6.1).
     func mapEvents(in store: EventStore) -> [SportsEvent] {
         store.events.filter { event in
-            Sport.postable.contains(event.sport) && !event.isFull && !event.hasEnded
+            !event.isCancelled && !event.isFull && !event.hasEnded
                 && matchesSearch(event) && matchesFilter(event)
         }
     }
 
-    func bookmarkedEvents(in store: EventStore) -> [SportsEvent] {
-        store.bookmarkedEvents
-    }
-
     var filterLabel: String {
-        sportFilter.isEmpty ? "Filters" : "Filters · \(sportFilter.count)"
+        sportFilter.isEmpty ? String(localized: "Filter") : String(localized: "Filter · \(sportFilter.count)")
     }
 
     // MARK: Intents
 
-    /// Bring a pin on screen and select it (bookmarks, newly created events).
+    /// Bring a pin on screen and select it (e.g. a newly created game).
     func focus(on event: SportsEvent) {
         withAnimation {
-            position = .region(MKCoordinateRegion(center: event.coordinate, span: MockData.initialRegion.span))
+            position = .region(MKCoordinateRegion(center: event.coordinate, span: MockData.campusRegion.span))
         }
         selectedID = event.id
+    }
+
+    /// TODO(E9): jump to the real user location when within ~15 km of campus.
+    func recenter() {
+        withAnimation {
+            selectedID = nil
+            position = .region(MockData.campusRegion)
+        }
     }
 
     func toggleSport(_ sport: Sport) {
@@ -52,32 +56,25 @@ final class EventMapViewModel {
         sportFilter.removeAll()
     }
 
-    func rsvp(_ id: SportsEvent.ID, in store: EventStore) {
-        withAnimation { store.rsvp(id) }
-    }
-
-    func toggleBookmark(_ id: SportsEvent.ID, in store: EventStore) {
-        store.toggleBookmark(id)
-    }
-
-    func simulateDropOut(in store: EventStore) {
-        withAnimation { store.simulateDropOut() }
+    func join(_ id: SportsEvent.ID, in store: EventStore) {
+        withAnimation { store.join(id) }
     }
 
     #if DEBUG
-    /// `-screen popup` opens the popup for the 760 Market Street mock game.
+    /// `-screen popup` opens the popup for the "After-work hoops" mock game.
     func openDebugPopup(in store: EventStore) {
         guard UserDefaults.standard.string(forKey: "screen") == "popup" else { return }
-        selectedID = mapEvents(in: store).first { $0.venue == MockData.Venues.market760 }?.id
+        selectedID = mapEvents(in: store).first { $0.title == "After-work hoops" }?.id
     }
     #endif
 
     // MARK: Filtering
 
+    /// Title, sport, place or host first name.
     private func matchesSearch(_ event: SportsEvent) -> Bool {
         let query = searchText.trimmingCharacters(in: .whitespaces)
         guard !query.isEmpty else { return true }
-        return [event.title, event.sport.name, event.venue.name, event.host]
+        return [event.title, event.sport.name, event.venue.name, Person.firstName(event.host)]
             .contains { $0.localizedCaseInsensitiveContains(query) }
     }
 

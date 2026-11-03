@@ -1,7 +1,7 @@
 import MapKit
 import SwiftUI
 
-/// Figma: "Sports event map" and "Sports event map · Popup".
+/// Figma: "Sports event map" (341:1979) and "Popup" (341:2046).
 struct EventMapView: View {
     @Environment(EventStore.self) private var store
     @Environment(AppViewModel.self) private var appViewModel
@@ -23,6 +23,16 @@ struct EventMapView: View {
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 8)
+            }
+            .overlay(alignment: .bottomTrailing) {
+                Button("Recenter", systemImage: "location") { viewModel.recenter() }
+                    .labelStyle(.iconOnly)
+                    .buttonStyle(.glass)
+                    .buttonBorderShape(.circle)
+                    .controlSize(.large)
+                    .tint(Theme.ink)
+                    .padding(.trailing, Theme.gutter)
+                    .padding(.bottom, 8)
             }
             .overlay {
                 PinPopupLayer(
@@ -61,7 +71,11 @@ struct EventMapView: View {
 
             ForEach(viewModel.mapEvents(in: store)) { event in
                 Annotation(event.title, coordinate: event.coordinate, anchor: .bottom) {
-                    EventPin(event: event, now: now, isSelected: viewModel.selectedID == event.id)
+                    EventPin(
+                        event: event, now: now,
+                        isSelected: viewModel.selectedID == event.id,
+                        isDimmed: viewModel.selectedID != nil && viewModel.selectedID != event.id
+                    )
                 }
                 .annotationTitles(.hidden)
                 .tag(event.id)
@@ -90,41 +104,17 @@ struct EventMapView: View {
     private var searchRow: some View {
         @Bindable var viewModel = viewModel
 
-        return HStack(spacing: 12) {
-            HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass")
-                    .font(.title3)
-                    .foregroundStyle(Theme.muted)
-                TextField("Search events", text: $viewModel.searchText)
-                    .textInputAutocapitalization(.never)
-                    .submitLabel(.search)
-            }
-            .padding(.horizontal, 14)
-            .frame(height: 48)
-            .glassEffect(.regular.interactive(), in: .capsule)
-
-            Menu {
-                Button("Your plans", systemImage: "calendar") { appViewModel.path.append(.registered) }
-                Button("Hosting", systemImage: "person.2") { appViewModel.path.append(.hosted) }
-                if !viewModel.bookmarkedEvents(in: store).isEmpty {
-                    Section("Bookmarked") {
-                        ForEach(viewModel.bookmarkedEvents(in: store)) { event in
-                            Button("\(event.sport.emoji) \(event.title)\(event.isFull ? " · Full" : "")") {
-                                // Bring the pin on screen so its popup has somewhere to grow from.
-                                viewModel.focus(on: event)
-                            }
-                        }
-                    }
-                }
-            } label: {
-                Image(systemName: "bookmark")
-                    .font(.title3.weight(.medium))
-                    .foregroundStyle(Theme.ink)
-                    .frame(width: 48, height: 48)
-            }
-            .glassEffect(.regular.interactive(), in: .circle)
-            .accessibilityLabel("Plans and bookmarks")
+        return HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .font(.title3)
+                .foregroundStyle(Theme.muted)
+            TextField("Search games", text: $viewModel.searchText)
+                .textInputAutocapitalization(.never)
+                .submitLabel(.search)
         }
+        .padding(.horizontal, 14)
+        .frame(height: 48)
+        .glassEffect(.regular.interactive(), in: .capsule)
         .foregroundStyle(Theme.ink)
     }
 
@@ -140,7 +130,7 @@ struct EventMapView: View {
         .glassEffect(.regular, in: .capsule)
     }
 
-    /// Bottom toolbar: filters · Add event · profile avatar.
+    /// Bottom toolbar: sport filter · + Add game · avatar.
     @ToolbarContentBuilder
     private var bottomActions: some ToolbarContent {
         ToolbarItem(placement: .bottomBar) {
@@ -154,7 +144,7 @@ struct EventMapView: View {
                     ))
                 }
             } label: {
-                Label("Filters", systemImage: "line.3.horizontal.decrease")
+                Label("Filter", systemImage: "line.3.horizontal.decrease")
             }
             // Count of active sport filters, since the icon button has no room for text.
             .badge(viewModel.sportFilter.count)
@@ -174,7 +164,7 @@ struct EventMapView: View {
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "plus")
-                    Text("Add event")
+                    Text("Add game")
                 }
                 .font(.headline)
                 .modifier(BottomBarWidth(width: isWideLayout ? nil : addButtonWidth))
@@ -188,11 +178,10 @@ struct EventMapView: View {
 
         ToolbarItem(placement: .bottomBar) {
             Menu {
-                // TODO: real profile screen.
+                // TODO(E12): avatar opens Me.
+                Button("Your plans", systemImage: "calendar") { appViewModel.path.append(.registered) }
+                Button("Hosting", systemImage: "person.2") { appViewModel.path.append(.hosted) }
                 Section("Demo") {
-                    Button("Simulate a player dropping out", systemImage: "person.fill.xmark") {
-                        viewModel.simulateDropOut(in: store)
-                    }
                     #if DEBUG
                     Button("Component gallery", systemImage: "swatchpalette") {
                         appViewModel.path.append(.gallery)
@@ -223,7 +212,7 @@ struct EventMapView: View {
     }
 }
 
-/// Toolbar items size to fit, so this gives Add event an explicit width to fill a
+/// Toolbar items size to fit, so this gives Add game an explicit width to fill a
 /// horizontal bottom bar. When the system moves the toolbar into a vertical bar on
 /// one side (e.g. iPhone Duo half-open), the button keeps its natural size instead.
 /// A `nil` width also means natural size.

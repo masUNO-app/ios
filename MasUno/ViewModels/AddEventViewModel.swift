@@ -11,7 +11,6 @@ final class AddEventViewModel {
     var duration: TimeInterval
     var venue: Venue
     var players: Int
-    var skill: SkillLevel
     var notes: String
 
     /// The event being edited, or nil when creating a new one.
@@ -28,9 +27,8 @@ final class AddEventViewModel {
         day = Calendar.current.startOfDay(for: editing?.start ?? .now)
         time = editing?.start ?? defaultStart
         duration = editing?.duration ?? 3600
-        venue = editing?.venue ?? MockData.Venues.postable[0]
+        venue = editing?.venue ?? MockData.Venues.all[0]
         players = editing?.capacity ?? 6
-        skill = editing?.skillLevel ?? .allLevels
         notes = editing?.notes ?? ""
     }
 
@@ -51,8 +49,7 @@ final class AddEventViewModel {
     }
 
     var sportOptions: [Sport] {
-        // Keep a non-sport category selectable when editing one of the Figma mock events.
-        Sport.postable.contains(sport) ? Sport.postable : [sport] + Sport.postable
+        Sport.postable
     }
 
     func dayLabel(_ date: Date) -> String {
@@ -81,7 +78,6 @@ final class AddEventViewModel {
         event.duration = duration
         event.venue = venue
         event.capacity = max(players, event.attendees.count)
-        event.skillLevel = skill
         event.notes = notes
 
         store.save(event)
