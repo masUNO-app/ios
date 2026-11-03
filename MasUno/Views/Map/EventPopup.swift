@@ -24,6 +24,8 @@ struct EventPopup: View {
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(Theme.ink)
                 }
+                Spacer(minLength: 0)
+                BookmarkButton(event: event)
             }
 
             VStack(alignment: .leading, spacing: 6) {
@@ -53,8 +55,10 @@ struct EventPopup: View {
         }
         .padding(16)
         .frame(maxWidth: 340, alignment: .leading)
-        // Card-tinted glass keeps text legible over the map while picking up its colors.
-        .glassEffect(.regular.tint(Theme.card.opacity(0.85)), in: .rect(cornerRadius: Theme.Radius.dialog))
+        // Solid card, as in the Figma (glass picked up the map's colors and read as lavender).
+        .background(Theme.card, in: .rect(cornerRadius: Theme.Radius.dialog))
+        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.dialog).strokeBorder(Theme.hairline))
+        .shadow(color: Theme.shadow, radius: 16, y: 6)
     }
 
     @ViewBuilder

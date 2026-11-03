@@ -1,3 +1,4 @@
+import CoreLocation
 import MapKit
 import SwiftUI
 
@@ -8,6 +9,13 @@ struct EventMapView: View {
     @State private var viewModel = EventMapViewModel()
     @State private var cameraTracker = MapCameraTracker()
     @State private var screenSize: CGSize = .zero
+    @State private var showsSaved = false
+    /// Keeps When-In-Use location authorized while the map is up (asks the first time).
+    @State private var locationSession: CLServiceSession?
+    /// The avatar's frame in the bottom bar, so the location button sits right above it.
+    @State private var avatarFrame: CGRect = .zero
+    @State private var locationButtonWidth: CGFloat = 0
+    @Namespace private var mapScope
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     var body: some View {
@@ -24,16 +32,7 @@ struct EventMapView: View {
                 .padding(.horizontal, 20)
                 .padding(.top, 8)
             }
-            .overlay(alignment: .bottomTrailing) {
-                Button("Recenter", systemImage: "location") { viewModel.recenter() }
-                    .labelStyle(.iconOnly)
-                    .buttonStyle(.glass)
-                    .buttonBorderShape(.circle)
-                    .controlSize(.large)
-                    .tint(Theme.ink)
-                    .padding(.trailing, Theme.gutter)
-                    .padding(.bottom, 8)
-            }
+            .overlay(alignment: .bottomLeading) { locationButton }
             .overlay {
                 PinPopupLayer(
                     event: viewModel.selectedID.flatMap { store.event($0) },
@@ -43,7 +42,14 @@ struct EventMapView: View {
                 )
             }
         }
+        .mapScope(mapScope)
         .toolbar { bottomActions }
+        .sheet(isPresented: $showsSaved) {
+            SavedGamesSheet { appViewModel.path.append(.game($0)) }
+        }
+        .onAppear {
+            if locationSession == nil { locationSession = CLServiceSession(authorization: .whenInUse) }
+        }
         .toolbarBackgroundVisibility(.hidden, for: .bottomBar)
         .onGeometryChange(for: CGSize.self) { $0.size } action: { screenSize = $0 }
         // Hidden here, but names the back button on pushed screens.
@@ -63,11 +69,10 @@ struct EventMapView: View {
         @Bindable var viewModel = viewModel
 
         // Native selection: tap a pin to select, tap empty map to dismiss the popup.
-        return Map(position: $viewModel.position, selection: $viewModel.selectedID) {
-            Annotation("You", coordinate: MockData.userLocation, anchor: .center) {
-                UserPin()
+        return Map(position: $viewModel.position, selection: $viewModel.selectedID, scope: mapScope) {
+            UserAnnotation {
+                UserPin(name: store.profile.fullName)
             }
-            .annotationTitles(.hidden)
 
             ForEach(viewModel.mapEvents(in: store)) { event in
                 Annotation(event.title, coordinate: event.coordinate, anchor: .bottom) {
@@ -104,23 +109,49 @@ struct EventMapView: View {
     private var searchRow: some View {
         @Bindable var viewModel = viewModel
 
-        return HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass")
-                .font(.title3)
-                .foregroundStyle(Theme.muted)
-            TextField("Search games", text: $viewModel.searchText)
-                .textInputAutocapitalization(.never)
-                .submitLabel(.search)
+        return HStack(spacing: 12) {
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .font(.title3)
+                    .foregroundStyle(Theme.muted)
+                TextField("Search games", text: $viewModel.searchText)
+                    .textInputAutocapitalization(.never)
+                    .submitLabel(.search)
+            }
+            .padding(.horizontal, 14)
+            .frame(height: 48)
+            .glassEffect(.regular.interactive(), in: .capsule)
+
+            Button("Saved games", systemImage: "bookmark") { showsSaved = true }
+                .labelStyle(.iconOnly)
+                .font(.title3.weight(.medium))
+                .buttonStyle(.glass)
+                .buttonBorderShape(.circle)
+                .controlSize(.large)
+                .tint(Theme.ink)
         }
-        .padding(.horizontal, 14)
-        .frame(height: 48)
-        .glassEffect(.regular.interactive(), in: .capsule)
         .foregroundStyle(Theme.ink)
+    }
+
+    /// Native "show my location" button, centered over the avatar in the bottom bar.
+    private var locationButton: some View {
+        GeometryReader { geo in
+            let containerMinX = geo.frame(in: .global).minX
+            MapUserLocationButton(scope: mapScope)
+                .buttonBorderShape(.circle)
+                .controlSize(.large)
+                .tint(Theme.ink)
+                .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { locationButtonWidth = $0 }
+                .offset(x: avatarFrame.midX - containerMinX - locationButtonWidth / 2)
+                .frame(maxHeight: .infinity, alignment: .bottom)
+                .padding(.bottom, 8)
+                .opacity(avatarFrame == .zero ? 0 : 1)
+        }
     }
 
     private var nearbyChip: some View {
         HStack(spacing: 6) {
-            Circle().fill(Theme.accent).frame(width: 7, height: 7)
+            Circle().fill(Theme.ink).frame(width: 6, height: 6)
             Text("\(viewModel.mapEvents(in: store).count) games nearby")
         }
         .font(.footnote)
@@ -181,6 +212,7 @@ struct EventMapView: View {
                 appViewModel.path.append(.me())
             } label: {
                 Avatar(name: store.profile.fullName, size: 32)
+                    .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { avatarFrame = $0 }
             }
             .accessibilityLabel("Me")
             #if DEBUG

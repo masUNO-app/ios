@@ -46,11 +46,13 @@ struct EventPin: View {
     }
 }
 
-/// "You" marker: your avatar in a green ring (Figma "User location pin").
+/// "You" marker: your initials in a green halo with a green dot (Figma "User location pin").
 struct UserPin: View {
+    var name: String
+
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
-            Avatar(name: Person.you, size: 40)
+            Avatar(name: name, size: 40)
                 .padding(3)
                 .background(Theme.card, in: .circle)
                 .padding(6)

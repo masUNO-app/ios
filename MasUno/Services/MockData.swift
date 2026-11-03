@@ -8,7 +8,6 @@ import MapKit
 enum MockData {
     /// Tec campus center (SPEC §7.6.1).
     static let campusCenter = CLLocationCoordinate2D(latitude: 25.6514, longitude: -100.2895)
-    static let userLocation = CLLocationCoordinate2D(latitude: 25.6533, longitude: -100.2872)
 
     static let campusRegion = MKCoordinateRegion(
         center: campusCenter,
@@ -57,7 +56,7 @@ enum MockData {
                 title: "Tennis doubles", sport: .tennis, host: "Priya Shah",
                 start: inMinutes(135), duration: 3600, capacity: 4,
                 attendees: ["Priya Shah", "Ben Ortiz"], venue: Venues.tennisCourts,
-                notes: "Need two more for doubles. Rackets available."
+                notes: "Need two more for doubles. Rackets available.", isBookmarked: true
             ),
             SportsEvent(
                 title: "Pickup soccer", sport: .soccer, host: "Diego Morales",
@@ -82,7 +81,7 @@ enum MockData {
                 title: "Friday night 5v5", sport: .basketball, host: "Jules Park",
                 start: day(1, 19), duration: 5400, capacity: 10,
                 attendees: ["Jules Park", "Alex Rivera", "Ben Ortiz", "Diego Morales", "Leo Park", "Maya Chen", "Nina Cruz", "Priya Shah", "Ricardo Treviño", "Sam Lee"],
-                venue: Venues.sportsCenter
+                venue: Venues.sportsCenter, isBookmarked: true
             ),
 
             // MARK: Me · Going

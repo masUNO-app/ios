@@ -10,7 +10,8 @@ final class EventMapViewModel {
     /// Empty means "all sports".
     var sportFilter: Set<Sport> = []
     var selectedID: SportsEvent.ID?
-    var position: MapCameraPosition = .region(MockData.campusRegion)
+    /// Starts on you; campus if location is off or not allowed.
+    var position: MapCameraPosition = .userLocation(fallback: .region(MockData.campusRegion))
 
     // MARK: Queries
 
@@ -34,14 +35,6 @@ final class EventMapViewModel {
             position = .region(MKCoordinateRegion(center: event.coordinate, span: MockData.campusRegion.span))
         }
         selectedID = event.id
-    }
-
-    /// TODO(E9): jump to the real user location when within ~15 km of campus.
-    func recenter() {
-        withAnimation {
-            selectedID = nil
-            position = .region(MockData.campusRegion)
-        }
     }
 
     func toggleSport(_ sport: Sport) {

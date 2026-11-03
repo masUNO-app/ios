@@ -46,6 +46,11 @@ final class EventStore {
         events.filter { $0.isYouGoing && !$0.isHostedByYou }.sorted { $0.start < $1.start }
     }
 
+    /// Saved games that haven't ended, soonest first.
+    var bookmarkedEvents: [SportsEvent] {
+        events.filter { $0.isBookmarked && !$0.hasEnded }.sorted { $0.start < $1.start }
+    }
+
     var hostedEvents: [SportsEvent] {
         events.filter { $0.isHostedByYou && !$0.isCancelled }.sorted { $0.start < $1.start }
     }
@@ -85,6 +90,11 @@ final class EventStore {
     func leave(_ id: SportsEvent.ID) {
         guard let event = event(id), event.isYouGoing, !event.isHostedByYou else { return }
         mutate(id) { $0.attendees.removeAll { $0 == Person.you } }
+    }
+
+    /// TODO(B15): `toggle_bookmark` RPC.
+    func toggleBookmark(_ id: SportsEvent.ID) {
+        mutate(id) { $0.isBookmarked.toggle() }
     }
 
     /// Soft cancel: the game stays visible to people going, marked cancelled.

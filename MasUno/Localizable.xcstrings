@@ -170,6 +170,9 @@
     "Blocked people" : {
 
     },
+    "Bookmark" : {
+
+    },
     "Cancel" : {
 
     },
@@ -376,6 +379,9 @@
     "No one blocked" : {
 
     },
+    "No saved games" : {
+
+    },
     "Not set" : {
 
     },
@@ -412,7 +418,7 @@
     "Privacy & safety" : {
 
     },
-    "Recenter" : {
+    "Remove bookmark" : {
 
     },
     "Report" : {
@@ -428,6 +434,12 @@
 
     },
     "Save changes" : {
+
+    },
+    "Saved" : {
+
+    },
+    "Saved games" : {
 
     },
     "Search for a court, field or address" : {
@@ -492,6 +504,9 @@
       }
     },
     "Stay in" : {
+
+    },
+    "Tap the bookmark on a game to keep it here." : {
 
     },
     "Tap the flag next to someone to report or block them. Only the masUNO team sees reports." : {

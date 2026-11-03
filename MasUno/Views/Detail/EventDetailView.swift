@@ -60,6 +60,7 @@ struct EventDetailView: View {
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            ToolbarItem(placement: .topBarTrailing) { BookmarkButton(event: event, inToolbar: true) }
             ToolbarItem(placement: .topBarTrailing) { overflowMenu(event, state: state) }
         }
         .safeAreaInset(edge: .bottom) { bottomBar(event, state: state) }

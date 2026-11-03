@@ -53,6 +53,7 @@ struct MeView: View {
                 NavigationLink(value: Route.settings) {
                     Label("Settings", systemImage: "gearshape")
                 }
+                .tint(Theme.ink)
             }
         }
         .alert(

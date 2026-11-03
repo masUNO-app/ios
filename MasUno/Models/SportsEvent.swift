@@ -17,6 +17,8 @@ struct SportsEvent: Identifiable, Hashable {
     var meetUpSpot: String = ""
     var notes: String = ""
     var isCancelled = false
+    /// You saved this game (bookmark).
+    var isBookmarked = false
 
     var spotsLeft: Int { max(capacity - attendees.count, 0) }
     var isFull: Bool { spotsLeft == 0 }
