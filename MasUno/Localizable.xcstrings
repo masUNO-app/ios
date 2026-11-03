@@ -203,6 +203,12 @@
     "Component gallery" : {
 
     },
+    "Contact support" : {
+
+    },
+    "Continue with your Tec email" : {
+
+    },
     "Couldn't find that place. Try another search." : {
 
     },
@@ -249,6 +255,9 @@
     "Find a game" : {
 
     },
+    "Find your next game" : {
+
+    },
     "Full" : {
 
     },
@@ -282,6 +291,9 @@
 
     },
     "Hosting" : {
+
+    },
+    "If you think this is a mistake, email us at %@." : {
 
     },
     "Inappropriate content" : {
@@ -344,6 +356,9 @@
 
     },
     "Open · %@" : {
+
+    },
+    "Pickup games around Tec, one or two players short — and looking for you." : {
 
     },
     "Players" : {
@@ -443,6 +458,9 @@
     "This game isn't available." : {
 
     },
+    "This version is no longer supported. Update to keep finding games." : {
+
+    },
     "Today" : {
 
     },
@@ -453,6 +471,12 @@
 
     },
     "Unblock" : {
+
+    },
+    "Update" : {
+
+    },
+    "Update masUNO" : {
 
     },
     "Use my current location" : {
@@ -497,6 +521,9 @@
 
     },
     "You're in · %@" : {
+
+    },
+    "Your account is suspended" : {
 
     },
     "Your interests" : {

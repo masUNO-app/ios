@@ -30,7 +30,7 @@ struct MeView: View {
                         .foregroundStyle(Theme.ink)
                     Spacer()
                     if viewModel.tab == .hosting {
-                        Button("Create", systemImage: "plus") { appViewModel.startAdding() }
+                        Button("Create", systemImage: "plus") { appViewModel.presentGameForm() }
                             .buttonStyle(.glassProminent)
                             .tint(Theme.accentSoft)
                             .foregroundStyle(Theme.ink)
@@ -126,13 +126,13 @@ struct MeView: View {
         let events = viewModel.hosting(in: store)
         if events.isEmpty {
             emptyState("Host a game in under a minute.", systemImage: "plus.circle", action: "Add game") {
-                appViewModel.startAdding()
+                appViewModel.presentGameForm()
             }
         }
         ForEach(events) { event in
             NavigationLink(value: Route.game(event.id)) {
                 GameCard(event: event, showsHost: false, status: event.statusLine) {
-                    Button("Edit") { appViewModel.startAdding(editing: event.id) }
+                    Button("Edit") { appViewModel.presentGameForm(editing: event.id) }
                         .buttonStyle(.glassProminent)
                         .tint(Theme.accentSoft)
                         .foregroundStyle(Theme.ink)

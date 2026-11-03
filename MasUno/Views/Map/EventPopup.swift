@@ -60,7 +60,7 @@ struct EventPopup: View {
     @ViewBuilder
     private var primaryAction: some View {
         if event.isHostedByYou {
-            Button("Edit game") { appViewModel.startAdding(editing: event.id) }
+            Button("Edit game") { appViewModel.presentGameForm(editing: event.id) }
         } else if event.isYouGoing {
             Button("View game") { appViewModel.path.append(.game(event.id)) }
         } else {

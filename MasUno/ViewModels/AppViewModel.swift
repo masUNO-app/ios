@@ -1,37 +1,75 @@
 import Foundation
 import Observation
 
-/// Root presentation state: navigation path and the game form sheet.
+/// Root presentation state (SPEC §7.3): the launch gate, the navigation path and
+/// app-level sheets. Sheets that open on top of a screen or another sheet
+/// (location picker, Who's going, report) are presented by that screen.
 @Observable
 final class AppViewModel {
+    /// Where launch lands: version check → session → Map.
+    enum Session: Equatable {
+        case updateRequired
+        case signedOut
+        case suspended
+        case signedIn
+    }
+
+    enum Sheet: Identifiable, Hashable {
+        case gameForm(editing: SportsEvent.ID?)
+
+        var id: Self { self }
+    }
+
+    var session: Session
     var path: [Route] = []
-    var isAddingEvent = false
-    var editingEventID: SportsEvent.ID?
+    var sheet: Sheet?
+    let config: AppConfig
 
-    func editingEvent(in store: EventStore) -> SportsEvent? {
-        editingEventID.flatMap { store.event($0) }
+    /// TODO(E5/B5): start from `AuthService`'s session; mock auth is always signed in.
+    init(config: AppConfig = .mock, version: String = AppConfig.currentVersion) {
+        self.config = config
+        session = config.supports(version: version) ? .signedIn : .updateRequired
     }
 
-    func startAdding(editing id: SportsEvent.ID? = nil) {
-        editingEventID = id
-        isAddingEvent = true
+    // MARK: Intents
+
+    func presentGameForm(editing id: SportsEvent.ID? = nil) {
+        sheet = .gameForm(editing: id)
     }
 
-    func dismissAdding() {
-        isAddingEvent = false
-        editingEventID = nil
+    /// `masuno://game/<id>` → Event detail (2.0 notifications use this).
+    func handle(_ url: URL) {
+        guard url.scheme == "masuno", url.host() == "game",
+              let id = UUID(uuidString: url.lastPathComponent) else { return }
+        sheet = nil
+        path = [.game(id)]
+    }
+
+    /// TODO(B5): `AuthService.signOut()`.
+    func signOut() {
+        sheet = nil
+        path = []
+        session = .signedOut
+    }
+
+    /// TODO(E5): onboarding. Mock auth signs straight back in.
+    func signIn() {
+        session = .signedIn
     }
 
     #if DEBUG
     /// Jump straight to a screen for design review, e.g. launch with `-screen me`.
-    /// Options: me, me-hosting, add, form-error, edit, picker, gallery, detail-*, who, report, blocked, popup (handled in `EventMapViewModel`).
+    /// Options: update, signed-out, suspended, me, me-hosting, add, form-error, edit,
+    /// picker, gallery, detail-*, who, report, blocked, popup (handled in `EventMapViewModel`).
     func openDebugScreen(in store: EventStore) {
         switch UserDefaults.standard.string(forKey: "screen") {
+        case "update": session = .updateRequired
+        case "signed-out": session = .signedOut
+        case "suspended": session = .suspended
         case "me": path = [.me()]
         case "me-hosting": path = [.me(.hosting)]
-        case "add": startAdding()
-        case "form-error", "picker": startAdding()
-        case "edit": startAdding(editing: store.hostedEvents.first?.id)
+        case "add", "form-error", "picker": presentGameForm()
+        case "edit": presentGameForm(editing: store.hostedEvents.first?.id)
         case "gallery": path = [.gallery]
         case "who", "report": path = Self.debugDetailID("detail-open", in: store).map { [.game($0)] } ?? []
         case "blocked":

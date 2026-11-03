@@ -20,6 +20,15 @@ targets:
       - path: MasUno
         excludes:
           - "**/README.md"
+    info:
+      path: MasUno/Info.plist
+      properties:
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        # masuno://game/<id> → Event detail (SPEC E3; used by 2.0 notifications).
+        CFBundleURLTypes:
+          - CFBundleURLName: com.masuno.app
+            CFBundleURLSchemes: [masuno]
     configFiles:
       Debug: Config.xcconfig
       Release: Config.xcconfig

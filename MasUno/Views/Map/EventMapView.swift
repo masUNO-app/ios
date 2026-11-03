@@ -160,7 +160,7 @@ struct EventMapView: View {
         ToolbarItem(placement: .bottomBar) {
             // Explicit HStack: toolbars render `Label`s icon-only, but this needs its title.
             Button {
-                appViewModel.startAdding()
+                appViewModel.presentGameForm()
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "plus")

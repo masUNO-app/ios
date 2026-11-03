@@ -21,7 +21,10 @@ open MasUno.xcodeproj                          # run the MasUno scheme on a simu
 re-run `xcodegen generate` after pulling or adding files. `Config.xcconfig` is
 git-ignored too: Debug points at `masuno-dev`, Release at `masuno-prod`.
 
-Debug builds accept `-screen registered|hosted|add|gallery|popup` as a launch argument to jump straight to a screen.
+Debug builds accept a `-screen` launch argument to jump straight to a screen for design review:
+`popup`, `add`, `form-error`, `edit`, `picker`, `detail-open|in|full|hosting|ended|cancelled`
+(add `-raceJoin YES` to `detail-open` for the last-spot race), `who`, `report`, `blocked`, `me`,
+`me-hosting`, `settings`, `update`, `signed-out`, `suspended`, `gallery`.
 
 ## How we work
 
@@ -36,14 +39,14 @@ MVVM, one folder per layer:
 
 ```
 MasUno/
-├── App/           # @main entry, root ContentView, Route
-├── Models/        # Pure data: SportsEvent, Venue, ChatMessage, Sport, Person
-├── Services/      # EventStore (source of truth + domain actions), MockData
+├── App/           # @main entry, ContentView (launch gate + root NavigationStack), Route
+├── Models/        # Pure data: SportsEvent, Venue, Sport, Person, Profile, AppConfig
+├── Services/      # EventStore (mock source of truth + domain actions), MockData, LocationService
 ├── Data/          # Supabase data layer (Emilio): AuthService, repositories, GameStore
 ├── ViewModels/    # Per-screen presentation state & intents
-├── Views/         # SwiftUI screens: Map/, Plans/, Chat/, AddEvent/
+├── Views/         # SwiftUI screens: Map/, Detail/, GameForm/, Me/, Settings/, Safety/, Launch/
 ├── DesignSystem/  # Theme (green tokens, SPEC §7.1) + components; DEBUG ComponentGallery
-└── Utilities/     # EventFormat date/duration formatting
+└── Utilities/     # EventFormat, TextFilter
 supabase/          # Migrations, functions, seed (Emilio)
 docs/              # Spec, API contract, QA script
 ```
@@ -53,18 +56,24 @@ Views bind to `@Observable` view models; view models read/mutate the model layer
 
 ## Screens
 
+Green Figma frames (node ids `341:*`). Copy follows SPEC §7.2 ("game", not "event").
+
 | Figma frame | View | ViewModel |
 | --- | --- | --- |
-| Sports event map | `Views/Map/EventMapView.swift` | `ViewModels/EventMapViewModel.swift` |
-| Sports event map · Popup | `Views/Map/EventPopup.swift` | `EventMapViewModel` |
-| Sports event map · Add event | `Views/AddEvent/AddEventSheet.swift` | `ViewModels/AddEventViewModel.swift` |
-| Registered events | `Views/Plans/RegisteredEventsView.swift` | `ViewModels/RegisteredEventsViewModel.swift` |
-| Hosted events | `Views/Plans/HostedEventsView.swift` | `ViewModels/HostedEventsViewModel.swift` |
+| Map (341:1979), Popup (341:2046) | `Views/Map/EventMapView.swift`, `EventPopup.swift` | `EventMapViewModel` |
+| Add / Error / Edit / Delete event (341:1849, 3054, 2703, 2840) | `Views/GameForm/GameFormSheet.swift` | `GameFormViewModel` |
+| Choose location (341:2646) | `Views/GameForm/LocationPickerSheet.swift` | `LocationPickerViewModel` |
+| Event detail (341:2586), You're in (341:2989) | `Views/Detail/EventDetailView.swift` | `EventDetailViewModel` |
+| Who's going (341:2309) | `Views/Detail/WhoIsGoingSheet.swift`, `Views/Safety/` | — |
+| Me · Going (341:2165), Me · Hosting (341:2240) | `Views/Me/MeView.swift` | `MeViewModel` |
+| Settings (341:2144) | `Views/Settings/SettingsView.swift` | — |
+| Update required, suspended (D2) | `Views/Launch/LaunchGateViews.swift` | `AppViewModel` |
 
-Navigation/sheet state lives in `ViewModels/AppViewModel.swift`; data in
-`Services/EventStore.swift`; mock content in `Services/MockData.swift`.
+Navigation, the launch gate and app-level sheets live in `ViewModels/AppViewModel.swift`; data in
+`Services/EventStore.swift`; mock content in `Services/MockData.swift`. `masuno://game/<id>` opens a game.
 
 Organizer approval (Join requests / Accept–Decline) is post-MVP and intentionally left out — spots are first come, first served.
+Group chat is post-MVP too: no chat screens or entry points during the program.
 
 ## TODO
 

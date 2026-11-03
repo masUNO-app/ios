@@ -126,7 +126,7 @@ struct EventDetailView: View {
                 detailRow("flag", title: event.meetUpSpot, subtitle: nil)
             } else if state == .hosting {
                 Button {
-                    appViewModel.startAdding(editing: event.id)
+                    appViewModel.presentGameForm(editing: event.id)
                 } label: {
                     Label("Add a meet-up spot so people know where to find you", systemImage: "flag")
                         .font(.subheadline.weight(.medium))
@@ -227,7 +227,7 @@ struct EventDetailView: View {
             // TODO(auth): verify student email before the first join (E5/B5).
             barButton("Join game") { viewModel.join(in: store) }
         case .hosting:
-            barButton("Edit game") { appViewModel.startAdding(editing: event.id) }
+            barButton("Edit game") { appViewModel.presentGameForm(editing: event.id) }
         case .full:
             Text("Spots open up when someone leaves — check back.")
                 .font(.subheadline)
