@@ -1,6 +1,6 @@
 # masUNO iOS — Project Specification
 
-**Rev. 5.3 · 2026-10-30** · replaces `PLAN.md` (rev. 2) and earlier revisions of this spec
+**Rev. 6 · 2026-11-03** · replaces `PLAN.md` (rev. 2) and earlier revisions of this spec. Rev. 6 pulls the 1.0 submission forward to **Mon Nov 9** (§1).
 **Team:**
 - **Ethan Wen** — frontend: the iOS app's screens, view logic and App Store submission.
 - **Emilio** — backend: Supabase, plus the Swift data layer that talks to it.
@@ -8,7 +8,7 @@
 - **Ricardo** — team lead and outreach: users, beta testers, hosts, copy, demo days, launch.
 
 **Program:** App Accelerator: Startup to 1000 — Demo Day #1 **Thu Nov 5**, Demo Day #2 **Thu Nov 19**, Demo Day #3 **Thu Dec 3**, Product Launch **Wed Dec 16**
-**Status today:** SwiftUI client (~1,900 lines) on mock data; no backend; `com.masuno.app` registered on the Boys & Girls Clubs of Chicago developer team (Oct 28).
+**Status today (Nov 3):** every 1.0 screen is built on mock data on branch `green-design-system` (design system, map, game form, location picker, event detail, safety, Me, Settings, temp onboarding, game hub, Saved, calendar/invite, edit profile). Nothing talks to Supabase yet. `com.masuno.app` registered on the Boys & Girls Clubs of Chicago developer team (Oct 28).
 
 > **How to read this.** §0–§6 are the plan: releases, scope, calendar, who does what, how we work. §7–§9 are the product and technical spec. §10–§13 are release steps, risks, decisions and what comes after. Items marked **⚑** change a rev. 2 decision and need Ricardo's sign-off as team lead at kickoff (§12).
 >
@@ -22,16 +22,16 @@
 
 ## 0. Summary
 
-- **Four builds, one per program checkpoint:**
-  - **Build 0.1 — Demo Day #1 (Nov 5):** the redesigned app on mock data, on TestFlight.
-  - **Build 0.9 — Demo Day #2 (Nov 19):** the real app on Supabase with Tec sign-in, hosting and joining, in an external TestFlight beta.
-  - **1.0 — submitted Sat Nov 21:** the core loop plus everything App Review requires. Live on the App Store before Demo Day #3 (Dec 3).
-  - **2.0 — after Demo Day #3:** notifications, Saved games, Spanish, Add to Calendar and polish. Submitted Tue Dec 8, live for the Product Launch (Dec 16).
+- **Three builds** (rev. 6 merges 0.9 into 1.0):
+  - **Build 0.1 — Demo Day #1 (Nov 5):** the redesigned app on mock data, on TestFlight (internal).
+  - **1.0 — submitted Mon Nov 9:** the real app on `masuno-prod` with Tec sign-in, hosting, joining and everything App Review requires. Submitted early because App Store Connect review times are long right now; the same build goes to the external TestFlight beta. Aim: live before Demo Day #2 (Nov 19).
+  - **1.1 — fast follow, submitted ~Mon Nov 16:** fixes from review and the beta, plus anything cut from 1.0.
+  - **2.0 — after Demo Day #3:** notifications, synced Saved games, Spanish and polish. Submitted Tue Dec 8, live for the Product Launch (Dec 16).
 - **Two coders, split at the data layer:**
   - **Ethan** builds everything you can see: screens, navigation, view models, design system, App Store submission.
   - **Emilio** builds everything under the screens: Supabase (tables, rules, functions, jobs, email, notifications) and the Swift code that calls it (sign-in service, repositories, the game store).
   - They meet at one contract (§8.5) and the Swift repository protocols, agreed by Wed Nov 4.
-- **Hours:** Ethan ≈ 84 h, Emilio ≈ 69 h. Ethan's 1.0 load is the heaviest on the team (~20 h/week until Nov 20). When Emilio is ahead, he takes the non-visual Swift logic off Ethan's plate (§5.2).
+- **Hours:** Ethan ≈ 84 h, Emilio ≈ 69 h. With the Nov 9 date, **Emilio's 1.0 backend (~45 h) is the critical path**: it now has to land in about five days (§4.1, K1). Ethan's 1.0 screens are already built on mocks; his remaining 1.0 work is wiring them to the live store and release hygiene.
 - **Arianna (~5 h/week)** turns the green frames into a finished design system and draws the missing screens ahead of Ethan. She also makes the app icon, website pages, decks and screenshots, and checks each build against Figma.
 - **Ricardo (~5 h/week)** gets people:
   - Tec test inboxes, beta testers, hosts and real games.
@@ -43,7 +43,20 @@
 
 ## 1. What changed
 
-### This revision (rev. 5)
+### This revision (rev. 6, Nov 3)
+
+| # | Change | Why | Sign-off |
+| - | --- | --- | --- |
+| N11 | **Submit 1.0 on Mon Nov 9** instead of Sat Nov 21. Build 0.9 is folded into 1.0: one release candidate goes to App Review and the external TestFlight beta on the same days. | App Store Connect review waits are long; submitting 12 days early leaves room for a rejection and resubmit before Demo Day #2. | ⚑ |
+| N12 | **1.0 needs the live backend by Sat Nov 7.** A mock-data build can't pass review (report, block and delete account must really work; guideline 2.1). Emilio's 1.0 tasks are re-dated to Nov 5–8 (§5.2); go/no-go Fri Nov 6 evening (§4.1). | Follows from N11. | ⚑ Emilio |
+| N13 | **1.1 fast follow** (~Nov 16) takes anything cut from 1.0 (§3 cut order). | Keeps the Nov 9 build small. | — |
+| N14 | **Game hub ("group chat") ships read-only in 1.0**, reversing C2 in part: pinned date/place/meet-up spot, Who's going, system timeline, host edits the meet-up spot. **No composer and no placeholder messages** — sending is still Chat v1 (Appendix A). | The team wants the chat surface for demos; a disabled "coming soon" composer or fake messages would be rejected under 2.1. | ⚑ |
+| N15 | **Bookmarks + Saved list in 1.0, stored on the phone only.** Syncing and "Notify me if a spot opens" stay in 2.0 (B15, E17). | Already built; small. | — |
+| N16 | **Add to calendar, Invite a friend, Google Maps option (E19) and Past games + Edit profile & interests (E21) move to 1.0.** Invite shares the App Store link. Edit profile needs `complete_profile` live; otherwise it moves to 1.1. | Already built. Supersedes C3's timing. | — |
+| N17 | **Auto-repost** (proposed, not in 1.0): host toggle that bumps a game back to the top of the map when a full game frees a spot. Replaces the Figma's manual "Repost". Needs Arianna's sign-off and backend (§7.6.11); the UI stays hidden until then. | Ari's question on the PR: hosts want traction, not a manual bump. | ⚑ Arianna |
+| N18 | **Onboarding is built from §7.5 copy** (temp) ahead of the D2 frames; swap in the frames in 1.1. | Unblocks Nov 9. | — |
+
+### Rev. 5 (still in force)
 
 | # | Change | Why | Sign-off |
 | - | --- | --- | --- |
@@ -62,8 +75,8 @@ N1 builds at each demo day, 1.0 before Demo Day #3, 2.0 after it, launch Dec 16 
 | # | Change | Why | Sign-off |
 | - | --- | --- | --- |
 | C1 | Releases with fixed scope replace the open backlog. | Rev. 2 ≈ 95 dev-days; about 16 are available. | — |
-| C2 | **No chat screen** during the program; meet-up spot and Who's going live on Event detail. Chat v1 design kept in Appendix A. Reverses decision 3. | A disabled "Messages are coming soon" composer invites an App Review 2.1 rejection; hub + timeline costs ~8 h. | ⚑ |
-| C3 | **"Add to Calendar" button** (EventKitUI, no permission prompt) in 2.0 instead of calendar sync. Reverses decision 14. | 1.5 h instead of ~16 h; edited games don't update the calendar entry. | ⚑ |
+| C2 | *(Partly reversed by N14: a read-only game hub ships in 1.0.)* **No chat screen** during the program; meet-up spot and Who's going live on Event detail. Chat v1 design kept in Appendix A. Reverses decision 3. | A disabled "Messages are coming soon" composer invites an App Review 2.1 rejection; hub + timeline costs ~8 h. | ⚑ |
+| C3 | *(Timing changed by N16: in 1.0.)* **"Add to Calendar" button** (EventKitUI, no permission prompt) in 2.0 instead of calendar sync. Reverses decision 14. | 1.5 h instead of ~16 h; edited games don't update the calendar entry. | ⚑ |
 | C4 | **No profile photos** during the program; initials avatars. | No storage, upload or image moderation. | ⚑ |
 | C5 | **Names show as "First L."** (e.g. "Emilio G.") to others; no name-visibility setting. | Privacy-forward default, no settings screen. | ⚑ |
 | C6 | Notifications in **2.0**. | Biggest single item (~19 h) and needs an APNs key (created in the B&GC developer account). | ⚑ |
@@ -86,19 +99,19 @@ N1 builds at each demo day, 1.0 before Demo Day #3, 2.0 after it, launch Dec 16 
 ## 2. Goals & release criteria
 
 **Goals**
-1. A build to show at every demo day; 1.0 on the App Store before Demo Day #3; 2.0 on the App Store for the Product Launch.
+1. A build to show at every demo day; 1.0 submitted Mon Nov 9 and on the App Store before Demo Day #2 (Nov 19) if review allows, Demo Day #3 at the latest; 2.0 on the App Store for the Product Launch.
 2. A Tec student can sign up, find or post a game, join it and know where to show up, in under 2 minutes from install.
 3. Pass App Review's user-generated-content rules: agree to guidelines, text filter, report, block, act on reports within 24 h, contact info in the app, in-app account deletion.
 4. Numbers for each demo day: beta testers, verified sign-ups, games hosted, joins, games that filled.
 
-**Not in scope during the program:** messaging, photos, calendar sync, dark mode, Android/web, organizer approval, recurring games, non-sport activities, other campuses, our own domain or branded email.
+**Not in scope during the program:** sending messages (the 1.0 game hub is read-only), photos, calendar sync, dark mode, Android/web, organizer approval, recurring games, non-sport activities, other campuses, our own domain or branded email.
 
 **Release criteria for 1.0 and 2.0**
 - Core loop works on two physical phones against `masuno-prod`, including two people racing for the last spot.
 - App Review checklist (§10.4) all green.
-- No crash in the last 3 days of TestFlight (Xcode Organizer).
+- 1.0: no crash in the Sat–Sun Nov 7–8 two-phone QA pass. 2.0: no crash in the last 3 days of TestFlight (Xcode Organizer).
 - Every user-facing string in the String Catalog; VoiceOver can complete the core loop (full accessibility pass in 2.0).
-- Arianna has signed off that each screen matches its frame (or the difference is noted).
+- Arianna has signed off that each screen matches its frame (or the difference is noted). For 1.0 this can follow in 1.1 (N18).
 
 **Demo-day targets** (testers, sign-ups, games) are set by Ricardo at kickoff and reported before each demo day (O10).
 
@@ -108,37 +121,38 @@ N1 builds at each demo day, 1.0 before Demo Day #3, 2.0 after it, launch Dec 16 
 
 | Build | Channel | Shown at | Contents |
 | --- | --- | --- | --- |
-| **0.1 Prototype** | TestFlight (internal; external if Beta App Review clears in time) | Demo Day #1, Thu Nov 5 | Green design system; map + popup redesign; new navigation; game form look. Mock data. |
-| **0.9 Beta** | TestFlight external beta (Tec testers) | Demo Day #2, Thu Nov 19 | Live Supabase: real Tec sign-in, map from the database, host/join/leave/cancel, event detail, Me, report/block. |
-| **1.0** | App Store, released on approval | Demo Day #3, Thu Dec 3 (live) | Everything in "1.0 scope" below. |
-| **2.0 beta** | TestFlight | Demo Day #3 (sneak peek) | Notifications and Saved working end to end. |
+| **0.1 Prototype** | TestFlight (internal) | Demo Day #1, Thu Nov 5 | Green design system and every redesigned screen. Mock data. |
+| **1.0** | App Store (release on approval) + external TestFlight beta, both submitted Sun–Mon Nov 8–9 | Demo Day #2, Thu Nov 19 (live, or from TestFlight if review is slow) | Everything in "1.0 scope" below, on `masuno-prod`. |
+| **1.1** | App Store, release on approval | Demo Day #3, Thu Dec 3 | Review/beta fixes; anything cut from 1.0; Arianna's frame updates. |
+| **2.0 beta** | TestFlight | Demo Day #3 (sneak peek) | Notifications and synced Saved working end to end. |
 | **2.0** | App Store, manual release | Product Launch, Wed Dec 16 | Everything in "2.0 scope" below. |
 
-### 1.0 scope
-- Email-code sign-in for @tec.mx; App Review password path; onboarding (6 screens); suspended-account and update-required screens.
-- Map: pins with "Soon" label, popup, search, sport filter, recenter, campus fallback when location is off or far away.
-- Game form: add/edit with validation; Where's the game? (search + current location); optional meet-up spot; cancel game.
-- Event detail: Open / You're in / Full / Hosting / Ended / Cancelled; Who's going; Open in Apple Maps; overflow menu; Leave dialog.
-- Join/leave with server-enforced capacity and optimistic UI.
-- Me: Going and Hosting lists.
+### 1.0 scope (submit Mon Nov 9)
+**Must work live — the App Review checklist (§10.4); never cut:**
+- Email-code sign-in for @tec.mx; App Review password path; onboarding (6 screens, guidelines agreement); suspended-account and update-required screens.
+- Map from the database: pins with "Soon", popup, recenter, campus fallback when location is off or > 15 km away (reviewers aren't in Monterrey).
+- Game form: add/edit with server validation; Where's the game? (search + current location); meet-up spot; cancel game.
+- Event detail (all six states), join/leave with server-enforced capacity and optimistic UI, Who's going.
 - Safety: report person or game, block/unblock, Blocked people, text filter, report alerts, bans.
-- Settings: Location status, Blocked people, Community guidelines, Privacy & Terms, Contact us, version, Sign out, Delete account.
-- Basic empty/error/offline states; app icon.
+- Settings: Location, Blocked people, Community guidelines, Privacy & Terms, Contact us, version, Sign out, **Delete account (really deletes)**.
+- App icon; no placeholders, DEBUG menus or mock data in the Release build.
+
+**Also in 1.0 (already built; cut to 1.1 in the order below if they aren't live by Sat Nov 7):** Me (Going, Hosting, Past), game hub (read-only, N14), bookmarks + Saved list on the phone (N15), Add to calendar, Invite a friend, Google Maps option, Edit profile & interests (N16), map search and sport filter, basic empty/error/offline states.
 
 ### 2.0 scope
 - Notifications: a spot opened (Saved games), game changed, game cancelled, 30-min reminder, new game matching your interests, host updates; Notifications section in Settings; permission asked after the first join or hosted game.
-- Saved: bookmark on Event detail, "Notify me if a spot opens" on full games, Saved list from the map.
+- Saved synced to the account (B15), "Notify me if a spot opens" on full games.
 - Spanish localization (strings, dates, sport names, notification text).
-- Add to Calendar; Invite a friend; Google Maps option in Open in Maps.
 - Location picker drag-to-adjust; "Happening now" state; "changed since you joined" banner.
-- Me: Past games (last 14 days) and Edit profile & interests.
+- Auto-repost (N17), if Arianna signs off and the backend fits.
+- Chat v1 sending only if it's pulled forward from January (Appendix A).
 - Full accessibility pass; metrics view; fixes from 1.0 feedback.
 
 ### After the program (§13)
 Chat v1, profile photos, calendar sync, name-visibility setting, dark mode, links that open a specific game, organizer approval, recurring games, non-sport activities, new campuses, own domain/email.
 
 ### Cut order if we slip
-- **1.0** — move to 2.0 one at a time, announced at the Wednesday Team Session: (1) sport filter; (2) Hosting tab polish (Edit/Cancel stay reachable from Event detail); (3) search on the map; (4) offline banner (keep retry).
+- **1.0 → 1.1**, decided at the Fri Nov 6 go/no-go and again Sun Nov 8: (1) Edit profile & interests; (2) game hub (hide its entry points); (3) Invite a friend; (4) Past games; (5) sport filter; (6) map search; (7) offline banner (keep retry). Hide cut features in the Release build — never ship a button that does nothing.
 - **2.0** — (1) Google Maps option; (2) drag-to-adjust; (3) "changed since you joined" banner; (4) host-update notifications.
 - **Never cut** anything on the App Review checklist.
 
@@ -151,19 +165,20 @@ Chat v1, profile photos, calendar sync, name-visibility setting, dark mode, link
 | Date | Milestone | Exit check |
 | --- | --- | --- |
 | **Sat Oct 31** | Access | Emilio is an Owner on the Supabase organization (O2); team Gmail exists (O3). |
-| **Sun Nov 1** | Kickoff | §12 decisions signed off; `masuno-dev` exists; API contract draft in `docs/API.md`; Arianna's token table handed to Ethan; repo ready for two coders (E0); everyone has read their Trello cards. |
-| **Wed Nov 4** | Contract freeze · Build 0.1 uploaded | Table names, RPC signatures, error codes and Swift protocols merged. 0.1 on TestFlight (internal). |
-| **Thu Nov 5** | **Demo Day #1** | Build 0.1 on a real phone: map → popup → game form look. |
-| **Sun Nov 8** | Walking skeleton | Real code arrives in a real @tec.mx inbox from the team Gmail; onboarding completes; map reads games from `masuno-dev`. |
-| **Sun Nov 15** | Core loop | Phone A hosts, phone B joins, B leaves, A cancels on `masuno-dev`. `masuno-prod` created. Privacy & Terms page live. |
-| **Tue Nov 17** | Build 0.9 beta | Submitted to Beta App Review; Ricardo invites Tec testers when it clears. |
-| **Thu Nov 19** | **Demo Day #2** | Live demo on prod with real testers' games; first metrics. |
-| **Fri Nov 20** | 1.0 release candidate | All 1.0 scope merged; App Submission workshop (5–6 pm CT); listing and screenshots in App Store Connect. |
-| **Sat Nov 21** | **Submit 1.0** | Released automatically on approval. |
+| **Sun Nov 1** | Kickoff | §12 decisions signed off; `masuno-dev` exists; API contract draft; token table to Ethan; repo ready (E0). |
+| **Tue Nov 3** | Rev. 6 | This plan agreed in the team chat; `green-design-system` PR open. |
+| **Wed Nov 4** | Contract freeze · Build 0.1 uploaded | Table names, RPC signatures, error codes and Swift protocols merged (E1). 0.1 on TestFlight (internal). Rev. 6 sign-offs (§12). |
+| **Thu Nov 5** | **Demo Day #1** | Build 0.1 on a real phone. |
+| **Fri Nov 6** | Backend core · **go/no-go** | On `masuno-dev`: a real code reaches a Tec inbox; sign in, create, join, leave, cancel, report, block and delete account work from the app. `masuno-prod` created. Privacy & Terms page live; app icon delivered. **Evening call:** if any must-have isn't live, apply the cut order (§3) — and if sign-in, join or delete account isn't live, move the submission to Mon Nov 16. |
+| **Sat Nov 7** | Feature freeze | App on live data end to end on two phones; demo campus + review accounts on prod; listing copy and support URL in App Store Connect. |
+| **Sun Nov 8** | Release candidate | Release build on `masuno-prod` uploaded; two-phone QA (`docs/QA.md`); screenshots (D7); submitted to Beta App Review for the external beta. §10.4 all green. |
+| **Mon Nov 9** | **Submit 1.0** | Released on approval. |
+| Nov 10–13 | In review | Rejection → reply and resubmit within 24 h. Last resubmit for Demo Day #2: **Fri Nov 13**. |
+| **Mon Nov 16** | Submit 1.1 | Fixes + anything cut from 1.0. |
+| **Thu Nov 19** | **Demo Day #2** | 1.0 live (or TestFlight if review is still pending); first metrics. |
 | Nov 25–27 | Thanksgiving break | No program sessions; light work only. |
-| **Mon Nov 30** | 1.0 resubmit cutoff | If rejected, fixes resubmitted by today so 1.0 is live for Demo Day #3. |
 | **Tue Dec 1** | 2.0 beta | Notifications working in TestFlight. |
-| **Thu Dec 3** | **Demo Day #3** | 1.0 live on the App Store; 2.0 beta shown. |
+| **Thu Dec 3** | **Demo Day #3** | 1.x live; 2.0 beta shown. |
 | **Tue Dec 8** | **Submit 2.0** | Manual release. |
 | **Fri Dec 11** | 2.0 resubmit cutoff | — |
 | **Mon Dec 14** | Release 2.0 | Or the moment it's approved, if later. |
@@ -176,9 +191,9 @@ Program weeks shown; the Wednesday Team Session doubles as our weekly sync. Aria
 | Week | Ethan (frontend) | Emilio (backend) | Arianna (design) | Ricardo (outreach) |
 | --- | --- | --- | --- | --- |
 | **Now** (Oct 29–Nov 1) | Repo setup (E0); contract + protocols (E1); design system (E2) | Dev project (B1); contract + schema start (B3) | Finalize green system + token table (D1) | Supabase access for Emilio (O2); team Gmail (O3); kickoff (O1) |
-| **Wk 7** (Nov 2–8) · DD1 Thu | Nav (E3), map/popup (E4), upload 0.1 (E6); onboarding screens (E5) | Gmail SMTP (B2); auth hook (B4); schema/RPCs (B3); `AuthService` (B5); `GameStore` (B6); iOS CI (B11) | Onboarding + 1.0 missing-screen frames (D2); DD1 deck design (D5) | Venue list (O5); Tec email check + test inboxes (O4); DD1 story + script (O10) |
-| **Wk 8** (Nov 9–15) | Game form (E7), location picker (E8), live map (E9) | RPCs done (B3); live repositories (B7); database tests (B10); prod project (B12) | App icon (D3); website Privacy & Terms + support pages (D4); design QA of first live screens (D6) | Policy + support copy (O6); recruit beta testers (O8) |
-| **Wk 9** (Nov 16–22) · DD2 Thu, submit Sat | Event detail (E10), safety screens (E11), Me (E12), Settings (E13), states + release hygiene (E14), submit 1.0 (E15) | Safety backend + alerts (B8); delete-account function (B9); fixes | Screenshots (D7); DD2 deck (D5); 2.0 frames (D8) | Listing copy into App Store Connect (O7); beta + real games (O8, O9); DD2 numbers (O10); moderation starts (O11) |
+| **Wk 7** (Nov 2–8) · DD1 Thu · **1.0 RC Sun** | Upload 0.1 (E6); swap mocks for the live store screen by screen as Emilio's pieces land (E24); release hygiene (E14); RC + QA Sun | **Critical path:** Gmail SMTP (B2), auth hook (B4), schema/RPCs (B3), `AuthService` (B5), `GameStore` (B6), live repositories (B7), safety backend (B8), delete-account (B9), prod + demo campus (B12) | App icon (D3) by Fri; Privacy & Terms + support pages (D4) by Fri; screenshots (D7) Sun; DD1 deck (D5) | Venue list (O5); Tec inboxes (O4); policy copy (O6) Thu; listing copy into App Store Connect (O7) Sat; DD1 story (O10) |
+| **Wk 8** (Nov 9–15) · **submit 1.0 Mon** | Submit 1.0 (E15); answer review; 1.1 fixes; onboarding frames swap (E5) | Database tests (B10), CI (B11), fixes from review | Onboarding + missing-screen frames (D2); design QA of 1.0 (D6); Auto-repost decision | Recruit beta testers (O8) once Beta App Review clears; moderation starts (O11) |
+| **Wk 9** (Nov 16–22) · DD2 Thu | Submit 1.1 Mon; 2.0 screens start (E16) | 2.0 backend start (B13) | DD2 deck (D5); 2.0 frames (D8) | Beta + real games (O8, O9); DD2 numbers (O10) |
 | **Wk 10** (Nov 23–29) · Thanksgiving | 2.0: notification screens (E16), Saved screens (E17) | 2.0: notification backend (B13), `send-push` (B14), Saved backend (B15), device-token code (B16) | Design QA of 1.0 release | Spanish translation (O12); beta feedback summary (O8) |
 | **Wk 11** (Nov 30–Dec 6) · DD3 Thu | 2.0: Spanish (E18), calendar/invite/maps (E19), picker drag + banner (E20), Me Past + edit profile (E21), 1.0 fixes; 2.0 beta Tue | 2.0: metrics (B17), Spanish notifications (B18), 1.0 fixes | DD3 deck (D5); Spanish layout check (D9) | DD3 story + numbers (O10) |
 | **Wk 12** (Dec 7–13) | Accessibility + tests (E22); submit 2.0 Tue (E23) | Notification tests, prod checks (B19) | 2.0 screenshots (D7); launch deck (D5) | Launch-week games (O9); PR/FAQ final; launch plan (O13) |
@@ -186,37 +201,37 @@ Program weeks shown; the Wednesday Team Session doubles as our weekly sync. Aria
 
 ```mermaid
 gantt
-  title masUNO releases through Product Launch
+  title masUNO releases through Product Launch (rev. 6)
   dateFormat YYYY-MM-DD
   axisFormat %b %d
   section Program
   Demo Day 1              :milestone, 2026-11-05, 0d
+  Go/no-go                :milestone, 2026-11-06, 0d
+  Submit 1.0              :milestone, 2026-11-09, 0d
   Demo Day 2              :milestone, 2026-11-19, 0d
-  App Submission workshop :milestone, 2026-11-20, 0d
   Demo Day 3              :milestone, 2026-12-03, 0d
   Product Launch          :milestone, 2026-12-16, 0d
   section Builds
   0.1 prototype           :2026-10-29, 2026-11-04
-  0.9 beta and 1.0 build  :2026-11-05, 2026-11-21
-  1.0 in App Review       :2026-11-21, 2026-12-02
-  2.0 build               :2026-11-22, 2026-12-08
+  1.0 live wiring and RC  :2026-11-04, 2026-11-09
+  1.0 in App Review       :2026-11-09, 2026-11-19
+  1.1 fast follow         :2026-11-10, 2026-11-16
+  2.0 build               :2026-11-16, 2026-12-08
   2.0 in App Review       :2026-12-08, 2026-12-14
   section Ethan
-  Design system and map   :2026-10-29, 2026-11-04
-  Onboarding form picker  :2026-11-05, 2026-11-15
-  Detail safety Me submit :2026-11-16, 2026-11-21
-  2.0 screens             :2026-11-22, 2026-12-08
+  Screens on mocks        :done, 2026-10-29, 2026-11-03
+  Live wiring and hygiene :2026-11-04, 2026-11-08
+  1.1 and 2.0 screens     :2026-11-10, 2026-12-08
   section Emilio
-  Supabase auth email     :2026-10-29, 2026-11-08
-  Schema RPCs data layer  :2026-11-02, 2026-11-15
-  Safety and deletion     :2026-11-16, 2026-11-20
-  Notifications backend   :2026-11-22, 2026-12-08
+  Backend for 1.0         :crit, 2026-11-03, 2026-11-08
+  Tests CI fixes          :2026-11-09, 2026-11-15
+  Notifications backend   :2026-11-16, 2026-12-08
   section Arianna
-  System and 1.0 frames   :2026-10-29, 2026-11-08
-  Icon website QA         :2026-11-09, 2026-11-20
+  Icon policy screenshots :crit, 2026-11-03, 2026-11-08
+  Frames and design QA    :2026-11-09, 2026-11-20
   2.0 frames and decks    :2026-11-16, 2026-12-16
   section Ricardo
-  Access venues inboxes   :2026-10-29, 2026-11-05
+  Copy listing inboxes    :crit, 2026-11-03, 2026-11-08
   Beta testers and games  :2026-11-09, 2026-12-01
   Launch outreach         :2026-12-01, 2026-12-16
 ```
@@ -229,51 +244,56 @@ The two coders split at the data layer. Everything below the view models (Supaba
 
 ### 5.1 Ethan — frontend
 
-| ID | Work | Release | Est. | Due | Depends on | Done when |
+Status as of Nov 3: "built" means the screen exists on mock data on `green-design-system` and still needs E24 (live wiring).
+
+| ID | Work | Release | Est. | Due | Status | Done when |
 | --- | --- | --- | --- | --- | --- | --- |
-| E0 | **Repo setup** (§6): Emilio Write, Arianna + Ricardo Triage; protect `main` (PR + 1 approval, squash merge); folders `MasUno/{Views, ViewModels, DesignSystem, Data}`, `supabase/`, `docs/` (SPEC, API, QA); `.gitignore` + `Config.xcconfig.template` wired into `project.yml`; check history for committed keys; `project.yml` (bundle ID, B&GC team, iOS 26); `CODEOWNERS`; PR template; README setup steps. | 0.1 | 2 h | Nov 1 | — | Emilio clones, builds on a simulator, and opens a PR that's blocked until Ethan approves. |
-| E1 | **Contract + domain models** with Emilio: `Profile`/`PersonSummary` with UUIDs, `Activity`, `Place`, `Game`, `DomainError`; `AuthService`, `GameRepository`, `ProfileRepository` and `SafetyRepository` protocols + mocks. | 0.1 | 3 h | Nov 4 | — | Protocols merged; Emilio builds live versions against them. |
-| E2 | **Green design system in code** (§7.1) from Arianna's tokens: button styles, `FieldBox` with error state, chips, `ActivityTile`, initials `Avatar`, `AvatarStack`, `GameCard`, `SettingsRow`, `SheetHeader`; String Catalog. | 0.1 | 6 h | Nov 4 | D1 | No hard-coded colors in views; DEBUG component gallery. |
-| E3 | **Navigation shell** (§7.3) + update-required screen. | 0.1 | 2 h | Nov 4 | E1 | All routes reachable. |
-| E4 | **Map + popup redesign** on mocks (Figma 341:1979, 341:2046). | 0.1 | 5 h | Nov 4 | E2 | Matches the frames on mock data. |
-| E5 | **Onboarding screens** (§7.5), driven by the `AuthService` protocol; suspended screen. | 0.9 | 4 h | Nov 8 | D2, E1 | Works on mock auth; works live once B5 lands. |
-| E6 | **Build 0.1** to TestFlight. | 0.1 | 1 h | Nov 4 | E2–E4 | On TestFlight for Demo Day #1. |
-| E7 | **Game form** add/edit, validation (Figma 341:3054), error messages, Cancel dialog. | 0.9 | 6 h | Nov 11 | B6 | Create/edit/cancel round-trip on `masuno-dev`. |
-| E8 | **Where's the game?**: search + current location. | 0.9 | 3 h | Nov 12 | E7 | Spot set by search or by location. |
-| E9 | **Live map**: location prompt, campus fallback + banner, search, sport filter, "Soon" labels, pull to refresh. | 0.9 | 4 h | Nov 14 | E4, B7 | Map shows real games from the database. |
-| E10 | **Event detail** (§7.6.4): 1.0 states, Who's going row, overflow menu, Leave dialog, Open in Apple Maps. | 0.9 | 7 h | Nov 17 | E9, D2 | Each state reachable with DEBUG launch arguments; last-spot race shows the right message. |
-| E11 | **Safety screens** (§7.6.6): Who's going sheet with flag menu, report sheet, block confirmation, Blocked people. | 1.0 | 5 h | Nov 18 | B8, D2 | Blocked person's games and name vanish without refreshing. |
-| E12 | **Me**: Going and Hosting lists with Leave/Edit. | 1.0 | 4 h | Nov 18 | E10 | Matches Figma 341:2165/341:2240 minus chat buttons. |
-| E13 | **Settings** (1.0 rows) + Delete account flow. | 1.0 | 2.5 h | Nov 19 | B9 | Delete account signs you out and the account is gone. |
-| E14 | **States + release hygiene**: empty/error/offline basics, app icon, launch screen, remove demo scaffolding, Release → prod. | 1.0 | 3 h | Nov 19 | D3 | Release build has no DEBUG menus; airplane mode never strands a screen. |
-| E15 | **Submit 1.0**: builds, privacy label, age rating, review notes; Ricardo enters the listing (O7). | 1.0 | 2 h | Nov 21 | O7, D7 | 1.0 submitted. |
-| | *1.0 subtotal* | | *59.5 h* | | | |
-| E16 | **Notification screens**: permission primer after first join/host, tap → game, Notifications section in Settings. | 2.0 | 3.5 h | Nov 29 | D8, B16 | Tapping each notification type opens the right game. |
-| E17 | **Saved screens**: bookmark, "Notify me if a spot opens", Saved list from the map. | 2.0 | 2.5 h | Nov 29 | D8, B15 | Saved survives relaunch. |
-| E18 | **Spanish**: String Catalog `es`, locale-aware dates, `label_es` for sports. | 2.0 | 2 h | Dec 4 | O12 | Whole app readable with the phone set to Spanish. |
-| E19 | **Add to Calendar**, **Invite a friend**, Google Maps option. | 2.0 | 2.5 h | Dec 4 | — | Calendar editor opens prefilled, with no permission prompt. |
-| E20 | **Picker drag-to-adjust** + address lookup; "Happening now" state; "changed since you joined" banner. | 2.0 | 3.5 h | Dec 5 | D8 | Drag sets a spot; banner shows after a host edit. |
-| E21 | **Me: Past games + Edit profile & interests** (reuses onboarding screens 4–5). | 2.0 | 3 h | Dec 5 | — | Changed interests save and reload. |
-| E22 | **Accessibility + UI tests**: Dynamic Type, VoiceOver labels, 44 pt targets; one UI smoke test. | 2.0 | 4 h | Dec 7 | — | Core loop with VoiceOver at XXL text. |
-| E23 | **1.0 fixes + 2.0 submission.** | 2.0 | 3 h | Dec 8 | — | 2.0 submitted. |
-| | **Ethan total** | | **1.0 59.5 h · 2.0 24 h · 83.5 h** | | | |
+| E0 | **Repo setup** (§6). | 0.1 | 2 h | Nov 1 | Done | Emilio clones, builds and opens a PR blocked until Ethan approves. |
+| E1 | **Contract + domain models** with Emilio: `Profile`/`PersonSummary`, `Activity`, `Place`, `Game`, `DomainError`; `AuthService`, `GameRepository`, `ProfileRepository`, `SafetyRepository` protocols + mocks. | 1.0 | 3 h | Nov 4 | Not merged — screens still use `SportsEvent`/`EventStore` | Protocols merged; Emilio builds live versions against them. |
+| E2 | **Green design system** (§7.1); colors in the asset catalog; String Catalog; DEBUG gallery. | 0.1 | 6 h | Nov 4 | Done | No hard-coded colors in views. |
+| E3 | **Navigation shell** (§7.3) + update-required + suspended screens; `masuno://game/<id>`. | 0.1 | 2 h | Nov 4 | Done | All routes reachable. |
+| E4 | **Map + popup redesign** (341:1979, 341:2046). | 0.1 | 5 h | Nov 4 | Done | Matches the frames on mock data. |
+| E5 | **Onboarding** (§7.5) + suspended screen. | 1.0 | 4 h | Nov 7 | Built (temp, from §7.5 copy) | Signs in for real once B5 lands; frames swapped in 1.1. |
+| E6 | **Build 0.1** to TestFlight. | 0.1 | 1 h | Nov 4 | To do | On TestFlight for Demo Day #1. |
+| E7 | **Game form** add/edit/cancel, validation. | 1.0 | 6 h | Nov 7 | Built | Create/edit/cancel round-trip on `masuno-dev`. |
+| E8 | **Where's the game?**: search + current location. | 1.0 | 3 h | Nov 7 | Built | Spot set by search or by location. |
+| E9 | **Live map**: location prompt, campus fallback (> 15 km) + banner, pull to refresh; remove the mock location. | 1.0 | 3 h | Nov 7 | Built on mocks; mock location TEMP | Map shows real games; App Review (far away) lands on campus. |
+| E10 | **Event detail** (§7.6.4). | 1.0 | 7 h | Nov 7 | Built | Each state reachable with DEBUG launch arguments; last-spot race shows the right message on two phones. |
+| E11 | **Safety screens** (§7.6.6). | 1.0 | 5 h | Nov 7 | Built | Blocked person's games and name vanish without refreshing. |
+| E12 | **Me**: Going, Hosting. | 1.0 | 4 h | Nov 7 | Built | Matches 341:2165/341:2240. |
+| E13 | **Settings** + Delete account. | 1.0 | 2.5 h | Nov 7 | Built | Delete account signs you out and the account is gone. |
+| E14 | **States + release hygiene**: empty/error/offline basics; app icon; launch color; Release → prod; DEBUG-only demo tools; hide cut or unconnected features in Release. | 1.0 | 3 h | Nov 8 | To do | Release build has no DEBUG menus, mock data or dead buttons; airplane mode never strands a screen. |
+| E15 | **Submit 1.0**: privacy label, age rating, review notes; Ricardo enters the listing (O7). | 1.0 | 2 h | **Nov 9** | To do | 1.0 submitted. |
+| E24 | **Live wiring** *(new)*: move screens onto E1 models + Emilio's `GameStore`/`AuthService`; delete `EventStore`/`MockData` from Release; game hub read-only (drop the composer and mock messages, N14); Saved persisted on the phone (N15). | 1.0 | 6 h | Nov 7 | To do | Every 1.0 screen works on `masuno-dev` with no mock data. |
+| | *1.0 subtotal* | | *~60 h* | | *~48 h built* | |
+| E16 | **Notification screens**. | 2.0 | 3.5 h | Nov 29 | — | Tapping each notification type opens the right game. |
+| E17 | **Saved sync + Notify me** (local Saved already in 1.0). | 2.0 | 1.5 h | Nov 29 | Local version built | Saved survives reinstall; Notify me works. |
+| E18 | **Spanish**. | 2.0 | 2 h | Dec 4 | — | Whole app readable in Spanish. |
+| E19 | **Add to Calendar, Invite a friend, Google Maps option** — moved to 1.0 (N16). | 1.0 | 2.5 h | Nov 7 | Built (invite link TEMP) | Calendar editor opens prefilled with no permission prompt; invite shares the App Store link. |
+| E20 | **Picker drag** + "Happening now" + changed banner. | 2.0 | 3.5 h | Dec 5 | — | Drag sets a spot; banner shows after a host edit. |
+| E21 | **Me: Past games + Edit profile & interests** — moved to 1.0 (N16). | 1.0 | 3 h | Nov 7 | Built | Edited interests save and reload from the server. |
+| E22 | **Accessibility + UI tests**. | 2.0 | 4 h | Dec 7 | — | Core loop with VoiceOver at XXL text. |
+| E23 | **1.x fixes + 2.0 submission.** | 2.0 | 3 h | Dec 8 | — | 2.0 submitted. |
+| E25 | **Auto-repost UI** (N17) — built, hidden until approved + backend. | 2.0 | — | — | Built (placeholder) | Toggle bumps the game on the server. |
 
 ### 5.2 Emilio — backend (Supabase + Swift data layer)
 
+**Rev. 6:** the 1.0 tasks (B1–B9, B12) are re-dated so the app can run on prod by Sat Nov 7 (⚑ needs Emilio's agreement — this is ~40 h in five days). B10 and B11 move after submission. If Emilio can't make a date, say so at the Wed Nov 4 sync so the cut order or a Nov 16 submission is decided early.
+
 | ID | Work | Release | Est. | Due | Depends on | Done when |
 | --- | --- | --- | --- | --- | --- | --- |
-| B1 | **Supabase dev setup**: `masuno-dev`, CLI, `supabase/` folder, seed script (Tec, 4 sports, Ricardo's venues, test users, games), `Config.xcconfig` template. | 0.9 | 3 h | Nov 3 | E0, O2, O5 | `supabase db reset` works locally for Ethan too. |
-| B2 | **Sign-in email via team Gmail** (§8.4): SMTP with app password, code-only template, 10-min expiry, raised rate limit, tested on Tec inboxes. | 0.9 | 1.5 h | Nov 6 | O3, O4 | Codes reach Tec inboxes (not junk) within a minute. |
-| B3 | **Schema, RLS, RPCs** (§8.3–§8.5) incl. report/block, text filter, App Review demo campus; `docs/API.md` by Nov 4. | 0.9 | 13 h | Nov 11 | E1 | Every 1.0 RPC works from the SQL editor as a test user. |
-| B4 | **Auth hook** (deny by default), `auth_allowlist`, 2 review accounts with passwords, `sign_in_method(email)`. | 0.9 | 2 h | Nov 6 | B1 | Non-Tec email gets the friendly error; review account signs in with a password. |
-| B5 | **`AuthService` (Swift)**: send/verify code, password path, session persistence, expired-session and suspended detection. | 0.9 | 4 h | Nov 8 | E1, B4 | Ethan's onboarding screens sign in for real. |
-| B6 | **`GameStore` (Swift)**: `@Observable`, `LoadState`, optimistic join/leave + rollback, error-code → `DomainError`; remove `SkillLevel`, `Venue`, `Person.you` from the model layer. | 0.9 | 5 h | Nov 10 | E1 | Store unit tests green on mock repositories. |
-| B7 | **Live repositories** (`supabase-swift` v2) for games, profiles, safety. | 0.9 | 6 h | Nov 13 | B3, B6 | Mock ↔ live is a one-line switch. |
-| B8 | **Safety backend**: report alert webhook to team chat, bans, instant local hiding of blocked people in `GameStore`. | 1.0 | 3 h | Nov 17 | B3 | Report alert arrives within a minute; blocked person disappears before the server answers. |
-| B9 | **`delete-account` Edge Function** + repository call. | 1.0 | 2 h | Nov 17 | B3 | Deleting cancels hosted games and frees joined spots. |
-| B10 | **Database tests** (pgTAP): last-spot race, RLS visibility, blocks, bans, posting window; run on PRs touching `supabase/`. | 0.9 | 2 h | Nov 15 | B3 | A deliberately broken policy fails CI. |
-| B11 | **CI** (GitHub Actions): iOS generate → build → unit tests on PRs to `main`, plus the database tests. (`CODEOWNERS` and branch protection are in E0.) | 0.9 | 1.5 h | Nov 8 | E0 | Ethan adds it as a required check on `main`. |
-| B12 | **Prod project**: latency test (Ricardo runs it from a phone in Monterrey), create `masuno-prod`, migrations, demo campus check, keep-alive + weekly backup (§8.1). | 0.9 | 1.5 h | Nov 15 | B3 | TestFlight builds run on prod. |
+| B1 | **Supabase dev setup**: `masuno-dev`, CLI, `supabase/` folder, seed script (Tec, 4 sports, Ricardo's venues, test users, games), `Config.xcconfig` template. | 1.0 | 3 h | Nov 4 ⚑ | E0, O2, O5 | `supabase db reset` works locally for Ethan too. |
+| B2 | **Sign-in email via team Gmail** (§8.4): SMTP with app password, code-only template, 10-min expiry, raised rate limit, tested on Tec inboxes. | 1.0 | 1.5 h | Nov 5 ⚑ | O3, O4 | Codes reach Tec inboxes (not junk) within a minute. |
+| B3 | **Schema, RLS, RPCs** (§8.3–§8.5) incl. report/block, text filter, App Review demo campus; `docs/API.md` by Nov 4. | 1.0 | 13 h | Nov 6 ⚑ | E1 | Every 1.0 RPC works from the SQL editor as a test user. |
+| B4 | **Auth hook** (deny by default), `auth_allowlist`, 2 review accounts with passwords, `sign_in_method(email)`. | 1.0 | 2 h | Nov 5 ⚑ | B1 | Non-Tec email gets the friendly error; review account signs in with a password. |
+| B5 | **`AuthService` (Swift)**: send/verify code, password path, session persistence, expired-session and suspended detection. | 1.0 | 4 h | Nov 6 ⚑ | E1, B4 | Ethan's onboarding screens sign in for real. |
+| B6 | **`GameStore` (Swift)**: `@Observable`, `LoadState`, optimistic join/leave + rollback, error-code → `DomainError`; remove `SkillLevel`, `Venue`, `Person.you` from the model layer. | 1.0 | 5 h | Nov 6 ⚑ | E1 | Store unit tests green on mock repositories. |
+| B7 | **Live repositories** (`supabase-swift` v2) for games, profiles, safety. | 1.0 | 6 h | Nov 7 ⚑ | B3, B6 | Mock ↔ live is a one-line switch. |
+| B8 | **Safety backend**: report alert webhook to team chat, bans, instant local hiding of blocked people in `GameStore`. | 1.0 | 3 h | Nov 7 ⚑ | B3 | Report alert arrives within a minute; blocked person disappears before the server answers. |
+| B9 | **`delete-account` Edge Function** + repository call. | 1.0 | 2 h | Nov 7 ⚑ | B3 | Deleting cancels hosted games and frees joined spots. |
+| B10 | **Database tests** (pgTAP): last-spot race, RLS visibility, blocks, bans, posting window; run on PRs touching `supabase/`. | 1.0 | 2 h | Nov 12 ⚑ | B3 | A deliberately broken policy fails CI. |
+| B11 | **CI** (GitHub Actions): iOS generate → build → unit tests on PRs to `main`, plus the database tests. (`CODEOWNERS` and branch protection are in E0.) | 1.0 | 1.5 h | Nov 12 ⚑ | E0 | Ethan adds it as a required check on `main`. |
+| B12 | **Prod project**: latency test (Ricardo runs it from a phone in Monterrey), create `masuno-prod`, migrations, demo campus check, keep-alive + weekly backup (§8.1). | 1.0 | 1.5 h | Nov 6 ⚑ | B3 | TestFlight builds run on prod. |
 | | *1.0 subtotal* | | *44.5 h* | | | |
 | B13 | **Notification backend**: device tokens, preferences, outbox written by RPCs, 1-min drain job, 5-min reminder job, interest matches (max 2/day), changed/cancelled, host updates. | 2.0 | 8 h | Nov 28 | — | Each row of §8.7 produced by the right trigger. |
 | B14 | **`send-push` Edge Function** (APNs token auth, collapse per game, invalid-token cleanup). | 2.0 | 4 h | Nov 29 | APNs key | Test push reaches a TestFlight build from prod. |
@@ -284,20 +304,20 @@ The two coders split at the data layer. Everything below the view models (Supaba
 | B19 | **Notification tests + 1.0 fixes + prod checks.** | 2.0 | 6 h | Dec 8 | — | Triggers covered by pgTAP; prod migrations applied before 2.0 release. |
 | | **Emilio total** | | **1.0 44.5 h · 2.0 24 h · 68.5 h** | | | |
 
-**Balancing rule:** Ethan's 1.0 load (~20 h/week) is higher than Emilio's (~15 h/week). If Emilio is ahead at a Wednesday sync, he takes non-visual Swift work from Ethan's lane in this order: form validation logic (E7), event-state derivation for Event detail (E10), unit tests for both. If Ethan is still behind after that, apply the cut order (§3).
+**Balancing rule (rev. 6, reversed):** Ethan's screens are already built, so until Nov 8 **Ethan takes Swift data-layer work off Emilio's plate**: the live repositories (B7) and `GameStore` (B6) once the RPCs exist, pairing on the first `supabase-swift` call. Emilio stays on Supabase (B2–B4, B8, B9, B12).
 
 ### 5.3 Arianna — design
 
 | ID | Task | For | ~Hours | Due |
 | --- | --- | --- | --- | --- |
 | D1 | **Finalize the green system in Figma**: confirm tokens (§7.1) as Figma variables; component set; fix known issues (unify copy per §7.2, green checkmarks, remove mic glyph, "· Read", meet-up photo, chat entry points, non-sport placeholder content). Hand Ethan the token table. | 0.1 | 3 | Nov 1 |
-| D2 | **Frames for 1.0 screens that have none**: onboarding (6 screens) first, then Event detail states (Full, Hosting, Ended, Cancelled), report sheet, block dialog, Blocked people, Settings (1.0 rows), empty/error/offline. | 0.9 | 6 | Onboarding Nov 4; rest Nov 10 |
-| D3 | **App icon** (1024 × 1024, no transparency) + launch-screen color. | 1.0 | 2 | Nov 12 |
-| D4 | **Website pages** on `masuno-app.github.io`: Privacy & Terms and Support, using Ricardo's copy (O6). | 1.0 | 3 | Nov 13 |
+| D2 | **Frames for screens built from the spec**: onboarding (6 screens), Event detail states (Full, Hosting, Ended, Cancelled), report sheet, block dialog, Blocked people, Settings, empty/error/offline, game hub without composer. Ethan swaps them in for 1.1. | 1.1 | 6 | Nov 12 |
+| D3 | **App icon** (1024 × 1024, no transparency) + launch-screen color. | 1.0 | 2 | **Nov 6** |
+| D4 | **Website pages** on `masuno-app.github.io`: Privacy & Terms and Support, using Ricardo's copy (O6). | 1.0 | 3 | **Nov 6** |
 | D5 | **Deck design** for Demo Days #1–#3 and the Product Launch (Ricardo writes the story). | DD1–Launch | 6 | Nov 5, Nov 19, Dec 3, Dec 16 |
 | D6 | **Design QA** of each build against Figma; Trello bugs with screenshots; review screenshots in UI PRs. | All | 1.5 per build | Nov 12 onward |
-| D7 | **App Store screenshots** (6.9") from the release candidate with short captions; redo for 2.0. | 1.0 / 2.0 | 3 | Nov 20 / Dec 8 |
-| D8 | **2.0 frames**: notification primer, Notifications settings, Saved list, "Notify me" state, "Happening now", "changed since you joined" banner, location picker drag. | 2.0 | 3 | Nov 22 |
+| D7 | **App Store screenshots** (6.9") from the release candidate with short captions; redo for 2.0. | 1.0 / 2.0 | 3 | **Nov 8** / Dec 8 |
+| D8 | **2.0 frames**: notification primer, Notifications settings, "Notify me" state, "Happening now", "changed since you joined" banner, location picker drag; **Auto-repost** sign-off or alternative (N17). | 2.0 | 3 | Nov 22 (Auto-repost by Nov 11) |
 | D9 | **Spanish layout check**: long strings, truncation, buttons. | 2.0 | 1 | Dec 4 |
 | D10 | *Optional:* small SwiftUI PRs (spacing/color tweaks found in design QA), reviewed by Ethan. | — | — | Any time |
 
@@ -306,16 +326,16 @@ The two coders split at the data layer. Everything below the view models (Supaba
 | ID | Task | For | ~Hours | Due |
 | --- | --- | --- | --- | --- |
 | O1 | **Kickoff as team lead**: sign off §12 decisions; set demo-day targets; pick the report-alert chat. | All | 1 | Nov 1 |
-| O2 | **Supabase access**: add Emilio as Owner of the organization (or transfer it). | 0.9 | 0.5 | Oct 31 |
-| O3 | **Team Gmail** (e.g. `masunoapp@gmail.com`) with 2-step verification; shared password manager for it, the review-account passwords and later the APNs key. | 0.9 | 0.5 | Oct 31 |
-| O4 | **Tec email check**: student address format (`A0…@tec.mx`?) and whether staff share `@tec.mx`; 3–5 Tec inboxes Emilio can test with. | 0.9 | 1 | Nov 4 |
-| O5 | **Venue list**: 10–15 real places near Tec for pickup sports (name, address, coordinates, sports) for seed data and the demo campus. Run the Supabase latency test from a phone in Monterrey when Emilio sends the links. | 0.9 | 2 | Nov 3 |
-| O6 | **Policy + support copy** from the outline in §10.2; Emilio checks every data claim. | 1.0 | 2 | Nov 10 |
-| O7 | **App Store listing**: name, subtitle, description, keywords, promo text, support/privacy URLs; enters them in App Store Connect. Describes only what that version does — no chat. | 1.0 / 2.0 | 2 | Nov 18 / Dec 7 |
-| O8 | **Beta**: recruit 15–30 Tec students from the waitlist; manage the external TestFlight group; short feedback Google Form; weekly summary at the Team Session. | 0.9 | 5 | Nov 13 – Dec 1 |
+| O2 | **Supabase access**: add Emilio as Owner of the organization (or transfer it). | 1.0 | 0.5 | Oct 31 |
+| O3 | **Team Gmail** (e.g. `masunoapp@gmail.com`) with 2-step verification; shared password manager for it, the review-account passwords and later the APNs key. | 1.0 | 0.5 | Oct 31 |
+| O4 | **Tec email check**: student address format (`A0…@tec.mx`?) and whether staff share `@tec.mx`; 3–5 Tec inboxes Emilio can test with. | 1.0 | 1 | Nov 4 |
+| O5 | **Venue list**: 10–15 real places near Tec for pickup sports (name, address, coordinates, sports) for seed data and the demo campus. Run the Supabase latency test from a phone in Monterrey when Emilio sends the links. | 1.0 | 2 | Nov 3 |
+| O6 | **Policy + support copy** from the outline in §10.2; Emilio checks every data claim. | 1.0 | 2 | **Nov 5** |
+| O7 | **App Store listing**: name, subtitle, description, keywords, promo text, support/privacy URLs; enters them in App Store Connect. Describes only what that version does — the game hub shows plans, not messaging. | 1.0 / 2.0 | 2 | **Nov 7** / Dec 7 |
+| O8 | **Beta**: recruit 15–30 Tec students from the waitlist; manage the external TestFlight group (1.0 build); short feedback Google Form; weekly summary at the Team Session. | 1.0 | 5 | Nov 9 – Dec 1 |
 | O9 | **Hosts & real games**: 2–3 real games during beta week and launch week; film a short clip for the decks. | DD2–Launch | 4 | Nov 19, Dec 16 |
 | O10 | **Demo-day stories, scripts and numbers** (testers, sign-ups, games, joins from App Store Connect and the metrics view). | DD1–Launch | 6 | Nov 5, Nov 19, Dec 3, Dec 16 |
-| O11 | **Moderation rota** with Arianna: check report alerts daily from the beta onward, act within 24 h (§10.6). | 0.9 onward | 10 min/day | From Nov 17 |
+| O11 | **Moderation rota** with Arianna: check report alerts daily from the beta onward, act within 24 h (§10.6). | 1.0 onward | 10 min/day | From Nov 9 (App Review may test reports) |
 | O12 | **Spanish translation** of the String Catalog export (natural Mexican Spanish; a second native speaker reviews). | 2.0 | 3 | Nov 29 |
 | O13 | **Launch**: waitlist email, social posts, the program's marketing/funnel/business-model deliverables, and a February campus-launch plan (clubs, recurring hosts). | Launch | 5 | Dec 16 |
 
@@ -328,10 +348,10 @@ The two coders split at the data layer. Everything below the view models (Supaba
 - **Branches:** `main` protected; short-lived branches; one approving review from the other coder; squash merge; review within 24 h.
 - **Contract first:** `docs/API.md` and the Swift protocols are the boundary; a change to either is one PR reviewed by both coders.
 - **Migrations:** never edit an applied migration; only Emilio pushes to prod, only from `main`, before the matching TestFlight build.
-- **Environments:** Debug → `masuno-dev`; TestFlight and App Store → `masuno-prod` from build 0.9 (beta games are real games).
+- **Environments:** Debug → `masuno-dev`; TestFlight and App Store → `masuno-prod` from the 1.0 release candidate (beta games are real games).
 - **Design hand-off:** a screen is ready to build when its frame is marked "Ready" in Figma. If it isn't ready, Ethan builds from §7 and Arianna adjusts in design QA.
 - **Done means:** check in §5 met · strings in the catalog · run on a real phone · reviewed · CI green · (screens) screenshot approved by Arianna.
-- **Cadence:** Wednesday Team Session = weekly sync (demo on a phone, hours vs §5, cut decisions, beta feedback from Ricardo). **Trello** (board "2026 UnaMas"): backlog lists by release ("MVP · 1.0 — submit Sat Nov 21", "2.0 · Product Launch — submit Tue Dec 8", "Post MVP Features (after Dec 16)"); at each Wednesday sync, the next week's cards move into **Current Sprint** → **In Progress** → **Done**. Every card title starts with its owner's name and carries the owner's role label (Frontend = Ethan, Backend = Emilio, Design = Arianna, Marketing = Ricardo), plus a due date from §5. Each person also clicks **Join** on their own cards, since the Trello connector can't assign members.
+- **Cadence:** Wednesday Team Session = weekly sync (demo on a phone, hours vs §5, cut decisions, beta feedback from Ricardo). **Trello** (board "2026 UnaMas"): backlog lists by release ("MVP · 1.0 — submit Mon Nov 9" — rename from "Sat Nov 21", "2.0 · Product Launch — submit Tue Dec 8", "Post MVP Features (after Dec 16)"); at each Wednesday sync, the next week's cards move into **Current Sprint** → **In Progress** → **Done**. Every card title starts with its owner's name and carries the owner's role label (Frontend = Ethan, Backend = Emilio, Design = Arianna, Marketing = Ricardo), plus a due date from §5. Each person also clicks **Join** on their own cards, since the Trello connector can't assign members.
 - **Secrets:** team Gmail, review-account passwords and the APNs key live in the shared password manager — never in the repo or a chat.
 
 ---
@@ -369,8 +389,10 @@ Cards 16–20 pt radius with hairline border; pill buttons ~50 pt; boxed fields 
 | Cancel dialog | "Cancel After-work hoops?" / "We'll let the 3 people who are going know." / "This can't be undone." / **Cancel game** / **Keep game** | Delete event |
 | Leave | **Leave** → **Leave game** | Give up your spot |
 | Bottom bar | **+ Add game** | + Add event |
-| Before you go (1.0) | "Alex can see you joined. Check where to meet and who's going." | group-chat copy |
+| Before you go (1.0) | "Alex can see you joined. Check where to meet and who's going." | "Say hi in the group chat" (no sending in 1.0 — fix in E24) |
 | Before you go (2.0) | …+ "We'll remind you 30 min before." | — |
+| Game hub (1.0) | Button **Group chat** / "Group chat · 2 new"; footer "Messages are coming in a later update" must **not** appear — no composer at all in 1.0 (N14) | "Messages are coming soon" |
+| Saved | **Saved** list; bookmark **Bookmark** / **Remove bookmark** | Bookmarked |
 | Validation | Hint "Give it a real name, not just the sport"; "Add a name so people know what they're joining."; "9:00 AM has already passed today. Pick a later time." | — |
 
 ### 7.3 Navigation
@@ -380,14 +402,16 @@ Launch → version check → session?
 ├─ None → Onboarding (§7.5)
 ├─ Suspended → "Your account is suspended" + support email
 └─ Signed in → Map
-     ├─ Search · [2.0] Saved → Event detail
-     ├─ Pin → Popup → Details / Join game → Event detail
-     ├─ Filter · Recenter · + Add game → Game form → Where's the game?
+     ├─ Search · Saved → Event detail
+     ├─ Pin → Popup (bookmark) → Details / Join game → Event detail
+     ├─ Filter · Recenter (above the avatar) · + Add game → Game form → Where's the game?
      └─ Avatar → Me
-          ├─ Gear → Settings → Blocked people · Privacy & Terms · Delete account
-          ├─ Going → Event detail · Leave
-          └─ Hosting → Edit → Game form → Cancel
-Event detail → Who's going (report/block) · Report game · Open in Maps · [2.0] Calendar · Invite
+          ├─ Gear → Settings → Blocked people · Community guidelines · Privacy & Terms · Delete account
+          ├─ Edit profile & interests
+          ├─ Going → Event detail · Leave · Group chat · Past (14 days)
+          └─ Hosting → Edit → Game form → Cancel · Group chat
+Event detail → Who's going (report/block) · Report game · Open in Maps (Apple/Google) · Add to calendar · Invite a friend · Group chat (going or hosting)
+Group chat (game hub, read-only) → Who's going · Where to meet (host)
 [2.0] Notification tap → Event detail
 ```
 
@@ -397,16 +421,16 @@ Frames: `https://www.figma.com/design/5eKA3f0I90VVABrAuNMFD2/masuno-figma?node-i
 
 | Frame (node) | Treatment | Release · build / design |
 | --- | --- | --- |
-| Map (341:1979), Popup (341:2046) | As designed; bookmark button in 2.0; no mic glyph | 0.1 visuals, 0.9 live · E4/E9 · D1 |
-| Add event (341:1849), Error (341:3054) | As designed + Meet-up spot field | 0.9 · E7 · D1 |
-| Choose location (341:2646) | Search + current location in 1.0; drag in 2.0 | 0.9 / 2.0 · E8/E20 · D8 |
-| Event detail (341:2586) | As designed + `…` menu; other states drawn in D2 | 0.9 · E10 · D2 |
-| You're in (341:2989) | "Open group chat" removed; 2.0 adds Add to calendar + Invite a friend | 0.9 / 2.0 · E10/E19 · D8 |
+| Map (341:1979), Popup (341:2046) | As designed, incl. bookmark; no mic glyph; popup is a map callout that follows its pin | 1.0 · E4/E9 · D1 |
+| Add event (341:1849), Error (341:3054) | As designed + Meet-up spot field; Auto-repost toggle hidden (N17) | 1.0 · E7 · D1 |
+| Choose location (341:2646) | Search + current location in 1.0; drag in 2.0 | 1.0 / 2.0 · E8/E20 · D8 |
+| Event detail (341:2586) | As designed + `…` menu + bookmark; other states drawn in D2 | 1.0 · E10 · D2 |
+| You're in (341:2989) | Open group chat (game hub) · Invite a friend; Add to calendar in the card | 1.0 · E10/E19 |
 | Who's going (341:2309) | Flag → Report / Block | 1.0 · E11 · D2 |
-| Me Going/Hosting (341:2165/2240) | No "Group chat · N new"; initials | 1.0 · E12 · D1 |
-| Edit / Delete event (341:2703/2840) | "Cancel game" copy | 0.9 · E7 · D1 |
+| Me Going/Hosting (341:2165/2240) | As designed incl. "Group chat · N new"; initials; Repost → Auto-repost (N17) | 1.0 · E12/E21 · D1 |
+| Edit / Delete event (341:2703/2840) | "Cancel game" copy | 1.0 · E7 · D1 |
 | Settings (341:2144) | 1.0 rows only; notification toggles in 2.0; no calendar or name-visibility rows | 1.0 · E13 · D2/D8 |
-| Group chat, Chat rules, Edit meet-up | Not shipped (C2); chat rules text reused in onboarding | — |
+| Group chat (341:1791), Chat rules (341:2420), Edit meet-up (341:2507) | Game hub read-only in 1.0 (N14): pinned card, timeline of system rows, no composer; rules sheet shown once; host edits the meet-up spot | 1.0 · E24 · D2 |
 
 ### 7.5 Onboarding & sign-in (E5 screens · B5 `AuthService` · D2 frames)
 
@@ -422,10 +446,11 @@ Location is requested when the map first opens; if denied, the map centers on ca
 ### 7.6 Feature specs
 
 #### 7.6.1 Map (E4, E9)
-- Default view: Tec campus center (≈ 25.6514, −100.2895); jumps to you only if you're within ~15 km. Recenter button.
+- Default view: your location if you're within ~15 km of Tec; otherwise (or with location off) the campus center (≈ 25.6514, −100.2895) with the "Turn on location" banner. The campus fallback is required: App Review is not in Monterrey. Recenter button sits right above the avatar. *(Dev builds pin "you" at Tec until E9 — `LocationService.mockCoordinate`, TEMP.)*
 - Shows games that aren't cancelled, ended or full, start within 7 days, and whose host isn't blocked either way.
 - Pins: blue with sport emoji; "Soon" if starting within 60 min (2.0 adds "Now"). Selected pin grows with a halo; others dim.
-- Popup: host initials, title, "Basketball · Hosted by Alex G.", spots left, time, address, attendee avatars; **Details** + **Join game** / **View game** / **Edit game**.
+- Popup: a map callout above the selected pin that grows out of it, moves with the map and closes when the pin scrolls off screen. Host initials, title, "Basketball · Hosted by Alex G.", spots left, time, address, attendee avatars, bookmark; **Details** + **Join game** / **View game** / **Edit game**.
+- Bookmark button next to search opens **Saved** (N15).
 - Search (title, sport, place, host first name) and sport filter. Standard Apple map style.
 
 #### 7.6.2 Game form (E7)
@@ -441,18 +466,19 @@ Location is requested when the map first opens; if denied, the map centers on ca
 | State | Chip | Bottom bar |
 | --- | --- | --- |
 | Open | Open · N spots left | **Join game** |
-| You're in | ✓ You're in · N going · N spots left | 1.0: none (Before you go text). 2.0: **Add to calendar** · **Invite a friend** |
-| Full | Full | 1.0: "Spots open up when someone leaves — check back." 2.0: **Notify me if a spot opens** |
-| Hosting | You're hosting · N going | **Edit game**; prompt to add a meet-up spot if empty |
+| You're in | ✓ You're in · N going · N spots left | **Open group chat** · **Invite a friend** |
+| Full | Full | "Spots open up when someone leaves — check back." 2.0: **Notify me if a spot opens** |
+| Hosting | You're hosting · N going | **Open group chat** · **Edit game**; prompt to add a meet-up spot if empty |
 | Ended | This game has ended | none |
 | Cancelled | Alex cancelled this game | none |
 
-- Body: map header, title, sport and host, date/time ("Starts in 35 min · about 1 hour"), address, meet-up spot, **Open in Maps**, notes, Who's going.
+- Body: map header, title, sport and host, date/time ("Starts in 35 min · about 1 hour"), address, meet-up spot, **Open in Maps** (Apple or Google if installed), **Add to calendar** (going/hosting), notes, Who's going. Bookmark in the toolbar.
+- Invite a friend: share sheet with "Join me for After-work hoops — Today · 7:35 PM at … N spots left on masUNO:" + the App Store link (no deep link to the game until after the program).
 - Menu: going → Leave game, Report game; not going → Report game; hosting → Cancel game.
 - Join shows "You're in" immediately and rolls back if the server says the game filled: "Someone just took the last spot." If someone you blocked is going: "Someone you blocked is going."
 
 #### 7.6.5 Me (E12, E21)
-Card: initials, your full name, "Class of 2029 · Tec de Monterrey", "Verified student" badge (if O4 confirms staff don't share `@tec.mx`; otherwise "Tec verified"), interests. Going and Hosting lists; empty states "No games yet. Find one on the map." / "Host a game in under a minute." 2.0 adds Past (14 days) and Edit profile & interests.
+Card: initials, your full name, "Class of 2029 · Tec de Monterrey", "Verified student" badge (if O4 confirms staff don't share `@tec.mx`; otherwise "Tec verified"), interests. Going and Hosting lists with **Group chat · N new**; Past (last 14 days, collapsed) under Going; **Edit profile & interests** (first/last name ≤ 30, class year, ≥ 1 sport; preview "Emilio G. · Class of 2029"). Empty states "No games yet. Find one on the map." / "Host a game in under a minute."
 
 #### 7.6.6 Safety (E11 screens · B3/B8 backend)
 - **Who's going:** names, Host badge, "(you)", flag → Report / Block. "Only the masUNO team sees reports."
@@ -469,6 +495,19 @@ Card: initials, your full name, "Class of 2029 · Tec de Monterrey", "Verified s
 
 #### 7.6.8 Empty, error, offline (E14)
 Map with no games: "No open games right now. Start one?" Failed loads show a retry card; failed actions show a short message and undo the optimistic change; offline shows "You're offline — showing the last games we loaded."
+
+#### 7.6.9 Game hub — "Group chat" (N14, E24)
+- Header: game title, "N going", avatar stack → Who's going.
+- Pinned card: date/time, place, meet-up spot; host sees **Edit** → "Where to meet" sheet ("Pinned at the top of the chat so nobody has to ask.", ≤ 80, text filter, **Save**).
+- Timeline: system rows only in 1.0, from game data — created, joined, left ("1 spot open"), meet-up updated, time/place changed, cancelled. **No composer, no placeholder messages** (guideline 2.1). Sending is Chat v1 (Appendix A).
+- "Before you chat" rules sheet once per account; opening marks activity read ("Group chat · N new").
+- Backend: system rows can be derived from `rsvps` and `events` change times; a `game_activity` view is enough for 1.0 (B3, ⚑ Emilio).
+
+#### 7.6.10 Saved (N15, E17)
+Bookmark on the popup, Event detail and the Saved list; filled green icon when saved. 1.0 stores bookmarks on the phone (survive relaunch, not reinstall). 2.0 syncs them (`bookmarks`, B15) and adds "Notify me if a spot opens".
+
+#### 7.6.11 Auto-repost (N17 — proposed, not in 1.0)
+Host toggle in the game form (on by default) with "If someone drops out, we'll bump your game back to the top of the map." When a full game frees a spot (a player leaves, or the host raises capacity), the server sets `events.reposted_at = now()` inside `leave_game` / `update_game`; the map sorts by `coalesce(reposted_at, created_at)`. Hosting cards show "Auto-repost on" / "Reposted 25 min ago". Needs: Arianna's sign-off (replaces the Figma "Repost" button), `events.auto_repost bool default true` + `reposted_at`, and a sort on the map. 2.0 can pair it with the "A spot opened" push.
 
 ---
 
@@ -605,7 +644,7 @@ Your phone's location never leaves the phone. Email stays in Supabase Auth and i
 | Screens | Form validation, event-state logic, one UI smoke test | Ethan |
 | Design QA | Each build vs Figma; screenshots in UI PRs | Arianna |
 | Manual | `docs/QA.md` two-phone script: core loop, block/report, delete account, offline, location denied, far away, big text, small phone — run by Arianna and Ricardo on each build | Arianna, Ricardo |
-| Beta | 15–30 Tec students from Nov 19; feedback form; weekly summary | Ricardo |
+| Beta | 15–30 Tec students from Nov 9 (once Beta App Review clears the 1.0 build); feedback form; weekly summary | Ricardo |
 
 ---
 
@@ -629,25 +668,27 @@ Plain language, at `masuno-app.github.io/privacy`, linked from onboarding, Setti
 
 ### 10.3 TestFlight
 - Internal (team members added in App Store Connect): every build from 0.1.
-- External: build 0.9 submitted Tue Nov 17 (Beta App Review takes about a day); Ricardo manages the public link and testers. 2.0 beta builds go to the same group.
+- External: the 1.0 release candidate goes to Beta App Review on Sun Nov 8, the day before App Review (waits are long right now — submit both as early as possible). Ricardo manages the public link and testers. 1.1 and 2.0 beta builds go to the same group.
 
-### 10.4 App Review checklist (green before Nov 21 and again before Dec 8)
+### 10.4 App Review checklist (green before Sun Nov 8, again before each later submission)
 - [ ] Review accounts in the notes; password sign-in works; demo campus shows joinable games; notes explain why reviewers can't use email codes.
 - [ ] Notes explain: Tec-email-only sign-in (why there's no Sign in with Apple), the demo campus, how to report and block, that reports are handled within 24 h.
 - [ ] Guidelines agreed before use; text filter; report person and game; block works instantly; Blocked people undo.
 - [ ] Contact us in the app (team Gmail) and support URL (website) in App Store Connect.
 - [ ] Privacy & Terms URL in the app and in App Store Connect; privacy label answered.
 - [ ] Delete account in the app, and it really deletes.
-- [ ] No placeholders, no "coming soon", no DEBUG menus; screenshots from the real build; listing doesn't promise chat or anything not in this version.
+- [ ] No placeholders, no "coming soon", no DEBUG menus, no mock data or mock location; the game hub has no composer; cut features hidden; screenshots from the real build; listing doesn't promise messaging or anything not in this version.
 - [ ] Location purpose string explains the use; (2.0) notifications asked in context.
-- [ ] Age-rating questionnaire answered (user-generated content, no messaging).
+- [ ] Age-rating questionnaire answered (user-generated content; no messaging in 1.0).
+- [ ] Map lands on the campus (demo campus for review accounts) for someone far from Monterrey.
 - [ ] Exact submitted build tested on a physical phone.
 
 ### 10.5 Release steps
-- **1.0 — Sat Nov 21:**
-  - Emilio checks the review accounts and demo campus that morning.
-  - Ethan submits, with release on approval.
-  - On rejection, Ethan replies the same day and resubmits within 24 h. Last resubmit Mon Nov 30.
+- **1.0 — Mon Nov 9:**
+  - Sun Nov 8: Emilio checks the review accounts and demo campus on prod; Ethan uploads the release candidate and sends it to Beta App Review; two-phone QA.
+  - Mon Nov 9: Ethan submits, with release on approval.
+  - On rejection, Ethan replies the same day and resubmits within 24 h. Last resubmit to be live for Demo Day #2: Fri Nov 13.
+- **1.1 — Mon Nov 16:** fixes + anything cut from 1.0; release on approval. Prod migrations must stay compatible with 1.0.
 - **2.0 — Tue Dec 8:**
   - Submit with manual release. Last resubmit Fri Dec 11.
   - Release Mon Dec 14, or on approval if later.
@@ -666,9 +707,9 @@ Alert in team chat → on-call person (Ricardo or Arianna) checks the report in 
 
 | # | Risk | Likelihood | Impact | Mitigation | Owner |
 | - | --- | --- | --- | --- | --- |
-| K1 | Ethan's 1.0 screens not done by Nov 20 (~60 h in ~3 weeks) | High | High | Emilio takes non-visual Swift work when ahead (§5.2); Arianna's frames land a week early; cut order (§3) | Ethan, Emilio |
+| K1 | **Backend not live by Sat Nov 7** (~40 h of Emilio's work pulled into five days) | **High** | **High** | Ethan takes the Swift data layer (§5.2 balancing rule); Fri Nov 6 go/no-go; cut order (§3); if sign-in, join or delete account isn't live, submit Mon Nov 16 instead — never submit a mock build | Emilio, Ethan |
 | K2 | Emilio's data layer late, blocking live screens | Medium | High | Contract + protocols frozen Nov 4; Ethan builds on mocks; Ethan pairs on the first `supabase-swift` call | Emilio |
-| K3 | 1.0 rejected and not live by Demo Day #3 | Medium | High | §10.4 checklist; submit Nov 21; resubmit by Nov 30; worst case demo from TestFlight | Ethan |
+| K3 | 1.0 rejected or stuck in review past Demo Day #2 | Medium | Medium | §10.4 checklist; submit Nov 9; resubmit by Nov 13; worst case demo from TestFlight; 1.1 on Nov 16 | Ethan |
 | K4 | Codes from Gmail land in Tec's junk folder | Medium | High | Test real Tec inboxes in Week 7; plain-text template; on-screen "check Junk" hint | Emilio, Ricardo |
 | K5 | Gmail daily cap or app-password revocation | Low | High | Cap is ~500/day; never change the Gmail password without updating Supabase; move to a domain + provider if growth demands | Emilio |
 | K6 | No one's role can create the APNs key | Low | Medium | Check roles in Week 7; if needed, ask the B&GC Admin. 2.0 still ships Spanish, Saved list and polish without push | Ethan |
@@ -678,14 +719,28 @@ Alert in team chat → on-call person (Ricardo or Arianna) checks the report in 
 | K10 | Empty map at launch (end of semester) | High | Medium | Real games lined up for beta and launch weeks; the real campus push happens in February | Ricardo |
 | K11 | Last-spot race or data bug | Low | High | Row lock + capacity check + race test | Emilio |
 | K12 | "Verified student" untrue if staff share `@tec.mx` | Medium | Low | O4; pattern check or "Tec verified" badge | Ricardo |
+| K13 | Game hub read as placeholder content (2.1) | Medium | High | No composer or fake messages in 1.0 (§7.6.9); listing and review notes call it "game details and who's going"; if rejected, hide its entry points and resubmit | Ethan |
+| K14 | Reviewers far from Monterrey see an empty map | High without fallback | High | Campus fallback (§7.6.1) + demo campus with auto-refreshed games (C12); remove the dev mock location (E9) | Ethan, Emilio |
+| K15 | Rushed RC ships a crash or a mock leftover | Medium | High | DEBUG-only demo tools; Release build checked for `MockData`/TEMP (E14); two-phone QA Sun Nov 8 | Ethan, Arianna |
 
 ---
 
-## 12. Decisions at kickoff (Sun Nov 1)
+## 12. Decisions
+
+### Rev. 6 — sign off at the Wed Nov 4 sync
 
 | # | Decision | Default |
 | - | --- | --- |
-| D-1 | C2 — no chat screen during the program | Approve |
+| R6-1 | N11/N12 — submit 1.0 Mon Nov 9 on the live backend; go/no-go Fri Nov 6; fall back to Mon Nov 16 if must-haves aren't live | Approve (Emilio confirms the B dates) |
+| R6-2 | N14 — read-only game hub in 1.0, no composer | Approve |
+| R6-3 | N15/N16 — Saved (on the phone), calendar, invite, Google Maps, Past, Edit profile in 1.0 if live by Nov 7 | Approve |
+| R6-4 | N17 — Auto-repost replaces the Figma "Repost"; not in 1.0 | Arianna decides by Nov 11 |
+
+### Kickoff (Sun Nov 1)
+
+| # | Decision | Default |
+| - | --- | --- |
+| D-1 | C2 — no chat screen during the program *(partly reversed by R6-2)* | Approve |
 | D-2 | C3 — Add to Calendar (2.0) instead of sync | Approve |
 | D-3 | C4 — no photos during the program | Approve |
 | D-4 | C5 — "First L." names | Approve |
@@ -708,6 +763,9 @@ Alert in team chat → on-call person (Ricardo or Arianna) checks the report in 
 ---
 
 ## Appendix A — Chat v1 design (parked)
+
+*Rev. 6: the read-only game hub (§7.6.9) ships in 1.0; items 1–5, 8 and 9 below (sending) remain parked until January. Items 6 (consent sheet) and 7 (unread) are built.*
+
 
 1. **Tables:** `chat_messages` (event, sender, kind system/user, body ≤ 1000, `client_id`, soft delete), `chat_reads`; `profile_private.chat_guidelines_accepted_at`; `app_config.chat_enabled`.
 2. **Policy:** members of a game may post while it isn't cancelled and ended < 24 h ago, after accepting chat rules, if not banned and `chat_enabled` is on (checked in RLS).
