@@ -7,6 +7,7 @@ struct GameFormSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var viewModel: GameFormViewModel
     @State private var confirmsCancel = false
+    @State private var picksLocation = false
 
     init(editing: SportsEvent? = nil) {
         let viewModel = GameFormViewModel(editing: editing)
@@ -16,6 +17,8 @@ struct GameFormSheet: View {
             viewModel.time = Calendar.current.date(bySettingHour: 0, minute: 0, second: 0, of: .now) ?? .now
             viewModel.showsErrors = true
         }
+        // `-screen picker`: straight into "Where's the game?".
+        _picksLocation = State(initialValue: UserDefaults.standard.string(forKey: "screen") == "picker")
         #endif
         _viewModel = State(initialValue: viewModel)
     }
@@ -35,6 +38,9 @@ struct GameFormSheet: View {
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
         .presentationBackground(Theme.background)
+        .sheet(isPresented: $picksLocation) {
+            LocationPickerSheet(venue: $viewModel.venue)
+        }
         .alert(
             Text("Cancel \(viewModel.editing?.title ?? "")?"),
             isPresented: $confirmsCancel
@@ -174,12 +180,7 @@ struct GameFormSheet: View {
 
                 Spacer(minLength: 4)
 
-                // TODO(E8): opens "Where's the game?".
-                Menu("Change") {
-                    Picker("Location", selection: $viewModel.venue) {
-                        ForEach(MockData.Venues.all) { Text($0.name).tag($0) }
-                    }
-                }
+                Button("Change") { picksLocation = true }
                 .buttonStyle(.glassProminent)
                 .tint(Theme.accentSoft)
                 .foregroundStyle(Theme.ink)

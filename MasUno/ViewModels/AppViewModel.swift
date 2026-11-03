@@ -24,13 +24,13 @@ final class AppViewModel {
 
     #if DEBUG
     /// Jump straight to a screen for design review, e.g. launch with `-screen hosted`.
-    /// Options: registered, hosted, add, form-error, edit, gallery, popup (handled in `EventMapViewModel`).
+    /// Options: registered, hosted, add, form-error, edit, picker, gallery, popup (handled in `EventMapViewModel`).
     func openDebugScreen(in store: EventStore) {
         switch UserDefaults.standard.string(forKey: "screen") {
         case "registered": path = [.registered]
         case "hosted": path = [.hosted]
         case "add": startAdding()
-        case "form-error": startAdding()
+        case "form-error", "picker": startAdding()
         case "edit": startAdding(editing: store.hostedEvents.first?.id)
         case "gallery": path = [.gallery]
         default: break

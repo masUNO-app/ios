@@ -12,7 +12,7 @@ struct Venue: Hashable, Identifiable {
     var coordinate: CLLocationCoordinate2D { .init(latitude: latitude, longitude: longitude) }
 
     /// "760 Market Street, San Francisco, CA 94107"
-    var fullAddress: String { "\(street), \(city)" }
+    var fullAddress: String { [street, city].filter { !$0.isEmpty }.joined(separator: ", ") }
 
     /// "Dolores Park · 19th & Dolores St" (or just the street when the venue is an address)
     var titleLine: String { name == street ? street : "\(name) · \(street)" }
