@@ -10,8 +10,10 @@ final class EventMapViewModel {
     /// Empty means "all sports".
     var sportFilter: Set<Sport> = []
     var selectedID: SportsEvent.ID?
-    /// Starts on you; campus if location is off or not allowed.
-    var position: MapCameraPosition = .userLocation(fallback: .region(MockData.campusRegion))
+    /// Starts on you (the mock spot while `LocationService.mockCoordinate` is set);
+    /// campus if location is off or not allowed.
+    var position: MapCameraPosition = LocationService.mockCoordinate.map { .region(EventMapViewModel.region(around: $0)) }
+        ?? .userLocation(fallback: .region(MockData.campusRegion))
 
     // MARK: Queries
 
@@ -35,6 +37,19 @@ final class EventMapViewModel {
             position = .region(MKCoordinateRegion(center: event.coordinate, span: MockData.campusRegion.span))
         }
         selectedID = event.id
+    }
+
+    /// Recenter on the mock location. The real location uses the native `MapUserLocationButton`.
+    func centerOnMockLocation() {
+        guard let mock = LocationService.mockCoordinate else { return }
+        withAnimation {
+            selectedID = nil
+            position = .region(Self.region(around: mock))
+        }
+    }
+
+    private static func region(around coordinate: CLLocationCoordinate2D) -> MKCoordinateRegion {
+        MKCoordinateRegion(center: coordinate, span: MockData.campusRegion.span)
     }
 
     func toggleSport(_ sport: Sport) {

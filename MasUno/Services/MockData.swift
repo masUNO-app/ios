@@ -9,6 +9,9 @@ enum MockData {
     /// Tec campus center (SPEC §7.6.1).
     static let campusCenter = CLLocationCoordinate2D(latitude: 25.6514, longitude: -100.2895)
 
+    /// Pretend "you" stand here, just north-east of campus (see `LocationService.mockCoordinate`).
+    static let userLocation = CLLocationCoordinate2D(latitude: 25.6533, longitude: -100.2872)
+
     static let campusRegion = MKCoordinateRegion(
         center: campusCenter,
         span: .init(latitudeDelta: 0.012, longitudeDelta: 0.012)

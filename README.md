@@ -94,7 +94,8 @@ Placeholders that still need a real answer. Card IDs refer to SPEC §5.
 - [ ] `app_config` (min version, support email, privacy URL) — mocked in `AppConfig.mock`
 
 ### Later
-- [ ] Live map location, campus fallback banner and pull to refresh (E9) — map uses a mock "you" coordinate
+- [ ] TODO/TEMP: "you" are pinned at Tec (`LocationService.mockCoordinate`) so the mock games are nearby wherever you test; launch with `-realLocation YES` for real GPS. Remove with the live map (E9)
+- [ ] Live map: campus fallback banner and pull to refresh (E9)
 - [ ] Release hygiene (E14): app icon, launch color, Release → prod, keep `-screen` DEBUG-only
 - [ ] 2.0: Notify me + Saved backend (bookmarks are local only), notifications, calendar, invite, picker drag, Past games, Spanish
 - [ ] Chat backend: sending, real timeline, rules acceptance per account (`GroupChatView` is UI only)

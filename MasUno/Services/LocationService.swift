@@ -8,8 +8,19 @@ enum LocationService {
         case denied, unavailable
     }
 
+    /// TODO/TEMP(E9): every game is mock data at Tec, so "you" are pinned there too —
+    /// otherwise the map follows your real location (e.g. Princeton) far from every game,
+    /// and simulators without a location fix spin forever. Launch with `-realLocation YES`
+    /// to use the phone's GPS. Remove once the live map loads real games (E9).
+    static var mockCoordinate: CLLocationCoordinate2D? {
+        UserDefaults.standard.bool(forKey: "realLocation") ? nil : MockData.userLocation
+    }
+
     /// Asks for When-In-Use permission if needed, then returns the first location fix.
     static func currentLocation() async throws -> CLLocation {
+        if let mock = mockCoordinate {
+            return CLLocation(latitude: mock.latitude, longitude: mock.longitude)
+        }
         let session = CLServiceSession(authorization: .whenInUse)
         defer { session.invalidate() }
         for try await update in CLLocationUpdate.liveUpdates() {

@@ -48,7 +48,9 @@ struct EventMapView: View {
             SavedGamesSheet { appViewModel.path.append(.game($0)) }
         }
         .onAppear {
-            if locationSession == nil { locationSession = CLServiceSession(authorization: .whenInUse) }
+            if locationSession == nil, LocationService.mockCoordinate == nil {
+                locationSession = CLServiceSession(authorization: .whenInUse)
+            }
         }
         .toolbarBackgroundVisibility(.hidden, for: .bottomBar)
         .onGeometryChange(for: CGSize.self) { $0.size } action: { screenSize = $0 }
@@ -70,8 +72,15 @@ struct EventMapView: View {
 
         // Native selection: tap a pin to select, tap empty map to dismiss the popup.
         return Map(position: $viewModel.position, selection: $viewModel.selectedID, scope: mapScope) {
-            UserAnnotation {
-                UserPin(name: store.profile.fullName)
+            if let mock = LocationService.mockCoordinate {
+                Annotation("You", coordinate: mock, anchor: .center) {
+                    UserPin(name: store.profile.fullName)
+                }
+                .annotationTitles(.hidden)
+            } else {
+                UserAnnotation {
+                    UserPin(name: store.profile.fullName)
+                }
             }
 
             ForEach(viewModel.mapEvents(in: store)) { event in
@@ -133,11 +142,24 @@ struct EventMapView: View {
         .foregroundStyle(Theme.ink)
     }
 
-    /// Native "show my location" button, centered over the avatar in the bottom bar.
+    /// Native `MapUserLocationButton` for the real location; a glass button with the same
+    /// look while the location is mocked (the native one can only follow real GPS).
+    @ViewBuilder
+    private var userLocationButton: some View {
+        if LocationService.mockCoordinate != nil {
+            Button("Show my location", systemImage: "location.fill") { viewModel.centerOnMockLocation() }
+                .labelStyle(.iconOnly)
+                .buttonStyle(.glass)
+        } else {
+            MapUserLocationButton(scope: mapScope)
+        }
+    }
+
+    /// "Show my location" button, centered over the avatar in the bottom bar.
     private var locationButton: some View {
         GeometryReader { geo in
             let containerMinX = geo.frame(in: .global).minX
-            MapUserLocationButton(scope: mapScope)
+            userLocationButton
                 .buttonBorderShape(.circle)
                 .controlSize(.large)
                 .tint(Theme.ink)
