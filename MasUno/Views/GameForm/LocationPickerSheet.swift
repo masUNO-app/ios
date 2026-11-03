@@ -47,12 +47,9 @@ struct LocationPickerSheet: View {
 
         return Map(position: $viewModel.position) {
             Annotation(viewModel.selection.name, coordinate: viewModel.selection.coordinate, anchor: .bottom) {
-                VStack(spacing: -6) {
-                    Circle().fill(Theme.pin).frame(width: 36, height: 36)
-                        .overlay(Image(systemName: "mappin").foregroundStyle(Theme.onAccent))
-                    Triangle().fill(Theme.pin).frame(width: 14, height: 10)
+                PinMarker(size: 36) {
+                    Image(systemName: "mappin").foregroundStyle(Theme.onAccent)
                 }
-                .shadow(color: Theme.shadow, radius: 3, y: 2)
             }
             .annotationTitles(.hidden)
         }

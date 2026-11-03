@@ -38,6 +38,9 @@ struct EventMapView: View {
             SavedGamesSheet { appViewModel.path.append(.game($0)) }
         }
         .onAppear {
+            #if DEBUG
+            if UserDefaults.standard.string(forKey: "screen") == "saved" { showsSaved = true }
+            #endif
             if locationSession == nil, LocationService.mockCoordinate == nil {
                 locationSession = CLServiceSession(authorization: .whenInUse)
             }
@@ -53,6 +56,7 @@ struct EventMapView: View {
         #endif
         // Make room for the popup above a newly selected pin, like a map callout.
         .onChange(of: viewModel.selectedID) { _, id in
+            viewModel.selectionChanged(to: id)
             guard let id, let event = store.event(id) else { return }
             viewModel.reveal(event)
         }
@@ -80,27 +84,35 @@ struct EventMapView: View {
 
             ForEach(viewModel.mapEvents(in: store)) { event in
                 let isSelected = viewModel.selectedID == event.id
-                // Anchored at the pin's tip, so the popup above it moves with the map.
                 Annotation(event.title, coordinate: event.coordinate, anchor: .bottom) {
-                    VStack(spacing: 10) {
-                        if isSelected {
-                            EventPopup(event: event, viewModel: viewModel)
-                                .frame(width: 320)
-                                // Annotation content doesn't inherit the environment.
-                                .environment(store)
-                                .environment(appViewModel)
-                                .transition(.scale(scale: 0.1, anchor: .bottom).combined(with: .opacity))
-                        }
-                        EventPin(
-                            event: event, now: now,
-                            isSelected: isSelected,
-                            isDimmed: viewModel.selectedID != nil && !isSelected
-                        )
-                    }
-                    .zIndex(isSelected ? 1 : 0)
+                    EventPin(
+                        event: event, now: now,
+                        isSelected: isSelected,
+                        isDimmed: viewModel.selectedID != nil && !isSelected
+                    )
                 }
                 .annotationTitles(.hidden)
                 .tag(event.id)
+            }
+
+            // The popup is its own annotation on the pin's coordinate, so MapKit moves it with
+            // the pin, and the pin's annotation never changes size (which made MapKit swap and
+            // cross-fade it). Added last so it draws over the pins.
+            if let id = viewModel.popupID, let event = store.event(id) {
+                Annotation(event.title, coordinate: event.coordinate, anchor: viewModel.popupAnchor(for: event)) {
+                    EventPopup(event: event, viewModel: viewModel)
+                        .frame(width: 320)
+                        // Annotation content doesn't inherit the environment.
+                        .environment(store)
+                        .environment(appViewModel)
+                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { viewModel.popupHeight = $0 }
+                        // Grows out of / shrinks into the pin. Annotation content is hosted outside
+                        // this view's transactions, so the animation is declared in here.
+                        .scaleEffect(viewModel.isPopupShown ? 1 : 0.1, anchor: .bottom)
+                        .opacity(viewModel.isPopupShown ? 1 : 0)
+                        .animation(.spring(duration: 0.4, bounce: 0.22), value: viewModel.isPopupShown)
+                }
+                .annotationTitles(.hidden)
             }
         }
         .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))

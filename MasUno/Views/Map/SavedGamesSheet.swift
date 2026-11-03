@@ -25,13 +25,7 @@ struct SavedGamesSheet: View {
                             onOpen(event.id)
                         } label: {
                             GameCard(event: event) {
-                                Button(
-                                    "Remove bookmark", systemImage: "bookmark.fill"
-                                ) { withAnimation { store.toggleBookmark(event.id) } }
-                                .labelStyle(.iconOnly)
-                                .buttonStyle(.glass)
-                                .buttonBorderShape(.circle)
-                                .tint(Theme.ink)
+                                BookmarkButton(event: event)
                             }
                         }
                         .buttonStyle(.plain)

@@ -108,14 +108,9 @@ struct EventDetailView: View {
             center: event.coordinate, latitudinalMeters: 500, longitudinalMeters: 500
         ))) {
             Annotation(event.title, coordinate: event.coordinate, anchor: .bottom) {
-                VStack(spacing: -6) {
-                    ZStack {
-                        Circle().fill(Theme.pin).frame(width: 40, height: 40)
-                        Text(event.sport.emoji).font(.system(size: 24))
-                    }
-                    Triangle().fill(Theme.pin).frame(width: 14, height: 10)
+                PinMarker(size: 40) {
+                    Text(event.sport.emoji).font(.system(size: 24))
                 }
-                .shadow(color: Theme.shadow, radius: 3, y: 2)
             }
             .annotationTitles(.hidden)
         }

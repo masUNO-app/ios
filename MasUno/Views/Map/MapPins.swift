@@ -19,14 +19,9 @@ struct EventPin: View {
                     .glassEffect(.regular, in: .capsule)
             }
 
-            VStack(spacing: -6) {
-                ZStack {
-                    Circle().fill(Theme.pin).frame(width: 46, height: 46)
-                    Text(event.sport.emoji).font(.system(size: 30))
-                }
-                Triangle().fill(Theme.pin).frame(width: 18, height: 14)
+            PinMarker(size: 46) {
+                Text(event.sport.emoji).font(.system(size: 30))
             }
-            .shadow(color: Theme.shadow, radius: 3, y: 3)
             .background(alignment: .bottom) {
                 // Halo on the ground under the selected pin.
                 Ellipse()
@@ -66,16 +61,5 @@ struct UserPin: View {
         .shadow(color: Theme.shadow, radius: 3, y: 2)
         .allowsHitTesting(false)
         .accessibilityLabel("You")
-    }
-}
-
-nonisolated struct Triangle: Shape {
-    func path(in rect: CGRect) -> Path {
-        Path { p in
-            p.move(to: CGPoint(x: rect.minX, y: rect.minY))
-            p.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
-            p.addLine(to: CGPoint(x: rect.midX, y: rect.maxY))
-            p.closeSubpath()
-        }
     }
 }

@@ -10,6 +10,12 @@ final class EventMapViewModel {
     /// Empty means "all sports".
     var sportFilter: Set<Sport> = []
     var selectedID: SportsEvent.ID?
+    /// The game whose popup is on the map. Lags behind `selectedID` while the popup shrinks away.
+    private(set) var popupID: SportsEvent.ID?
+    /// Grows / shrinks the popup (animated inside its annotation).
+    private(set) var isPopupShown = false
+    /// Measured popup height, to sit it just above its pin.
+    var popupHeight: CGFloat = 260
     /// Starts on you (the mock spot while `LocationService.mockCoordinate` is set);
     /// campus if location is off or not allowed.
     var position: MapCameraPosition = LocationService.mockCoordinate.map { .region(EventMapViewModel.region(around: $0)) }
@@ -37,6 +43,33 @@ final class EventMapViewModel {
             position = .region(MKCoordinateRegion(center: event.coordinate, span: MockData.campusRegion.span))
         }
         selectedID = event.id
+    }
+
+    /// Opens or closes the popup to match the selected pin: it grows out of the pin, and
+    /// shrinks back into it before it's removed.
+    func selectionChanged(to id: SportsEvent.ID?) {
+        if let id {
+            popupID = id
+            isPopupShown = false
+            Task {
+                // Let the annotation appear at its "closed" size first, then animate open.
+                try? await Task.sleep(for: .milliseconds(30))
+                if selectedID == id { isPopupShown = true }
+            }
+        } else {
+            isPopupShown = false
+            Task {
+                try? await Task.sleep(for: .milliseconds(350))
+                if selectedID == nil { popupID = nil }
+            }
+        }
+    }
+
+    /// Anchors the popup annotation so its bottom sits 10 pt above the selected pin
+    /// (and its "Soon" label). Same coordinate as the pin, so MapKit moves them together.
+    func popupAnchor(for event: SportsEvent) -> UnitPoint {
+        let pinHeight: CGFloat = (event.isSoon() ? 88 : 56) * 1.15
+        return UnitPoint(x: 0.5, y: 1 + (pinHeight + 10) / max(popupHeight, 1))
     }
 
     /// Last visible region, so selecting a pin can keep the current zoom.
@@ -96,7 +129,24 @@ final class EventMapViewModel {
         case "popup-saved": "Tennis doubles"
         default: ""
         }
-        selectedID = mapEvents(in: store).first { $0.title == title }?.id
+        guard let id = mapEvents(in: store).first(where: { $0.title == title })?.id else { return }
+        // After the map has settled, so the open animation is visible in design review.
+        Task {
+            try? await Task.sleep(for: .seconds(1.5))
+            selectedID = id
+            // `-popupCycle YES`: close it again, to review the close animation.
+            if UserDefaults.standard.bool(forKey: "popupCycle") {
+                try? await Task.sleep(for: .seconds(2))
+                selectedID = nil
+            }
+            // `-popupPan YES`: pan the pin off screen, to review following and auto-close.
+            if UserDefaults.standard.bool(forKey: "popupPan"), let region = visibleRegion {
+                try? await Task.sleep(for: .seconds(1.5))
+                var moved = region
+                moved.center.longitude -= region.span.longitudeDelta * 0.9
+                withAnimation(.linear(duration: 2.5)) { position = .region(moved) }
+            }
+        }
     }
     #endif
 
