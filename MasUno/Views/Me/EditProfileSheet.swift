@@ -54,7 +54,7 @@ struct EditProfileSheet: View {
                             .padding(.top, 8)
                         FlowLayout(spacing: 8) {
                             ForEach(Sport.postable) { sport in
-                                interestToggle(sport)
+                                InterestToggle(sport: sport, isOn: viewModel.interests.contains(sport)) { viewModel.toggle(sport) }
                             }
                         }
                         if let error = viewModel.interestsError {
@@ -89,26 +89,5 @@ struct EditProfileSheet: View {
             }
         }
         .presentationBackground(Theme.background)
-    }
-
-    private func interestToggle(_ sport: Sport) -> some View {
-        let isOn = viewModel.interests.contains(sport)
-        return Button {
-            viewModel.toggle(sport)
-        } label: {
-            HStack(spacing: 6) {
-                Text(sport.emoji)
-                Text(sport.name)
-                if isOn { Image(systemName: "checkmark").fontWeight(.semibold) }
-            }
-            .font(.subheadline.weight(.medium))
-            .foregroundStyle(Theme.ink)
-            .padding(.horizontal, 14)
-            .frame(height: 40)
-            .background(isOn ? Theme.chipSport : Theme.card, in: .capsule)
-            .overlay(Capsule().strokeBorder(isOn ? Theme.pin.opacity(0.5) : Theme.hairline, lineWidth: isOn ? 1.5 : 1))
-        }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(isOn ? .isSelected : [])
     }
 }

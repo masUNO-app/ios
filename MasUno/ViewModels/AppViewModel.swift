@@ -52,20 +52,21 @@ final class AppViewModel {
         session = .signedOut
     }
 
-    /// TODO(E5): onboarding. Mock auth signs straight back in.
+    /// Onboarding finished. TODO(B5): session comes from `AuthService`.
     func signIn() {
         session = .signedIn
     }
 
     #if DEBUG
     /// Jump straight to a screen for design review, e.g. launch with `-screen me`.
-    /// Options: update, signed-out, suspended, me, me-hosting, profile, settings, add, form-error, edit,
+    /// Options: update, signed-out, onboarding-email|code|about|interests|guidelines, suspended, me, me-hosting, profile, settings, add, form-error, edit,
     /// picker, gallery, detail-*, who, report, blocked, calendar, chat, chat-host, meetup, popup (handled in `EventMapViewModel`).
     func openDebugScreen(in store: EventStore) {
         let screen = UserDefaults.standard.string(forKey: "screen") ?? ""
         switch screen {
         case "update": session = .updateRequired
         case "signed-out": session = .signedOut
+        case _ where screen.hasPrefix("onboarding-"): session = .signedOut
         case "suspended": session = .suspended
         case "me": path = [.me()]
         case "me-hosting": path = [.me(.hosting)]

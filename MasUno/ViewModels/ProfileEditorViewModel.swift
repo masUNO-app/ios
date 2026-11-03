@@ -6,8 +6,9 @@ import Observation
 /// No photos, bios, skill levels or follower counts.
 @Observable
 final class ProfileEditorViewModel {
-    var firstName: String { didSet { firstName = Self.limited(firstName) } }
-    var lastName: String { didSet { lastName = Self.limited(lastName) } }
+    // Only write back when over the limit (an unconditional write recurses in @Observable).
+    var firstName: String { didSet { if firstName.count > Self.nameLimit { firstName = Self.limited(firstName) } } }
+    var lastName: String { didSet { if lastName.count > Self.nameLimit { lastName = Self.limited(lastName) } } }
     var classYear: Int
     var interests: Set<Sport>
     var showsErrors = false

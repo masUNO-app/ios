@@ -24,7 +24,7 @@ git-ignored too: Debug points at `masuno-dev`, Release at `masuno-prod`.
 Debug builds accept a `-screen` launch argument to jump straight to a screen for design review:
 `popup`, `popup-saved`, `saved`, `add`, `form-error`, `edit`, `picker`, `detail-open|in|full|hosting|ended|cancelled`
 (add `-raceJoin YES` to `detail-open` for the last-spot race), `who`, `report`, `blocked`, `me`,
-`me-hosting`, `profile`, `calendar`, `chat`, `chat-host`, `meetup`, `settings`, `update`, `signed-out`, `suspended`, `gallery`.
+`me-hosting`, `profile`, `onboarding-email|code|about|interests|guidelines`, `calendar`, `chat`, `chat-host`, `meetup`, `settings`, `update`, `signed-out`, `suspended`, `gallery`.
 
 ## How we work
 
@@ -68,6 +68,7 @@ Green Figma frames (node ids `341:*`). Copy follows SPEC §7.2 ("game", not "eve
 | Me · Going (341:2165), Me · Hosting (341:2240) | `Views/Me/MeView.swift` | `MeViewModel` |
 | Group chat (341:1791), Chat rules (341:2420), Edit meet-up (341:2507) | `Views/Chat/` | — |
 | Settings (341:2144) | `Views/Settings/SettingsView.swift` | — |
+| Onboarding (TEMP, SPEC §7.5) | `Views/Onboarding/OnboardingFlow.swift` | `OnboardingViewModel` |
 | Update required, suspended (D2) | `Views/Launch/LaunchGateViews.swift` | `AppViewModel` |
 
 Navigation, the launch gate and app-level sheets live in `ViewModels/AppViewModel.swift`; data in
@@ -81,7 +82,7 @@ Group chat is built but not connected: mock timeline, disabled composer ("Messag
 Placeholders that still need a real answer. Card IDs refer to SPEC §5.
 
 ### Waiting on design (D2)
-- [ ] Onboarding (E5) — `WelcomeView` is a stand-in that signs straight in on mock auth
+- [ ] Onboarding (E5) — TEMP flow from SPEC §7.5 copy on mock auth (any 6-digit code but 000000); swap in D2 frames + `AuthService` (B5)
 - [ ] Event detail Full / Hosting / Ended / Cancelled, report sheet, Blocked people and Settings rows
       were built from SPEC §7.6 copy; swap in Arianna's frames when they're Ready
 - [ ] Empty / error / offline states (E14)

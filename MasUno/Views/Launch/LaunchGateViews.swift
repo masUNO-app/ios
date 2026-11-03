@@ -52,26 +52,6 @@ struct UpdateRequiredView: View {
     }
 }
 
-/// Signed out. Stand-in for Welcome until the onboarding screens land (E5, SPEC §7.5).
-struct WelcomeView: View {
-    @Environment(AppViewModel.self) private var appViewModel
-
-    var body: some View {
-        GateScreen(
-            systemImage: "sportscourt",
-            title: "Find your next game",
-            message: "Pickup games around Tec, one or two players short — and looking for you."
-        ) {
-            // TODO(E5): email → code → about you → interests → guidelines.
-            Button("Continue with your Tec email") { appViewModel.signIn() }
-                .buttonStyle(.glassProminent)
-                .controlSize(.large)
-                .buttonSizing(.flexible)
-                .fontWeight(.semibold)
-        }
-    }
-}
-
 /// A moderator banned this account (`profile_private.banned_at`).
 struct SuspendedView: View {
     @Environment(AppViewModel.self) private var appViewModel

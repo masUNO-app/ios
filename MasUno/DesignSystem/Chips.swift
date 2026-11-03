@@ -59,3 +59,28 @@ struct ActivityTile: View {
             .accessibilityLabel(Text(sport.name))
     }
 }
+
+/// Selectable sport chip (onboarding "What do you play?", Edit profile & interests).
+struct InterestToggle: View {
+    var sport: Sport
+    var isOn: Bool
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Text(sport.emoji)
+                Text(sport.name)
+                if isOn { Image(systemName: "checkmark").fontWeight(.semibold) }
+            }
+            .font(.subheadline.weight(.medium))
+            .foregroundStyle(Theme.ink)
+            .padding(.horizontal, 14)
+            .frame(height: 40)
+            .background(isOn ? Theme.chipSport : Theme.card, in: .capsule)
+            .overlay(Capsule().strokeBorder(isOn ? Theme.pin.opacity(0.5) : Theme.hairline, lineWidth: isOn ? 1.5 : 1))
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isOn ? .isSelected : [])
+    }
+}

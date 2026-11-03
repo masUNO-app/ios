@@ -10,7 +10,7 @@ struct ContentView: View {
         Group {
             switch appViewModel.session {
             case .updateRequired: UpdateRequiredView()
-            case .signedOut: WelcomeView()
+            case .signedOut: OnboardingFlow()
             case .suspended: SuspendedView()
             case .signedIn: main
             }
