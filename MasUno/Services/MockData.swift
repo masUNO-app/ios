@@ -2,123 +2,159 @@ import CoreLocation
 import Foundation
 import MapKit
 
-/// Mock content mirroring the Figma frames. Times are relative to launch so
-/// the map's "starts in" labels always look live.
+/// Mock content mirroring the green Figma frames, moved to Tec's Monterrey campus.
+/// Times are relative to launch so "starts in" labels always look live.
+/// Venue names and coordinates are approximate placeholders until Ricardo's venue list (O5).
 enum MockData {
-    static let userLocation = CLLocationCoordinate2D(latitude: 37.7880, longitude: -122.4028)
+    /// Tec campus center (SPEC §7.6.1).
+    static let campusCenter = CLLocationCoordinate2D(latitude: 25.6514, longitude: -100.2895)
 
-    static let initialRegion = MKCoordinateRegion(
-        center: .init(latitude: 37.7853, longitude: -122.4058),
-        span: .init(latitudeDelta: 0.011, longitudeDelta: 0.011)
+    /// Pretend "you" stand here, just north-east of campus (see `LocationService.mockCoordinate`).
+    static let userLocation = CLLocationCoordinate2D(latitude: 25.6533, longitude: -100.2872)
+
+    static let campusRegion = MKCoordinateRegion(
+        center: campusCenter,
+        span: .init(latitudeDelta: 0.012, longitudeDelta: 0.012)
     )
 
     enum Venues {
-        static let unionSquare = Venue(name: "Union Square Courts", street: "333 Post St", city: "San Francisco, CA 94108", latitude: 37.7881, longitude: -122.4078)
-        static let yerbaBuena = Venue(name: "Yerba Buena Gardens", street: "750 Howard St", city: "San Francisco, CA 94103", latitude: 37.7858, longitude: -122.4044)
-        static let market760 = Venue(name: "760 Market Street", street: "760 Market Street", city: "San Francisco, CA 94107", latitude: 37.7856, longitude: -122.4071)
-        static let fourthAndMarket = Venue(name: "4th & Market Plaza", street: "4th St & Market St", city: "San Francisco, CA 94103", latitude: 37.7830, longitude: -122.4040)
-        static let mintPlaza = Venue(name: "Mint Plaza", street: "1 Mint Plaza", city: "San Francisco, CA 94103", latitude: 37.7823, longitude: -122.4085)
-        static let moscone = Venue(name: "Moscone Recreation Center", street: "1800 Chestnut St", city: "San Francisco, CA 94123", latitude: 37.8007, longitude: -122.4345)
-        static let missionRec = Venue(name: "Mission Rec Center", street: "2450 Harrison St", city: "San Francisco, CA 94110", latitude: 37.7590, longitude: -122.4125)
-        static let doloresPark = Venue(name: "Dolores Park", street: "19th & Dolores St", city: "San Francisco, CA 94114", latitude: 37.7596, longitude: -122.4269)
-        static let ritualCoffee = Venue(name: "Ritual Coffee", street: "1026 Valencia St", city: "San Francisco, CA 94110", latitude: 37.7565, longitude: -122.4213)
-        static let kezar = Venue(name: "Kezar Pavilion", street: "755 Stanyan St", city: "San Francisco, CA 94117", latitude: 37.7671, longitude: -122.4547)
+        static let city = "Tecnológico, Monterrey, N.L."
 
-        /// Choices in the Add event sheet.
-        static let postable = [moscone, unionSquare, yerbaBuena, mintPlaza, missionRec, market760]
+        static let basketballCourts = Venue(name: "Tec basketball courts", street: "Av. Eugenio Garza Sada 2501 Sur", city: city, latitude: 25.6521, longitude: -100.2903)
+        static let borregosStadium = Venue(name: "Estadio Borregos", street: "Av. Luis Elizondo", city: city, latitude: 25.6489, longitude: -100.2868)
+        static let arena = Venue(name: "Arena Borregos", street: "Av. Junco de la Vega", city: city, latitude: 25.6531, longitude: -100.2925)
+        static let tennisCourts = Venue(name: "Tec tennis courts", street: "Av. Eugenio Garza Sada 2501 Sur", city: city, latitude: 25.6502, longitude: -100.2918)
+        static let distritoTec = Venue(name: "Parque Distrito Tec", street: "Calle Profr. Moisés Sáenz", city: city, latitude: 25.6553, longitude: -100.2889)
+        static let sportsCenter = Venue(name: "Centro Deportivo Tec", street: "Av. Fernando García Roel", city: city, latitude: 25.6475, longitude: -100.2905)
+
+        static let all = [basketballCourts, borregosStadium, arena, tennisCourts, distritoTec, sportsCenter]
     }
+
+    /// Your profile on the Me card. Replaced by the signed-in profile once auth lands (B5).
+    static let profile = Profile(
+        firstName: "Emilio", lastName: "Garza", classYear: 2029,
+        school: "Tec de Monterrey", isVerified: true,
+        interests: [.basketball, .soccer, .tennis]
+    )
 
     static func events(now: Date = .now) -> [SportsEvent] {
         func inMinutes(_ minutes: Double) -> Date { now.addingTimeInterval(minutes * 60) }
+        func minutesAgo(_ minutes: Double) -> Date { now.addingTimeInterval(-minutes * 60) }
+        func message(_ sender: String, _ text: String, _ minutes: Double) -> ChatMessage {
+            ChatMessage(sender: sender, text: text, sentAt: minutesAgo(minutes))
+        }
+        func system(_ text: String, _ minutes: Double) -> ChatMessage {
+            ChatMessage(kind: .system, text: text, sentAt: minutesAgo(minutes))
+        }
         func day(_ offset: Int, _ hour: Int, _ minute: Int = 0) -> Date {
             let calendar = Calendar.current
             let base = calendar.date(byAdding: .day, value: offset, to: now) ?? now
             return calendar.date(bySettingHour: hour, minute: minute, second: 0, of: base) ?? base
         }
-        func msg(_ sender: String, _ text: String, minutesAgo: Double) -> ChatMessage {
-            ChatMessage(sender: sender, text: text, sentAt: now.addingTimeInterval(-minutesAgo * 60))
-        }
 
         return [
-            // MARK: Map (Sports event map frame)
+            // MARK: Map
             SportsEvent(
-                title: "Tennis Doubles", sport: .tennis, host: "Priya",
+                // Popup + Event detail frames.
+                title: "After-work hoops", sport: .basketball, host: "Alex Rivera",
+                start: inMinutes(35), duration: 3600, capacity: 6,
+                attendees: ["Alex Rivera", "Ricardo Treviño"], venue: Venues.basketballCourts,
+                meetUpSpot: "Meet by the north court bleachers",
+                notes: "Casual 3-on-3 after work. Bring a ball if you have one, and some water. We'll play for about an hour."
+            ),
+            SportsEvent(
+                title: "Tennis doubles", sport: .tennis, host: "Priya Shah",
                 start: inMinutes(135), duration: 3600, capacity: 4,
-                attendees: ["Priya", "Ben"], venue: Venues.unionSquare,
-                skillLevel: .casual, notes: "Need two more for doubles. Rackets available."
+                attendees: ["Priya Shah", "Ben Ortiz"], venue: Venues.tennisCourts,
+                notes: "Need two more for doubles. Rackets available.", isBookmarked: true
             ),
             SportsEvent(
-                title: "Pickup Soccer", sport: .soccer, host: "Diego",
-                start: inMinutes(32), duration: 5400, capacity: 10,
-                attendees: ["Diego", "Sam", "Nina", "Jules", "Leo", "Maya", "Ben"], venue: Venues.yerbaBuena
+                title: "Pickup soccer", sport: .soccer, host: "Diego Morales",
+                start: inMinutes(50), duration: 5400, capacity: 10,
+                attendees: ["Diego Morales", "Sam Lee", "Nina Cruz", "Jules Park", "Leo Park", "Maya Chen", "Ben Ortiz"],
+                venue: Venues.borregosStadium
             ),
             SportsEvent(
-                // Popup frame: "Basketball Game · 2/3 | 1 Spot left"
-                title: "Basketball Game", sport: .basketball, host: "Alex",
-                start: inMinutes(60), duration: 3600, capacity: 3,
-                attendees: ["Alex", "Ricardo"], venue: Venues.market760,
-                notes: "Running 2v1 until someone else shows up 😅",
-                messages: [msg("Alex", "Court's open, see you there", minutesAgo: 12)]
+                title: "Volleyball at the arena", sport: .volleyball, host: "Sam Lee",
+                start: inMinutes(180), duration: 3600, capacity: 12,
+                attendees: ["Sam Lee", "Nina Cruz", "Jules Park", "Leo Park", "Maya Chen", "Priya Shah", "Diego Morales"],
+                venue: Venues.arena
             ),
             SportsEvent(
-                title: "Beach Volleyball", sport: .volleyball, host: "Sam",
-                start: inMinutes(45), duration: 3600, capacity: 12,
-                attendees: ["Sam", "Nina", "Jules", "Leo", "Maya", "Alex", "Priya", "Diego", "Ben"],
-                venue: Venues.fourthAndMarket, skillLevel: .allLevels
+                title: "3v3 at Distrito Tec", sport: .basketball, host: "Ricardo Treviño",
+                start: inMinutes(300), duration: 3600, capacity: 6,
+                attendees: ["Ricardo Treviño", "Leo Park", "Diego Morales", "Sam Lee", "Ben Ortiz"],
+                venue: Venues.distritoTec, notes: "One more and we're set."
             ),
+            // Full: hidden from the map.
             SportsEvent(
-                title: "3v3 at Mint Plaza", sport: .basketball, host: "Ricardo",
-                start: inMinutes(90), duration: 3600, capacity: 6,
-                attendees: ["Ricardo", "Leo", "Diego", "Sam", "Ben"], venue: Venues.mintPlaza,
-                skillLevel: .casual, notes: "Casual 3-on-3. One more and we're set.", otherBookmarkCount: 2
-            ),
-            // Full game: hidden from the map until someone drops (Settings → simulate).
-            SportsEvent(
-                title: "Friday Night 5v5", sport: .basketball, host: "Jules",
+                title: "Friday night 5v5", sport: .basketball, host: "Jules Park",
                 start: day(1, 19), duration: 5400, capacity: 10,
-                attendees: ["Jules", "Alex", "Ben", "Diego", "Leo", "Maya", "Nina", "Priya", "Ricardo", "Sam"],
-                venue: Venues.kezar, skillLevel: .competitive, isBookmarked: true, otherBookmarkCount: 4
+                attendees: ["Jules Park", "Alex Rivera", "Ben Ortiz", "Diego Morales", "Leo Park", "Maya Chen", "Nina Cruz", "Priya Shah", "Ricardo Treviño", "Sam Lee"],
+                venue: Venues.sportsCenter, isBookmarked: true
             ),
 
-            // MARK: Registered events frame
+            // MARK: Me · Going
             SportsEvent(
-                title: "Sunday Sunset Jam", sport: .music, host: "Maya",
-                start: day(1, 17, 30), duration: 7200, capacity: 6,
-                attendees: ["Maya", "Leo", Person.you], venue: Venues.doloresPark,
+                title: "Sunday soccer", sport: .soccer, host: "Maya Chen",
+                start: day(1, 10), duration: 5400, capacity: 10,
+                attendees: ["Maya Chen", "Leo Park", Person.you, "Sofía Ramírez", "Diego Morales"],
+                venue: Venues.borregosStadium, meetUpSpot: "By the south goal",
+                notes: "Friendly 5-a-side. Bring a light and a dark shirt.",
                 messages: [
-                    msg("Maya", "Meet by the palms. I'll save us a spot!", minutesAgo: 40),
-                    msg("Leo", "Bringing my guitar. See you tomorrow!", minutesAgo: 25),
+                    system("Maya created the chat · 5 people going", 60),
+                    message("Maya Chen", "Meet by the south goal. I'll bring the ball!", 42),
+                    message("Leo Park", "Bringing water for everyone. See you tomorrow!", 36),
+                    message(Person.you, "I'm in! See you all at the south goal.", 19),
                 ],
                 unreadCount: 2
             ),
             SportsEvent(
-                title: "Basketball Game", sport: .basketball, host: "Alex",
-                start: day(-1, 13, 50), duration: 3600, capacity: 3,
-                attendees: ["Alex", Person.you], venue: Venues.market760,
+                title: "Saturday tennis", sport: .tennis, host: "Jordan Lee",
+                start: day(2, 18, 30), duration: 5400, capacity: 4,
+                attendees: ["Jordan Lee", Person.you, "Sofía Ramírez", "Ben Ortiz"], venue: Venues.tennisCourts,
                 messages: [
-                    msg("Alex", "Us in 3", minutesAgo: 60 * 26),
-                    msg(Person.you, "boy", minutesAgo: 60 * 26 - 1),
-                ]
+                    system("Jordan created the chat · 4 people going", 300),
+                    message("Jordan Lee", "Doubles, best of three. I've booked court 2.", 120),
+                ],
+                unreadCount: 1
+            ),
+            // Ended and cancelled games you were going to (Event detail states).
+            SportsEvent(
+                title: "Morning shootaround", sport: .basketball, host: "Alex Rivera",
+                start: day(-1, 8), duration: 3600, capacity: 6,
+                attendees: ["Alex Rivera", Person.you, "Leo Park"], venue: Venues.basketballCourts
+            ),
+            SportsEvent(
+                title: "Beach volleyball", sport: .volleyball, host: "Sofía Ramírez",
+                start: day(1, 17), duration: 3600, capacity: 8,
+                attendees: ["Sofía Ramírez", Person.you, "Nina Cruz"], venue: Venues.arena,
+                isCancelled: true
             ),
 
-            // MARK: Hosted events frame
+            // MARK: Me · Hosting
             SportsEvent(
-                title: "Sunday Coffee Walk", sport: .social, host: Person.you,
-                start: day(1, 10), duration: 5400, capacity: 6,
-                attendees: [Person.you, "Maya", "Leo"], venue: Venues.ritualCoffee,
+                title: "Sunday hoops", sport: .basketball, host: Person.you,
+                start: day(1, 10), duration: 3600, capacity: 6,
+                attendees: [Person.you, "Maya Chen", "Leo Park"], venue: Venues.basketballCourts,
+                meetUpSpot: "South court, by the water fountain",
+                notes: "Run 3-on-3, winners stay on.",
                 messages: [
-                    msg(Person.you, "Coffee first, then a stroll to Dolores Park!", minutesAgo: 50),
-                    msg("Maya", "Perfect. I'll bring my reusable cup ☕️", minutesAgo: 30),
+                    system("You created the chat · 3 people going", 90),
+                    message("Maya Chen", "Count me in! Should I bring a second ball?", 50),
+                    message("Leo Park", "Running 5 min late, save me a spot.", 12),
                 ],
                 unreadCount: 2
             ),
             SportsEvent(
-                title: "Neighborhood Game Night", sport: .games, host: Person.you,
-                start: day(2, 18, 30), duration: 10800, capacity: 6,
-                attendees: [Person.you, "Alex", "Priya", "Ben"], venue: Venues.missionRec,
+                title: "Volleyball night", sport: .volleyball, host: Person.you,
+                start: day(2, 18, 30), duration: 7200, capacity: 6,
+                attendees: [Person.you, "Alex Rivera", "Priya Shah", "Ben Ortiz"], venue: Venues.sportsCenter,
+                // Shows the "Reposted …" line on Me · Hosting.
+                repostedAt: minutesAgo(25),
                 messages: [
-                    msg(Person.you, "I'm bringing Catan. Beginners welcome!", minutesAgo: 90),
-                    msg("Priya", "I'll bring snacks and a deck of cards.", minutesAgo: 15),
+                    system("You created the chat · 4 people going", 200),
+                    message("Priya Shah", "Is there a net already up or should we bring one?", 15),
                 ],
                 unreadCount: 1
             ),

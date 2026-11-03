@@ -1,37 +1,115 @@
 import Foundation
 import Observation
 
-/// Root presentation state: navigation path and the Add/Edit event sheet.
+/// Root presentation state (SPEC §7.3): the launch gate, the navigation path and
+/// app-level sheets. Sheets that open on top of a screen or another sheet
+/// (location picker, Who's going, report) are presented by that screen.
 @Observable
 final class AppViewModel {
+    /// Where launch lands: version check → session → Map.
+    enum Session: Equatable {
+        case updateRequired
+        case signedOut
+        case suspended
+        case signedIn
+    }
+
+    enum Sheet: Identifiable, Hashable {
+        case gameForm(editing: SportsEvent.ID?)
+
+        var id: Self { self }
+    }
+
+    var session: Session
     var path: [Route] = []
-    var isAddingEvent = false
-    var editingEventID: SportsEvent.ID?
+    var sheet: Sheet?
+    let config: AppConfig
 
-    func editingEvent(in store: EventStore) -> SportsEvent? {
-        editingEventID.flatMap { store.event($0) }
+    /// TODO(E5/B5): start from `AuthService`'s session; mock auth is always signed in.
+    init(config: AppConfig = .mock, version: String = AppConfig.currentVersion) {
+        self.config = config
+        session = config.supports(version: version) ? .signedIn : .updateRequired
     }
 
-    func startAdding(editing id: SportsEvent.ID? = nil) {
-        editingEventID = id
-        isAddingEvent = true
+    // MARK: Intents
+
+    func presentGameForm(editing id: SportsEvent.ID? = nil) {
+        sheet = .gameForm(editing: id)
     }
 
-    func dismissAdding() {
-        isAddingEvent = false
-        editingEventID = nil
+    /// `masuno://game/<id>` → Event detail (2.0 notifications use this).
+    func handle(_ url: URL) {
+        guard url.scheme == "masuno", url.host() == "game",
+              let id = UUID(uuidString: url.lastPathComponent) else { return }
+        sheet = nil
+        path = [.game(id)]
+    }
+
+    /// TODO(B5): `AuthService.signOut()`.
+    func signOut() {
+        sheet = nil
+        path = []
+        session = .signedOut
+    }
+
+    /// Onboarding finished. TODO(B5): session comes from `AuthService`.
+    func signIn() {
+        session = .signedIn
     }
 
     #if DEBUG
-    /// Jump straight to a screen for design review, e.g. launch with `-screen hosted`.
-    /// Options: registered, hosted, add, popup (handled in `EventMapViewModel`).
-    func openDebugScreen() {
-        switch UserDefaults.standard.string(forKey: "screen") {
-        case "registered": path = [.registered]
-        case "hosted": path = [.hosted]
-        case "add": startAdding()
+    /// Jump straight to a screen for design review, e.g. launch with `-screen me`.
+    /// Options: update, signed-out, onboarding-email|code|about|interests|guidelines, suspended, me, me-hosting, repost, profile, settings, add, add-filled, form-error, edit,
+    /// picker, gallery, detail-*, who, report, blocked, calendar, chat, chat-host, meetup, popup (handled in `EventMapViewModel`).
+    func openDebugScreen(in store: EventStore) {
+        let screen = UserDefaults.standard.string(forKey: "screen") ?? ""
+        switch screen {
+        case "update": session = .updateRequired
+        case "signed-out": session = .signedOut
+        case _ where screen.hasPrefix("onboarding-"): session = .signedOut
+        case "suspended": session = .suspended
+        case "me": path = [.me()]
+        case "me-hosting": path = [.me(.hosting)]
+        case "repost":
+            // A player just dropped out of a hosted game and auto-repost fired.
+            path = [.me(.hosting)]
+            if let id = store.hostedEvents.first?.id {
+                Task {
+                    try? await Task.sleep(for: .seconds(1))
+                    store.autoRepostIfNeeded(id)
+                }
+            }
+        case "profile": path = [.me(.going, editsProfile: true)]
+        case "settings": path = [.me(), .settings]
+        case "add", "add-filled", "form-error", "picker": presentGameForm()
+        case "edit": presentGameForm(editing: store.hostedEvents.first?.id)
+        case "gallery": path = [.gallery]
+        case "chat", "chat-host", "meetup":
+            let title = screen == "chat" ? "Sunday soccer" : "Sunday hoops"
+            if screen != "chat" { store.hasAgreedToChatRules = true }
+            if let id = store.events.first(where: { $0.title == title })?.id { path = [.chat(id)] }
+        case "who", "report": path = Self.debugDetailID("detail-open", in: store).map { [.game($0)] } ?? []
+        case "blocked":
+            store.block("Jordan Lee")
+            path = [.me(), .settings, .blockedPeople]
+        case "calendar": path = Self.debugDetailID("detail-in", in: store).map { [.game($0)] } ?? []
+        case _ where screen.hasPrefix("detail-"):
+            if let id = Self.debugDetailID(screen, in: store) { path = [.game(id)] }
         default: break
         }
+    }
+
+    /// `-screen detail-open|in|full|hosting|ended|cancelled` (add `-raceJoin YES` to `detail-open`).
+    private static func debugDetailID(_ screen: String, in store: EventStore) -> SportsEvent.ID? {
+        let title = switch screen {
+        case "detail-in": "Sunday soccer"
+        case "detail-full": "Friday night 5v5"
+        case "detail-hosting": "Volleyball night"
+        case "detail-ended": "Morning shootaround"
+        case "detail-cancelled": "Beach volleyball"
+        default: "After-work hoops"
+        }
+        return store.events.first { $0.title == title }?.id
     }
     #endif
 }

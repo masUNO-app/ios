@@ -21,7 +21,10 @@ open MasUno.xcodeproj                          # run the MasUno scheme on a simu
 re-run `xcodegen generate` after pulling or adding files. `Config.xcconfig` is
 git-ignored too: Debug points at `masuno-dev`, Release at `masuno-prod`.
 
-Debug builds accept `-screen registered|hosted|add|popup` as a launch argument to jump straight to a screen.
+Debug builds accept a `-screen` launch argument to jump straight to a screen for design review:
+`popup`, `popup-saved`, `saved`, `add`, `form-error`, `edit`, `picker`, `detail-open|in|full|hosting|ended|cancelled`
+(add `-raceJoin YES` to `detail-open` for the last-spot race), `who`, `report`, `blocked`, `me`,
+`me-hosting`, `profile`, `onboarding-email|code|about|interests|guidelines`, `calendar`, `chat`, `chat-host`, `meetup`, `settings`, `update`, `signed-out`, `suspended`, `gallery`.
 
 ## How we work
 
@@ -36,14 +39,14 @@ MVVM, one folder per layer:
 
 ```
 MasUno/
-├── App/           # @main entry, root ContentView, Route
-├── Models/        # Pure data: SportsEvent, Venue, ChatMessage, Sport, Person
-├── Services/      # EventStore (source of truth + domain actions), MockData
+├── App/           # @main entry, ContentView (launch gate + root NavigationStack), Route
+├── Models/        # Pure data: SportsEvent, Venue, Sport, Person, Profile, AppConfig
+├── Services/      # EventStore (mock source of truth + domain actions), MockData, LocationService
 ├── Data/          # Supabase data layer (Emilio): AuthService, repositories, GameStore
 ├── ViewModels/    # Per-screen presentation state & intents
-├── Views/         # SwiftUI screens: Map/, Plans/, Chat/, AddEvent/
-├── DesignSystem/  # Theme (Figma palette) + shared UI (Avatar, EventIconTile, OrangeCapsuleStyle, Triangle)
-└── Utilities/     # EventFormat date/duration formatting
+├── Views/         # SwiftUI screens: Map/, Detail/, GameForm/, Chat/, Me/, Settings/, Safety/, Launch/
+├── DesignSystem/  # Theme (green tokens, SPEC §7.1) + components; DEBUG ComponentGallery
+└── Utilities/     # EventFormat, TextFilter
 supabase/          # Migrations, functions, seed (Emilio)
 docs/              # Spec, API contract, QA script
 ```
@@ -53,43 +56,53 @@ Views bind to `@Observable` view models; view models read/mutate the model layer
 
 ## Screens
 
+Green Figma frames (node ids `341:*`). Copy follows SPEC §7.2 ("game", not "event").
+
 | Figma frame | View | ViewModel |
 | --- | --- | --- |
-| Sports event map | `Views/Map/EventMapView.swift` | `ViewModels/EventMapViewModel.swift` |
-| Sports event map · Popup | `Views/Map/EventPopup.swift` | `EventMapViewModel` |
-| Sports event map · Add event | `Views/AddEvent/AddEventSheet.swift` | `ViewModels/AddEventViewModel.swift` |
-| Registered events | `Views/Plans/RegisteredEventsView.swift` | `ViewModels/RegisteredEventsViewModel.swift` |
-| Hosted events | `Views/Plans/HostedEventsView.swift` | `ViewModels/HostedEventsViewModel.swift` |
+| Map (341:1979), Popup (341:2046) | `Views/Map/EventMapView.swift`, `EventPopup.swift` | `EventMapViewModel` |
+| Add / Error / Edit / Delete event (341:1849, 3054, 2703, 2840) | `Views/GameForm/GameFormSheet.swift` | `GameFormViewModel` |
+| Choose location (341:2646) | `Views/GameForm/LocationPickerSheet.swift` | `LocationPickerViewModel` |
+| Event detail (341:2586), You're in (341:2989) | `Views/Detail/EventDetailView.swift` | `EventDetailViewModel` |
+| Who's going (341:2309) | `Views/Detail/WhoIsGoingSheet.swift`, `Views/Safety/` | — |
+| Me · Going (341:2165), Me · Hosting (341:2240) | `Views/Me/MeView.swift` | `MeViewModel` |
+| Group chat (341:1791), Chat rules (341:2420), Edit meet-up (341:2507) | `Views/Chat/` | — |
+| Settings (341:2144) | `Views/Settings/SettingsView.swift` | — |
+| Onboarding (TEMP, SPEC §7.5) | `Views/Onboarding/OnboardingFlow.swift` | `OnboardingViewModel` |
+| Update required, suspended (D2) | `Views/Launch/LaunchGateViews.swift` | `AppViewModel` |
 
-Navigation/sheet state lives in `ViewModels/AppViewModel.swift`; data in
-`Services/EventStore.swift`; mock content in `Services/MockData.swift`.
+Navigation, the launch gate and app-level sheets live in `ViewModels/AppViewModel.swift`; data in
+`Services/EventStore.swift`; mock content in `Services/MockData.swift`. `masuno://game/<id>` opens a game.
 
 Organizer approval (Join requests / Accept–Decline) is post-MVP and intentionally left out — spots are first come, first served.
+Group chat is built but not connected: mock timeline, disabled composer ("Messages are coming soon").
 
 ## TODO
 
-Placeholders and judgment calls from the prelim build that still need a real answer.
+Placeholders that still need a real answer. Card IDs refer to SPEC §5.
 
-### Design
-- [ ] Dark mode — the app is forced to light (`.preferredColorScheme(.light)` in `MasUnoApp.swift`); needs a dark palette in `Theme.swift`
-- [ ] Profile photos — avatars and the "You" pin show initials / a person icon
-- [ ] Group chat screen — `GroupChatView` is a stand-in; no Figma frame yet
-- [ ] Settings screen — map Settings is a demo-only menu; Settings on the plans bottom bar does nothing
-- [ ] Map styling — MapKit standard style with a warm tint, not the Figma's custom map
-- [ ] Review additions not in Figma: popup bookmark toggle, "Hosted by · skill" and "Going:" lines, "Give up your spot" button, empty states
-- [ ] Navigation — confirm how users reach Your plans / Hosting (currently the map's bookmark menu) and what the plans bottom bar's Search / Filter should do (currently back to map)
+### Waiting on design (D2)
+- [ ] Onboarding (E5) — TEMP flow from SPEC §7.5 copy on mock auth (any 6-digit code but 000000); swap in D2 frames + `AuthService` (B5)
+- [ ] Event detail Full / Hosting / Ended / Cancelled, report sheet, Blocked people and Settings rows
+      were built from SPEC §7.6 copy; swap in Arianna's frames when they're Ready
+- [ ] Empty / error / offline states (E14)
+- [ ] Interest chip and activity tile colors for non-blue tints (only `chipSport` / `accentSoft` are tokens)
 
-### Product
-- [ ] Decide whether non-sport events (music, social, games) belong on the map — currently sports only
-- [ ] Confirm the posting window (today + next 2 days) and the sport list (Basketball, Tennis, Soccer, Volleyball)
-- [ ] Organizer approval (post-MVP) — Join requests UI from the "Hosted events" frame
-- [ ] Report / block
+### Waiting on backend (Emilio)
+- [ ] Domain models + repository protocols (E1) — screens still use `SportsEvent` / `EventStore` mocks
+- [ ] Live data (B6, B7): create / edit / cancel, join / leave, the last-spot race (`-raceJoin YES` fakes it)
+- [ ] Report, block and unblock RPCs (B8); delete-account function (B9); sign out via `AuthService` (B5)
+- [ ] `app_config` (min version, support email, privacy URL) — mocked in `AppConfig.mock`
 
-### Backend & auth
-- [ ] Student email verification before first RSVP (`EventStore.rsvp`)
-- [ ] Persist events — everything is in memory and resets on launch
-- [ ] Real-time group chat (or link out to an existing group chat for MVP)
-- [ ] Push notifications for bookmarked games when a spot opens (currently an in-app banner)
-- [ ] Game reminders before start
-- [ ] Real user location (currently a fixed mock coordinate) and real venue search in Add event
-- [ ] Replace `MockData` with real data; remove the demo "Simulate a player dropping out" option
+### Later
+- [ ] TODO/TEMP: "you" are pinned at Tec (`LocationService.mockCoordinate`) so the mock games are nearby wherever you test; launch with `-realLocation YES` for real GPS. Remove with the live map (E9)
+- [ ] Live map: campus fallback banner and pull to refresh (E9)
+- [ ] Release hygiene (E14): app icon, launch color, Release → prod, keep `-screen` DEBUG-only
+- [ ] 2.0: Notify me + Saved backend (bookmarks are local only), notifications, calendar, invite, picker drag, Past games, Spanish
+- [ ] Chat backend: sending, real timeline, rules acceptance per account (`GroupChatView` is UI only)
+- [ ] Auto-repost (replaces the Figma's manual "Repost"): UI + local placeholder only. Needs design sign-off (Arianna),
+      a SPEC entry, and backend — an `auto_repost` flag and a `reposted_at` bump set by `leave_game` when a full game
+      frees a spot, with the map sorting by it (`EventStore.autoRepostIfNeeded`)
+- [ ] TODO/TEMP: "Invite a friend" shares an App Store search link (`AppConfig.inviteURL`) until the listing / TestFlight link exists
+- [ ] Profile edits and interests are local only until `complete_profile` is live (B7)
+- [ ] Post-MVP: organizer approval, profile photos, dark mode

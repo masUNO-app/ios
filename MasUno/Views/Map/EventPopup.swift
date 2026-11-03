@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Figma: "Basketball Game Pop-up" in "Sports event map · Popup".
+/// Figma: "Popup" (341:2046) — opens from a pin on the map.
 struct EventPopup: View {
     @Environment(EventStore.self) private var store
     @Environment(AppViewModel.self) private var appViewModel
@@ -17,85 +17,59 @@ struct EventPopup: View {
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
                         .foregroundStyle(Theme.ink)
-                    Text(event.capacitySummary)
+                    Text(event.hostLine)
+                        .font(.footnote)
+                        .foregroundStyle(Theme.muted)
+                    Text(event.spotsLine)
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Theme.orange)
-                    Text("Hosted by \(event.host) · \(event.skillLevel.rawValue)")
-                        .font(.caption)
-                        .foregroundStyle(Theme.secondaryInk)
+                        .foregroundStyle(Theme.ink)
                 }
                 Spacer(minLength: 0)
-                Button {
-                    viewModel.toggleBookmark(event.id, in: store)
-                } label: {
-                    Image(systemName: event.isBookmarked ? "bookmark.fill" : "bookmark")
-                        .foregroundStyle(Theme.orange)
-                        .frame(width: 36, height: 36)
-                        .contentShape(.circle)
-                }
-                .buttonStyle(.plain)
-                .glassEffect(.regular.interactive(), in: .circle)
-                .accessibilityLabel(event.isBookmarked ? "Remove bookmark" : "Bookmark")
+                BookmarkButton(event: event)
             }
 
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Image(systemName: "clock")
-                    .foregroundStyle(Theme.youRed)
-                Text("\(event.start.formatted(date: .numeric, time: .shortened)) · \(EventFormat.countdown(to: event.start)) until start")
+            VStack(alignment: .leading, spacing: 6) {
+                Label("\(EventFormat.dayAndTime(event.start)) · starts in \(EventFormat.countdown(to: event.start))", systemImage: "clock")
+                Label(event.venue.name, systemImage: "mappin.and.ellipse")
+                HStack(spacing: 8) {
+                    AvatarStack(names: store.visibleAttendees(of: event), size: 22)
+                    Text(store.visibleAttendees(of: event).map(Person.display).joined(separator: ", "))
+                        .lineLimit(1)
+                }
             }
             .font(.footnote)
             .foregroundStyle(Theme.ink)
-
-            Text(event.venue.fullAddress)
-                .font(.caption)
-                .foregroundStyle(Theme.ink)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 8)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Theme.tan.opacity(0.55), in: .rect(cornerRadius: 12))
-
-            if !event.guests.isEmpty {
-                Text("Going: \(event.attendees.joined(separator: ", "))")
-                    .font(.caption)
-                    .foregroundStyle(Theme.secondaryInk)
-                    .lineLimit(1)
-            }
+            .labelStyle(MutedIconLabelStyle())
 
             HStack(spacing: 10) {
-                Text(event.sport.category)
-                    .font(.subheadline)
+                Button("Details") { appViewModel.path.append(.game(event.id)) }
+                    .buttonStyle(.glassProminent)
+                    .tint(Theme.accentSoft)
                     .foregroundStyle(Theme.ink)
-                    .padding(.horizontal, 16)
-                    .frame(height: 40)
-                    .background(Theme.tan.opacity(0.55), in: .capsule)
-                    .overlay(Capsule().stroke(Theme.tanStroke.opacity(0.5)))
-
                 primaryAction
-                    .buttonStyle(OrangeCapsuleStyle(foreground: .white))
+                    .buttonStyle(.glassProminent)
+                    .buttonSizing(.flexible)
             }
+            .controlSize(.large)
+            .fontWeight(.semibold)
         }
         .padding(16)
-        .frame(maxWidth: 320, alignment: .leading)
-        // Regular glass with a warm card tint keeps text legible over the map
-        // while still picking up the map colors underneath.
-        .glassEffect(.regular.tint(Theme.card.opacity(0.6)), in: .rect(cornerRadius: 26))
+        .frame(maxWidth: 340, alignment: .leading)
+        // Solid card, as in the Figma (glass picked up the map's colors and read as lavender).
+        .background(Theme.card, in: .rect(cornerRadius: Theme.Radius.dialog))
+        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.dialog).strokeBorder(Theme.hairline))
+        .shadow(color: Theme.shadow, radius: 16, y: 6)
     }
 
     @ViewBuilder
     private var primaryAction: some View {
         if event.isHostedByYou {
-            Button("Manage event") { appViewModel.path.append(.hosted) }
+            Button("Edit game") { appViewModel.presentGameForm(editing: event.id) }
         } else if event.isYouGoing {
-            Button("You're in · View plans") { appViewModel.path.append(.registered) }
-        } else if event.isFull {
-            Button(event.isBookmarked ? "Watching for a spot" : "Full · Bookmark") {
-                if !event.isBookmarked { viewModel.toggleBookmark(event.id, in: store) }
-            }
+            Button("View game") { appViewModel.path.append(.game(event.id)) }
         } else {
-            // TODO(auth): verify student email before the first RSVP. No auth in the prelim build.
-            Button("RSVP Now") {
-                viewModel.rsvp(event.id, in: store)
-            }
+            // TODO(auth): verify student email before the first join (E5/B5).
+            Button("Join game") { viewModel.join(event.id, in: store) }
         }
     }
 }

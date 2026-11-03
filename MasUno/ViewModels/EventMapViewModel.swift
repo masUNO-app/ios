@@ -2,42 +2,107 @@ import MapKit
 import Observation
 import SwiftUI
 
-/// Presentation state and intents for the event map: search, sport filter,
-/// pin selection and camera position. Event data comes from `EventStore`.
+/// Presentation state and intents for the map: search, sport filter, pin
+/// selection and camera position. Game data comes from `EventStore`.
 @Observable
 final class EventMapViewModel {
     var searchText = ""
     /// Empty means "all sports".
     var sportFilter: Set<Sport> = []
     var selectedID: SportsEvent.ID?
-    var position: MapCameraPosition = .region(MockData.initialRegion)
+    /// The game whose popup is on the map. Lags behind `selectedID` while the popup shrinks away.
+    private(set) var popupID: SportsEvent.ID?
+    /// Grows / shrinks the popup (animated inside its annotation).
+    private(set) var isPopupShown = false
+    /// Measured popup height, to sit it just above its pin.
+    var popupHeight: CGFloat = 260
+    /// Starts on you (the mock spot while `LocationService.mockCoordinate` is set);
+    /// campus if location is off or not allowed.
+    var position: MapCameraPosition = LocationService.mockCoordinate.map { .region(EventMapViewModel.region(around: $0)) }
+        ?? .userLocation(fallback: .region(MockData.campusRegion))
 
     // MARK: Queries
 
-    /// The map only shows sports games you can actually join: open spots, not over.
+    /// Games you can actually join: not cancelled, ended or full (SPEC §7.6.1).
     func mapEvents(in store: EventStore) -> [SportsEvent] {
         store.events.filter { event in
-            Sport.postable.contains(event.sport) && !event.isFull && !event.hasEnded
+            !event.isCancelled && !event.isFull && !event.hasEnded
                 && matchesSearch(event) && matchesFilter(event)
         }
     }
 
-    func bookmarkedEvents(in store: EventStore) -> [SportsEvent] {
-        store.bookmarkedEvents
-    }
-
     var filterLabel: String {
-        sportFilter.isEmpty ? "Filters" : "Filters · \(sportFilter.count)"
+        sportFilter.isEmpty ? String(localized: "Filter") : String(localized: "Filter · \(sportFilter.count)")
     }
 
     // MARK: Intents
 
-    /// Bring a pin on screen and select it (bookmarks, newly created events).
+    /// Bring a pin on screen and select it (e.g. a newly created game).
     func focus(on event: SportsEvent) {
         withAnimation {
-            position = .region(MKCoordinateRegion(center: event.coordinate, span: MockData.initialRegion.span))
+            position = .region(MKCoordinateRegion(center: event.coordinate, span: MockData.campusRegion.span))
         }
         selectedID = event.id
+    }
+
+    /// Opens or closes the popup to match the selected pin: it grows out of the pin, and
+    /// shrinks back into it before it's removed.
+    func selectionChanged(to id: SportsEvent.ID?) {
+        if let id {
+            popupID = id
+            isPopupShown = false
+            Task {
+                // Let the annotation appear at its "closed" size first, then animate open.
+                try? await Task.sleep(for: .milliseconds(30))
+                if selectedID == id { isPopupShown = true }
+            }
+        } else {
+            isPopupShown = false
+            Task {
+                try? await Task.sleep(for: .milliseconds(350))
+                if selectedID == nil { popupID = nil }
+            }
+        }
+    }
+
+    /// Anchors the popup annotation so its bottom sits 10 pt above the selected pin
+    /// (and its "Soon" label). Same coordinate as the pin, so MapKit moves them together.
+    func popupAnchor(for event: SportsEvent) -> UnitPoint {
+        let pinHeight: CGFloat = (event.isSoon() ? 88 : 56) * 1.15
+        return UnitPoint(x: 0.5, y: 1 + (pinHeight + 10) / max(popupHeight, 1))
+    }
+
+    /// Last visible region, so selecting a pin can keep the current zoom.
+    private var visibleRegion: MKCoordinateRegion?
+
+    /// Pans so the selected pin sits low and centered, leaving room for its popup above.
+    func reveal(_ event: SportsEvent) {
+        let span = visibleRegion?.span ?? MockData.campusRegion.span
+        let center = CLLocationCoordinate2D(
+            latitude: event.coordinate.latitude + span.latitudeDelta * 0.22,
+            longitude: event.coordinate.longitude
+        )
+        withAnimation(.smooth) { position = .region(MKCoordinateRegion(center: center, span: span)) }
+    }
+
+    /// Tracks the visible region and closes the popup once its pin leaves the screen.
+    func cameraChanged(to region: MKCoordinateRegion, selected: SportsEvent?) {
+        visibleRegion = region
+        guard let selected, !region.contains(selected.coordinate) else { return }
+        withAnimation(.snappy) { selectedID = nil }
+    }
+
+    /// Recenter on the mock location. The real location uses the native `MapUserLocationButton`.
+    func centerOnMockLocation() {
+        guard let mock = LocationService.mockCoordinate else { return }
+        withAnimation {
+            selectedID = nil
+            position = .region(Self.region(around: mock))
+        }
+    }
+
+    private static func region(around coordinate: CLLocationCoordinate2D) -> MKCoordinateRegion {
+        MKCoordinateRegion(center: coordinate, span: MockData.campusRegion.span)
     }
 
     func toggleSport(_ sport: Sport) {
@@ -52,36 +117,57 @@ final class EventMapViewModel {
         sportFilter.removeAll()
     }
 
-    func rsvp(_ id: SportsEvent.ID, in store: EventStore) {
-        withAnimation { store.rsvp(id) }
-    }
-
-    func toggleBookmark(_ id: SportsEvent.ID, in store: EventStore) {
-        store.toggleBookmark(id)
-    }
-
-    func simulateDropOut(in store: EventStore) {
-        withAnimation { store.simulateDropOut() }
+    func join(_ id: SportsEvent.ID, in store: EventStore) {
+        withAnimation { store.join(id) }
     }
 
     #if DEBUG
-    /// `-screen popup` opens the popup for the 760 Market Street mock game.
+    /// `-screen popup` opens the popup for "After-work hoops"; `popup-saved` for a bookmarked game.
     func openDebugPopup(in store: EventStore) {
-        guard UserDefaults.standard.string(forKey: "screen") == "popup" else { return }
-        selectedID = mapEvents(in: store).first { $0.venue == MockData.Venues.market760 }?.id
+        let title = switch UserDefaults.standard.string(forKey: "screen") {
+        case "popup": "After-work hoops"
+        case "popup-saved": "Tennis doubles"
+        default: ""
+        }
+        guard let id = mapEvents(in: store).first(where: { $0.title == title })?.id else { return }
+        // After the map has settled, so the open animation is visible in design review.
+        Task {
+            try? await Task.sleep(for: .seconds(1.5))
+            selectedID = id
+            // `-popupCycle YES`: close it again, to review the close animation.
+            if UserDefaults.standard.bool(forKey: "popupCycle") {
+                try? await Task.sleep(for: .seconds(2))
+                selectedID = nil
+            }
+            // `-popupPan YES`: pan the pin off screen, to review following and auto-close.
+            if UserDefaults.standard.bool(forKey: "popupPan"), let region = visibleRegion {
+                try? await Task.sleep(for: .seconds(1.5))
+                var moved = region
+                moved.center.longitude -= region.span.longitudeDelta * 0.9
+                withAnimation(.linear(duration: 2.5)) { position = .region(moved) }
+            }
+        }
     }
     #endif
 
     // MARK: Filtering
 
+    /// Title, sport, place or host first name.
     private func matchesSearch(_ event: SportsEvent) -> Bool {
         let query = searchText.trimmingCharacters(in: .whitespaces)
         guard !query.isEmpty else { return true }
-        return [event.title, event.sport.name, event.venue.name, event.host]
+        return [event.title, event.sport.name, event.venue.name, Person.firstName(event.host)]
             .contains { $0.localizedCaseInsensitiveContains(query) }
     }
 
     private func matchesFilter(_ event: SportsEvent) -> Bool {
         sportFilter.isEmpty || sportFilter.contains(event.sport)
+    }
+}
+
+private extension MKCoordinateRegion {
+    func contains(_ coordinate: CLLocationCoordinate2D) -> Bool {
+        abs(coordinate.latitude - center.latitude) <= span.latitudeDelta / 2
+            && abs(coordinate.longitude - center.longitude) <= span.longitudeDelta / 2
     }
 }
