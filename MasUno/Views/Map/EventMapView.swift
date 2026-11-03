@@ -2,12 +2,12 @@ import CoreLocation
 import MapKit
 import SwiftUI
 
-/// Figma: "Sports event map" (341:1979) and "Popup" (341:2046).
+/// Figma: "Sports event map" (341:1979) and "Popup" (341:2046). The popup is part of the
+/// selected pin's annotation, so MapKit moves it with the pin like any map callout.
 struct EventMapView: View {
     @Environment(EventStore.self) private var store
     @Environment(AppViewModel.self) private var appViewModel
     @State private var viewModel = EventMapViewModel()
-    @State private var cameraTracker = MapCameraTracker()
     @State private var screenSize: CGSize = .zero
     @State private var showsSaved = false
     /// Keeps When-In-Use location authorized while the map is up (asks the first time).
@@ -19,29 +19,19 @@ struct EventMapView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     var body: some View {
-        MapReader { proxy in
-            TimelineView(.periodic(from: .now, by: 30)) { context in
-                map(now: context.date)
-            }
-            .overlay(alignment: .top) { topBackdrop }
-            .overlay(alignment: .top) {
-                VStack(alignment: .leading, spacing: 12) {
-                    searchRow
-                    nearbyChip
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 8)
-            }
-            .overlay(alignment: .bottomLeading) { locationButton }
-            .overlay {
-                PinPopupLayer(
-                    event: viewModel.selectedID.flatMap { store.event($0) },
-                    proxy: proxy,
-                    cameraTracker: cameraTracker,
-                    viewModel: viewModel
-                )
-            }
+        TimelineView(.periodic(from: .now, by: 30)) { context in
+            map(now: context.date)
         }
+        .overlay(alignment: .top) { topBackdrop }
+        .overlay(alignment: .top) {
+            VStack(alignment: .leading, spacing: 12) {
+                searchRow
+                nearbyChip
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+        }
+        .overlay(alignment: .bottomLeading) { locationButton }
         .mapScope(mapScope)
         .toolbar { bottomActions }
         .sheet(isPresented: $showsSaved) {
@@ -61,6 +51,11 @@ struct EventMapView: View {
         #if DEBUG
         .onAppear { viewModel.openDebugPopup(in: store) }
         #endif
+        // Make room for the popup above a newly selected pin, like a map callout.
+        .onChange(of: viewModel.selectedID) { _, id in
+            guard let id, let event = store.event(id) else { return }
+            viewModel.reveal(event)
+        }
         .onChange(of: store.lastCreatedID) { _, id in
             guard let id, let event = store.event(id) else { return }
             viewModel.focus(on: event)
@@ -84,12 +79,25 @@ struct EventMapView: View {
             }
 
             ForEach(viewModel.mapEvents(in: store)) { event in
+                let isSelected = viewModel.selectedID == event.id
+                // Anchored at the pin's tip, so the popup above it moves with the map.
                 Annotation(event.title, coordinate: event.coordinate, anchor: .bottom) {
-                    EventPin(
-                        event: event, now: now,
-                        isSelected: viewModel.selectedID == event.id,
-                        isDimmed: viewModel.selectedID != nil && viewModel.selectedID != event.id
-                    )
+                    VStack(spacing: 10) {
+                        if isSelected {
+                            EventPopup(event: event, viewModel: viewModel)
+                                .frame(width: 320)
+                                // Annotation content doesn't inherit the environment.
+                                .environment(store)
+                                .environment(appViewModel)
+                                .transition(.scale(scale: 0.1, anchor: .bottom).combined(with: .opacity))
+                        }
+                        EventPin(
+                            event: event, now: now,
+                            isSelected: isSelected,
+                            isDimmed: viewModel.selectedID != nil && !isSelected
+                        )
+                    }
+                    .zIndex(isSelected ? 1 : 0)
                 }
                 .annotationTitles(.hidden)
                 .tag(event.id)
@@ -97,9 +105,10 @@ struct EventMapView: View {
         }
         .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))
         .mapControlVisibility(.hidden)
-        // Keeps the popup pinned to its annotation while the map pans/zooms.
+        // Closes the popup once its pin scrolls off screen.
         .onMapCameraChange(frequency: .continuous) { context in
-            cameraTracker.camera = context.camera
+            let selected = viewModel.selectedID.flatMap { store.event($0) }
+            viewModel.cameraChanged(to: context.region, selected: selected)
         }
         .ignoresSafeArea()
     }
@@ -286,71 +295,5 @@ private struct VerticalBarAwareWidth: ViewModifier {
 
     func body(content: Content) -> some View {
         content.frame(width: verticalEdge == nil ? width : nil)
-    }
-}
-
-// MARK: - Popup placement
-
-/// Holds the latest camera so only `PinPopupLayer` re-renders while the map moves,
-/// rather than the whole map view body.
-@Observable
-final class MapCameraTracker {
-    var camera: MapCamera?
-}
-
-/// Positions `EventPopup` next to its pin and scales it out of (and back into) the pin.
-private struct PinPopupLayer: View {
-    var event: SportsEvent?
-    var proxy: MapProxy
-    var cameraTracker: MapCameraTracker
-    var viewModel: EventMapViewModel
-
-    @State private var popupHeight: CGFloat = 250
-
-    private let margin: CGFloat = 16
-    /// Height of a selected `EventPin` (label + bubble, scaled 1.15) plus a small gap.
-    private let pinClearance: CGFloat = 104
-    /// Keeps the popup clear of the search row and nearby chip.
-    private let topLimit: CGFloat = 116
-
-    var body: some View {
-        // Read the camera so this view re-lays out whenever the map moves.
-        let _ = cameraTracker.camera
-
-        GeometryReader { geo in
-            ZStack(alignment: .topLeading) {
-                Color.clear.allowsHitTesting(false)
-
-                if let event, let tip = pinTip(for: event, in: geo) {
-                    let width = min(320, geo.size.width - margin * 2)
-                    let minX = min(max(tip.x - width / 2, margin), geo.size.width - margin - width)
-                    let opensAbove = tip.y - pinClearance - popupHeight >= topLimit
-                    let anchor = UnitPoint(
-                        x: min(max((tip.x - minX) / width, 0), 1),
-                        y: opensAbove ? 1 : 0
-                    )
-
-                    EventPopup(event: event, viewModel: viewModel)
-                        .frame(width: width)
-                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { popupHeight = $0 }
-                        .transition(.scale(scale: 0.1, anchor: anchor).combined(with: .opacity))
-                        // Place by the popup's own edges so no measured height is needed.
-                        .alignmentGuide(.leading) { _ in -minX }
-                        .alignmentGuide(.top) { d in
-                            opensAbove ? d.height - (tip.y - pinClearance) : -(tip.y + 8)
-                        }
-                        // New identity per event: the old popup shrinks into its pin
-                        // while the new one grows out of the tapped pin.
-                        .id(event.id)
-                }
-            }
-        }
-    }
-
-    /// The pin's tip (the annotation's coordinate) in this layer's local space.
-    private func pinTip(for event: SportsEvent, in geo: GeometryProxy) -> CGPoint? {
-        guard let point = proxy.convert(event.coordinate, to: .global) else { return nil }
-        let frame = geo.frame(in: .global)
-        return CGPoint(x: point.x - frame.minX, y: point.y - frame.minY)
     }
 }

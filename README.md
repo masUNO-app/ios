@@ -22,7 +22,7 @@ re-run `xcodegen generate` after pulling or adding files. `Config.xcconfig` is
 git-ignored too: Debug points at `masuno-dev`, Release at `masuno-prod`.
 
 Debug builds accept a `-screen` launch argument to jump straight to a screen for design review:
-`popup`, `add`, `form-error`, `edit`, `picker`, `detail-open|in|full|hosting|ended|cancelled`
+`popup`, `popup-saved`, `add`, `form-error`, `edit`, `picker`, `detail-open|in|full|hosting|ended|cancelled`
 (add `-raceJoin YES` to `detail-open` for the last-spot race), `who`, `report`, `blocked`, `me`,
 `me-hosting`, `profile`, `calendar`, `chat`, `chat-host`, `meetup`, `settings`, `update`, `signed-out`, `suspended`, `gallery`.
 

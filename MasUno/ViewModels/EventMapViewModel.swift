@@ -39,6 +39,26 @@ final class EventMapViewModel {
         selectedID = event.id
     }
 
+    /// Last visible region, so selecting a pin can keep the current zoom.
+    private var visibleRegion: MKCoordinateRegion?
+
+    /// Pans so the selected pin sits low and centered, leaving room for its popup above.
+    func reveal(_ event: SportsEvent) {
+        let span = visibleRegion?.span ?? MockData.campusRegion.span
+        let center = CLLocationCoordinate2D(
+            latitude: event.coordinate.latitude + span.latitudeDelta * 0.22,
+            longitude: event.coordinate.longitude
+        )
+        withAnimation(.smooth) { position = .region(MKCoordinateRegion(center: center, span: span)) }
+    }
+
+    /// Tracks the visible region and closes the popup once its pin leaves the screen.
+    func cameraChanged(to region: MKCoordinateRegion, selected: SportsEvent?) {
+        visibleRegion = region
+        guard let selected, !region.contains(selected.coordinate) else { return }
+        withAnimation(.snappy) { selectedID = nil }
+    }
+
     /// Recenter on the mock location. The real location uses the native `MapUserLocationButton`.
     func centerOnMockLocation() {
         guard let mock = LocationService.mockCoordinate else { return }
@@ -69,10 +89,14 @@ final class EventMapViewModel {
     }
 
     #if DEBUG
-    /// `-screen popup` opens the popup for the "After-work hoops" mock game.
+    /// `-screen popup` opens the popup for "After-work hoops"; `popup-saved` for a bookmarked game.
     func openDebugPopup(in store: EventStore) {
-        guard UserDefaults.standard.string(forKey: "screen") == "popup" else { return }
-        selectedID = mapEvents(in: store).first { $0.title == "After-work hoops" }?.id
+        let title = switch UserDefaults.standard.string(forKey: "screen") {
+        case "popup": "After-work hoops"
+        case "popup-saved": "Tennis doubles"
+        default: ""
+        }
+        selectedID = mapEvents(in: store).first { $0.title == title }?.id
     }
     #endif
 
@@ -88,5 +112,12 @@ final class EventMapViewModel {
 
     private func matchesFilter(_ event: SportsEvent) -> Bool {
         sportFilter.isEmpty || sportFilter.contains(event.sport)
+    }
+}
+
+private extension MKCoordinateRegion {
+    func contains(_ coordinate: CLLocationCoordinate2D) -> Bool {
+        abs(coordinate.latitude - center.latitude) <= span.latitudeDelta / 2
+            && abs(coordinate.longitude - center.longitude) <= span.longitudeDelta / 2
     }
 }
