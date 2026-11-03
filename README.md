@@ -24,7 +24,7 @@ git-ignored too: Debug points at `masuno-dev`, Release at `masuno-prod`.
 Debug builds accept a `-screen` launch argument to jump straight to a screen for design review:
 `popup`, `add`, `form-error`, `edit`, `picker`, `detail-open|in|full|hosting|ended|cancelled`
 (add `-raceJoin YES` to `detail-open` for the last-spot race), `who`, `report`, `blocked`, `me`,
-`me-hosting`, `settings`, `update`, `signed-out`, `suspended`, `gallery`.
+`me-hosting`, `chat`, `chat-host`, `meetup`, `settings`, `update`, `signed-out`, `suspended`, `gallery`.
 
 ## How we work
 
@@ -44,7 +44,7 @@ MasUno/
 ├── Services/      # EventStore (mock source of truth + domain actions), MockData, LocationService
 ├── Data/          # Supabase data layer (Emilio): AuthService, repositories, GameStore
 ├── ViewModels/    # Per-screen presentation state & intents
-├── Views/         # SwiftUI screens: Map/, Detail/, GameForm/, Me/, Settings/, Safety/, Launch/
+├── Views/         # SwiftUI screens: Map/, Detail/, GameForm/, Chat/, Me/, Settings/, Safety/, Launch/
 ├── DesignSystem/  # Theme (green tokens, SPEC §7.1) + components; DEBUG ComponentGallery
 └── Utilities/     # EventFormat, TextFilter
 supabase/          # Migrations, functions, seed (Emilio)
@@ -66,6 +66,7 @@ Green Figma frames (node ids `341:*`). Copy follows SPEC §7.2 ("game", not "eve
 | Event detail (341:2586), You're in (341:2989) | `Views/Detail/EventDetailView.swift` | `EventDetailViewModel` |
 | Who's going (341:2309) | `Views/Detail/WhoIsGoingSheet.swift`, `Views/Safety/` | — |
 | Me · Going (341:2165), Me · Hosting (341:2240) | `Views/Me/MeView.swift` | `MeViewModel` |
+| Group chat (341:1791), Chat rules (341:2420), Edit meet-up (341:2507) | `Views/Chat/` | — |
 | Settings (341:2144) | `Views/Settings/SettingsView.swift` | — |
 | Update required, suspended (D2) | `Views/Launch/LaunchGateViews.swift` | `AppViewModel` |
 
@@ -73,7 +74,7 @@ Navigation, the launch gate and app-level sheets live in `ViewModels/AppViewMode
 `Services/EventStore.swift`; mock content in `Services/MockData.swift`. `masuno://game/<id>` opens a game.
 
 Organizer approval (Join requests / Accept–Decline) is post-MVP and intentionally left out — spots are first come, first served.
-Group chat is post-MVP too: no chat screens or entry points during the program.
+Group chat is built but not connected: mock timeline, disabled composer ("Messages are coming soon").
 
 ## TODO
 
@@ -95,5 +96,7 @@ Placeholders that still need a real answer. Card IDs refer to SPEC §5.
 ### Later
 - [ ] Live map location, campus fallback banner and pull to refresh (E9) — map uses a mock "you" coordinate
 - [ ] Release hygiene (E14): app icon, launch color, Release → prod, keep `-screen` DEBUG-only
-- [ ] 2.0: bookmarks / Saved, notifications, calendar, invite, picker drag, Past games, Spanish
-- [ ] Post-MVP: group chat, organizer approval, profile photos, dark mode
+- [ ] 2.0: Notify me + Saved backend (bookmarks are local only), notifications, calendar, invite, picker drag, Past games, Spanish
+- [ ] Chat backend: sending, real timeline, rules acceptance per account (`GroupChatView` is UI only)
+- [ ] Not built from the Figma yet: Repost on hosted games, Edit profile & interests (E21), Invite a friend (E19)
+- [ ] Post-MVP: organizer approval, profile photos, dark mode

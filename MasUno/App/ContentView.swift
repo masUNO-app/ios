@@ -35,6 +35,7 @@ struct ContentView: View {
                 .navigationDestination(for: Route.self) { route in
                     switch route {
                     case .game(let id): EventDetailView(eventID: id)
+                    case .chat(let id): GroupChatView(eventID: id)
                     case .me(let tab): MeView(tab: tab)
                     case .settings: SettingsView()
                     case .blockedPeople: BlockedPeopleView()

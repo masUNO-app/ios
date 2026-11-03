@@ -36,6 +36,13 @@ enum MockData {
 
     static func events(now: Date = .now) -> [SportsEvent] {
         func inMinutes(_ minutes: Double) -> Date { now.addingTimeInterval(minutes * 60) }
+        func minutesAgo(_ minutes: Double) -> Date { now.addingTimeInterval(-minutes * 60) }
+        func message(_ sender: String, _ text: String, _ minutes: Double) -> ChatMessage {
+            ChatMessage(sender: sender, text: text, sentAt: minutesAgo(minutes))
+        }
+        func system(_ text: String, _ minutes: Double) -> ChatMessage {
+            ChatMessage(kind: .system, text: text, sentAt: minutesAgo(minutes))
+        }
         func day(_ offset: Int, _ hour: Int, _ minute: Int = 0) -> Date {
             let calendar = Calendar.current
             let base = calendar.date(byAdding: .day, value: offset, to: now) ?? now
@@ -90,12 +97,24 @@ enum MockData {
                 start: day(1, 10), duration: 5400, capacity: 10,
                 attendees: ["Maya Chen", "Leo Park", Person.you, "Sofía Ramírez", "Diego Morales"],
                 venue: Venues.borregosStadium, meetUpSpot: "By the south goal",
-                notes: "Friendly 5-a-side. Bring a light and a dark shirt."
+                notes: "Friendly 5-a-side. Bring a light and a dark shirt.",
+                messages: [
+                    system("Maya created the chat · 5 people going", 60),
+                    message("Maya Chen", "Meet by the south goal. I'll bring the ball!", 42),
+                    message("Leo Park", "Bringing water for everyone. See you tomorrow!", 36),
+                    message(Person.you, "I'm in! See you all at the south goal.", 19),
+                ],
+                unreadCount: 2
             ),
             SportsEvent(
                 title: "Saturday tennis", sport: .tennis, host: "Jordan Lee",
                 start: day(2, 18, 30), duration: 5400, capacity: 4,
-                attendees: ["Jordan Lee", Person.you, "Sofía Ramírez", "Ben Ortiz"], venue: Venues.tennisCourts
+                attendees: ["Jordan Lee", Person.you, "Sofía Ramírez", "Ben Ortiz"], venue: Venues.tennisCourts,
+                messages: [
+                    system("Jordan created the chat · 4 people going", 300),
+                    message("Jordan Lee", "Doubles, best of three. I've booked court 2.", 120),
+                ],
+                unreadCount: 1
             ),
             // Ended and cancelled games you were going to (Event detail states).
             SportsEvent(
@@ -116,12 +135,23 @@ enum MockData {
                 start: day(1, 10), duration: 3600, capacity: 6,
                 attendees: [Person.you, "Maya Chen", "Leo Park"], venue: Venues.basketballCourts,
                 meetUpSpot: "South court, by the water fountain",
-                notes: "Run 3-on-3, winners stay on."
+                notes: "Run 3-on-3, winners stay on.",
+                messages: [
+                    system("You created the chat · 3 people going", 90),
+                    message("Maya Chen", "Count me in! Should I bring a second ball?", 50),
+                    message("Leo Park", "Running 5 min late, save me a spot.", 12),
+                ],
+                unreadCount: 2
             ),
             SportsEvent(
                 title: "Volleyball night", sport: .volleyball, host: Person.you,
                 start: day(2, 18, 30), duration: 7200, capacity: 6,
-                attendees: [Person.you, "Alex Rivera", "Priya Shah", "Ben Ortiz"], venue: Venues.sportsCenter
+                attendees: [Person.you, "Alex Rivera", "Priya Shah", "Ben Ortiz"], venue: Venues.sportsCenter,
+                messages: [
+                    system("You created the chat · 4 people going", 200),
+                    message("Priya Shah", "Is there a net already up or should we bring one?", 15),
+                ],
+                unreadCount: 1
             ),
         ]
     }

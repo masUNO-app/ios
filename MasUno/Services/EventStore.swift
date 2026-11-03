@@ -14,6 +14,9 @@ final class EventStore {
     /// People you blocked, newest first. Hidden immediately, before the server answers (App Review checks this).
     private(set) var blockedPeople: [String] = []
 
+    /// "Before you chat" rules accepted. TODO(chat backend): store per account.
+    var hasAgreedToChatRules = false
+
     /// Short toast text (failed actions, confirmations).
     var notice: String?
 
@@ -90,6 +93,21 @@ final class EventStore {
     func leave(_ id: SportsEvent.ID) {
         guard let event = event(id), event.isYouGoing, !event.isHostedByYou else { return }
         mutate(id) { $0.attendees.removeAll { $0 == Person.you } }
+    }
+
+    // MARK: Group chat (not connected)
+
+    /// Opening the chat marks it read (powers "Group chat · N new").
+    func markChatRead(_ id: SportsEvent.ID) {
+        mutate(id) { $0.unreadCount = 0 }
+    }
+
+    /// Host sets "where to meet", pinned at the top of the chat. TODO(B6): `update_game`.
+    func updateMeetUpSpot(_ id: SportsEvent.ID, to spot: String) {
+        mutate(id) { event in
+            event.meetUpSpot = spot
+            event.messages.append(ChatMessage(kind: .system, text: String(localized: "Meet-up spot updated"), sentAt: .now))
+        }
     }
 
     /// TODO(B15): `toggle_bookmark` RPC.

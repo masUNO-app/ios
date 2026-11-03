@@ -44,7 +44,7 @@ struct EventDetailView: View {
 
                 if state == .going {
                     section("Before you go") {
-                        Text("\(Person.firstName(event.host)) can see you joined. Check where to meet and who's going.")
+                        Text("\(Person.firstName(event.host)) can see you joined. Say hi in the group chat so people know to wait for you.")
                     }
                 }
                 if !event.notes.isEmpty {
@@ -61,7 +61,7 @@ struct EventDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) { BookmarkButton(event: event, inToolbar: true) }
-            ToolbarItem(placement: .topBarTrailing) { overflowMenu(event, state: state) }
+            ToolbarItem(placement: .topBarTrailing) { overflowMenu(event, state: state).tint(Theme.ink) }
         }
         .safeAreaInset(edge: .bottom) { bottomBar(event, state: state) }
         .sheet(isPresented: $viewModel.showsWhoIsGoing) {
@@ -227,8 +227,21 @@ struct EventDetailView: View {
         case .open:
             // TODO(auth): verify student email before the first join (E5/B5).
             barButton("Join game") { viewModel.join(in: store) }
+        case .going:
+            barButton("Open group chat") { appViewModel.path.append(.chat(event.id)) }
         case .hosting:
-            barButton("Edit game") { appViewModel.presentGameForm(editing: event.id) }
+            VStack(spacing: 10) {
+                barButton("Open group chat") { appViewModel.path.append(.chat(event.id)) }
+                Button("Edit game") { appViewModel.presentGameForm(editing: event.id) }
+                    .buttonStyle(.glassProminent)
+                    .tint(Theme.accentSoft)
+                    .foregroundStyle(Theme.ink)
+                    .controlSize(.large)
+                    .buttonSizing(.flexible)
+                    .fontWeight(.semibold)
+                    .padding(.horizontal, Theme.gutter)
+                    .padding(.bottom, 8)
+            }
         case .full:
             Text("Spots open up when someone leaves — check back.")
                 .font(.subheadline)
@@ -238,7 +251,7 @@ struct EventDetailView: View {
                 .padding(.horizontal, Theme.gutter)
                 .padding(.vertical, 12)
                 .background(Theme.background)
-        case .going, .ended, .cancelled:
+        case .ended, .cancelled:
             EmptyView()
         }
     }

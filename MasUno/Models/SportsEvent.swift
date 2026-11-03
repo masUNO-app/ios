@@ -19,6 +19,9 @@ struct SportsEvent: Identifiable, Hashable {
     var isCancelled = false
     /// You saved this game (bookmark).
     var isBookmarked = false
+    /// Group chat. Not connected yet: mock content, no sending (post-MVP chat backend).
+    var messages: [ChatMessage] = []
+    var unreadCount = 0
 
     var spotsLeft: Int { max(capacity - attendees.count, 0) }
     var isFull: Bool { spotsLeft == 0 }

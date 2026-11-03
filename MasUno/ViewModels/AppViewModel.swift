@@ -60,9 +60,10 @@ final class AppViewModel {
     #if DEBUG
     /// Jump straight to a screen for design review, e.g. launch with `-screen me`.
     /// Options: update, signed-out, suspended, me, me-hosting, settings, add, form-error, edit,
-    /// picker, gallery, detail-*, who, report, blocked, popup (handled in `EventMapViewModel`).
+    /// picker, gallery, detail-*, who, report, blocked, chat, chat-host, meetup, popup (handled in `EventMapViewModel`).
     func openDebugScreen(in store: EventStore) {
-        switch UserDefaults.standard.string(forKey: "screen") {
+        let screen = UserDefaults.standard.string(forKey: "screen") ?? ""
+        switch screen {
         case "update": session = .updateRequired
         case "signed-out": session = .signedOut
         case "suspended": session = .suspended
@@ -72,11 +73,15 @@ final class AppViewModel {
         case "add", "form-error", "picker": presentGameForm()
         case "edit": presentGameForm(editing: store.hostedEvents.first?.id)
         case "gallery": path = [.gallery]
+        case "chat", "chat-host", "meetup":
+            let title = screen == "chat" ? "Sunday soccer" : "Sunday hoops"
+            if screen != "chat" { store.hasAgreedToChatRules = true }
+            if let id = store.events.first(where: { $0.title == title })?.id { path = [.chat(id)] }
         case "who", "report": path = Self.debugDetailID("detail-open", in: store).map { [.game($0)] } ?? []
         case "blocked":
             store.block("Jordan Lee")
             path = [.me(), .settings, .blockedPeople]
-        case let screen? where screen.hasPrefix("detail-"):
+        case _ where screen.hasPrefix("detail-"):
             if let id = Self.debugDetailID(screen, in: store) { path = [.game(id)] }
         default: break
         }

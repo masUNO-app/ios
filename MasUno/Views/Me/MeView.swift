@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Figma: "Me · Going" (341:2165) and "Me · Hosting" (341:2240), minus the group chat
-/// buttons (no chat during the program). Replaces "Registered events" and "Hosted events".
+/// Figma: "Me · Going" (341:2165) and "Me · Hosting" (341:2240). Replaces "Registered
+/// events" and "Hosted events". Repost and Edit profile & interests are not built yet.
 struct MeView: View {
     @Environment(EventStore.self) private var store
     @Environment(AppViewModel.self) private var appViewModel
@@ -123,6 +123,8 @@ struct MeView: View {
                             .tint(Theme.accentSoft)
                             .foregroundStyle(Theme.ink)
                     }
+                } footer: {
+                    if !event.isCancelled { chatButton(event) }
                 }
             }
             .buttonStyle(.plain)
@@ -144,10 +146,23 @@ struct MeView: View {
                         .buttonStyle(.glassProminent)
                         .tint(Theme.accentSoft)
                         .foregroundStyle(Theme.ink)
+                } footer: {
+                    chatButton(event)
                 }
             }
             .buttonStyle(.plain)
         }
+    }
+
+    /// "Group chat · 2 new"
+    private func chatButton(_ event: SportsEvent) -> some View {
+        NavigationLink(value: Route.chat(event.id)) {
+            Text(event.unreadCount > 0 ? "Group chat · \(event.unreadCount) new" : "Group chat")
+        }
+        .buttonStyle(.glassProminent)
+        .controlSize(.large)
+        .buttonSizing(.flexible)
+        .fontWeight(.semibold)
     }
 
     private func emptyState(
