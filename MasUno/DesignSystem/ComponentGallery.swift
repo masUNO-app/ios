@@ -98,10 +98,10 @@ struct ComponentGallery: View {
 
                 section("Fields") {
                     VStack(spacing: 12) {
-                        FieldBox("Event name", hint: "Give it a real name, not just the sport") {
+                        FieldBox("Game name", hint: "Give it a real name, not just the sport") {
                             TextField(text: $name) { Text(verbatim: "e.g. After-work hoops") }
                         }
-                        FieldBox("Event name", error: "Add a name so people know what they're joining.") {
+                        FieldBox("Game name", error: "Add a name so people know what they're joining.") {
                             Text(verbatim: "e.g. After-work hoops").foregroundStyle(Theme.muted)
                         }
                         HStack(spacing: 10) {
