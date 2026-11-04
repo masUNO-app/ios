@@ -15,6 +15,11 @@ struct EventMapView: View {
     /// The avatar's frame in the bottom bar, so the location button sits right above it.
     @State private var avatarFrame: CGRect = .zero
     @State private var locationButtonWidth: CGFloat = 0
+    /// Set when the system shows a vertical bar on one side (e.g. iPhone Duo).
+    @State private var verticalBarEdge: HorizontalEdge?
+    /// With a vertical bar, the search field only shows after tapping Search in the bar.
+    @State private var showsSearchField = false
+    @FocusState private var isSearchFocused: Bool
     @Namespace private var mapScope
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
@@ -25,15 +30,22 @@ struct EventMapView: View {
         .overlay(alignment: .top) { topBackdrop }
         .overlay(alignment: .top) {
             VStack(alignment: .leading, spacing: 12) {
-                searchRow
+                if !usesVerticalBar || showsSearchField { searchRow }
                 nearbyChip
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 20)
             .padding(.top, 8)
         }
-        .overlay(alignment: .bottomLeading) { locationButton }
+        .overlay(alignment: .bottomLeading) {
+            if !usesVerticalBar { locationButton }
+        }
         .mapScope(mapScope)
-        .toolbar { bottomActions }
+        .toolbar {
+            // `usesVerticalBar` is only ever true from iOS 27.1.
+            if #available(iOS 27.1, *), usesVerticalBar { verticalBarActions } else { bottomActions }
+        }
+        .background { VerticalBarEdgeReader(edge: $verticalBarEdge) }
         .sheet(isPresented: $showsSaved) {
             SavedGamesSheet { appViewModel.path.append(.game($0)) }
         }
@@ -47,9 +59,14 @@ struct EventMapView: View {
         }
         .toolbarBackgroundVisibility(.hidden, for: .bottomBar)
         .onGeometryChange(for: CGSize.self) { $0.size } action: { screenSize = $0 }
-        // Hidden here, but names the back button on pushed screens.
+        // Never shown here, but names the back button on pushed screens.
         .navigationTitle("Map")
-        .toolbar(.hidden, for: .navigationBar)
+        // The vertical bar hosts the navigation bar's items (search, saved games), so
+        // it stays visible there; elsewhere those controls float over the map instead.
+        .toolbar(usesVerticalBar ? .automatic : .hidden, for: .navigationBar)
+        // Without a title the navigation bar collapses, leaving the map full height.
+        .toolbar(removing: usesVerticalBar ? .title : nil)
+        .toolbarTitleDisplayMode(usesVerticalBar ? .inline : .automatic)
         .animation(.spring(duration: 0.4, bounce: 0.22), value: viewModel.selectedID)
         #if DEBUG
         .onAppear { viewModel.openDebugPopup(in: store) }
@@ -147,18 +164,24 @@ struct EventMapView: View {
                 TextField("Search games", text: $viewModel.searchText)
                     .textInputAutocapitalization(.never)
                     .submitLabel(.search)
+                    .focused($isSearchFocused)
+                    // Opened from the bar's Search button, so start typing right away.
+                    .onAppear { if usesVerticalBar { isSearchFocused = true } }
             }
             .padding(.horizontal, 14)
             .frame(height: 48)
             .glassEffect(.regular.interactive(), in: .capsule)
 
-            Button("Saved games", systemImage: "bookmark") { showsSaved = true }
-                .labelStyle(.iconOnly)
-                .font(.title3.weight(.medium))
-                .buttonStyle(.glass)
-                .buttonBorderShape(.circle)
-                .controlSize(.large)
-                .tint(Theme.ink)
+            // With a vertical bar, Saved games lives in the bar instead.
+            if !usesVerticalBar {
+                Button("Saved games", systemImage: "bookmark") { showsSaved = true }
+                    .labelStyle(.iconOnly)
+                    .font(.title3.weight(.medium))
+                    .buttonStyle(.glass)
+                    .buttonBorderShape(.circle)
+                    .controlSize(.large)
+                    .tint(Theme.ink)
+            }
         }
         .foregroundStyle(Theme.ink)
     }
@@ -179,15 +202,18 @@ struct EventMapView: View {
     /// "Show my location" button, centered over the avatar in the bottom bar.
     private var locationButton: some View {
         GeometryReader { geo in
-            let containerMinX = geo.frame(in: .global).minX
+            let container = geo.frame(in: .global)
+            // Big portrait screens (iPad, iPhone Duo's inner display) raise the avatar past the
+            // default gap, so keep clear of its top: its glass adds about 6, plus 10 of space.
+            let clearsAvatar = avatarFrame == .zero ? 0 : container.maxY - avatarFrame.minY + 16
             userLocationButton
                 .buttonBorderShape(.circle)
                 .controlSize(.large)
                 .tint(Theme.ink)
                 .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { locationButtonWidth = $0 }
-                .offset(x: avatarFrame.midX - containerMinX - locationButtonWidth / 2)
+                .offset(x: avatarFrame.midX - container.minX - locationButtonWidth / 2)
                 .frame(maxHeight: .infinity, alignment: .bottom)
-                .padding(.bottom, 8)
+                .padding(.bottom, max(8, clearsAvatar))
                 .opacity(avatarFrame == .zero ? 0 : 1)
         }
     }
@@ -204,27 +230,53 @@ struct EventMapView: View {
         .glassEffect(.regular, in: .capsule)
     }
 
+    /// With a vertical bar (iPhone Duo), search, saved games, recenter, filter and the avatar
+    /// move into the bar (bottom to top: avatar, then filter + recenter); only Add game stays in
+    /// the horizontal bottom bar. Floating over the map they would ignore the bar.
+    @available(iOS 27.1, *)
+    @ToolbarContentBuilder
+    private var verticalBarActions: some ToolbarContent {
+        ToolbarItem(placement: .topBarTrailing) {
+            Button("Search", systemImage: "magnifyingglass") { toggleSearchField() }
+                .tint(showsSearchField ? Theme.accent : Theme.ink)
+        }
+
+        ToolbarItem(placement: .topBarTrailing) {
+            Button("Saved games", systemImage: "bookmark") { showsSaved = true }
+                .tint(Theme.ink)
+        }
+
+        ToolbarItem(placement: .bottomBar) { addGameButton }
+            .axisBehavior(.horizontalOnly)
+
+        // Alone in the bottom bar it would center, so on wide landscape screens this holds
+        // it left, as in `bottomActions`.
+        if isWideLayout && isLandscape {
+            ToolbarSpacer(.flexible, placement: .bottomBar)
+                .axisBehavior(.horizontalOnly)
+        }
+
+        // One glass group. Plain buttons: the bar draws the glass, so a glass button
+        // style (or the native `MapUserLocationButton`) would nest a pill inside it.
+        ToolbarItemGroup(placement: .bottomBar) {
+            Button("Show my location", systemImage: "location.fill") { viewModel.centerOnUserLocation() }
+                .tint(Theme.ink)
+            filterMenu
+        }
+        .axisBehavior(.verticalPreferred)
+
+        // Splits the avatar into its own glass container, apart from the map actions above.
+        ToolbarSpacer(.fixed, placement: .bottomBar)
+
+        // The avatar is a custom view, which the system keeps horizontal by default.
+        ToolbarItem(placement: .bottomBar) { profileButton }
+            .axisBehavior(.verticalPreferred)
+    }
+
     /// Bottom toolbar: sport filter · + Add game · avatar.
     @ToolbarContentBuilder
     private var bottomActions: some ToolbarContent {
-        ToolbarItem(placement: .bottomBar) {
-            Menu {
-                Button("All sports") { viewModel.clearSportFilter() }
-                Divider()
-                ForEach(Sport.postable) { sport in
-                    Toggle("\(sport.emoji) \(sport.name)", isOn: Binding(
-                        get: { viewModel.sportFilter.contains(sport) },
-                        set: { _ in viewModel.toggleSport(sport) }
-                    ))
-                }
-            } label: {
-                Label("Filter", systemImage: "line.3.horizontal.decrease")
-            }
-            // Count of active sport filters, since the icon button has no room for text.
-            .badge(viewModel.sportFilter.count)
-            .accessibilityLabel(viewModel.filterLabel)
-            .tint(Theme.ink)
-        }
+        ToolbarItem(placement: .bottomBar) { filterMenu }
 
         // Narrow screens: centered and stretched. Wide screens (e.g. iPhone Duo's inner
         // display): natural size, centered in portrait, left next to Filters in landscape.
@@ -232,39 +284,72 @@ struct EventMapView: View {
             ToolbarSpacer(.flexible, placement: .bottomBar)
         }
 
-        ToolbarItem(placement: .bottomBar) {
-            // Explicit HStack: toolbars render `Label`s icon-only, but this needs its title.
-            Button {
-                appViewModel.presentGameForm()
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "plus")
-                    Text("Add game")
-                }
-                .font(.headline)
-                .modifier(BottomBarWidth(width: isWideLayout ? nil : addButtonWidth))
-            }
-            .buttonStyle(.glassProminent)
-            .controlSize(.large)
-            .tint(Theme.accent)
-        }
+        ToolbarItem(placement: .bottomBar) { addGameButton }
 
         ToolbarSpacer(.flexible, placement: .bottomBar)
 
-        ToolbarItem(placement: .bottomBar) {
-            Button {
-                appViewModel.path.append(.me())
-            } label: {
-                Avatar(name: store.profile.fullName, size: 32)
-                    .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { avatarFrame = $0 }
+        ToolbarItem(placement: .bottomBar) { profileButton }
+    }
+
+    private var filterMenu: some View {
+        Menu {
+            Button("All sports") { viewModel.clearSportFilter() }
+            Divider()
+            ForEach(Sport.postable) { sport in
+                Toggle("\(sport.emoji) \(sport.name)", isOn: Binding(
+                    get: { viewModel.sportFilter.contains(sport) },
+                    set: { _ in viewModel.toggleSport(sport) }
+                ))
             }
-            .accessibilityLabel("Me")
-            #if DEBUG
-            .contextMenu {
-                Button("Component gallery", systemImage: "swatchpalette") { appViewModel.path.append(.gallery) }
-            }
-            #endif
+        } label: {
+            Label("Filter", systemImage: "line.3.horizontal.decrease")
         }
+        // Count of active sport filters, since the icon button has no room for text.
+        .badge(viewModel.sportFilter.count)
+        .accessibilityLabel(viewModel.filterLabel)
+        .tint(Theme.ink)
+    }
+
+    private var addGameButton: some View {
+        // Explicit HStack: toolbars render `Label`s icon-only, but this needs its title.
+        Button {
+            appViewModel.presentGameForm()
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "plus")
+                Text("Add game")
+            }
+            .font(.headline)
+            .modifier(BottomBarWidth(width: isWideLayout ? nil : addButtonWidth))
+        }
+        .buttonStyle(.glassProminent)
+        .controlSize(.large)
+        .tint(Theme.accent)
+    }
+
+    private var profileButton: some View {
+        Button {
+            appViewModel.path.append(.me())
+        } label: {
+            Avatar(name: store.profile.fullName, size: 32)
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { avatarFrame = $0 }
+        }
+        .accessibilityLabel("Me")
+        #if DEBUG
+        .contextMenu {
+            Button(String("Component gallery"), systemImage: "swatchpalette") { appViewModel.path.append(.gallery) }
+        }
+        #endif
+    }
+
+    private var usesVerticalBar: Bool {
+        verticalBarEdge != nil
+    }
+
+    /// Shows or hides the search field; hiding it clears the search so no filter lingers unseen.
+    private func toggleSearchField() {
+        withAnimation(.snappy) { showsSearchField.toggle() }
+        if !showsSearchField { viewModel.searchText = "" }
     }
 
     /// Screen width minus the toolbar margins and the two round side buttons.
@@ -281,6 +366,30 @@ struct EventMapView: View {
     /// follows the space the app actually has.
     private var isWideLayout: Bool {
         horizontalSizeClass == .regular
+    }
+}
+
+/// Publishes `toolbarVerticalEdge`, which is only available from iOS 27.1, to a binding.
+private struct VerticalBarEdgeReader: View {
+    @Binding var edge: HorizontalEdge?
+
+    var body: some View {
+        if #available(iOS 27.1, *) {
+            VerticalBarEdgeReader27(edge: $edge)
+        } else {
+            Color.clear
+        }
+    }
+}
+
+@available(iOS 27.1, *)
+private struct VerticalBarEdgeReader27: View {
+    @Binding var edge: HorizontalEdge?
+    @Environment(\.toolbarVerticalEdge) private var verticalEdge
+
+    var body: some View {
+        Color.clear
+            .onChange(of: verticalEdge, initial: true) { _, newValue in edge = newValue }
     }
 }
 

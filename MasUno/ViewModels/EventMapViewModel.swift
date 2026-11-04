@@ -101,6 +101,15 @@ final class EventMapViewModel {
         }
     }
 
+    /// Recenters on the user: the mocked location if there is one, otherwise real GPS.
+    func centerOnUserLocation() {
+        guard LocationService.mockCoordinate == nil else { return centerOnMockLocation() }
+        withAnimation {
+            selectedID = nil
+            position = .userLocation(fallback: position)
+        }
+    }
+
     private static func region(around coordinate: CLLocationCoordinate2D) -> MKCoordinateRegion {
         MKCoordinateRegion(center: coordinate, span: MockData.campusRegion.span)
     }
