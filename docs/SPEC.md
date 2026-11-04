@@ -55,6 +55,7 @@
 | N16 | **Add to calendar, Invite a friend, Google Maps option (E19) and Past games + Edit profile & interests (E21) move to 1.0.** Invite shares the App Store link. Edit profile needs `complete_profile` live; otherwise it moves to 1.1. | Already built. Supersedes C3's timing. | — |
 | N17 | **Auto-repost in 1.0 (MVP):** host toggle (on by default) that bumps a game when a full game frees a spot, so the open spot fills. Replaces the Figma's manual "Repost". Backend added to B3 (§7.6.11, §8.3, §8.5). | Ari's question on the PR: hosts want traction, not a manual bump. Team decision Nov 3: part of the MVP. | ⚑ Arianna (look), Emilio (B3 scope) |
 | N18 | **Onboarding is built from §7.5 copy** (temp) ahead of the D2 frames; swap in the frames in 1.1. | Unblocks Nov 9. | — |
+| N19 | **Padel added as a fifth sport in 1.0** (game form, map filter, interests). Backend: add `padel` to the `activities` seed (B1) so `create_game` accepts it. Emoji 🏓 until there is a custom icon. | Team decision Nov 3. | Emilio (B1 seed), Arianna (icon) |
 
 ### Rev. 5 (still in force)
 
@@ -92,7 +93,7 @@ N1 builds at each demo day, 1.0 before Demo Day #3, 2.0 after it, launch Dec 16 
 | C16 | Minimum-version gate in 1.0. | Lets 2.0 force an update if needed. | — |
 | C17 | `supabase/` lives in the `ios` repo. | One PR can change client and database together. | — |
 
-**Still locked from rev. 2:** Supabase; @tec.mx email codes only; sports only (Basketball, Tennis, Soccer, Volleyball); no organizer approval; Tec de Monterrey; English first with strings externalized; venue search + pin + current location; 7-day posting window; light mode only; sign-in gates the app; no skill level; soft cancel; separate dev and prod projects.
+**Still locked from rev. 2:** Supabase; @tec.mx email codes only; sports only (Basketball, Tennis, Soccer, Volleyball, Padel — N19); no organizer approval; Tec de Monterrey; English first with strings externalized; venue search + pin + current location; 7-day posting window; light mode only; sign-in gates the app; no skill level; soft cancel; separate dev and prod projects.
 
 ---
 
@@ -285,7 +286,7 @@ Status as of Nov 3: "built" means the screen exists on mock data on `green-desig
 
 | ID | Work | Release | Est. | Due | Depends on | Done when |
 | --- | --- | --- | --- | --- | --- | --- |
-| B1 | **Supabase dev setup**: `masuno-dev`, CLI, `supabase/` folder, seed script (Tec, 4 sports, Ricardo's venues, test users, games), `Config.xcconfig` template. | 1.0 | 3 h | Nov 4 ⚑ | E0, O2, O5 | `supabase db reset` works locally for Ethan too. |
+| B1 | **Supabase dev setup**: `masuno-dev`, CLI, `supabase/` folder, seed script (Tec, 5 sports, Ricardo's venues, test users, games), `Config.xcconfig` template. | 1.0 | 3 h | Nov 4 ⚑ | E0, O2, O5 | `supabase db reset` works locally for Ethan too. |
 | B2 | **Sign-in email via team Gmail** (§8.4): SMTP with app password, code-only template, 10-min expiry, raised rate limit, tested on Tec inboxes. | 1.0 | 1.5 h | Nov 5 ⚑ | O3, O4 | Codes reach Tec inboxes (not junk) within a minute. |
 | B3 | **Schema, RLS, RPCs** (§8.3–§8.5) incl. report/block, text filter, App Review demo campus, **auto-repost** (`auto_repost`, `reposted_at`, set in `leave_game`/`update_game`); `docs/API.md` by Nov 4. | 1.0 | 14 h | Nov 6 ⚑ | E1 | Every 1.0 RPC works from the SQL editor as a test user. |
 | B4 | **Auth hook** (deny by default), `auth_allowlist`, 2 review accounts with passwords, `sign_in_method(email)`. | 1.0 | 2 h | Nov 5 ⚑ | B1 | Non-Tec email gets the friendly error; review account signs in with a password. |
@@ -443,7 +444,7 @@ Frames: `https://www.figma.com/design/5eKA3f0I90VVABrAuNMFD2/masuno-figma?node-i
 2. **Email** — "What's your Tec email?" Must end exactly in `@tec.mx`, else "masUNO is just for Tec students right now. Use your @tec.mx email." Calls `sign_in_method(email)`: code, or (review accounts only) password.
 3. **Code** — "Check your email" / "We sent a 6-digit code to a0…@tec.mx. It comes from masunoapp@gmail.com — check Junk if you don't see it." Six boxes with one-time-code autofill; resend after 30 s; wrong / expired / too-many-tries messages.
 4. **About you** — first name, last name, class year; preview "Emilio G. · Class of 2029" with "This is how others see you."
-5. **Interests** — "What do you play?" Four sports, at least one.
+5. **Interests** — "What do you play?" Five sports, at least one.
 6. **Community guidelines** — four rules + "You can report or block anyone from the Who's going list." **I agree** (required).
 
 Location is requested when the map first opens; if denied, the map centers on campus with a banner linking to iOS Settings. Notification permission (2.0) comes after your first join or hosted game.
@@ -534,7 +535,7 @@ Bookmark on the popup, Event detail and the Saved list; filled green icon when s
 ### 8.2 Client modules
 - **Ethan:** design system (E2) · navigation + version gate (E3) · `LocationService` (E9) · `CalendarAdder` (E19, 2.0) · all views and view models.
 - **Emilio:** `AuthService` (B5) · `GameStore` (B6) · live repositories (B7) · `NotificationService` (B16, 2.0).
-- **Shared:** protocols, domain models and mocks (E1); `ActivityCatalog` (cached, with a built-in fallback of the 4 sports).
+- **Shared:** protocols, domain models and mocks (E1); `ActivityCatalog` (cached, with a built-in fallback of the 5 sports).
 
 ### 8.3 Schema
 
