@@ -1,7 +1,7 @@
 # masUNO (iOS)
 
-masUNO helps Tec students find a pickup game — basketball, tennis, soccer or
-volleyball — on a map, host one, and fill the last open spots. SwiftUI, iOS 26+.
+masUNO helps Tec students find a pickup game — basketball, tennis, soccer,
+volleyball or padel — on a map, host one, and fill the last open spots. SwiftUI, iOS 26+.
 The app currently runs on mock data; the Supabase backend is being built (see the spec).
 
 - **Spec:** [`docs/SPEC.md`](docs/SPEC.md) · API contract: [`docs/API.md`](docs/API.md) · QA script: [`docs/QA.md`](docs/QA.md)
