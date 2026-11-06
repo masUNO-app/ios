@@ -2,7 +2,7 @@
 
 masUNO helps Tec students find a pickup game — basketball, tennis, soccer,
 volleyball or padel — on a map, host one, and fill the last open spots. SwiftUI, iOS 26+.
-The app currently runs on mock data; the Supabase backend is being built (see the spec).
+Debug builds run on an in-memory mock backend; the Supabase backend is being built (see the spec).
 
 - **Spec:** [`docs/SPEC.md`](docs/SPEC.md) · API contract: [`docs/API.md`](docs/API.md) · QA script: [`docs/QA.md`](docs/QA.md)
 - **Trello:** [2026 UnaMas](https://trello.com/b/mq7VsJY6/2026-unamas)
@@ -23,14 +23,14 @@ git-ignored too: Debug points at `masuno-dev`, Release at `masuno-prod`.
 
 Debug builds accept a `-screen` launch argument to jump straight to a screen for design review:
 `popup`, `popup-saved`, `saved`, `add`, `form-error`, `edit`, `picker`, `detail-open|in|full|hosting|ended|cancelled`
-(add `-raceJoin YES` to `detail-open` for the last-spot race), `who`, `report`, `blocked`, `me`,
-`me-hosting`, `profile`, `onboarding-email|code|about|interests|guidelines`, `calendar`, `chat`, `chat-host`, `meetup`, `settings`, `update`, `signed-out`, `suspended`, `gallery`.
+(add `-raceJoin YES` to `detail-open` for the last-spot race; `-mockLocation YES` pins you at Tec), `who`, `report`, `blocked`, `me`,
+`me-hosting`, `profile`, `onboarding-email|code|about|interests|guidelines`, `calendar`, `chat`, `chat-host`, `meetup`, `repost`, `settings`, `update`, `signed-out`, `suspended`, `gallery`.
 
 ## How we work
 
 - `main` is protected: open a PR, get one approval from the other coder, squash merge.
 - `CODEOWNERS` requests the right reviewer: views, view models and `DesignSystem/` → Ethan;
-  `Data/` and `supabase/` → Emilio; `docs/API.md` → both.
+  `supabase/` → Emilio; `Data/` and `docs/API.md` → both.
 - Every PR links its Trello card; screen changes need screenshots for Arianna.
 
 ## Architecture
@@ -40,8 +40,8 @@ MVVM, one folder per layer:
 ```
 MasUno/
 ├── App/           # @main entry, ContentView (launch gate + root NavigationStack), Route
-├── Models/        # Pure data: Game, Profile, Activity, Place, DomainError (E1); legacy SportsEvent, Venue, Sport, Person until E24
-├── Services/      # EventStore (mock source of truth + domain actions), MockData, LocationService
+├── Models/        # Pure data: Game, Profile, Activity, Place, DomainError, AppConfig
+├── Services/      # LocationService
 ├── Data/          # Protocols (AuthService, repositories), mocks, GameStore; only place that imports Supabase
 ├── ViewModels/    # Per-screen presentation state & intents
 ├── Views/         # SwiftUI screens: Map/, Detail/, GameForm/, Chat/, Me/, Settings/, Safety/, Launch/
@@ -52,8 +52,8 @@ supabase/          # Migrations, functions, seed (Emilio)
 docs/              # Spec, API contract, QA script
 ```
 
-Views bind to `@Observable` view models; view models read/mutate the model layer
-(`EventStore`, injected via environment). Views never mutate the store directly.
+Views bind to `@Observable` view models; screens read `GameStore` (injected via environment), which sits
+over the repository protocols. `Data/AppServices.swift` is the one place that picks mock or live.
 
 ## Screens
 
@@ -69,40 +69,30 @@ Green Figma frames (node ids `341:*`). Copy follows SPEC §7.2 ("game", not "eve
 | Me · Going (341:2165), Me · Hosting (341:2240) | `Views/Me/MeView.swift` | `MeViewModel` |
 | Group chat (341:1791), Chat rules (341:2420), Edit meet-up (341:2507) | `Views/Chat/` | — |
 | Settings (341:2144) | `Views/Settings/SettingsView.swift` | — |
-| Onboarding (TEMP, SPEC §7.5) | `Views/Onboarding/OnboardingFlow.swift` | `OnboardingViewModel` |
+| Onboarding (SPEC §7.5) | `Views/Onboarding/OnboardingFlow.swift` | `OnboardingViewModel` |
 | Update required, suspended (D2) | `Views/Launch/LaunchGateViews.swift` | `AppViewModel` |
 
 Navigation, the launch gate and app-level sheets live in `ViewModels/AppViewModel.swift`; data in
-`Services/EventStore.swift`; mock content in `Services/MockData.swift`. `masuno://game/<id>` opens a game.
+`Data/GameStore.swift`; mock content in `Data/Mocks/`. `masuno://game/<id>` opens a game.
 
 Organizer approval (Join requests / Accept–Decline) is post-MVP and intentionally left out — spots are first come, first served.
-Group chat is built but not connected: mock timeline, disabled composer ("Messages are coming soon").
+Group chat is read-only for now: pinned card and system rows, no composer (N14).
 
 ## TODO
 
 Placeholders that still need a real answer. Card IDs refer to SPEC §5.
 
-### Waiting on design (D2)
-- [ ] Onboarding (E5) — TEMP flow from SPEC §7.5 copy on mock auth (any 6-digit code but 000000); swap in D2 frames + `AuthService` (B5)
-- [ ] Event detail Full / Hosting / Ended / Cancelled, report sheet, Blocked people and Settings rows
-      were built from SPEC §7.6 copy; swap in Arianna's frames when they're Ready
-- [ ] Empty / error / offline states (E14)
-- [ ] Interest chip and activity tile colors for non-blue tints (only `chipSport` / `accentSoft` are tokens)
+### Waiting on backend
+- [ ] Live `AuthService` (B5) and repositories (B7), then swap them in `Data/AppServices.swift`. **Until then Release builds
+      run on `UnavailableBackend`: they contain no mock data, but can't sign in.**
+- [ ] Group chat messaging (E26, B20); chat is the read-only fallback until then. `ChatRulesSheet` is kept for it.
 
-### Waiting on backend (Emilio)
-- [ ] Live data (B6, B7): create / edit / cancel, join / leave, the last-spot race (`-raceJoin YES` fakes it)
-- [ ] Report, block and unblock RPCs (B8); delete-account function (B9); sign out via `AuthService` (B5)
-- [ ] `app_config` (min version, support email, privacy URL) — mocked in `AppConfig.mock`
+### Waiting on the team
+- [ ] App icon (D3): the icon set is empty; launch color uses `Background` until then
+- [ ] Privacy & Terms page live at `masuno-app.github.io/privacy` (D4): the app already links to it
+- [ ] `AppConfig.appStoreID` from App Store Connect (E15): Invite a friend stays hidden in Release until it's set
+- [ ] "Verified student" vs "Tec verified" (O4), real venues in `MockFixtures` for screenshots (O5)
 
 ### Later
-- [ ] TODO/TEMP: "you" are pinned at Tec (`LocationService.mockCoordinate`) so the mock games are nearby wherever you test; launch with `-realLocation YES` for real GPS. Remove with the live map (E9)
-- [ ] Live map: campus fallback banner and pull to refresh (E9)
-- [ ] Release hygiene (E14): app icon, launch color, Release → prod, keep `-screen` DEBUG-only
-- [ ] 2.0: Notify me + Saved backend (bookmarks are local only), notifications, calendar, invite, picker drag, Past games, Spanish
-- [ ] Chat backend: sending, real timeline, rules acceptance per account (`GroupChatView` is UI only)
-- [ ] Auto-repost (replaces the Figma's manual "Repost"): UI + local placeholder only. Needs design sign-off (Arianna),
-      a SPEC entry, and backend — an `auto_repost` flag and a `reposted_at` bump set by `leave_game` when a full game
-      frees a spot, with the map sorting by it (`EventStore.autoRepostIfNeeded`)
-- [ ] TODO/TEMP: "Invite a friend" shares an App Store search link (`AppConfig.inviteURL`) until the listing / TestFlight link exists
-- [ ] Profile edits and interests are local only until `complete_profile` is live (B7)
+- [ ] 2.0: 2.0 UI (E27), Notify me + synced Saved, notifications, picker drag, Spanish
 - [ ] Post-MVP: organizer approval, profile photos, dark mode

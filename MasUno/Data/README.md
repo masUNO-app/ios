@@ -6,4 +6,6 @@ protocols here, which match [`docs/API.md`](../../docs/API.md).
 
 - `AuthService.swift`, `Repositories.swift`: the protocols (E1). Changing them takes both coders.
 - `Mocks/`: `MockBackend` implements every protocol with the RPC rules, for previews and tests. DEBUG only.
-- Coming: `GameStore` (B6), live `AuthService` (B5), live repositories (B7), `NotificationService` (B16, 2.0).
+- `GameStore.swift`: what screens read and act on (B6).
+- `AppServices.swift`: the one place that picks what's behind the protocols. `UnavailableBackend` fills in for Release until the live `AuthService` (B5) and repositories (B7) land.
+- Coming: `NotificationService` (B16, 2.0).
