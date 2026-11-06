@@ -1,6 +1,6 @@
 # masUNO QA script
 
-Run this before each TestFlight build, on two physical phones with the exact build being sent (SPEC §9).
+Run this before each TestFlight build, on physical phones (two, plus a third for the last-spot race) with the exact build being sent (SPEC §9).
 Use two accounts on `masuno-prod`: **Phone A** hosts, **Phone B** joins. File anything that fails as a Trello
 bug with a screenshot. Sections 1–8 need the live backend.
 
@@ -37,8 +37,8 @@ Before you start: delete the app from both phones, turn location on, and note th
 
 - [ ] Phone B joins: "You're in" shows immediately, and Phone A sees them in Who's going after a refresh.
 - [ ] Phone B leaves. The count goes back on both phones.
-- [ ] **Last-spot race:** with one spot left and a third account or Phone A's friend ready, both tap Join at
-  the same moment. One gets in; the other sees "Someone just took the last spot." and the game shows Full.
+- [ ] **Last-spot race:** the host can't join their own game, so this needs a third phone. With one spot left,
+  two non-host phones tap Join at the same moment. One gets in; the other sees "Someone just took the last spot." and the game shows Full.
 - [ ] Event detail shows each state correctly: Open, You're in, Full, Hosting, Ended, Cancelled.
 
 ## 5. Auto-repost
