@@ -27,8 +27,9 @@ protocol AuthService: AnyObject {
     /// Checks the saved session at launch and leaves `.loading`.
     func restoreSession() async
 
-    /// The server decides who can sign in: an open campus's domain gets `.otp`, a review account
-    /// gets `.password`, and anything else throws `.emailNotAllowed`. The app never checks a domain itself.
+    /// The server decides who can sign in: a campus's domain gets `.otp`, a review account gets
+    /// `.password`, and anything else throws `.emailNotAllowed`. The app never checks a domain itself.
+    /// `sendCode` can also throw `.emailNotAllowed`: a new account at a campus that's closed to sign-ups.
     func signInMethod(for email: String) async throws -> SignInMethod
     func sendCode(to email: String) async throws
     func verifyCode(_ code: String, email: String) async throws

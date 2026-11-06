@@ -149,9 +149,11 @@ Game writes return the updated `game_cards` row, so the app never needs a second
 
 Rules the signatures don't show:
 
-- **`sign_in_method`** returns `password` for an `auth_allowlist` address, `otp` for an exact match on an open
-  campus's `email_domain` (and `student_email_pattern` if set), and otherwise `not_allowed`. The app has no
-  domain list of its own. `AuthService` turns `not_allowed` into `.emailNotAllowed`.
+- **`sign_in_method`** returns `password` for an `auth_allowlist` address, `otp` for an exact match on any
+  non-demo campus's `email_domain` (and `student_email_pattern` if set), **open or closed**, and otherwise
+  `not_allowed`. Closed campuses still get `otp` so their existing accounts can sign back in; the auth hook,
+  which only runs for new users, stops new accounts there with `email_not_allowed`. The app has no domain
+  list of its own. `AuthService` turns `not_allowed` into `.emailNotAllowed`.
 - **`complete_profile`** sets the campus only when it creates the profile: from the email's domain, or from
   `auth_allowlist.university_id` for a review account. Edits never change it.
 - **`update_game`** checks the time window only when `p_starts_at` changes, so a host can still fix

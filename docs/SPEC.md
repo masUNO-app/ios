@@ -513,7 +513,7 @@ Frames: `https://www.figma.com/design/5eKA3f0I90VVABrAuNMFD2/masuno-figma?node-i
 *Campus names and domains below come from `open_universities`: "Tec" and `@tec.mx` at launch. If the list can't load or more than one campus is open, the copy says "campus" and "school email" instead (N32).*
 
 1. **Welcome** — "Find your next game" / "Pickup games around Tec, one or two players short — and looking for you." **Continue with your Tec email**. Footer link: Privacy & Terms.
-2. **Email** — "What's your Tec email?" Calls `sign_in_method(email)`, and the server decides: an open campus's domain (exact match) gets a code, a review account gets a password field, and anyone else sees "masUNO is just for Tec students right now. Use your @tec.mx email." (with several campuses open: "masUNO isn't open at your school yet.")
+2. **Email** — "What's your Tec email?" Calls `sign_in_method(email)`, and the server decides: a campus's domain (exact match) gets a code (new accounts need an open campus; the auth hook enforces it), a review account gets a password field, and anyone else sees "masUNO is just for Tec students right now. Use your @tec.mx email." (with several campuses open: "masUNO isn't open at your school yet.")
 3. **Code** — "Check your email" / "We sent a 6-digit code to a0…@tec.mx. It comes from masunoapp@gmail.com — check Junk if you don't see it." Six boxes with one-time-code autofill; resend after 30 s; wrong / expired / too-many-tries messages.
 4. **About you** — first name, last name, class year; preview "Emilio G. · Class of 2029" with "This is how others see you."
 5. **Interests** — "What do you play?" Five sports, at least one.
@@ -774,7 +774,7 @@ notification_outbox (id bigserial pk, user_id uuid, kind text, event_id uuid, pa
 
 | RPC | Purpose | Errors |
 | --- | --- | --- |
-| `sign_in_method(email) → text` | `'otp'`, `'password'` or `'not_allowed'` (anonymous; reads the allowlist and open campuses) | — |
+| `sign_in_method(email) → text` | `'otp'`, `'password'` or `'not_allowed'` (anonymous; reads the allowlist and campuses; closed campuses still get `'otp'` so existing accounts can sign back in) | — |
 | `complete_profile(first, last, grad_year, interests[], locale)` | Create/update profile; sets the campus on creation, from the email domain or `auth_allowlist.university_id` | `invalid_text`, `invalid_input` |
 | `accept_guidelines()` | Record agreement | — |
 | `create_game(…, auto_repost)` | Validate sport, 7-day window, limit, text; insert game + host | `invalid_time`, `invalid_text`, `limit_reached`, `invalid_input` |
@@ -815,7 +815,7 @@ Your phone's location never leaves the phone. Email stays in Supabase Auth and i
 masUNO launches at Tec. To open somewhere else, no app release is needed:
 
 1. **Emilio:** insert the `universities` row (name, short name, email domain, center, timezone), plus `student_email_pattern` if staff share the domain. Seed its venues.
-2. **Emilio:** set `signup_enabled = true` on it. To close Tec, set it to `false` on Tec's row. Existing Tec accounts keep working; only new sign-ups stop.
+2. **Emilio:** set `signup_enabled = true` on it. To close Tec, set it to `false` on Tec's row. Existing Tec accounts keep working and can sign back in; only new sign-ups stop, through the auth hook.
 3. **Ricardo:** confirm the email format and test codes on real inboxes there (as in O4; school mail servers differ, K4).
 4. **Ricardo + Arianna:** update what lives outside the app: Privacy & Terms and Support pages, App Store listing and screenshots, beta recruiting.
 

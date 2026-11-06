@@ -324,7 +324,8 @@ struct CampusTests {
 
         // Tec doesn't work out: the campus changes on the server, with no app change.
         auth.openUniversities = [MockFixtures.otherCampus]
-        await #expect(throws: DomainError.emailNotAllowed) { try await auth.signInMethod(for: "a0123@tec.mx") }
+        auth.closedUniversities = [MockFixtures.tec]
+        await #expect(throws: DomainError.emailNotAllowed) { try await auth.sendCode(to: "a0123@tec.mx") }
         #expect(try await auth.signInMethod(for: "a@uanl.edu.mx") == .otp)
 
         try await auth.sendCode(to: "a@uanl.edu.mx")
@@ -333,6 +334,20 @@ struct CampusTests {
             firstName: "Ana", lastName: "Solis", gradYear: 2028, interests: [MockFixtures.activity("soccer")]
         ))
         #expect(try await auth.fetchMyProfile()?.university == MockFixtures.otherCampus)
+    }
+
+    /// Closing a campus stops new sign-ups, not the people already there.
+    @Test func existingAccountsSurviveTheirCampusClosing() async throws {
+        let auth = MockBackend()
+        auth.openUniversities = [MockFixtures.otherCampus]
+        auth.closedUniversities = [MockFixtures.tec]
+        auth.expireSession(email: "a0123@tec.mx")
+
+        #expect(try await auth.signInMethod(for: "a0123@tec.mx") == .otp)
+        try await auth.sendCode(to: "a0123@tec.mx")
+        try await auth.verifyCode("123456", email: "a0123@tec.mx")
+        #expect(auth.state == .signedIn(userID: auth.me.id))
+        #expect(try await auth.fetchMyProfile()?.university == MockFixtures.tec)
     }
 
     @Test func domainMatchIsExact() async {

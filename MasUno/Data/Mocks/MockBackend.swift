@@ -20,6 +20,8 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
     var now: Date
     /// Campuses taking sign-ups. Change this to launch somewhere else.
     var openUniversities = [MockFixtures.tec]
+    /// Campuses no longer taking sign-ups. Their existing accounts can still sign in.
+    var closedUniversities: [University] = []
     /// `-raceJoin YES`: the next join waits a second, then loses the last spot to someone else.
     var losesNextJoinRace = false
 
@@ -87,14 +89,19 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
     func signInMethod(for email: String) async throws -> SignInMethod {
         try await begin()
         if email.lowercased() == MockFixtures.reviewEmail { return .password }
-        guard campus(for: email) != nil else { throw DomainError.emailNotAllowed }
+        // Closed campuses still get a code: the auth hook only stops new accounts.
+        guard campus(for: email, in: openUniversities + closedUniversities) != nil else { throw DomainError.emailNotAllowed }
         return .otp
     }
 
     func sendCode(to email: String) async throws {
         try await begin()
-        guard let campus = campus(for: email) else { throw DomainError.emailNotAllowed }
-        signInCampus = campus
+        if let campus = campus(for: email, in: openUniversities) {
+            signInCampus = campus
+        } else if profile == nil || campus(for: email, in: closedUniversities) == nil {
+            // The auth hook: a new account needs an open campus.
+            throw DomainError.emailNotAllowed
+        }
     }
 
     /// Any six digits work, except `000000` (wrong) and `111111` (expired).
@@ -354,9 +361,9 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
     // MARK: Rules
 
     /// Exact domain match, like the auth hook: `@tec.mx`, not `@mail.tec.mx`.
-    private func campus(for email: String) -> University? {
+    private func campus(for email: String, in campuses: [University]) -> University? {
         let domain = email.lowercased().split(separator: "@", maxSplits: 1).last.map(String.init)
-        return email.contains("@") ? openUniversities.first { $0.emailDomain == domain } : nil
+        return email.contains("@") ? campuses.first { $0.emailDomain == domain } : nil
     }
 
     /// What RLS lets you read: nothing hosted by someone you blocked.
