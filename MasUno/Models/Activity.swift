@@ -15,7 +15,7 @@ nonisolated struct Activity: Identifiable, Hashable, Sendable {
 
     var id: String { slug }
 
-    /// Follows the app's language, not the phone's region, so 1.0 (English only)
+    /// Follows the app's language, not the phone's region, so 0.5 (English only)
     /// doesn't show a Spanish sport name in an English screen.
     var name: String {
         Bundle.main.preferredLocalizations.first?.hasPrefix("es") == true ? labelES : labelEN

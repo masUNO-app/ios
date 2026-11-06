@@ -10,7 +10,7 @@ struct AppConfig: Hashable {
 
     /// Used until the real values load, and if they can't.
     static let fallback = AppConfig(
-        minSupportedVersion: "1.0", supportEmail: "masunoapp@gmail.com",
+        minSupportedVersion: "0.5", supportEmail: "masunoapp@gmail.com",
         privacyURL: URL(string: "https://masuno-app.github.io/privacy")!
     )
 

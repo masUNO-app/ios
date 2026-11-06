@@ -1,8 +1,8 @@
 import CoreLocation
 import SwiftUI
 
-/// Figma: "Settings" (341:2144), with the 1.0 rows from SPEC §7.6.7. Notifications come
-/// in 2.0 (E16); no calendar toggle or "Who can see your name" during the program.
+/// Figma: "Settings" (341:2144), with the 0.5 rows from SPEC §7.6.7. Notifications come
+/// in 1.0 (E16); no calendar toggle or "Who can see your name" during the program.
 struct SettingsView: View {
     @Environment(AppViewModel.self) private var appViewModel
     @Environment(GameStore.self) private var store

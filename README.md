@@ -97,5 +97,5 @@ Placeholders that still need a real answer. Card IDs refer to SPEC §5.
 - [ ] "Verified student" vs "Tec verified" (O4), real venues in `MockFixtures` for screenshots (O5)
 
 ### Later
-- [ ] 2.0: 2.0 UI (E27), Notify me + synced Saved, notifications, picker drag, Spanish
+- [ ] 1.0: 1.0 UI (E27), Notify me + synced Saved, notifications, picker drag, Spanish
 - [ ] Post-MVP: organizer approval, profile photos, dark mode

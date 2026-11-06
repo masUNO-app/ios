@@ -2,8 +2,8 @@ import MapKit
 import Observation
 import SwiftUI
 
-/// "Where's the game?" (SPEC §7.6.3, 1.0): search suggestions near campus or the
-/// current location, then **Set location**. Drag-to-adjust is 2.0 (E20).
+/// "Where's the game?" (SPEC §7.6.3, 0.5): search suggestions near campus or the
+/// current location, then **Set location**. Drag-to-adjust is 1.0 (E20).
 @Observable
 final class LocationPickerViewModel: NSObject {
     struct Suggestion: Identifiable, Hashable {
