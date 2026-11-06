@@ -4,8 +4,8 @@ The boundary between the app and Supabase (SPEC §8.5), matched by the Swift pro
 `MasUno/Data/` and the models in `MasUno/Models/`. A change to either side is one PR reviewed
 by both coders. If this file and the spec disagree, this file wins.
 
-**Status: draft for Ethan and Emilio to freeze Fri Nov 6, noon.** The choices that go beyond
-the rev. 7 spec are listed under [Needs Emilio's OK](#needs-emilios-ok).
+**Status: frozen Fri Nov 6.** Build the backend to this file. The backend hasn't started, so there's
+nothing to migrate.
 
 ## Conventions
 
@@ -116,7 +116,8 @@ Excludes anyone in a blocked pair with the reader. `going_count` still counts th
 
 ### `game_activity` → `GameActivityEntry`
 
-System rows for group chat: `id`, `event_id`, `kind`, `actor_id?`, `actor_first_name?`,
+An append-only table the RPCs write to, not a view: `leave_game` deletes the `rsvps` row, and one
+`material_change_at` can't tell a meet-up edit from a time change. System rows for group chat: `id`, `event_id`, `kind`, `actor_id?`, `actor_first_name?`,
 `actor_last_initial?`, `actor_grad_year?`, `at`. Oldest first. Actor columns are null for a deleted
 account or a blocked pair. `kind` is one of `created`, `joined`, `left`, `meet_point_updated`,
 `time_or_place_changed`, `cancelled`.
@@ -177,26 +178,11 @@ Rules the signatures don't show:
 4. Next step from `my_profile`: no row → `.needsProfile`; `guidelines_accepted_at` null →
    `.needsGuidelines`; `banned_at` set → `.suspended`; otherwise `.signedIn`.
 
+Review accounts: `auth_allowlist` has `email`, `note` and `university_id` (the demo campus), so
+`complete_profile` can place them.
+
 ## Edge Functions
 
 `delete-account`: `POST` with the user's JWT and no body. `204` on success, after which the app signs
 out. Cancels upcoming hosted games, leaves joined games, keeps reports without the reporter, deletes
 the auth user.
-
-## Needs Emilio's OK
-
-Choices that go beyond the rev. 7 spec. The Swift side and the mocks already assume them.
-
-1. **`game_activity` can't be a view over `rsvps`.** `leave_game` deletes the row, so "left" rows would
-   have nothing to read, and the single `material_change_at` can't tell a meet-up edit from a time
-   change. Proposal: an append-only table written by the RPCs, exposed under the same name and columns.
-2. **Blocked people need `my_blocks()`.** RLS hides `profiles` across a blocked pair, so Settings ›
-   Blocked people couldn't otherwise show the names it needs for Undo.
-3. **`create_game` returns `game_cards`**, not `uuid`, so every game write works the same way.
-4. **New codes:** `not_authenticated` and `suspended` on every RPC that needs them, and `not_found` on
-   `update_game`, `cancel_game` and `leave_game`. Rev. 7 didn't list a code for these cases.
-5. **New `game_cards` columns:** `host_grad_year` and `sort_at`.
-6. **`app_config` and `activities` are readable by `anon`**, for the version gate.
-7. **The launch campus is data (SPEC §8.10, N32):** new `universities.short_name`, new `open_universities` view
-   (readable by `anon`), and the campus fields on `my_profile`. `sign_in_method` gains `not_allowed`.
-8. **`auth_allowlist.university_id`**, so `complete_profile` can place review accounts on the demo campus.
