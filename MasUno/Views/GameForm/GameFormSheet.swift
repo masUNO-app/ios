@@ -3,13 +3,13 @@ import SwiftUI
 /// Figma: "Add event" (341:1849), "Error" (341:3054), "Edit event" (341:2703) and
 /// "Delete event" (341:2840) — called "game" in the app (SPEC §7.2).
 struct GameFormSheet: View {
-    @Environment(EventStore.self) private var store
+    @Environment(GameStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     @State private var viewModel: GameFormViewModel
     @State private var confirmsCancel = false
     @State private var picksLocation = false
 
-    init(editing: SportsEvent? = nil) {
+    init(editing: Game? = nil) {
         let viewModel = GameFormViewModel(editing: editing)
         #if DEBUG
         // `-screen form-error`: the Figma "Error" frame (no name, a start time that already passed).
@@ -23,6 +23,7 @@ struct GameFormSheet: View {
             viewModel.time = Calendar.current.date(bySettingHour: 19, minute: 30, second: 0, of: .now) ?? .now
             viewModel.meetUpSpot = "North court bleachers"
             viewModel.notes = "Casual 3-on-3. Bring a ball and some water!"
+            viewModel.place = MockFixtures.Places.basketballCourts
         }
         // `-screen picker`: straight into "Where's the game?".
         _picksLocation = State(initialValue: UserDefaults.standard.string(forKey: "screen") == "picker")
@@ -47,7 +48,7 @@ struct GameFormSheet: View {
         .presentationDragIndicator(.visible)
         .presentationBackground(Theme.background)
         .sheet(isPresented: $picksLocation) {
-            LocationPickerSheet(venue: $viewModel.venue)
+            LocationPickerSheet(place: $viewModel.place, campus: store.campus)
         }
         .alert(
             Text("Cancel \(viewModel.editing?.title ?? "")?"),
@@ -59,7 +60,7 @@ struct GameFormSheet: View {
             }
             Button("Keep game", role: .cancel) {}
         } message: {
-            let going = (viewModel.editing?.attendees.count ?? 1) - 1
+            let going = (viewModel.editing?.goingCount ?? 1) - 1
             Text("We'll let the \(going) people who are going know. This can't be undone.")
         }
     }
@@ -71,7 +72,7 @@ struct GameFormSheet: View {
             VStack(alignment: .leading, spacing: 12) {
                 Menu {
                     Picker("Sport", selection: $viewModel.sport) {
-                        ForEach(Sport.postable) { sport in
+                        ForEach(store.postableActivities) { sport in
                             Text("\(sport.emoji) \(sport.name)").tag(sport)
                         }
                     }
@@ -132,7 +133,6 @@ struct GameFormSheet: View {
                     }
                 }
 
-                // Auto-repost (not in the Figma or SPEC yet — design + backend TBD).
                 FieldBox(nil) {
                     Toggle(isOn: $viewModel.autoRepost) {
                         VStack(alignment: .leading, spacing: 2) {
@@ -167,6 +167,7 @@ struct GameFormSheet: View {
         .safeAreaInset(edge: .bottom) {
             VStack(spacing: 4) {
                 Button(viewModel.saveButtonTitle, action: save)
+                    .disabled(viewModel.isSaving)
                     .buttonStyle(.glassProminent)
                     .controlSize(.large)
                     .buttonSizing(.flexible)
@@ -194,14 +195,23 @@ struct GameFormSheet: View {
 
         return FieldBox(nil) {
             HStack(spacing: 14) {
-                MapThumbnail(coordinate: viewModel.venue.coordinate)
+                if let coordinate = viewModel.place?.coordinate ?? store.campus?.center {
+                    MapThumbnail(coordinate: coordinate)
+                }
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Location").font(.caption).foregroundStyle(Theme.muted)
-                    Text(viewModel.venue.name).fontWeight(.semibold)
-                    Text(verbatim: viewModel.venue.fullAddress)
-                        .font(.footnote)
-                        .foregroundStyle(Theme.muted)
+                    if let place = viewModel.place {
+                        Text(place.name).fontWeight(.semibold)
+                        Text(verbatim: place.address)
+                            .font(.footnote)
+                            .foregroundStyle(Theme.muted)
+                    } else {
+                        Text("Where's the game?").fontWeight(.semibold)
+                        if let error = viewModel.placeError {
+                            Text(error).font(.footnote).foregroundStyle(Theme.error)
+                        }
+                    }
                 }
                 .lineLimit(2)
 
@@ -216,6 +226,6 @@ struct GameFormSheet: View {
     }
 
     private func save() {
-        if viewModel.save(in: store) { dismiss() }
+        Task { if await viewModel.save(in: store) { dismiss() } }
     }
 }

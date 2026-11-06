@@ -17,24 +17,23 @@ final class LocationPickerViewModel: NSObject {
     }
     private(set) var suggestions: [Suggestion] = []
     /// The spot that **Set location** will save.
-    private(set) var selection: Venue
+    private(set) var selection: Place?
     private(set) var isResolving = false
     var errorMessage: String?
     var position: MapCameraPosition
 
-    /// ~15 km around campus.
-    private static let searchRegion = MKCoordinateRegion(
-        center: MockData.campusCenter, latitudinalMeters: 30_000, longitudinalMeters: 30_000
-    )
+    /// ~15 km around your campus.
+    private let searchRegion: MKCoordinateRegion?
 
     @ObservationIgnored private let completer = MKLocalSearchCompleter()
 
-    init(current: Venue) {
+    init(current: Place?, campus: University?) {
         selection = current
-        position = .region(Self.region(around: current.coordinate))
+        searchRegion = campus.map { MKCoordinateRegion(center: $0.center, latitudinalMeters: 30_000, longitudinalMeters: 30_000) }
+        position = current.map { .region(Self.region(around: $0.coordinate)) } ?? campus.map { .region($0.region) } ?? .automatic
         super.init()
         completer.delegate = self
-        completer.region = Self.searchRegion
+        if let searchRegion { completer.region = searchRegion }
         completer.resultTypes = [.pointOfInterest, .address]
     }
 
@@ -47,19 +46,19 @@ final class LocationPickerViewModel: NSObject {
         defer { isResolving = false }
         let request = MKLocalSearch.Request()
         request.naturalLanguageQuery = "\(suggestion.title) \(suggestion.subtitle)"
-        request.region = Self.searchRegion
+        if let searchRegion { request.region = searchRegion }
         guard let item = try? await MKLocalSearch(request: request).start().mapItems.first else {
             errorMessage = String(localized: "Couldn't find that place. Try another search.")
             return
         }
-        choose(Venue(mapItem: item, location: item.location, fallbackName: suggestion.title))
+        choose(Place(mapItem: item, location: item.location, fallbackName: suggestion.title))
     }
 
     func useCurrentLocation() async {
         isResolving = true
         defer { isResolving = false }
         do {
-            choose(try await LocationService.currentVenue())
+            choose(try await LocationService.currentPlace())
         } catch LocationService.Failure.denied {
             errorMessage = String(localized: "Turn on location in Settings to use where you are.")
         } catch {
@@ -67,11 +66,11 @@ final class LocationPickerViewModel: NSObject {
         }
     }
 
-    private func choose(_ venue: Venue) {
-        selection = venue
+    private func choose(_ place: Place) {
+        selection = place
         query = ""
         suggestions = []
-        withAnimation { position = .region(Self.region(around: venue.coordinate)) }
+        withAnimation { position = .region(Self.region(around: place.coordinate)) }
     }
 
     private static func region(around coordinate: CLLocationCoordinate2D) -> MKCoordinateRegion {

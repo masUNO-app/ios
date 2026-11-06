@@ -7,9 +7,9 @@
 /MasUno/ViewModels/     @wen-ethan
 /MasUno/DesignSystem/   @wen-ethan
 
-# Emilio — data layer and Supabase
-/MasUno/Data/           @eac1738
+# Emilio — Supabase
 /supabase/              @eac1738
 
-# The contract between the two: both review
+# The contract and the data layer: both review (SPEC §6, N21)
+/MasUno/Data/           @wen-ethan @eac1738
 /docs/API.md            @wen-ethan @eac1738

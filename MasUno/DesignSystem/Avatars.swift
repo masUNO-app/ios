@@ -10,16 +10,10 @@ struct Avatar: View {
             .fill(Theme.accentSoft)
             .frame(width: size, height: size)
             .overlay {
-                if name == Person.you {
-                    Image(systemName: "person.fill")
-                        .font(.system(size: size * 0.45))
-                        .foregroundStyle(Theme.accent)
-                } else {
-                    Text(Self.initials(of: name))
-                        .font(.system(size: size * 0.38, weight: .semibold))
-                        .foregroundStyle(Theme.ink)
-                        .minimumScaleFactor(0.5)
-                }
+                Text(Self.initials(of: name))
+                    .font(.system(size: size * 0.38, weight: .semibold))
+                    .foregroundStyle(Theme.ink)
+                    .minimumScaleFactor(0.5)
             }
             .accessibilityHidden(true)
     }

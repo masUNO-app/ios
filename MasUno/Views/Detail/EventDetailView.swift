@@ -2,28 +2,46 @@ import MapKit
 import SwiftUI
 
 /// Figma: "Event detail" (341:2586) and "You're in" (341:2989), plus the 1.0 states
-/// from SPEC §7.6.4 (Full, Hosting, Ended, Cancelled). No group chat during the program.
+/// from SPEC §7.6.4 (Full, Hosting, Ended, Cancelled).
 struct EventDetailView: View {
-    @Environment(EventStore.self) private var store
+    @Environment(GameStore.self) private var store
     @Environment(AppViewModel.self) private var appViewModel
     @State private var viewModel: EventDetailViewModel
 
-    init(eventID: SportsEvent.ID) {
+    init(eventID: UUID) {
         _viewModel = State(initialValue: EventDetailViewModel(eventID: eventID))
     }
 
     var body: some View {
-        if let event = viewModel.event(in: store) {
-            content(event)
-        } else {
-            ContentUnavailableView("This game isn't available.", systemImage: "sportscourt")
-                .background(Theme.background)
+        Group {
+            if let event = store.game(viewModel.eventID) {
+                content(event)
+            } else if store.isMissing(viewModel.eventID) {
+                ContentUnavailableView("This game isn't available.", systemImage: "sportscourt")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Theme.background)
+            } else if store.isOffline {
+                RetryCard(message: "Couldn't load this game.") { await load() }
+                    .padding(.horizontal, Theme.gutter)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Theme.background)
+            } else {
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Theme.background)
+            }
         }
+        .task(id: viewModel.eventID) { await load() }
     }
 
-    private func content(_ event: SportsEvent) -> some View {
+    private func load() async {
+        await store.loadGame(viewModel.eventID)
+        await store.loadAttendees(viewModel.eventID)
+    }
+
+    private func content(_ event: Game) -> some View {
         @Bindable var viewModel = viewModel
-        let state = viewModel.state(of: event)
+        let state = event.status()
 
         return ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -44,11 +62,12 @@ struct EventDetailView: View {
 
                 if state == .going {
                     section("Before you go") {
-                        Text("\(Person.firstName(event.host)) can see you joined. Say hi in the group chat so people know to wait for you.")
+                        // Read-only group chat copy (SPEC §7.2, N14).
+                        Text("\(event.host.firstName) can see you joined. Check where to meet and who's going.")
                     }
                 }
-                if !event.notes.isEmpty {
-                    section("About") { Text(event.notes) }
+                if let notes = event.notes {
+                    section("About") { Text(notes) }
                 }
                 section("Who's going") { whoIsGoingRow(event) }
             }
@@ -56,6 +75,7 @@ struct EventDetailView: View {
             .padding(.bottom, 24)
         }
         .background(Theme.background)
+        .refreshable { await load() }
         // The large title is in the content, so the bar stays empty.
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
@@ -97,19 +117,19 @@ struct EventDetailView: View {
             Button("Cancel game", role: .destructive) { viewModel.cancel(in: store) }
             Button("Keep game", role: .cancel) {}
         } message: {
-            Text("We'll let the \(event.attendees.count - 1) people who are going know. This can't be undone.")
+            Text("We'll let the \(event.goingCount - 1) people who are going know. This can't be undone.")
         }
     }
 
     // MARK: Sections
 
-    private func mapHeader(_ event: SportsEvent) -> some View {
+    private func mapHeader(_ event: Game) -> some View {
         Map(initialPosition: .region(MKCoordinateRegion(
             center: event.coordinate, latitudinalMeters: 500, longitudinalMeters: 500
         ))) {
             Annotation(event.title, coordinate: event.coordinate, anchor: .bottom) {
                 PinMarker(size: 40) {
-                    Text(event.sport.emoji).font(.system(size: 24))
+                    Text(event.activity.emoji).font(.system(size: 24))
                 }
             }
             .annotationTitles(.hidden)
@@ -123,12 +143,12 @@ struct EventDetailView: View {
         .accessibilityHidden(true)
     }
 
-    private func infoCard(_ event: SportsEvent, state: EventDetailViewModel.State) -> some View {
+    private func infoCard(_ event: Game, state: GameStatus) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            detailRow("clock", title: EventFormat.dayAndTime(event.start), subtitle: EventFormat.startsIn(event))
-            detailRow("mappin.and.ellipse", title: event.venue.name, subtitle: event.venue.fullAddress)
-            if !event.meetUpSpot.isEmpty {
-                detailRow("flag", title: event.meetUpSpot, subtitle: nil)
+            detailRow("clock", title: EventFormat.dayAndTime(event.startsAt), subtitle: EventFormat.startsIn(event))
+            detailRow("mappin.and.ellipse", title: event.place.name, subtitle: event.place.address)
+            if let meetPoint = event.meetPoint {
+                detailRow("flag", title: meetPoint, subtitle: nil)
             } else if state == .hosting {
                 Button {
                     appViewModel.presentGameForm(editing: event.id)
@@ -192,12 +212,12 @@ struct EventDetailView: View {
         }
     }
 
-    private func whoIsGoingRow(_ event: SportsEvent) -> some View {
+    private func whoIsGoingRow(_ event: Game) -> some View {
         Button {
             viewModel.showsWhoIsGoing = true
         } label: {
             HStack(spacing: 10) {
-                AvatarStack(names: store.visibleAttendees(of: event), size: 30)
+                AvatarStack(names: store.attendees(of: event.id).map(\.person.displayName), size: 30)
                 Text(viewModel.goingNames(for: event, in: store))
                     .font(.subheadline)
                     .foregroundStyle(Theme.muted)
@@ -215,7 +235,7 @@ struct EventDetailView: View {
 
     // MARK: Actions
 
-    private func overflowMenu(_ event: SportsEvent, state: EventDetailViewModel.State) -> some View {
+    private func overflowMenu(_ event: Game, state: GameStatus) -> some View {
         Menu("More", systemImage: "ellipsis") {
             switch state {
             case .hosting:
@@ -234,27 +254,28 @@ struct EventDetailView: View {
         }
     }
 
-    /// TODO/TEMP(E19): shares an App Store search link (`AppConfig.inviteURL`) until the
-    /// listing exists; the friend signs in with their own Tec email.
-    private func inviteLink(_ event: SportsEvent) -> some View {
-        ShareLink(
-            item: AppConfig.inviteURL,
-            subject: Text(event.title),
-            message: Text(viewModel.inviteMessage(for: event))
-        ) {
-            Label("Invite a friend", systemImage: "person.badge.plus")
+    /// The friend signs in with their own school email. Hidden until `AppConfig.appStoreID` is set.
+    @ViewBuilder
+    private func inviteLink(_ event: Game) -> some View {
+        if let url = AppConfig.inviteURL {
+            ShareLink(
+                item: url,
+                subject: Text(event.title),
+                message: Text(viewModel.inviteMessage(for: event))
+            ) {
+                Label("Invite a friend", systemImage: "person.badge.plus")
+            }
         }
     }
 
-    private func reportGameButton(_ event: SportsEvent) -> some View {
+    private func reportGameButton(_ event: Game) -> some View {
         Button("Report game", systemImage: "flag") { viewModel.reportTarget = .game(event.id) }
     }
 
     @ViewBuilder
-    private func bottomBar(_ event: SportsEvent, state: EventDetailViewModel.State) -> some View {
+    private func bottomBar(_ event: Game, state: GameStatus) -> some View {
         switch state {
         case .open:
-            // TODO(auth): verify student email before the first join (E5/B5).
             barButton("Join game") { viewModel.join(in: store) }
         case .going:
             VStack(spacing: 10) {

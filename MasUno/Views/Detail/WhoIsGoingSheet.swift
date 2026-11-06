@@ -3,22 +3,25 @@ import SwiftUI
 /// Figma: "Who's going" (341:2309). Initials, "Alex R.", Host badge, "(you)", and a flag
 /// per row → Report / Block (SPEC §7.6.6). Blocked people vanish from the list immediately.
 struct WhoIsGoingSheet: View {
-    @Environment(EventStore.self) private var store
-    var eventID: SportsEvent.ID
+    @Environment(GameStore.self) private var store
+    var eventID: UUID
 
-    @State private var reportTarget: ReportTarget?
-    @State private var blockTarget: String?
+    @State private var reportTarget: ReportSubject?
+    @State private var blockTarget: PersonSummary?
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                if let event = store.event(eventID) {
-                    let people = store.visibleAttendees(of: event)
+                if store.game(eventID) != nil {
+                    let people = store.attendees(of: eventID)
                     VStack(alignment: .leading, spacing: 10) {
+                        if people.isEmpty, store.isOffline {
+                            RetryCard(message: "Couldn't load who's going.") { await store.loadAttendees(eventID) }
+                        }
                         VStack(spacing: 0) {
-                            ForEach(Array(people.enumerated()), id: \.element) { index, name in
+                            ForEach(Array(people.enumerated()), id: \.element.id) { index, attendee in
                                 if index > 0 { Divider().overlay(Theme.hairline).padding(.leading, 64) }
-                                row(name, in: event)
+                                row(attendee)
                             }
                         }
                         .cardSurface()
@@ -33,6 +36,7 @@ struct WhoIsGoingSheet: View {
                 }
             }
             .background(Theme.background)
+            .task { await store.loadAttendees(eventID) }
             .navigationTitle("Who's going")
             .navigationBarTitleDisplayMode(.inline)
         }
@@ -43,20 +47,23 @@ struct WhoIsGoingSheet: View {
         .blockConfirmation(person: $blockTarget)
     }
 
-    private func row(_ name: String, in event: SportsEvent) -> some View {
-        HStack(spacing: 12) {
-            Avatar(name: name, size: 36)
-            Text(name == Person.you ? "\(store.profile.fullName) (you)" : Person.display(name))
+    private func row(_ attendee: Attendee) -> some View {
+        let person = attendee.person
+        let isMe = person.id == store.profile?.id
+
+        return HStack(spacing: 12) {
+            Avatar(name: person.displayName, size: 36)
+            Text(isMe ? "\(store.profile?.fullName ?? person.displayName) (you)" : person.displayName)
                 .font(.body)
                 .foregroundStyle(Theme.ink)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            if name == event.host {
+            if attendee.role == .host {
                 StatusChip(String(localized: "Host"))
             }
-            if name != Person.you {
-                Menu("Report or block \(Person.display(name))", systemImage: "flag") {
-                    Button("Report", systemImage: "exclamationmark.bubble") { reportTarget = .person(name) }
-                    Button("Block", systemImage: "hand.raised", role: .destructive) { blockTarget = name }
+            if !isMe {
+                Menu("Report or block \(person.displayName)", systemImage: "flag") {
+                    Button("Report", systemImage: "exclamationmark.bubble") { reportTarget = .person(person) }
+                    Button("Block", systemImage: "hand.raised", role: .destructive) { blockTarget = person }
                 }
                 .labelStyle(.iconOnly)
                 .buttonStyle(.glass)
@@ -72,24 +79,24 @@ struct WhoIsGoingSheet: View {
 
 extension View {
     /// "Block Alex R.?" confirmation (SPEC §7.6.6). Blocking hides them right away.
-    func blockConfirmation(person: Binding<String?>, onBlocked: (() -> Void)? = nil) -> some View {
+    func blockConfirmation(person: Binding<PersonSummary?>, onBlocked: (() -> Void)? = nil) -> some View {
         modifier(BlockConfirmation(person: person, onBlocked: onBlocked))
     }
 }
 
 private struct BlockConfirmation: ViewModifier {
-    @Environment(EventStore.self) private var store
-    @Binding var person: String?
+    @Environment(GameStore.self) private var store
+    @Binding var person: PersonSummary?
     var onBlocked: (() -> Void)?
 
     func body(content: Content) -> some View {
         content.alert(
-            Text("Block \(Person.display(person ?? ""))?"),
+            Text("Block \(person?.displayName ?? "")?"),
             isPresented: Binding(get: { person != nil }, set: { if !$0 { person = nil } }),
             presenting: person
-        ) { name in
+        ) { blocked in
             Button("Block", role: .destructive) {
-                withAnimation { store.block(name) }
+                Task { await store.block(blocked) }
                 onBlocked?()
             }
             Button("Cancel", role: .cancel) {}

@@ -1,31 +1,29 @@
 import SwiftUI
 
-/// Figma: "Group chat" (341:1791). Not connected yet: shows the game's mock timeline and a
-/// disabled composer ("Messages are coming soon") until the chat backend ships.
+/// Figma: "Group chat" (341:1791), in its read-only form (SPEC §7.6.9, N14): the pinned card
+/// and system rows from `game_activity`. No composer and no messages until E26 + B20 ship.
 struct GroupChatView: View {
-    @Environment(EventStore.self) private var store
-    @Environment(\.dismiss) private var dismiss
-    let eventID: SportsEvent.ID
+    @Environment(GameStore.self) private var store
+    let eventID: UUID
 
     @State private var showsWhoIsGoing = false
     @State private var editsMeetUp = false
-    @State private var showsRules = false
 
     var body: some View {
-        if let event = store.event(eventID) {
+        if let event = store.game(eventID) {
             content(event)
         } else {
             ContentUnavailableView("This game isn't available.", systemImage: "bubble.left.and.bubble.right")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Theme.background)
         }
     }
 
-    private func content(_ event: SportsEvent) -> some View {
+    private func content(_ event: Game) -> some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 14) {
-                dayChip("Today")
-                ForEach(event.messages) { message in
-                    row(message, in: event)
+                ForEach(store.activity(of: eventID)) { entry in
+                    row(entry)
                 }
             }
             .padding(.horizontal, Theme.gutter)
@@ -34,55 +32,53 @@ struct GroupChatView: View {
         .defaultScrollAnchor(.bottom)
         .background(Theme.background)
         .safeAreaInset(edge: .top) { pinnedCard(event) }
-        .safeAreaInset(edge: .bottom) { composer }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .principal) {
                 VStack(spacing: 0) {
                     Text(event.title).font(.headline).foregroundStyle(Theme.ink)
-                    Text("\(event.attendees.count) going").font(.caption).foregroundStyle(Theme.muted)
+                    Text("\(event.goingCount) going").font(.caption).foregroundStyle(Theme.muted)
                 }
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Button { showsWhoIsGoing = true } label: {
-                    AvatarStack(names: store.visibleAttendees(of: event), maxVisible: 3, size: 26)
+                    AvatarStack(names: store.attendees(of: eventID).map(\.person.displayName), maxVisible: 3, size: 26)
                 }
                 .accessibilityLabel("Who's going")
             }
             .sharedBackgroundVisibility(.hidden)
         }
-        .sheet(isPresented: $showsWhoIsGoing) { WhoIsGoingSheet(eventID: event.id) }
+        .sheet(isPresented: $showsWhoIsGoing) { WhoIsGoingSheet(eventID: eventID) }
         .sheet(isPresented: $editsMeetUp) { WhereToMeetSheet(event: event) }
-        .sheet(isPresented: $showsRules) {
-            ChatRulesSheet(gameTitle: event.title) { agreed in
-                showsRules = false
-                if agreed { store.hasAgreedToChatRules = true } else { dismiss() }
-            }
-        }
+        .refreshable { await load() }
+        .task { await load() }
+        #if DEBUG
         .onAppear {
-            store.markChatRead(event.id)
-            if !store.hasAgreedToChatRules { showsRules = true }
-            #if DEBUG
             if UserDefaults.standard.string(forKey: "screen") == "meetup" { editsMeetUp = true }
-            #endif
         }
+        #endif
+    }
+
+    private func load() async {
+        await store.loadAttendees(eventID)
+        await store.loadActivity(eventID)
     }
 
     // MARK: Pinned card
 
-    private func pinnedCard(_ event: SportsEvent) -> some View {
+    private func pinnedCard(_ event: Game) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Label(EventFormat.dayAndTime(event.start), systemImage: "calendar")
-            Label(event.venue.titleLine, systemImage: "mappin.and.ellipse")
+            Label(EventFormat.dayAndTime(event.startsAt), systemImage: "calendar")
+            Label(event.place.titleLine, systemImage: "mappin.and.ellipse")
             HStack(alignment: .firstTextBaseline) {
                 Label {
-                    Text(event.meetUpSpot.isEmpty ? String(localized: "No meet-up spot yet") : event.meetUpSpot)
+                    Text(event.meetPoint ?? String(localized: "No meet-up spot yet"))
                         .fontWeight(.semibold)
                 } icon: {
                     Image(systemName: "flag")
                 }
                 Spacer(minLength: 8)
-                if event.isHostedByYou {
+                if event.status() == .hosting {
                     Button("Edit") { editsMeetUp = true }
                         .buttonStyle(.glassProminent)
                         .tint(Theme.accentSoft)
@@ -103,92 +99,32 @@ struct GroupChatView: View {
 
     // MARK: Timeline
 
-    private func dayChip(_ title: LocalizedStringKey) -> some View {
-        Text(title)
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(Theme.muted)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 4)
-            .background(Theme.hairline, in: .capsule)
-            .frame(maxWidth: .infinity)
-    }
-
-    @ViewBuilder
-    private func row(_ message: ChatMessage, in event: SportsEvent) -> some View {
-        let time = message.sentAt.formatted(date: .omitted, time: .shortened)
-        switch message.kind {
-        case .system:
-            Text(message.text)
-                .font(.caption)
-                .foregroundStyle(Theme.muted)
-                .frame(maxWidth: .infinity)
-        case .message where message.sender == Person.you:
-            VStack(alignment: .trailing, spacing: 4) {
-                bubble(message.text, isMine: true)
-                Text(time).font(.caption2).foregroundStyle(Theme.muted)
-            }
-            .frame(maxWidth: .infinity, alignment: .trailing)
-        case .message:
-            HStack(alignment: .bottom, spacing: 8) {
-                Avatar(name: message.sender, size: 30)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(caption(for: message, in: event, time: time))
-                        .font(.caption)
-                        .foregroundStyle(Theme.muted)
-                    bubble(message.text, isMine: false)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
+    private func row(_ entry: GameActivityEntry) -> some View {
+        VStack(spacing: 2) {
+            Text(text(for: entry))
+            Text(EventFormat.dayAndTime(entry.at)).font(.caption2)
         }
+        .font(.caption)
+        .foregroundStyle(Theme.muted)
+        .multilineTextAlignment(.center)
+        .frame(maxWidth: .infinity)
     }
 
-    /// "Maya C. · Host · 5:42 PM"
-    private func caption(for message: ChatMessage, in event: SportsEvent, time: String) -> String {
-        let name = Person.display(message.sender)
-        return message.sender == event.host
-            ? String(localized: "\(name) · Host · \(time)")
-            : String(localized: "\(name) · \(time)")
-    }
-
-    private func bubble(_ text: String, isMine: Bool) -> some View {
-        Text(text)
-            .font(.body)
-            .foregroundStyle(isMine ? Theme.onAccent : Theme.ink)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .background(isMine ? Theme.accent : Theme.card, in: .rect(cornerRadius: 20))
-            .overlay {
-                if !isMine { RoundedRectangle(cornerRadius: 20).strokeBorder(Theme.hairline) }
-            }
-            .frame(maxWidth: 280, alignment: isMine ? .trailing : .leading)
-    }
-
-    // MARK: Composer
-
-    /// Disabled until the chat backend is connected.
-    private var composer: some View {
-        VStack(spacing: 6) {
-            HStack(spacing: 10) {
-                TextField("Messages are coming soon", text: .constant(""))
-                    .disabled(true)
-                    .padding(.horizontal, 16)
-                    .frame(height: 44)
-                    .background(Theme.card, in: .capsule)
-                    .overlay(Capsule().strokeBorder(Theme.hairline))
-                Button("Send", systemImage: "arrow.up") {}
-                    .labelStyle(.iconOnly)
-                    .buttonStyle(.glass)
-                    .buttonBorderShape(.circle)
-                    .controlSize(.large)
-                    .disabled(true)
-            }
-            Text("For now, the meet-up spot and who's going are pinned here.")
-                .font(.caption)
-                .foregroundStyle(Theme.muted)
+    /// "Maya created the chat", "Leo joined", "Leo left · a spot opened".
+    private func text(for entry: GameActivityEntry) -> String {
+        let name: String
+        if entry.actor?.id == store.profile?.id {
+            name = String(localized: "You")
+        } else {
+            name = entry.actor?.firstName ?? String(localized: "Someone")
         }
-        .padding(.horizontal, Theme.gutter)
-        .padding(.top, 8)
-        .padding(.bottom, 8)
-        .background(Theme.background)
+        return switch entry.kind {
+        case .created: String(localized: "\(name) created the chat")
+        case .joined: String(localized: "\(name) joined")
+        case .left: String(localized: "\(name) left · a spot opened")
+        case .meetPointUpdated: String(localized: "Meet-up spot updated")
+        case .timeOrPlaceChanged: String(localized: "Time or place changed")
+        case .cancelled: String(localized: "Game cancelled · Chat closed")
+        }
     }
 }

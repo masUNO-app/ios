@@ -5,6 +5,7 @@ import SwiftUI
 /// in 2.0 (E16); no calendar toggle or "Who can see your name" during the program.
 struct SettingsView: View {
     @Environment(AppViewModel.self) private var appViewModel
+    @Environment(GameStore.self) private var store
     @Environment(\.openURL) private var openURL
     @State private var confirmsDelete = false
     @State private var locationStatus = CLLocationManager().authorizationStatus
@@ -28,10 +29,8 @@ struct SettingsView: View {
             }
 
             Section("About") {
-                if let privacy = appViewModel.config.privacyURL {
-                    Link(destination: privacy) { row("Privacy & Terms", subtitle: nil, trailing: "arrow.up.right") }
-                } else {
-                    row("Privacy & Terms", subtitle: Text("Coming soon"))
+                Link(destination: appViewModel.config.privacyURL) {
+                    row("Privacy & Terms", subtitle: nil, trailing: "arrow.up.right")
                 }
                 if let mail = appViewModel.config.supportMailURL {
                     Link(destination: mail) {
@@ -43,7 +42,7 @@ struct SettingsView: View {
             }
 
             Section("Account") {
-                Button("Sign out") { appViewModel.signOut() }
+                Button("Sign out") { Task { await appViewModel.signOut(store: store) } }
                     .foregroundStyle(Theme.ink)
                 Button("Delete account", role: .destructive) { confirmsDelete = true }
                     .tint(Theme.destructive)
@@ -54,8 +53,7 @@ struct SettingsView: View {
         .navigationTitle("Settings")
         .onAppear { locationStatus = CLLocationManager().authorizationStatus }
         .alert("Delete your masUNO account?", isPresented: $confirmsDelete) {
-            // TODO(B9): call the `delete-account` Edge Function, then sign out.
-            Button("Delete account", role: .destructive) { appViewModel.signOut() }
+            Button("Delete account", role: .destructive) { Task { await appViewModel.deleteAccount(store: store) } }
             Button("Keep account", role: .cancel) {}
         } message: {
             Text("We'll cancel games you're hosting, remove you from games you joined, and delete your profile. This can't be undone.")

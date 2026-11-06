@@ -1,9 +1,9 @@
 import SwiftUI
 
 /// Figma: "Me · Going" (341:2165) and "Me · Hosting" (341:2240). Replaces "Registered
-/// events" and "Hosted events". Repost is not built yet.
+/// events" and "Hosted events".
 struct MeView: View {
-    @Environment(EventStore.self) private var store
+    @Environment(GameStore.self) private var store
     @Environment(AppViewModel.self) private var appViewModel
     @State private var viewModel: MeViewModel
 
@@ -18,6 +18,7 @@ struct MeView: View {
 
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
+                if store.isOffline { OfflineBanner() }
                 profileCard
 
                 Picker("Show", selection: $viewModel.tab) {
@@ -39,9 +40,13 @@ struct MeView: View {
                     }
                 }
 
-                switch viewModel.tab {
-                case .going: goingList
-                case .hosting: hostingList
+                if case .failed = store.myGamesState {
+                    RetryCard { await store.refreshMyGames() }
+                } else {
+                    switch viewModel.tab {
+                    case .going: goingList
+                    case .hosting: hostingList
+                    }
                 }
             }
             .padding(.horizontal, Theme.gutter)
@@ -58,7 +63,10 @@ struct MeView: View {
                 .tint(Theme.ink)
             }
         }
-        .sheet(isPresented: $viewModel.editsProfile) { EditProfileSheet(profile: store.profile) }
+        .refreshable { await store.refresh() }
+        .sheet(isPresented: $viewModel.editsProfile) {
+            if let profile = store.profile { EditProfileSheet(profile: profile) }
+        }
         .alert(
             Text("Leave \(viewModel.leaving?.title ?? "")?"),
             isPresented: Binding(get: { viewModel.leaving != nil }, set: { if !$0 { viewModel.leaving = nil } }),
@@ -73,10 +81,13 @@ struct MeView: View {
 
     // MARK: Profile
 
+    @ViewBuilder
     private var profileCard: some View {
-        let profile = store.profile
+        if let profile = store.profile { profileCard(profile) }
+    }
 
-        return VStack(alignment: .leading, spacing: 14) {
+    private func profileCard(_ profile: Profile) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 14) {
                 Avatar(name: profile.fullName, size: 64)
                 VStack(alignment: .leading, spacing: 4) {
@@ -86,10 +97,8 @@ struct MeView: View {
                     Text(viewModel.classLine(for: profile))
                         .font(.subheadline)
                         .foregroundStyle(Theme.muted)
-                    if profile.isVerified {
-                        // "Tec verified" if O4 finds staff share the @tec.mx domain.
-                        StatusChip(String(localized: "Verified student"), systemImage: "checkmark.seal.fill")
-                    }
+                    // O4: "Tec verified" if staff turn out to share the student domain.
+                    StatusChip(String(localized: "Verified student"), systemImage: "checkmark.seal.fill")
                 }
             }
 
@@ -119,8 +128,8 @@ struct MeView: View {
 
     @ViewBuilder
     private var goingList: some View {
-        let events = viewModel.going(in: store)
-        if events.isEmpty {
+        let events = store.goingGames()
+        if events.isEmpty, store.myGamesState == .loaded {
             emptyState("No games yet. Find one on the map.", systemImage: "sportscourt", action: "Find a game") {
                 appViewModel.path.removeAll()
             }
@@ -147,13 +156,13 @@ struct MeView: View {
     @ViewBuilder
     private var pastSection: some View {
         @Bindable var viewModel = viewModel
-        let events = viewModel.past(in: store)
+        let events = store.pastGames()
         if !events.isEmpty {
             DisclosureGroup(isExpanded: $viewModel.showsPast) {
                 VStack(spacing: 16) {
                     ForEach(events) { event in
                         NavigationLink(value: Route.game(event.id)) {
-                            GameCard(event: event, status: String(localized: "Ended · \(event.attendees.count) played")) {
+                            GameCard(event: event, status: String(localized: "Ended · \(event.goingCount) played")) {
                                 EmptyView()
                             }
                         }
@@ -173,8 +182,8 @@ struct MeView: View {
 
     @ViewBuilder
     private var hostingList: some View {
-        let events = viewModel.hosting(in: store)
-        if events.isEmpty {
+        let events = store.hostedGames()
+        if events.isEmpty, store.myGamesState == .loaded {
             emptyState("Host a game in under a minute.", systemImage: "plus.circle", action: "Add game") {
                 appViewModel.presentGameForm()
             }
@@ -194,10 +203,9 @@ struct MeView: View {
         }
     }
 
-    /// "Group chat · 2 new"
-    private func chatButton(_ event: SportsEvent) -> some View {
+    private func chatButton(_ event: Game) -> some View {
         NavigationLink(value: Route.chat(event.id)) {
-            Text(event.unreadCount > 0 ? "Group chat · \(event.unreadCount) new" : "Group chat")
+            Text("Group chat")
         }
         .buttonStyle(.glassProminent)
         .controlSize(.large)

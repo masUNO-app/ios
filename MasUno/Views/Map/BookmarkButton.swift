@@ -4,14 +4,14 @@ import SwiftUI
 /// list, game detail). Large glass circle; the icon fills and turns green when saved.
 /// In a toolbar, which adds its own glass, it's just the icon.
 struct BookmarkButton: View {
-    @Environment(EventStore.self) private var store
-    var event: SportsEvent
+    @Environment(GameStore.self) private var store
+    var event: Game
     var inToolbar = false
 
     var body: some View {
-        let isSaved = event.isBookmarked
+        let isSaved = store.isSaved(event.id)
         let button = Button {
-            withAnimation(.snappy) { store.toggleBookmark(event.id) }
+            withAnimation(.snappy) { store.toggleSaved(event.id) }
         } label: {
             Label(
                 isSaved ? "Remove bookmark" : "Bookmark",

@@ -5,7 +5,7 @@ import SwiftUI
 /// Figma: "Sports event map" (341:1979) and "Popup" (341:2046). The popup is part of the
 /// selected pin's annotation, so MapKit moves it with the pin like any map callout.
 struct EventMapView: View {
-    @Environment(EventStore.self) private var store
+    @Environment(GameStore.self) private var store
     @Environment(AppViewModel.self) private var appViewModel
     @State private var viewModel = EventMapViewModel()
     @State private var screenSize: CGSize = .zero
@@ -22,6 +22,8 @@ struct EventMapView: View {
     @FocusState private var isSearchFocused: Bool
     @Namespace private var mapScope
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 30)) { context in
@@ -32,6 +34,9 @@ struct EventMapView: View {
             VStack(alignment: .leading, spacing: 12) {
                 if !usesVerticalBar || showsSearchField { searchRow }
                 nearbyChip
+                if store.isOffline, !store.mapGames().isEmpty { OfflineBanner() }
+                if viewModel.isLocationDenied { locationBanner }
+                emptyOrFailedCard
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 20)
@@ -57,6 +62,10 @@ struct EventMapView: View {
                 locationSession = CLServiceSession(authorization: .whenInUse)
             }
         }
+        .task(id: store.campus) { viewModel.setCampus(store.campus) }
+        .task(id: scenePhase) {
+            if scenePhase == .active { await viewModel.locate() }
+        }
         .toolbarBackgroundVisibility(.hidden, for: .bottomBar)
         .onGeometryChange(for: CGSize.self) { $0.size } action: { screenSize = $0 }
         // Never shown here, but names the back button on pushed screens.
@@ -69,16 +78,16 @@ struct EventMapView: View {
         .toolbarTitleDisplayMode(usesVerticalBar ? .inline : .automatic)
         .animation(.spring(duration: 0.4, bounce: 0.22), value: viewModel.selectedID)
         #if DEBUG
-        .onAppear { viewModel.openDebugPopup(in: store) }
+        .onAppear { viewModel.openDebugPopup() }
         #endif
         // Make room for the popup above a newly selected pin, like a map callout.
         .onChange(of: viewModel.selectedID) { _, id in
             viewModel.selectionChanged(to: id)
-            guard let id, let event = store.event(id) else { return }
+            guard let id, let event = store.game(id) else { return }
             viewModel.reveal(event)
         }
         .onChange(of: store.lastCreatedID) { _, id in
-            guard let id, let event = store.event(id) else { return }
+            guard let id, let event = store.game(id) else { return }
             viewModel.focus(on: event)
         }
     }
@@ -90,16 +99,16 @@ struct EventMapView: View {
         return Map(position: $viewModel.position, selection: $viewModel.selectedID, scope: mapScope) {
             if let mock = LocationService.mockCoordinate {
                 Annotation("You", coordinate: mock, anchor: .center) {
-                    UserPin(name: store.profile.fullName)
+                    UserPin(name: store.profile?.fullName ?? "")
                 }
                 .annotationTitles(.hidden)
             } else {
                 UserAnnotation {
-                    UserPin(name: store.profile.fullName)
+                    UserPin(name: store.profile?.fullName ?? "")
                 }
             }
 
-            ForEach(viewModel.mapEvents(in: store)) { event in
+            ForEach(viewModel.pinOrder(in: store, now: now)) { event in
                 let isSelected = viewModel.selectedID == event.id
                 Annotation(event.title, coordinate: event.coordinate, anchor: .bottom) {
                     EventPin(
@@ -115,7 +124,7 @@ struct EventMapView: View {
             // The popup is its own annotation on the pin's coordinate, so MapKit moves it with
             // the pin, and the pin's annotation never changes size (which made MapKit swap and
             // cross-fade it). Added last so it draws over the pins.
-            if let id = viewModel.popupID, let event = store.event(id) {
+            if let id = viewModel.popupID, let event = store.game(id) {
                 Annotation(event.title, coordinate: event.coordinate, anchor: viewModel.popupAnchor(for: event)) {
                     EventPopup(event: event, viewModel: viewModel)
                         .frame(width: 320)
@@ -136,7 +145,7 @@ struct EventMapView: View {
         .mapControlVisibility(.hidden)
         // Closes the popup once its pin scrolls off screen.
         .onMapCameraChange(frequency: .continuous) { context in
-            let selected = viewModel.selectedID.flatMap { store.event($0) }
+            let selected = viewModel.selectedID.flatMap { store.game($0) }
             viewModel.cameraChanged(to: context.region, selected: selected)
         }
         .ignoresSafeArea()
@@ -218,16 +227,63 @@ struct EventMapView: View {
         }
     }
 
+    /// Tapping refreshes: a map can't pull to refresh, because dragging pans it.
     private var nearbyChip: some View {
-        HStack(spacing: 6) {
-            Circle().fill(Theme.ink).frame(width: 6, height: 6)
-            Text("\(viewModel.mapEvents(in: store).count) games nearby")
+        Button {
+            Task { await store.refreshMap() }
+        } label: {
+            HStack(spacing: 6) {
+                Circle().fill(Theme.ink).frame(width: 6, height: 6)
+                Text("\(viewModel.mapEvents(in: store).count) games nearby")
+            }
+            .font(.footnote)
+            .foregroundStyle(Theme.muted)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .glassEffect(.regular, in: .capsule)
         }
-        .font(.footnote)
-        .foregroundStyle(Theme.muted)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 7)
-        .glassEffect(.regular, in: .capsule)
+        .buttonStyle(.plain)
+        .accessibilityHint("Refreshes the map")
+    }
+
+    /// A failed first load, or a map with nothing on it. Not while searching or filtering:
+    /// the chip already says "0 games nearby" there.
+    @ViewBuilder
+    private var emptyOrFailedCard: some View {
+        switch store.mapState {
+        case .failed:
+            RetryCard { await store.refreshMap() }
+        case .loaded where store.mapGames().isEmpty:
+            VStack(spacing: 12) {
+                Text("No open games right now. Start one?")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Theme.ink)
+                    .multilineTextAlignment(.center)
+                Button("Add game") { appViewModel.presentGameForm() }
+                    .buttonStyle(.glassProminent)
+                    .fontWeight(.semibold)
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity)
+            .cardSurface()
+        default:
+            EmptyView()
+        }
+    }
+
+    /// Location off: the map stays on campus (SPEC §7.6.1).
+    private var locationBanner: some View {
+        Button {
+            if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
+        } label: {
+            Label("Turn on location to see how far games are", systemImage: "location.slash")
+                .font(.footnote.weight(.medium))
+                .foregroundStyle(Theme.ink)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .glassEffect(.regular, in: .capsule)
+        }
+        .buttonStyle(.plain)
     }
 
     /// With a vertical bar (iPhone Duo), search, saved games, recenter, filter and the avatar
@@ -295,7 +351,7 @@ struct EventMapView: View {
         Menu {
             Button("All sports") { viewModel.clearSportFilter() }
             Divider()
-            ForEach(Sport.postable) { sport in
+            ForEach(store.postableActivities) { sport in
                 Toggle("\(sport.emoji) \(sport.name)", isOn: Binding(
                     get: { viewModel.sportFilter.contains(sport) },
                     set: { _ in viewModel.toggleSport(sport) }
@@ -331,7 +387,7 @@ struct EventMapView: View {
         Button {
             appViewModel.path.append(.me())
         } label: {
-            Avatar(name: store.profile.fullName, size: 32)
+            Avatar(name: store.profile?.fullName ?? "", size: 32)
                 .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { avatarFrame = $0 }
         }
         .accessibilityLabel("Me")

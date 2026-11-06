@@ -5,43 +5,42 @@ import Observation
 /// The same rules are enforced by the server (`create_game` / `update_game`, §8.5).
 @Observable
 final class GameFormViewModel {
-    var sport: Sport
-    var name: String { didSet { if name.count > Self.nameLimit { name = String(name.prefix(Self.nameLimit)) } } }
+    var sport: Activity
+    var name: String { didSet { if name.count > GameDraft.titleLimit { name = String(name.prefix(GameDraft.titleLimit)) } } }
     var day: Date
     var time: Date
-    var duration: TimeInterval
-    var venue: Venue
-    var meetUpSpot: String { didSet { if meetUpSpot.count > Self.meetUpLimit { meetUpSpot = String(meetUpSpot.prefix(Self.meetUpLimit)) } } }
+    /// Minutes, one of `GameDraft.durations`.
+    var duration: Int
+    /// Nil until the host picks one; there's no default place.
+    var place: Place?
+    var meetUpSpot: String { didSet { if meetUpSpot.count > GameDraft.meetPointLimit { meetUpSpot = String(meetUpSpot.prefix(GameDraft.meetPointLimit)) } } }
     var players: Int
-    /// Bump the game back to the top when a spot opens (see `SportsEvent.autoRepost`).
+    /// Bump the game back to the top when a spot opens (SPEC §7.6.11).
     var autoRepost: Bool
-    var notes: String { didSet { if notes.count > Self.notesLimit { notes = String(notes.prefix(Self.notesLimit)) } } }
+    var notes: String { didSet { if notes.count > GameDraft.notesLimit { notes = String(notes.prefix(GameDraft.notesLimit)) } } }
 
     /// Errors only show after the first Create/Save tap (Figma "Error" frame).
     var showsErrors = false
-    /// Server-style failure that isn't tied to one field, e.g. the hosting limit.
+    /// Server failure that isn't tied to one field, e.g. the hosting limit.
     var formError: String?
+    private(set) var isSaving = false
 
     /// The game being edited, or nil when creating a new one.
-    let editing: SportsEvent?
+    let editing: Game?
 
-    static let nameLimit = 40
-    static let meetUpLimit = 80
-    static let notesLimit = 280
-    static let maxUpcomingHosted = 3
-    static let durations: [TimeInterval] = [1800, 3600, 5400, 7200, 10800]
-    static let playerRange = 2...22
+    static let durations = GameDraft.durations
+    static let playerRange = GameDraft.capacityRange
 
-    init(editing: SportsEvent? = nil) {
+    init(editing: Game? = nil) {
         self.editing = editing
         let defaultStart = Calendar.current.date(bySettingHour: 17, minute: 30, second: 0, of: .now) ?? .now
-        sport = editing?.sport ?? .basketball
+        sport = editing?.activity ?? Activity.builtIn[0]
         name = editing?.title ?? ""
-        day = Calendar.current.startOfDay(for: editing?.start ?? .now)
-        time = editing?.start ?? defaultStart
-        duration = editing?.duration ?? 3600
-        venue = editing?.venue ?? MockData.Venues.basketballCourts
-        meetUpSpot = editing?.meetUpSpot ?? ""
+        day = Calendar.current.startOfDay(for: editing?.startsAt ?? .now)
+        time = editing?.startsAt ?? defaultStart
+        duration = editing?.durationMinutes ?? 60
+        place = editing?.place
+        meetUpSpot = editing?.meetPoint ?? ""
         players = editing?.capacity ?? 6
         notes = editing?.notes ?? ""
         autoRepost = editing?.autoRepost ?? true
@@ -62,13 +61,13 @@ final class GameFormViewModel {
 
     /// Editing can't go below the number already going.
     var minimumPlayers: Int {
-        max(Self.playerRange.lowerBound, editing?.attendees.count ?? 1)
+        max(Self.playerRange.lowerBound, editing?.goingCount ?? 1)
     }
 
     /// "6 players" or, when editing, "6 players · 3 going".
     var playersLabel: String {
         guard let editing else { return String(localized: "\(players) players") }
-        return String(localized: "\(players) players · \(editing.attendees.count) going")
+        return String(localized: "\(players) players · \(editing.goingCount) going")
     }
 
     func dayLabel(_ date: Date) -> String {
@@ -100,57 +99,58 @@ final class GameFormViewModel {
     }
 
     var timeError: String? {
-        guard showsErrors, start <= .now else { return nil }
+        guard showsErrors, start <= .now, editing?.startsAt != start else { return nil }
         let time = start.formatted(date: .omitted, time: .shortened)
         return String(localized: "\(time) has already passed today. Pick a later time.")
     }
 
+    var placeError: String? {
+        showsErrors && place == nil ? String(localized: "Pick where the game is.") : nil
+    }
+
     private var isValid: Bool {
-        !name.trimmingCharacters(in: .whitespaces).isEmpty && start > .now
+        !name.trimmingCharacters(in: .whitespaces).isEmpty && place != nil && (start > .now || editing?.startsAt == start)
             && [name, meetUpSpot, notes].allSatisfy(TextFilter.isFriendly)
     }
 
     // MARK: Intents
 
     /// Validates, then saves. Returns true when the sheet can close.
-    func save(in store: EventStore) -> Bool {
+    func save(in store: GameStore) async -> Bool {
         showsErrors = true
         formError = nil
-        guard isValid else { return false }
-
-        if !isEditing {
-            let upcoming = store.hostedEvents.filter { !$0.hasEnded }.count
-            guard upcoming < Self.maxUpcomingHosted else {
-                // Server error `limit_reached`.
-                formError = String(localized: "You can host up to 3 upcoming games. Cancel one to post another.")
-                return false
-            }
-        }
-
-        var event = editing ?? SportsEvent(
-            title: "", sport: sport, host: Person.you, start: start, duration: duration,
-            capacity: players, attendees: [Person.you], venue: venue
+        guard isValid, let place else { return false }
+        let meetPoint = meetUpSpot.trimmingCharacters(in: .whitespaces)
+        let notes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
+        let draft = GameDraft(
+            activity: sport,
+            title: name.trimmingCharacters(in: .whitespaces),
+            startsAt: start,
+            durationMinutes: duration,
+            capacity: players,
+            notes: notes.isEmpty ? nil : notes,
+            place: place,
+            meetPoint: meetPoint.isEmpty ? nil : meetPoint,
+            autoRepost: autoRepost
         )
-        event.title = name.trimmingCharacters(in: .whitespaces)
-        event.sport = sport
-        event.start = start
-        event.duration = duration
-        event.venue = venue
-        event.meetUpSpot = meetUpSpot.trimmingCharacters(in: .whitespaces)
-        event.capacity = max(players, event.attendees.count)
-        event.notes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
-        event.autoRepost = autoRepost
-        // Raising capacity on a full game opens a spot too.
-        let wasFull = editing?.isFull ?? false
-
-        store.save(event)
-        if wasFull, !event.isFull { store.autoRepostIfNeeded(event.id) }
-        return true
+        isSaving = true
+        defer { isSaving = false }
+        do {
+            if let editing {
+                try await store.updateGame(id: editing.id, draft)
+            } else {
+                try await store.createGame(draft)
+            }
+            return true
+        } catch {
+            formError = (error as? DomainError ?? .offline).message
+            return false
+        }
     }
 
     /// Soft cancel (`cancel_game`): everyone going is told; the game leaves the map.
-    func cancelGame(in store: EventStore) {
+    func cancelGame(in store: GameStore) {
         guard let editing else { return }
-        store.cancel(editing.id)
+        Task { await store.cancelGame(editing.id) }
     }
 }
