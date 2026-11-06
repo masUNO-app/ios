@@ -22,6 +22,8 @@ struct EventMapView: View {
     @FocusState private var isSearchFocused: Bool
     @Namespace private var mapScope
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 30)) { context in
@@ -32,6 +34,7 @@ struct EventMapView: View {
             VStack(alignment: .leading, spacing: 12) {
                 if !usesVerticalBar || showsSearchField { searchRow }
                 nearbyChip
+                if viewModel.isLocationDenied { locationBanner }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 20)
@@ -56,6 +59,9 @@ struct EventMapView: View {
             if locationSession == nil, LocationService.mockCoordinate == nil {
                 locationSession = CLServiceSession(authorization: .whenInUse)
             }
+        }
+        .task(id: scenePhase) {
+            if scenePhase == .active { await viewModel.locate() }
         }
         .toolbarBackgroundVisibility(.hidden, for: .bottomBar)
         .onGeometryChange(for: CGSize.self) { $0.size } action: { screenSize = $0 }
@@ -218,16 +224,38 @@ struct EventMapView: View {
         }
     }
 
+    /// Tapping refreshes: a map can't pull to refresh, because dragging pans it.
     private var nearbyChip: some View {
-        HStack(spacing: 6) {
-            Circle().fill(Theme.ink).frame(width: 6, height: 6)
-            Text("\(viewModel.mapEvents(in: store).count) games nearby")
+        Button {
+            Task { await store.refreshMap() }
+        } label: {
+            HStack(spacing: 6) {
+                Circle().fill(Theme.ink).frame(width: 6, height: 6)
+                Text("\(viewModel.mapEvents(in: store).count) games nearby")
+            }
+            .font(.footnote)
+            .foregroundStyle(Theme.muted)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .glassEffect(.regular, in: .capsule)
         }
-        .font(.footnote)
-        .foregroundStyle(Theme.muted)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 7)
-        .glassEffect(.regular, in: .capsule)
+        .buttonStyle(.plain)
+        .accessibilityHint("Refreshes the map")
+    }
+
+    /// Location off: the map stays on campus (SPEC §7.6.1).
+    private var locationBanner: some View {
+        Button {
+            if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
+        } label: {
+            Label("Turn on location to see how far games are", systemImage: "location.slash")
+                .font(.footnote.weight(.medium))
+                .foregroundStyle(Theme.ink)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .glassEffect(.regular, in: .capsule)
+        }
+        .buttonStyle(.plain)
     }
 
     /// With a vertical bar (iPhone Duo), search, saved games, recenter, filter and the avatar

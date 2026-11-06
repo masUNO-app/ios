@@ -16,10 +16,13 @@ final class EventMapViewModel {
     private(set) var isPopupShown = false
     /// Measured popup height, to sit it just above its pin.
     var popupHeight: CGFloat = 260
-    /// Starts on you (the mock spot while `LocationService.mockCoordinate` is set);
-    /// campus if location is off or not allowed.
+    /// Starts on campus, and moves to you once a fix shows you're near it (SPEC §7.6.1).
     var position: MapCameraPosition = LocationService.mockCoordinate.map { .region(EventMapViewModel.region(around: $0)) }
-        ?? .userLocation(fallback: .region(Campus.region))
+        ?? .region(Campus.region)
+    /// Location is off or not allowed: shows the "Turn on location" banner.
+    private(set) var isLocationDenied = false
+    /// Only the first fix moves the map; after that it's yours to pan.
+    private var hasCentered = false
 
     // MARK: Queries
 
@@ -95,6 +98,30 @@ final class EventMapViewModel {
         withAnimation(.snappy) { selectedID = nil }
     }
 
+    /// Asks for location the first time the map opens, then centers on you if you're near campus.
+    /// Runs again each time the app comes back, in case location was turned on in Settings.
+    func locate() async {
+        guard LocationService.mockCoordinate == nil else { return }
+        do {
+            for try await update in CLLocationUpdate.liveUpdates() {
+                if Task.isCancelled { return }
+                if update.authorizationDenied || update.authorizationDeniedGlobally {
+                    isLocationDenied = true
+                    return
+                }
+                guard let location = update.location else { continue }
+                isLocationDenied = false
+                if !hasCentered, selectedID == nil, Campus.isNearby(location.coordinate) {
+                    withAnimation { position = .region(Self.region(around: location.coordinate)) }
+                }
+                hasCentered = true
+                return
+            }
+        } catch {
+            // No fix: the map just stays where it is.
+        }
+    }
+
     /// Recenter on the mock location. The real location uses the native `MapUserLocationButton`.
     func centerOnMockLocation() {
         guard let mock = LocationService.mockCoordinate else { return }
@@ -104,12 +131,12 @@ final class EventMapViewModel {
         }
     }
 
-    /// Recenters on the user: the mocked location if there is one, otherwise real GPS.
+    /// Recenters on the user: the mocked location if there is one, otherwise real GPS, falling back to campus.
     func centerOnUserLocation() {
         guard LocationService.mockCoordinate == nil else { return centerOnMockLocation() }
         withAnimation {
             selectedID = nil
-            position = .userLocation(fallback: position)
+            position = .userLocation(fallback: .region(Campus.region))
         }
     }
 

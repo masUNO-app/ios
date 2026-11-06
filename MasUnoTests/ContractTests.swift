@@ -307,3 +307,11 @@ struct MockAuthTests {
         #expect(auth.profile == nil)
     }
 }
+
+struct CampusTests {
+    @Test func campusFallbackIsFifteenKilometers() {
+        #expect(Campus.isNearby(Campus.center))
+        #expect(Campus.isNearby(.init(latitude: 25.72, longitude: -100.31))) // north Monterrey, ~8 km
+        #expect(!Campus.isNearby(.init(latitude: 37.33, longitude: -122.01))) // Cupertino: App Review
+    }
+}

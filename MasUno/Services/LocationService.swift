@@ -1,19 +1,21 @@
 import CoreLocation
 import MapKit
 
-/// The phone's location, used on the phone only (SPEC §8.8). E8 needs a one-shot
-/// fix for "Use my current location"; E9 extends this for the live map.
+/// The phone's location, used on the phone only (SPEC §8.8): a one-shot fix for
+/// "Use my current location" (E8) and the map's first position (E9).
 enum LocationService {
     enum Failure: Error {
         case denied, unavailable
     }
 
-    /// TODO/TEMP(E9): every game is mock data at Tec, so "you" are pinned there too —
-    /// otherwise the map follows your real location (e.g. Princeton) far from every game,
-    /// and simulators without a location fix spin forever. Launch with `-realLocation YES`
-    /// to use the phone's GPS. Remove once the live map loads real games (E9).
+    /// DEBUG only: `-mockLocation YES` pins "you" just north-east of campus, for simulators
+    /// and design review. Always nil in Release (N27).
     static var mockCoordinate: CLLocationCoordinate2D? {
-        UserDefaults.standard.bool(forKey: "realLocation") ? nil : Campus.mockUser
+        #if DEBUG
+        UserDefaults.standard.bool(forKey: "mockLocation") ? CLLocationCoordinate2D(latitude: 25.6533, longitude: -100.2872) : nil
+        #else
+        nil
+        #endif
     }
 
     /// Asks for When-In-Use permission if needed, then returns the first location fix.
