@@ -254,15 +254,17 @@ struct EventDetailView: View {
         }
     }
 
-    /// TODO/TEMP(E19): shares an App Store search link (`AppConfig.inviteURL`) until the
-    /// listing exists; the friend signs in with their own Tec email.
+    /// The friend signs in with their own Tec email. Hidden until `AppConfig.appStoreID` is set.
+    @ViewBuilder
     private func inviteLink(_ event: Game) -> some View {
-        ShareLink(
-            item: AppConfig.inviteURL,
-            subject: Text(event.title),
-            message: Text(viewModel.inviteMessage(for: event))
-        ) {
-            Label("Invite a friend", systemImage: "person.badge.plus")
+        if let url = AppConfig.inviteURL {
+            ShareLink(
+                item: url,
+                subject: Text(event.title),
+                message: Text(viewModel.inviteMessage(for: event))
+            ) {
+                Label("Invite a friend", systemImage: "person.badge.plus")
+            }
         }
     }
 

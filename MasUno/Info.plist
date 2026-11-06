@@ -33,5 +33,10 @@
 	<array>
 		<string>comgooglemaps</string>
 	</array>
+	<key>UILaunchScreen</key>
+	<dict>
+		<key>UIColorName</key>
+		<string>Background</string>
+	</dict>
 </dict>
 </plist>

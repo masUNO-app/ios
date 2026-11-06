@@ -29,10 +29,8 @@ struct SettingsView: View {
             }
 
             Section("About") {
-                if let privacy = appViewModel.config.privacyURL {
-                    Link(destination: privacy) { row("Privacy & Terms", subtitle: nil, trailing: "arrow.up.right") }
-                } else {
-                    row("Privacy & Terms", subtitle: Text("Coming soon"))
+                Link(destination: appViewModel.config.privacyURL) {
+                    row("Privacy & Terms", subtitle: nil, trailing: "arrow.up.right")
                 }
                 if let mail = appViewModel.config.supportMailURL {
                     Link(destination: mail) {

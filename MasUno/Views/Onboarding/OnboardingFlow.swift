@@ -44,11 +44,9 @@ struct OnboardingFlow: View {
         } footer: {
             VStack(spacing: 12) {
                 PrimaryAction("Continue with your Tec email") { viewModel.path.append(.email) }
-                if let privacy = appViewModel.config.privacyURL {
-                    Link("Privacy & Terms", destination: privacy).font(.footnote).foregroundStyle(Theme.muted)
-                } else {
-                    Text("Privacy & Terms").font(.footnote).foregroundStyle(Theme.muted)
-                }
+                Link("Privacy & Terms", destination: appViewModel.config.privacyURL)
+                    .font(.footnote)
+                    .foregroundStyle(Theme.muted)
             }
         }
         .toolbar(.hidden, for: .navigationBar)
