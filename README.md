@@ -75,6 +75,9 @@ Green Figma frames (node ids `341:*`). Copy follows SPEC §7.2 ("game", not "eve
 Navigation, the launch gate and app-level sheets live in `ViewModels/AppViewModel.swift`; data in
 `Data/GameStore.swift`; mock content in `Data/Mocks/`. `masuno://game/<id>` opens a game.
 
+masUNO launches at Tec, but the app has no campus built in: open campuses come from `open_universities`, and your
+campus from `my_profile`. To change or add a campus, see SPEC §8.10; no release needed.
+
 Organizer approval (Join requests / Accept–Decline) is post-MVP and intentionally left out — spots are first come, first served.
 Group chat is read-only for now: pinned card and system rows, no composer (N14).
 

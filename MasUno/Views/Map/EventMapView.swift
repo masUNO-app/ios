@@ -62,6 +62,7 @@ struct EventMapView: View {
                 locationSession = CLServiceSession(authorization: .whenInUse)
             }
         }
+        .task(id: store.campus) { viewModel.setCampus(store.campus) }
         .task(id: scenePhase) {
             if scenePhase == .active { await viewModel.locate() }
         }

@@ -6,7 +6,7 @@ nonisolated struct Profile: Identifiable, Hashable, Sendable {
     var firstName: String
     var lastName: String
     var gradYear: Int
-    var universityName: String
+    var university: University
     var interests: [Activity]
 
     var fullName: String { "\(firstName) \(lastName)" }

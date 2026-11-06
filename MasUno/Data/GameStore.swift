@@ -14,6 +14,8 @@ final class GameStore {
     private(set) var mapState = LoadState.idle
     private(set) var myGamesState = LoadState.idle
     private(set) var profile: Profile?
+    /// Your campus. Kept from the last launch, so the map has somewhere to open while offline.
+    private(set) var campus: University?
     private(set) var activities = Activity.builtIn
     /// People you blocked, newest first.
     private(set) var blockedPeople: [PersonSummary] = []
@@ -49,6 +51,7 @@ final class GameStore {
         self.safety = safety
         self.catalog = catalog
         self.defaults = defaults
+        campus = defaults.data(forKey: Self.campusKey).flatMap { try? JSONDecoder().decode(University.self, from: $0) }
     }
 
     // MARK: Queries
@@ -233,6 +236,7 @@ final class GameStore {
     private func loadProfile() async {
         do {
             profile = try await profiles.fetchMyProfile()
+            if let university = profile?.university { remember(campus: university) }
         } catch {
             noteFailure(domainError(error))
         }
@@ -355,6 +359,7 @@ final class GameStore {
     func updateProfile(_ input: ProfileInput) async throws {
         do {
             profile = try await profiles.updateProfile(input)
+            if let university = profile?.university { remember(campus: university) }
         } catch {
             throw noteThrown(error)
         }
@@ -405,6 +410,13 @@ final class GameStore {
         defaults.set(savedIDs.map(\.uuidString), forKey: savedKey)
     }
 
+    private static let campusKey = "lastCampus"
+
+    private func remember(campus: University) {
+        self.campus = campus
+        defaults.set(try? JSONEncoder().encode(campus), forKey: Self.campusKey)
+    }
+
     private var savedKey: String {
         "savedGames.\(profile?.id.uuidString ?? "signedOut")"
     }
@@ -425,6 +437,8 @@ final class GameStore {
         savedIDs = []
         blockedPeople = []
         profile = nil
+        campus = nil
+        defaults.removeObject(forKey: Self.campusKey)
         lastCreatedID = nil
         mapState = .idle
         myGamesState = .idle

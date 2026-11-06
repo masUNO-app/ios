@@ -25,6 +25,8 @@ final class AppViewModel {
     var sheet: Sheet?
     private(set) var config = AppConfig.fallback
     private(set) var isUpdateRequired = false
+    /// The campus onboarding talks about, when exactly one is open. Otherwise the copy stays generic.
+    private(set) var launchCampus: University?
 
     @ObservationIgnored let auth: any AuthService
     @ObservationIgnored private let catalog: any AppConfigRepository
@@ -50,6 +52,7 @@ final class AppViewModel {
     func start() async {
         if let fetched = try? await catalog.fetchAppConfig() { config = fetched }
         isUpdateRequired = !config.supports(version: AppConfig.currentVersion)
+        if let open = try? await catalog.fetchOpenUniversities(), open.count == 1 { launchCampus = open[0] }
         await auth.restoreSession()
     }
 

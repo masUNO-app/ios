@@ -22,19 +22,18 @@ final class LocationPickerViewModel: NSObject {
     var errorMessage: String?
     var position: MapCameraPosition
 
-    /// ~15 km around campus.
-    private static let searchRegion = MKCoordinateRegion(
-        center: Campus.center, latitudinalMeters: 30_000, longitudinalMeters: 30_000
-    )
+    /// ~15 km around your campus.
+    private let searchRegion: MKCoordinateRegion?
 
     @ObservationIgnored private let completer = MKLocalSearchCompleter()
 
-    init(current: Place?) {
+    init(current: Place?, campus: University?) {
         selection = current
-        position = current.map { .region(Self.region(around: $0.coordinate)) } ?? .region(Campus.region)
+        searchRegion = campus.map { MKCoordinateRegion(center: $0.center, latitudinalMeters: 30_000, longitudinalMeters: 30_000) }
+        position = current.map { .region(Self.region(around: $0.coordinate)) } ?? campus.map { .region($0.region) } ?? .automatic
         super.init()
         completer.delegate = self
-        completer.region = Self.searchRegion
+        if let searchRegion { completer.region = searchRegion }
         completer.resultTypes = [.pointOfInterest, .address]
     }
 
@@ -47,7 +46,7 @@ final class LocationPickerViewModel: NSObject {
         defer { isResolving = false }
         let request = MKLocalSearch.Request()
         request.naturalLanguageQuery = "\(suggestion.title) \(suggestion.subtitle)"
-        request.region = Self.searchRegion
+        if let searchRegion { request.region = searchRegion }
         guard let item = try? await MKLocalSearch(request: request).start().mapItems.first else {
             errorMessage = String(localized: "Couldn't find that place. Try another search.")
             return

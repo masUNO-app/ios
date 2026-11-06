@@ -22,7 +22,7 @@ struct ContentView: View {
             switch appViewModel.session {
             case .launching: Theme.background.ignoresSafeArea()
             case .updateRequired: UpdateRequiredView()
-            case .onboarding: OnboardingFlow(auth: appViewModel.auth)
+            case .onboarding: OnboardingFlow(auth: appViewModel.auth, campus: appViewModel.launchCampus)
             case .suspended: SuspendedView()
             case .signedIn: main
             }

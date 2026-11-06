@@ -1,5 +1,5 @@
-import Foundation
 import Observation
+import SwiftUI
 
 /// Onboarding (E5, SPEC §7.5), driven by `AuthService`: `sign_in_method(email)`,
 /// send/verify the code, `complete_profile`, `accept_guidelines`.
@@ -32,14 +32,15 @@ final class OnboardingViewModel {
     /// Seconds until "Resend code" is available.
     private(set) var resendIn = 0
 
-    static let domain = "@tec.mx"
-
     @ObservationIgnored private let auth: any AuthService
+    /// The only open campus, if there's just one: the copy then names it.
+    let campus: University?
 
     /// Picks up where the session is: an expired session prefills the email, and someone
     /// who quit halfway through continues with the step they left.
-    init(auth: any AuthService) {
+    init(auth: any AuthService, campus: University? = nil) {
         self.auth = auth
+        self.campus = campus
         switch auth.state {
         case .signedOut(let email?):
             self.email = email
@@ -57,8 +58,41 @@ final class OnboardingViewModel {
 
     /// "a0…@tec.mx"
     var maskedEmail: String {
-        let local = email.split(separator: "@").first.map(String.init) ?? ""
-        return "\(local.prefix(2))…\(Self.domain)"
+        let parts = email.split(separator: "@", maxSplits: 1).map(String.init)
+        guard parts.count == 2 else { return email }
+        return "\(parts[0].prefix(2))…@\(parts[1])"
+    }
+
+    var welcomeMessage: LocalizedStringKey {
+        if let campus { return "Pickup games around \(campus.shortName), one or two players short — and looking for you." }
+        return "Pickup games around campus, one or two players short — and looking for you."
+    }
+
+    var continueTitle: LocalizedStringKey {
+        if let campus { return "Continue with your \(campus.shortName) email" }
+        return "Continue with your school email"
+    }
+
+    var emailTitle: LocalizedStringKey {
+        if let campus { return "What's your \(campus.shortName) email?" }
+        return "What's your school email?"
+    }
+
+    var emailLabel: LocalizedStringKey {
+        if let campus { return "\(campus.shortName) email" }
+        return "School email"
+    }
+
+    var emailPlaceholder: String {
+        "you@\(campus?.emailDomain ?? "school.edu")"
+    }
+
+    /// Names the campus in the "not allowed" message when there's only one to name.
+    private func message(for error: DomainError) -> String {
+        if error == .emailNotAllowed, let campus {
+            return String(localized: "masUNO is just for \(campus.shortName) students right now. Use your @\(campus.emailDomain) email.")
+        }
+        return error.message
     }
 
     var classYears: [Int] {
@@ -76,8 +110,7 @@ final class OnboardingViewModel {
 
     // MARK: Intents
 
-    /// Asks `sign_in_method` first: review accounts are Gmail aliases, so the `@tec.mx`
-    /// check only applies to people signing in with a code.
+    /// Asks `sign_in_method`, which knows the open campuses and the review accounts.
     func submitEmail() async {
         let trimmed = email.trimmingCharacters(in: .whitespaces).lowercased()
         guard !trimmed.isEmpty else { return }
@@ -89,7 +122,6 @@ final class OnboardingViewModel {
                 usesPassword = true
                 return
             }
-            guard trimmed.hasSuffix(Self.domain), trimmed.count > Self.domain.count else { throw DomainError.emailNotAllowed }
             try await auth.sendCode(to: trimmed)
             startResendTimer()
             path.append(.code)
@@ -182,7 +214,7 @@ final class OnboardingViewModel {
         do {
             try await body()
         } catch {
-            onError((error as? DomainError ?? .offline).message)
+            onError(message(for: error as? DomainError ?? .offline))
         }
     }
 

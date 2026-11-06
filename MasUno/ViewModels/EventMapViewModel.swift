@@ -16,9 +16,12 @@ final class EventMapViewModel {
     private(set) var isPopupShown = false
     /// Measured popup height, to sit it just above its pin.
     var popupHeight: CGFloat = 260
-    /// Starts on campus, and moves to you once a fix shows you're near it (SPEC §7.6.1).
+    /// Opens on your campus, and moves to you once a fix shows you're near it (SPEC §7.6.1).
     var position: MapCameraPosition = LocationService.mockCoordinate.map { .region(EventMapViewModel.region(around: $0)) }
-        ?? .region(Campus.region)
+        ?? .automatic
+    /// Set from the signed-in profile (a demo campus for review accounts).
+    private var campus: University?
+    private var lastFix: CLLocationCoordinate2D?
     /// Location is off or not allowed: shows the "Turn on location" banner.
     private(set) var isLocationDenied = false
     /// Only the first fix moves the map; after that it's yours to pan.
@@ -46,7 +49,7 @@ final class EventMapViewModel {
     /// Bring a pin on screen and select it (e.g. a newly created game).
     func focus(on event: Game) {
         withAnimation {
-            position = .region(MKCoordinateRegion(center: event.coordinate, span: Campus.region.span))
+            position = .region(MKCoordinateRegion(center: event.coordinate, span: University.mapSpan))
         }
         selectedID = event.id
     }
@@ -83,7 +86,7 @@ final class EventMapViewModel {
 
     /// Pans so the selected pin sits low and centered, leaving room for its popup above.
     func reveal(_ event: Game) {
-        let span = visibleRegion?.span ?? Campus.region.span
+        let span = visibleRegion?.span ?? University.mapSpan
         let center = CLLocationCoordinate2D(
             latitude: event.coordinate.latitude + span.latitudeDelta * 0.22,
             longitude: event.coordinate.longitude
@@ -96,6 +99,23 @@ final class EventMapViewModel {
         visibleRegion = region
         guard let selected, !region.contains(selected.coordinate) else { return }
         withAnimation(.snappy) { selectedID = nil }
+    }
+
+    /// The campus arrived (the profile can load after the map appears).
+    func setCampus(_ campus: University?) {
+        self.campus = campus
+        centerIfNeeded()
+    }
+
+    /// Campus first, so the map is never blank; then you, once and only if you're near it.
+    private func centerIfNeeded() {
+        guard !hasCentered, selectedID == nil, LocationService.mockCoordinate == nil, let campus else { return }
+        if let lastFix, campus.isNearby(lastFix) {
+            withAnimation { position = .region(Self.region(around: lastFix)) }
+        } else {
+            position = .region(campus.region)
+        }
+        if lastFix != nil { hasCentered = true }
     }
 
     /// Asks for location the first time the map opens, then centers on you if you're near campus.
@@ -111,10 +131,8 @@ final class EventMapViewModel {
                 }
                 guard let location = update.location else { continue }
                 isLocationDenied = false
-                if !hasCentered, selectedID == nil, Campus.isNearby(location.coordinate) {
-                    withAnimation { position = .region(Self.region(around: location.coordinate)) }
-                }
-                hasCentered = true
+                lastFix = location.coordinate
+                centerIfNeeded()
                 return
             }
         } catch {
@@ -136,12 +154,12 @@ final class EventMapViewModel {
         guard LocationService.mockCoordinate == nil else { return centerOnMockLocation() }
         withAnimation {
             selectedID = nil
-            position = .userLocation(fallback: .region(Campus.region))
+            position = .userLocation(fallback: campus.map { .region($0.region) } ?? .automatic)
         }
     }
 
     private static func region(around coordinate: CLLocationCoordinate2D) -> MKCoordinateRegion {
-        MKCoordinateRegion(center: coordinate, span: Campus.region.span)
+        MKCoordinateRegion(center: coordinate, span: University.mapSpan)
     }
 
     func toggleSport(_ sport: Activity) {

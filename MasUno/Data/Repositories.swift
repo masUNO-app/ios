@@ -49,4 +49,6 @@ protocol SafetyRepository: AnyObject {
 protocol AppConfigRepository: AnyObject {
     func fetchAppConfig() async throws -> AppConfig
     func fetchActivities() async throws -> [Activity]
+    /// Campuses taking sign-ups (`open_universities`). Hidden demo campuses aren't listed.
+    func fetchOpenUniversities() async throws -> [University]
 }

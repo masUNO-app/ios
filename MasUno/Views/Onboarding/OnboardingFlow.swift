@@ -1,14 +1,14 @@
 import SwiftUI
 
 /// Onboarding (E5, SPEC §7.5), built from the spec copy; 2.0 restyles it from Arianna's D2 frames.
-/// Welcome → Tec email → code → about you → interests → community guidelines → map.
+/// Welcome → school email → code → about you → interests → community guidelines → map.
 /// `AuthService` moves the session along; when it reaches signed in, the root swaps to the map.
 struct OnboardingFlow: View {
     @Environment(AppViewModel.self) private var appViewModel
     @State private var viewModel: OnboardingViewModel
 
-    init(auth: any AuthService) {
-        _viewModel = State(initialValue: OnboardingViewModel(auth: auth))
+    init(auth: any AuthService, campus: University?) {
+        _viewModel = State(initialValue: OnboardingViewModel(auth: auth, campus: campus))
     }
 
     var body: some View {
@@ -38,12 +38,12 @@ struct OnboardingFlow: View {
         OnboardingPage(
             systemImage: "sportscourt",
             title: "Find your next game",
-            message: "Pickup games around Tec, one or two players short — and looking for you."
+            message: viewModel.welcomeMessage
         ) {
             EmptyView()
         } footer: {
             VStack(spacing: 12) {
-                PrimaryAction("Continue with your Tec email") { viewModel.path.append(.email) }
+                PrimaryAction(viewModel.continueTitle) { viewModel.path.append(.email) }
                 Link("Privacy & Terms", destination: appViewModel.config.privacyURL)
                     .font(.footnote)
                     .foregroundStyle(Theme.muted)
@@ -76,9 +76,9 @@ private struct EmailStep: View {
     @FocusState private var focused: Bool
 
     var body: some View {
-        OnboardingPage(title: "What's your Tec email?", message: "We'll send you a 6-digit code. No passwords.") {
-            FieldBox("Tec email", error: viewModel.usesPassword ? nil : viewModel.emailError) {
-                TextField("a01234567@tec.mx", text: $viewModel.email)
+        OnboardingPage(title: viewModel.emailTitle, message: "We'll send you a 6-digit code. No passwords.") {
+            FieldBox(viewModel.emailLabel, error: viewModel.usesPassword ? nil : viewModel.emailError) {
+                TextField(viewModel.emailPlaceholder, text: $viewModel.email)
                     .keyboardType(.emailAddress)
                     .textContentType(.emailAddress)
                     .textInputAutocapitalization(.never)

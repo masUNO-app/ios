@@ -70,6 +70,7 @@
 | N28 | **Auto-repost (N17) look:** the 2.0 Figma has no toggle and no "Reposted …" line yet. 1.0 ships the built toggle and line (1.0 UI); Arianna draws it in the 2.0 style (D11 → 2.0). The bump pin ("Spot open") still needs building (E25). | Built on mocks; the server half is in B3. | — |
 | N30 | **Contract gaps closed in `docs/API.md` (E1):** `game_activity` becomes an append-only table, because `leave_game` deletes the `rsvps` row a view would read; new `my_blocks()`, because RLS hides blocked people's names from Blocked people; `create_game` returns `game_cards` like every other game write; new error codes `not_authenticated` and `suspended`; `game_cards` gains `host_grad_year` and `sort_at`; `app_config` and `activities` are readable signed out; new `AppConfigRepository`. | The rev. 7 contract couldn't support these screens as written. | ⚑ Emilio |
 | N31 | **Frontend for 1.0 finished on mocks, Nov 6** (`ethan/e1-contract`): every screen runs on the E1 models, `GameStore` and `AuthService`; `EventStore`, `MockData` and the old models are deleted; chat is the read-only fallback. Choices made along the way: no default place in the game form (pick one, or see an error); the "Turn on location" banner shows only when location is denied, since it would be wrong for a reviewer who has it on but is far away (they still land on campus); a map can't pull to refresh because dragging pans it, so tapping "N games nearby" refreshes; Invite a friend is hidden in Release until `AppConfig.appStoreID` is set; **Release builds run on `UnavailableBackend` until B5 + B7**, so they can't show mock data, and can't sign in either. | Nothing left in Swift can move without the backend. | — |
+| N32 | **masUNO launches at Tec but isn't locked to it.** Which campuses are open is data (`universities.signup_enabled`), so the launch campus can change, or more can open, without an app release (§8.10). The app no longer hard-codes `@tec.mx`, "Tec" or the Monterrey map center. Tec stays the only launch plan; no other campus is being built for now. | If Tec doesn't work out, the team shouldn't have to resubmit to App Review to move. | Decided (Ethan, Nov 6); ⚑ Emilio (contract) |
 | N29 | **Trello is behind:** the 1.0 list still says "submit Sat Nov 21", most card dates are rev. 5's, and Ricardo/Arianna/Emilio cards show no progress. Each owner updates their cards to §5 at the Fri Nov 6 go/no-go (§6). | The plan only works if status is visible. | — |
 
 ### Rev. 6 (still in force unless changed above)
@@ -122,7 +123,7 @@ N1 builds at each demo day, 1.0 before Demo Day #3, 2.0 after it, launch Dec 16 
 | C16 | Minimum-version gate in 1.0. | Lets 2.0 force an update if needed. | — |
 | C17 | `supabase/` lives in the `ios` repo. | One PR can change client and database together. | — |
 
-**Still locked from rev. 2:** Supabase; @tec.mx email codes only; sports only (Basketball, Tennis, Soccer, Volleyball, Padel — N19); no organizer approval; Tec de Monterrey; English first with strings externalized; venue search + pin + current location; 7-day posting window; light mode only; sign-in gates the app; no skill level; soft cancel; separate dev and prod projects.
+**Still locked from rev. 2:** Supabase; school email codes only (`@tec.mx` at launch, N32); sports only (Basketball, Tennis, Soccer, Volleyball, Padel — N19); no organizer approval; launching at Tec de Monterrey (N32); English first with strings externalized; venue search + pin + current location; 7-day posting window; light mode only; sign-in gates the app; no skill level; soft cancel; separate dev and prod projects.
 
 ---
 
@@ -134,7 +135,7 @@ N1 builds at each demo day, 1.0 before Demo Day #3, 2.0 after it, launch Dec 16 
 3. Pass App Review's user-generated-content rules: agree to guidelines, text filter, report, block, act on reports within 24 h, contact info in the app, in-app account deletion.
 4. Numbers for each demo day: beta testers, verified sign-ups, games hosted, joins, games that filled.
 
-**Not in scope during the program:** photos, calendar sync, dark mode, Android/web, organizer approval, recurring games, non-sport activities, other campuses, our own domain or branded email.
+**Not in scope during the program:** photos, calendar sync, dark mode, Android/web, organizer approval, recurring games, non-sport activities, opening a second campus (the app is ready for it, N32), our own domain or branded email.
 
 **Release criteria for 1.0 and 2.0**
 - Core loop works on two physical phones against `masuno-prod`, including two people racing for the last spot.
@@ -509,8 +510,10 @@ Frames: `https://www.figma.com/design/5eKA3f0I90VVABrAuNMFD2/masuno-figma?node-i
 
 ### 7.5 Onboarding & sign-in (E5 screens · B5 `AuthService` · 2.0 frames in D2)
 
+*Campus names and domains below come from `open_universities`: "Tec" and `@tec.mx` at launch. If the list can't load or more than one campus is open, the copy says "campus" and "school email" instead (N32).*
+
 1. **Welcome** — "Find your next game" / "Pickup games around Tec, one or two players short — and looking for you." **Continue with your Tec email**. Footer link: Privacy & Terms.
-2. **Email** — "What's your Tec email?" Calls `sign_in_method(email)` first: review accounts are Gmail aliases and get a password field. Anyone else must end exactly in `@tec.mx`, else "masUNO is just for Tec students right now. Use your @tec.mx email."
+2. **Email** — "What's your Tec email?" Calls `sign_in_method(email)`, and the server decides: an open campus's domain (exact match) gets a code, a review account gets a password field, and anyone else sees "masUNO is just for Tec students right now. Use your @tec.mx email." (with several campuses open: "masUNO isn't open at your school yet.")
 3. **Code** — "Check your email" / "We sent a 6-digit code to a0…@tec.mx. It comes from masunoapp@gmail.com — check Junk if you don't see it." Six boxes with one-time-code autofill; resend after 30 s; wrong / expired / too-many-tries messages.
 4. **About you** — first name, last name, class year; preview "Emilio G. · Class of 2029" with "This is how others see you."
 5. **Interests** — "What do you play?" Five sports, at least one.
@@ -521,7 +524,7 @@ Location is requested when the map first opens; if denied, the map centers on ca
 ### 7.6 Feature specs
 
 #### 7.6.1 Map (E4, E9)
-- Default view: your location if you're within ~15 km of Tec; otherwise (or with location off) the campus center (≈ 25.6514, −100.2895) with the "Turn on location" banner. The campus fallback is required: App Review is not in Monterrey. Recenter button sits right above the avatar. *(DEBUG builds can pin "you" at Tec with `-mockLocation YES`.)*
+- Default view: your location if you're within ~15 km of your campus; otherwise your campus's center (from `my_profile`; Tec ≈ 25.6514, −100.2895, and the demo campus for review accounts). The "Turn on location" banner shows when location is denied (N31). The campus fallback is required: App Review is not in Monterrey. Recenter button sits right above the avatar. *(DEBUG builds can pin "you" at Tec with `-mockLocation YES`.)*
 - Shows games that aren't cancelled, ended or full, start within 7 days, and whose host isn't blocked either way.
 - Pins: blue with sport emoji; "Soon" if starting within 60 min (2.0 adds "Now"). Selected pin grows with a halo; others dim.
 - Popup: a map callout above the selected pin that grows out of it, moves with the map and closes when the pin scrolls off screen. Host initials, title, "Basketball · Hosted by Alex G.", spots left, time, address, attendee avatars, bookmark; **Details** + **Join game** / **View game** / **Edit game**.
@@ -553,7 +556,7 @@ Location is requested when the map first opens; if denied, the map centers on ca
 - Join shows "You're in" immediately and rolls back if the server says the game filled: "Someone just took the last spot." If someone you blocked is going: "Someone you blocked is going."
 
 #### 7.6.5 Me (E12, E21)
-Card: initials, your full name, "Class of 2029 · Tec de Monterrey", "Verified student" badge (if O4 confirms staff don't share `@tec.mx`; otherwise "Tec verified"), interests. Going and Hosting lists with **Group chat · N new**; Past (last 14 days, collapsed) under Going; **Edit profile & interests** (first/last name ≤ 30, class year, ≥ 1 sport; preview "Emilio G. · Class of 2029"). Empty states "No games yet. Find one on the map." / "Host a game in under a minute."
+Card: initials, your full name, "Class of 2029 · Tec de Monterrey", "Verified student" badge (if O4 confirms staff don't share the student domain; otherwise "Tec verified"), interests. Going and Hosting lists with **Group chat · N new**; Past (last 14 days, collapsed) under Going; **Edit profile & interests** (first/last name ≤ 30, class year, ≥ 1 sport; preview "Emilio G. · Class of 2029"). Empty states "No games yet. Find one on the map." / "Host a game in under a minute."
 
 #### 7.6.6 Safety (E11 screens · B3/B8 backend)
 - **Who's going:** names, Host badge, "(you)", flag → Report / Block. "Only the masUNO team sees reports."
@@ -698,7 +701,9 @@ Defaults below apply unless signed off otherwise (§12, R7-4…R7-10). Arianna u
 ### 8.3 Schema
 
 ```sql
-universities (id uuid pk, name text, email_domain text unique,       -- 'tec.mx' (exact match)
+universities (id uuid pk, name text,                                 -- 'Tec de Monterrey'
+  short_name text,                                                    -- 'Tec', used in onboarding copy (N32)
+  email_domain text unique,                                           -- 'tec.mx' (exact match)
   student_email_pattern text null,                                    -- set if O4 finds staff share the domain
   center_lat float8, center_lng float8, timezone text,                -- 'America/Monterrey'
   signup_enabled bool default true, is_demo bool default false)       -- hidden App Review campus (C12)
@@ -741,7 +746,8 @@ reports (id uuid pk, reporter_id uuid null references profiles on delete set nul
   target_user_id uuid null, target_event_id uuid null, reason text, note text null,
   status text default 'open', created_at timestamptz default now(), resolved_at timestamptz null)
 app_config (key text pk, value jsonb)                                 -- min_supported_version, support_email, privacy_url
-auth_allowlist (email text pk, note text)                             -- App Review accounts
+auth_allowlist (email text pk, note text,                             -- App Review accounts
+  university_id uuid references universities)                         -- their campus (the demo campus)
 
 -- 2.0 (B13, B15):
 bookmarks (event_id, user_id, created_at, primary key (event_id, user_id))
@@ -753,14 +759,14 @@ notification_outbox (id bigserial pk, user_id uuid, kind text, event_id uuid, pa
   attempts int default 0, error text)
 ```
 
-**Read views (RLS applies, `security_invoker`):** `game_cards` (event + host first name/initial/class year + `going_count`, `spots_left`, `my_role`, `my_joined_at`, `has_blocked_attendee`, `auto_repost`, `reposted_at`, `sort_at = coalesce(reposted_at, created_at)` (the app orders by `sort_at desc`); 2.0 `is_bookmarked`), `game_attendees(event_id)` (excludes blocked people), `my_profile`. `game_activity` (N30) is an append-only table.
+**Read views (RLS applies, `security_invoker`):** `game_cards` (event + host first name/initial/class year + `going_count`, `spots_left`, `my_role`, `my_joined_at`, `has_blocked_attendee`, `auto_repost`, `reposted_at`, `sort_at = coalesce(reposted_at, created_at)` (the app orders by `sort_at desc`); 2.0 `is_bookmarked`), `game_attendees(event_id)` (excludes blocked people), `my_profile` (includes the campus's name, short name, domain and center), `open_universities` (campuses with `signup_enabled` and not `is_demo`; readable signed out, N32). `game_activity` (N30) is an append-only table.
 
 ### 8.4 Security, sign-in & email
 - **Policies:** `profiles` readable within your university except blocked pairs; `profile_private` own row only; `events`/`rsvps` readable within your university unless the host is a blocked pair; all writes through RPCs; `reports` insert-only via RPC; `universities`, `activities`, `app_config` read-only; `auth_allowlist` no client access. Helpers `is_active(uid)` and `is_blocked_pair(a, b)`.
-- **Auth hook (before user created):** allow only an active `universities.email_domain` with sign-up enabled (and `student_email_pattern` if set), or an `auth_allowlist` address. Otherwise "masUNO is just for Tec students right now." Deny by default — Supabase's sample allows unknown domains.
+- **Auth hook (before user created):** allow only an active `universities.email_domain` with sign-up enabled (and `student_email_pattern` if set), or an `auth_allowlist` address. Otherwise reject with `email_not_allowed`. Deny by default — Supabase's sample allows unknown domains.
 - **Email without a domain:** Supabase custom SMTP → `smtp.gmail.com:587` with the team Gmail and an app password (needs 2-step verification). Sender name "masUNO". Template: the 6-digit code in plain text, no links. Personal Gmail allows about **500 messages a day** — fine for the program; if we approach that, move to a domain + email provider (§13).
 - **Rate limits:** raise auth emails/hour from the custom-SMTP default of 30 to ~100 (well under Gmail's daily cap); keep 60 s between codes per user.
-- **App Review accounts:** two Gmail aliases (e.g. `masunoapp+review1@gmail.com`) in `auth_allowlist` with passwords, attached to the demo campus.
+- **App Review accounts:** two Gmail aliases (e.g. `masunoapp+review1@gmail.com`) in `auth_allowlist` with passwords, attached to the demo campus through `auth_allowlist.university_id`.
 
 ### 8.5 API contract (frozen Fri Nov 6 in `docs/API.md`)
 
@@ -768,8 +774,8 @@ notification_outbox (id bigserial pk, user_id uuid, kind text, event_id uuid, pa
 
 | RPC | Purpose | Errors |
 | --- | --- | --- |
-| `sign_in_method(email) → text` | `'otp'` or `'password'` (anonymous; reads the allowlist only) | — |
-| `complete_profile(first, last, grad_year, interests[], locale)` | Create/update profile | `invalid_text`, `invalid_input` |
+| `sign_in_method(email) → text` | `'otp'`, `'password'` or `'not_allowed'` (anonymous; reads the allowlist and open campuses) | — |
+| `complete_profile(first, last, grad_year, interests[], locale)` | Create/update profile; sets the campus on creation, from the email domain or `auth_allowlist.university_id` | `invalid_text`, `invalid_input` |
 | `accept_guidelines()` | Record agreement | — |
 | `create_game(…, auto_repost)` | Validate sport, 7-day window, limit, text; insert game + host | `invalid_time`, `invalid_text`, `limit_reached`, `invalid_input` |
 | `update_game(id, …, auto_repost)` | Host only; players ≥ going; record material changes; if capacity rises on a full game and `auto_repost`, set `reposted_at` | `not_found`, `not_allowed`, `cancelled`, `ended`, `capacity_below_going`, `invalid_time`, `invalid_text` |
@@ -804,6 +810,17 @@ Your phone's location never leaves the phone. Email stays in Supabase Auth and i
 ### 8.9 Metrics (B17; counted by hand for DD2)
 `metrics_daily` (dashboard only): sign-ups, finished onboarding, games created, joins, unique joiners, games that filled, repeat hosts, reports. Plus App Store Connect for TestFlight testers and downloads. Ricardo turns these into demo-day numbers (O10).
 
+### 8.10 Changing or adding a campus (N32)
+
+masUNO launches at Tec. To open somewhere else, no app release is needed:
+
+1. **Emilio:** insert the `universities` row (name, short name, email domain, center, timezone), plus `student_email_pattern` if staff share the domain. Seed its venues.
+2. **Emilio:** set `signup_enabled = true` on it. To close Tec, set it to `false` on Tec's row. Existing Tec accounts keep working; only new sign-ups stop.
+3. **Ricardo:** confirm the email format and test codes on real inboxes there (as in O4; school mail servers differ, K4).
+4. **Ricardo + Arianna:** update what lives outside the app: Privacy & Terms and Support pages, App Store listing and screenshots, beta recruiting.
+
+With one campus open, onboarding names it. With several, it says "school email", and each person's games stay scoped to their own campus by RLS. A person's campus is set when their profile is created, and there's no moving between campuses.
+
 ---
 
 ## 9. Testing
@@ -830,9 +847,9 @@ Your phone's location never leaves the phone. Email stays in Supabase Auth and i
 ### 10.2 Privacy & Terms — one page (O6 copy → D4 page)
 Plain language, at `masuno-app.github.io/privacy`, linked from onboarding, Settings and App Store Connect. Not legal advice; keep it true to what the app does — Emilio checks every data claim.
 1. **Who we are** — a student project in the App Accelerator; contact: team Gmail.
-2. **What we collect** — Tec email (sign-in only, never shown), name (others see first name + last initial), class year, sports you like, games you host or join, reports and blocks you make, (2.0) a notification token.
+2. **What we collect** — school email (sign-in only, never shown), name (others see first name + last initial), class year, sports you like, games you host or join, reports and blocks you make, (2.0) a notification token.
 3. **What we don't** — your phone's location never leaves your phone; no ads, no selling data, no tracking.
-4. **Who sees what** — other Tec students see your first name, last initial, class year and the games you're in; only the masUNO team sees reports.
+4. **Who sees what** — other students at your campus see your first name, last initial, class year and the games you're in; only the masUNO team sees reports.
 5. **Deletion** — delete your account in Settings and your data is removed right away (reports stay, without your name).
 6. **Rules** — be respectful, no harassment or hate, no spam; we can remove content and suspend accounts; you play at your own risk and are responsible for your own safety at games.
 7. **Changes** — we'll update this page and the date at the top.
@@ -843,7 +860,7 @@ Plain language, at `masuno-app.github.io/privacy`, linked from onboarding, Setti
 
 ### 10.4 App Review checklist (green before Sun Nov 8, again before each later submission)
 - [ ] Review accounts in the notes; password sign-in works; demo campus shows joinable games; notes explain why reviewers can't use email codes.
-- [ ] Notes explain: Tec-email-only sign-in (why there's no Sign in with Apple), the demo campus, how to report and block, that reports are handled within 24 h.
+- [ ] Notes explain: school-email-only sign-in (why there's no Sign in with Apple), the demo campus, how to report and block, that reports are handled within 24 h.
 - [ ] Guidelines agreed before use; text filter; report person and game; block works instantly; Blocked people undo.
 - [ ] Contact us in the app (team Gmail) and support URL (website) in App Store Connect.
 - [ ] Privacy & Terms URL in the app (**the Settings row opens it — no "Coming soon"**) and in App Store Connect; privacy label answered.
@@ -853,7 +870,7 @@ Plain language, at `masuno-app.github.io/privacy`, linked from onboarding, Setti
 - [ ] App icon in the asset catalog.
 - [ ] Location purpose string explains the use; (2.0) notifications asked in context.
 - [ ] Age-rating questionnaire answered (user-generated content; messaging only if B20 shipped).
-- [ ] Map lands on the campus (demo campus for review accounts) for someone far from Monterrey.
+- [ ] Map lands on the demo campus for review accounts far from any campus.
 - [ ] Exact submitted build tested on a physical phone.
 
 ### 10.5 Release steps
@@ -901,6 +918,7 @@ Alert in team chat → on-call person (Ricardo or Arianna) checks the report in 
 | K14 | Reviewers far from Monterrey see an empty map | High without fallback | High | Campus fallback (§7.6.1) + demo campus with auto-refreshed games (C12); remove the mock location (E9/E14) | Ethan, Emilio |
 | K15 | Rushed RC ships a crash or a mock leftover | Medium | High | Known leftovers listed in N27 / E14; DEBUG-only tools; two-phone QA Sun Nov 8 | Ethan, Arianna |
 | K16 | **2.0 UI quietly undoes privacy or scope decisions** (interests on Who's going, calendar-sync and name-visibility rows) | Medium | Medium | §7.7.6 defaults; D12 updates the Figma by Nov 11; Privacy page changes before any data becomes visible | Arianna, Ricardo, Emilio |
+| K18 | **Tec doesn't work out as the launch campus** (no traction, email problems, end of semester) | Medium | High | Campus is data, not code (N32); the move is a server change plus the non-app steps in §8.10 | Ricardo, Emilio |
 | K17 | **Status drift**: Trello says done when the repo doesn't (E1), or shows no progress when work happened | High | Medium | Trello update at each go/no-go; "Done" means the "Done when" check passes in the repo (§6) | Everyone |
 
 ---
@@ -921,6 +939,7 @@ Alert in team chat → on-call person (Ricardo or Arianna) checks the report in 
 | R7-8 | No mic glyph in 2.0 search | Approve |
 | R7-9 | App language follows the phone from 2.0; English stays the development language | Approve |
 | R7-10 | SF Pro Rounded in the app; Nunito in Figma and on the web | Approve (Arianna) |
+| R7-11 | N32 — launch at Tec, but keep the campus as data so it can change without a release | Decided (Ethan, Nov 6); Emilio confirms the contract |
 
 ### Rev. 6 (Nov 3)
 

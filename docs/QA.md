@@ -9,8 +9,8 @@ Before you start: delete the app from both phones, turn location on, and note th
 ## 1. Sign-in and onboarding
 
 - [ ] Fresh install → welcome → Continue. Privacy & Terms opens the real page.
-- [ ] A non-Tec email shows "masUNO is just for Tec students right now."
-- [ ] A Tec email gets a code within a minute. Check Junk and note if it landed there.
+- [ ] An email from another school shows "masUNO is just for Tec students right now." (with the launch campus's name)
+- [ ] A launch-campus email gets a code within a minute. Check Junk and note if it landed there.
 - [ ] A wrong code shows an error and clears the boxes. Resend is disabled for 30 s.
 - [ ] Name, class year and at least one sport are required. A rude name shows "Please keep it friendly."
 - [ ] Agreeing to the guidelines lands on the map, in under 2 minutes from install.
@@ -73,7 +73,7 @@ Before you start: delete the app from both phones, turn location on, and note th
 - [ ] **Airplane mode:** on the map, in Me and on an unopened game. No blank or endlessly spinning screen; retry works once back online.
 - [ ] **Failed actions in airplane mode:** Join and Leave undo themselves with a short message.
 - [ ] **Location denied:** the map stays on campus with the "Turn on location" banner, which opens iOS Settings.
-- [ ] **Far from Monterrey:** the map lands on campus, or the demo campus for a review account.
+- [ ] **Far from campus:** the map lands on your campus, or the demo campus for a review account.
 - [ ] Largest text size and the smallest phone available: nothing is cut off on the core screens.
 
 ## 10. Release checks

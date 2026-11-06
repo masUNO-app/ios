@@ -62,7 +62,7 @@ final class EventDetailViewModel {
         Task { await store.cancelGame(eventID) }
     }
 
-    /// "Join me for After-work hoops — Today · 7:35 PM at Tec basketball courts. 4 spots left on masUNO:"
+    /// "Join me for After-work hoops — Today · 7:35 PM at Estadio Borregos. 4 spots left on masUNO:"
     func inviteMessage(for event: Game) -> String {
         String(localized: "Join me for \(event.title) — \(EventFormat.dayAndTime(event.startsAt)) at \(event.place.name). \(event.spotsLine) on masUNO:")
     }

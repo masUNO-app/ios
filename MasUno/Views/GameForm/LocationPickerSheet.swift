@@ -8,9 +8,9 @@ struct LocationPickerSheet: View {
     @State private var viewModel: LocationPickerViewModel
     @FocusState private var isSearchFocused: Bool
 
-    init(place: Binding<Place?>) {
+    init(place: Binding<Place?>, campus: University?) {
         _place = place
-        _viewModel = State(initialValue: LocationPickerViewModel(current: place.wrappedValue))
+        _viewModel = State(initialValue: LocationPickerViewModel(current: place.wrappedValue, campus: campus))
     }
 
     var body: some View {

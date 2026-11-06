@@ -4,7 +4,23 @@ import Foundation
 /// Monterrey mock data: one game in each Event detail state, with times relative to `now`.
 /// Places are approximate placeholders until Ricardo's venue list (O5).
 enum MockFixtures {
-    static let universityName = "Tec de Monterrey"
+    static let tec = University(
+        id: UUID(uuidString: "00000000-0000-0000-0000-00000000B001")!,
+        name: "Tec de Monterrey", shortName: "Tec", emailDomain: "tec.mx",
+        centerLatitude: 25.6514, centerLongitude: -100.2895
+    )
+    /// Any other campus, to prove nothing is tied to Tec.
+    static let otherCampus = University(
+        id: UUID(uuidString: "00000000-0000-0000-0000-00000000B002")!,
+        name: "UANL", shortName: "UANL", emailDomain: "uanl.edu.mx",
+        centerLatitude: 25.7260, centerLongitude: -100.3120
+    )
+    /// Hidden App Review campus (C12): not listed as open, but review accounts land here.
+    static let demoCampus = University(
+        id: UUID(uuidString: "00000000-0000-0000-0000-00000000B003")!,
+        name: "masUNO Demo", shortName: "Demo", emailDomain: "demo.masuno.invalid",
+        centerLatitude: 25.6600, centerLongitude: -100.3000
+    )
     static let reviewEmail = "masunoapp+review1@gmail.com"
     static let reviewPassword = "review-password"
 
@@ -56,7 +72,7 @@ enum MockFixtures {
     static func world(now: Date) -> World {
         let me = Profile(
             id: UUID(uuidString: "00000000-0000-0000-0000-000000000099")!,
-            firstName: "Emilio", lastName: "Garza", gradYear: 2029, universityName: universityName,
+            firstName: "Emilio", lastName: "Garza", gradYear: 2029, university: tec,
             interests: [activity("basketball"), activity("soccer"), activity("tennis")]
         )
         let all = [alex, priya, diego, sam, maya, ricardo, nina]

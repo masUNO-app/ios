@@ -53,7 +53,7 @@ nonisolated enum DomainError: Error, Hashable, Sendable {
         case .invalidInput: String(localized: "Check the details and try again.")
         case .notAuthenticated: String(localized: "Please sign in again.")
         case .suspended: String(localized: "Your account is suspended")
-        case .emailNotAllowed: String(localized: "masUNO is just for Tec students right now. Use your @tec.mx email.")
+        case .emailNotAllowed: String(localized: "masUNO isn't open at your school yet.")
         case .codeInvalid: String(localized: "That code didn't work. Check the email and try again.")
         case .codeExpired: String(localized: "That code expired. Send a new one.")
         case .tooManyAttempts: String(localized: "Too many tries. Wait a minute and try again.")

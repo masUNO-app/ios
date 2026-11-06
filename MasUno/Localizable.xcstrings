@@ -10,6 +10,9 @@
     "%@ created the chat" : {
 
     },
+    "%@ email" : {
+
+    },
     "%@ joined" : {
 
     },
@@ -147,9 +150,6 @@
     "1 spot left" : {
 
     },
-    "a01234567@tec.mx" : {
-
-    },
     "About" : {
 
     },
@@ -282,7 +282,10 @@
     "Continue" : {
 
     },
-    "Continue with your Tec email" : {
+    "Continue with your %@ email" : {
+
+    },
+    "Continue with your school email" : {
 
     },
     "Couldn't find that place. Try another search." : {
@@ -487,7 +490,17 @@
     "Map" : {
 
     },
-    "masUNO is just for Tec students right now. Use your @tec.mx email." : {
+    "masUNO is just for %@ students right now. Use your @%@ email." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "masUNO is just for %1$@ students right now. Use your @%2$@ email."
+          }
+        }
+      }
+    },
+    "masUNO isn't open at your school yet." : {
 
     },
     "masUNO works because people show up and play fair." : {
@@ -581,7 +594,10 @@
     "Pick where the game is." : {
 
     },
-    "Pickup games around Tec, one or two players short — and looking for you." : {
+    "Pickup games around %@, one or two players short — and looking for you." : {
+
+    },
+    "Pickup games around campus, one or two players short — and looking for you." : {
 
     },
     "Pinned at the top of the chat so nobody has to ask." : {
@@ -645,6 +661,9 @@
 
     },
     "Saved games" : {
+
+    },
+    "School email" : {
 
     },
     "Search" : {
@@ -734,9 +753,6 @@
 
     },
     "Tap the flag next to someone to report or block them. Only the masUNO team sees reports." : {
-
-    },
-    "Tec email" : {
 
     },
     "Thanks — we'll review this within 24 hours." : {
@@ -836,7 +852,10 @@
     "What's wrong?" : {
 
     },
-    "What's your Tec email?" : {
+    "What's your %@ email?" : {
+
+    },
+    "What's your school email?" : {
 
     },
     "Where to meet" : {

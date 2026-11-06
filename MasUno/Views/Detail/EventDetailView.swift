@@ -254,7 +254,7 @@ struct EventDetailView: View {
         }
     }
 
-    /// The friend signs in with their own Tec email. Hidden until `AppConfig.appStoreID` is set.
+    /// The friend signs in with their own school email. Hidden until `AppConfig.appStoreID` is set.
     @ViewBuilder
     private func inviteLink(_ event: Game) -> some View {
         if let url = AppConfig.inviteURL {

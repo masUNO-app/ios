@@ -21,7 +21,7 @@ final class MeViewModel {
     }
 
     func classLine(for profile: Profile) -> String {
-        String(localized: "Class of \(String(profile.gradYear)) · \(profile.universityName)")
+        String(localized: "Class of \(String(profile.gradYear)) · \(profile.university.name)")
     }
 
     func leave(_ game: Game, in store: GameStore) {

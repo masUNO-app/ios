@@ -40,5 +40,6 @@ final class UnavailableBackend: AuthService, GameRepository, ProfileRepository, 
 
     func fetchAppConfig() async throws -> AppConfig { throw DomainError.offline }
     func fetchActivities() async throws -> [Activity] { throw DomainError.offline }
+    func fetchOpenUniversities() async throws -> [University] { throw DomainError.offline }
 }
 #endif

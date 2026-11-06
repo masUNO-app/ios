@@ -62,7 +62,12 @@ The version gate runs before sign-in, so these need a read policy for `anon`, no
 | Table | Columns | Swift |
 | --- | --- | --- |
 | `app_config` | `key`, `value jsonb`; keys `min_supported_version`, `support_email`, `privacy_url` | `AppConfig` |
+| `open_universities` | see below | `University` |
 | `activities` | `slug`, `kind`, `label_en`, `label_es`, `emoji`, `sort_order`, `postable`, `interest_selectable`, `active` | `Activity` |
+
+`open_universities` is a view: campuses with `signup_enabled` and not `is_demo`. Columns: `id`, `name`,
+`short_name`, `email_domain`, `center_lat`, `center_lng` → `University`. This is how the launch campus stays
+data (SPEC §8.10). With exactly one row, onboarding names that campus; otherwise the copy stays generic.
 
 `activities` is seeded with the slugs `basketball`, `tennis`, `soccer`, `volleyball`, `padel`,
 which `Activity.builtIn` repeats as the offline fallback.
@@ -119,7 +124,9 @@ account or a blocked pair. `kind` is one of `created`, `joined`, `left`, `meet_p
 ### `my_profile` → `Profile`
 
 Your own row, or none until `complete_profile` has run: `id`, `first_name`, `last_name`, `grad_year`,
-`university_name`, `interests text[]`, `guidelines_accepted_at?`, `banned_at?`. `AuthService` uses the
+`university_id`, `university_name`, `university_short_name`, `university_email_domain`, `center_lat`,
+`center_lng` (→ `Profile.university`; the map opens here, so review accounts land on the demo campus),
+`interests text[]`, `guidelines_accepted_at?`, `banned_at?`. `AuthService` uses the
 last two to choose between `.needsGuidelines`, `.suspended` and `.signedIn`.
 
 ## RPCs
@@ -128,7 +135,7 @@ Game writes return the updated `game_cards` row, so the app never needs a second
 
 | RPC | Returns | Errors |
 | --- | --- | --- |
-| `sign_in_method(p_email text)` | `text`: `otp` or `password`. Anonymous. | — |
+| `sign_in_method(p_email text)` | `text`: `otp`, `password` or `not_allowed`. Anonymous. | — |
 | `complete_profile(p_first_name text, p_last_name text, p_grad_year int, p_interests text[], p_locale text)` | `my_profile` | `invalid_text`, `invalid_input` |
 | `accept_guidelines()` | `void` | — |
 | `create_game(p_activity_slug text, p_title text, p_starts_at timestamptz, p_duration_minutes int, p_capacity int, p_notes text, p_place_name text, p_place_address text, p_lat float8, p_lng float8, p_meet_point text, p_auto_repost bool)` | `game_cards` | `invalid_time`, `invalid_text`, `limit_reached`, `invalid_input` |
@@ -142,6 +149,11 @@ Game writes return the updated `game_cards` row, so the app never needs a second
 
 Rules the signatures don't show:
 
+- **`sign_in_method`** returns `password` for an `auth_allowlist` address, `otp` for an exact match on an open
+  campus's `email_domain` (and `student_email_pattern` if set), and otherwise `not_allowed`. The app has no
+  domain list of its own. `AuthService` turns `not_allowed` into `.emailNotAllowed`.
+- **`complete_profile`** sets the campus only when it creates the profile: from the email's domain, or from
+  `auth_allowlist.university_id` for a review account. Edits never change it.
 - **`update_game`** checks the time window only when `p_starts_at` changes, so a host can still fix
   the meet-up spot once a game has started. It sets `material_change_at` when the time, place or
   meet-up spot changes. If a full game gains a spot and `auto_repost` is on, it sets `reposted_at`.
@@ -156,8 +168,8 @@ Rules the signatures don't show:
 
 ## Sign-in
 
-1. `sign_in_method(email)` comes first, because review accounts are Gmail aliases. `password` shows the
-   password field. For `otp`, the app checks for `@tec.mx`, then sends the code.
+1. `sign_in_method(email)` comes first. `password` shows the password field, `otp` sends the code, and
+   `not_allowed` shows the error. Review accounts are Gmail aliases, so the server has to make this call.
 2. Code: `auth.signInWithOTP(email)`, then `auth.verifyOTP(email, token, type: .email)`.
 3. Password: `auth.signInWithPassword(email, password)`.
 4. Next step from `my_profile`: no row → `.needsProfile`; `guidelines_accepted_at` null →
@@ -183,6 +195,6 @@ Choices that go beyond the rev. 7 spec. The Swift side and the mocks already ass
    `update_game`, `cancel_game` and `leave_game`. Rev. 7 didn't list a code for these cases.
 5. **New `game_cards` columns:** `host_grad_year` and `sort_at`.
 6. **`app_config` and `activities` are readable by `anon`**, for the version gate.
-7. **Review accounts:** `auth_allowlist` has no way to attach an account to the demo campus, and
-   `complete_profile` can't derive a university from a Gmail address. Your call how to solve it (for
-   example a `university_id` column on the allowlist); the app doesn't depend on the answer.
+7. **The launch campus is data (SPEC §8.10, N32):** new `universities.short_name`, new `open_universities` view
+   (readable by `anon`), and the campus fields on `my_profile`. `sign_in_method` gains `not_allowed`.
+8. **`auth_allowlist.university_id`**, so `complete_profile` can place review accounts on the demo campus.

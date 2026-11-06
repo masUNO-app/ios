@@ -97,7 +97,7 @@ struct MeView: View {
                     Text(viewModel.classLine(for: profile))
                         .font(.subheadline)
                         .foregroundStyle(Theme.muted)
-                    // "Tec verified" if O4 finds staff share the @tec.mx domain.
+                    // O4: "Tec verified" if staff turn out to share the student domain.
                     StatusChip(String(localized: "Verified student"), systemImage: "checkmark.seal.fill")
                 }
             }

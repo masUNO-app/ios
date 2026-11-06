@@ -308,10 +308,79 @@ struct MockAuthTests {
     }
 }
 
+@MainActor
 struct CampusTests {
-    @Test func campusFallbackIsFifteenKilometers() {
-        #expect(Campus.isNearby(Campus.center))
-        #expect(Campus.isNearby(.init(latitude: 25.72, longitude: -100.31))) // north Monterrey, ~8 km
-        #expect(!Campus.isNearby(.init(latitude: 37.33, longitude: -122.01))) // Cupertino: App Review
+    @Test func mapFallbackIsFifteenKilometersFromYourCampus() {
+        let tec = MockFixtures.tec
+        #expect(tec.isNearby(tec.center))
+        #expect(tec.isNearby(.init(latitude: 25.72, longitude: -100.31))) // north Monterrey, ~8 km
+        #expect(!tec.isNearby(.init(latitude: 37.33, longitude: -122.01))) // Cupertino: App Review
+    }
+
+    @Test func launchCampusIsData() async throws {
+        let auth = MockBackend(state: .signedOut(email: nil))
+        #expect(try await auth.signInMethod(for: "a0123@tec.mx") == .otp)
+        await #expect(throws: DomainError.emailNotAllowed) { try await auth.signInMethod(for: "a@uanl.edu.mx") }
+
+        // Tec doesn't work out: the campus changes on the server, with no app change.
+        auth.openUniversities = [MockFixtures.otherCampus]
+        await #expect(throws: DomainError.emailNotAllowed) { try await auth.signInMethod(for: "a0123@tec.mx") }
+        #expect(try await auth.signInMethod(for: "a@uanl.edu.mx") == .otp)
+
+        try await auth.sendCode(to: "a@uanl.edu.mx")
+        try await auth.verifyCode("123456", email: "a@uanl.edu.mx")
+        try await auth.completeProfile(ProfileInput(
+            firstName: "Ana", lastName: "Solis", gradYear: 2028, interests: [MockFixtures.activity("soccer")]
+        ))
+        #expect(try await auth.fetchMyProfile()?.university == MockFixtures.otherCampus)
+    }
+
+    @Test func domainMatchIsExact() async {
+        let auth = MockBackend(state: .signedOut(email: nil))
+        await #expect(throws: DomainError.emailNotAllowed) { try await auth.signInMethod(for: "a@mail.tec.mx") }
+        await #expect(throws: DomainError.emailNotAllowed) { try await auth.signInMethod(for: "tec.mx") }
+    }
+
+    @Test func reviewAccountLandsOnTheDemoCampus() async throws {
+        let auth = MockBackend(state: .signedOut(email: nil))
+        try await auth.signIn(email: MockFixtures.reviewEmail, password: MockFixtures.reviewPassword)
+        #expect(try await auth.fetchMyProfile()?.university == MockFixtures.demoCampus)
+        #expect(try await auth.fetchOpenUniversities() == [MockFixtures.tec])
+    }
+
+    @Test func onboardingCopyFollowsTheCampus() async {
+        let auth = MockBackend(state: .signedOut(email: nil))
+        let other = OnboardingViewModel(auth: auth, campus: MockFixtures.otherCampus)
+        #expect(other.emailPlaceholder == "you@uanl.edu.mx")
+        other.email = "someone@gmail.com"
+        await other.submitEmail()
+        #expect(other.emailError == "masUNO is just for UANL students right now. Use your @uanl.edu.mx email.")
+
+        let generic = OnboardingViewModel(auth: auth)
+        generic.email = "someone@gmail.com"
+        await generic.submitEmail()
+        #expect(generic.emailError == "masUNO isn't open at your school yet.")
+    }
+
+    @Test func maskedEmailKeepsTheRealDomain() {
+        let auth = MockBackend(state: .signedOut(email: nil))
+        let model = OnboardingViewModel(auth: auth)
+        model.email = "a01234567@uanl.edu.mx"
+        #expect(model.maskedEmail == "a0…@uanl.edu.mx")
+    }
+
+    @Test func storeRemembersTheCampusForOfflineLaunches() async {
+        let backend = MockBackend()
+        let defaults = UserDefaults(suiteName: "CampusTests.\(UUID().uuidString)")!
+        let first = GameStore(games: backend, profiles: backend, safety: backend, catalog: backend, defaults: defaults)
+        await first.load()
+        #expect(first.campus == MockFixtures.tec)
+
+        let offline = GameStore(games: backend, profiles: backend, safety: backend, catalog: backend, defaults: defaults)
+        #expect(offline.campus == MockFixtures.tec)
+
+        offline.reset()
+        let afterSignOut = GameStore(games: backend, profiles: backend, safety: backend, catalog: backend, defaults: defaults)
+        #expect(afterSignOut.campus == nil)
     }
 }

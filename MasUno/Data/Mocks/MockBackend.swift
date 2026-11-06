@@ -18,6 +18,8 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
     var latency: Duration = .zero
     /// The clock the rules use. Tests set this to step past a game's end.
     var now: Date
+    /// Campuses taking sign-ups. Change this to launch somewhere else.
+    var openUniversities = [MockFixtures.tec]
     /// `-raceJoin YES`: the next join waits a second, then loses the last spot to someone else.
     var losesNextJoinRace = false
 
@@ -27,6 +29,8 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
     private var people: [UUID: PersonSummary]
     private var blockedIDs: [UUID] = []
     private var isSuspended = false
+    /// The campus the email signing in belongs to.
+    private var signInCampus = MockFixtures.tec
 
     /// `state` defaults to signed in with the Monterrey fixtures. Pass `.signedOut(email: nil)`
     /// to preview onboarding: the new account then has no profile until `completeProfile`.
@@ -82,12 +86,15 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
 
     func signInMethod(for email: String) async throws -> SignInMethod {
         try await begin()
-        return email.lowercased() == MockFixtures.reviewEmail ? .password : .otp
+        if email.lowercased() == MockFixtures.reviewEmail { return .password }
+        guard campus(for: email) != nil else { throw DomainError.emailNotAllowed }
+        return .otp
     }
 
     func sendCode(to email: String) async throws {
         try await begin()
-        guard email.lowercased().hasSuffix("@tec.mx") else { throw DomainError.emailNotAllowed }
+        guard let campus = campus(for: email) else { throw DomainError.emailNotAllowed }
+        signInCampus = campus
     }
 
     /// Any six digits work, except `000000` (wrong) and `111111` (expired).
@@ -105,7 +112,9 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         guard email.lowercased() == MockFixtures.reviewEmail, password == MockFixtures.reviewPassword else {
             throw DomainError.invalidCredentials
         }
-        profile = MockFixtures.world(now: now).me
+        var review = MockFixtures.world(now: now).me
+        review.university = MockFixtures.demoCampus
+        profile = review
         state = .signedIn(userID: me.id)
     }
 
@@ -337,7 +346,18 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         return Activity.builtIn
     }
 
+    func fetchOpenUniversities() async throws -> [University] {
+        try await begin()
+        return openUniversities
+    }
+
     // MARK: Rules
+
+    /// Exact domain match, like the auth hook: `@tec.mx`, not `@mail.tec.mx`.
+    private func campus(for email: String) -> University? {
+        let domain = email.lowercased().split(separator: "@", maxSplits: 1).last.map(String.init)
+        return email.contains("@") ? openUniversities.first { $0.emailDomain == domain } : nil
+    }
 
     /// What RLS lets you read: nothing hosted by someone you blocked.
     private var visibleGames: [Game] {
@@ -390,7 +410,7 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         guard TextFilter.isFriendly(first), TextFilter.isFriendly(last) else { throw DomainError.invalidText }
         return Profile(
             id: me.id, firstName: first, lastName: last, gradYear: input.gradYear,
-            universityName: MockFixtures.universityName, interests: input.interests
+            university: profile?.university ?? signInCampus, interests: input.interests
         )
     }
 

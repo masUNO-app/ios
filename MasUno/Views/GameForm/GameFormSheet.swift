@@ -48,7 +48,7 @@ struct GameFormSheet: View {
         .presentationDragIndicator(.visible)
         .presentationBackground(Theme.background)
         .sheet(isPresented: $picksLocation) {
-            LocationPickerSheet(place: $viewModel.place)
+            LocationPickerSheet(place: $viewModel.place, campus: store.campus)
         }
         .alert(
             Text("Cancel \(viewModel.editing?.title ?? "")?"),
@@ -195,7 +195,9 @@ struct GameFormSheet: View {
 
         return FieldBox(nil) {
             HStack(spacing: 14) {
-                MapThumbnail(coordinate: viewModel.place?.coordinate ?? Campus.center)
+                if let coordinate = viewModel.place?.coordinate ?? store.campus?.center {
+                    MapThumbnail(coordinate: coordinate)
+                }
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Location").font(.caption).foregroundStyle(Theme.muted)
