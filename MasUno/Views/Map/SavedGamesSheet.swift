@@ -2,16 +2,16 @@ import SwiftUI
 
 /// Saved games, from the bookmark button on the map (E17).
 struct SavedGamesSheet: View {
-    @Environment(EventStore.self) private var store
+    @Environment(GameStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     /// Opens a game's detail from the list.
-    var onOpen: (SportsEvent.ID) -> Void
+    var onOpen: (UUID) -> Void
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 12) {
-                    if store.bookmarkedEvents.isEmpty {
+                    if store.savedGames().isEmpty {
                         ContentUnavailableView(
                             "No saved games",
                             systemImage: "bookmark",
@@ -19,7 +19,7 @@ struct SavedGamesSheet: View {
                         )
                         .padding(.top, 48)
                     }
-                    ForEach(store.bookmarkedEvents) { event in
+                    ForEach(store.savedGames()) { event in
                         Button {
                             dismiss()
                             onOpen(event.id)

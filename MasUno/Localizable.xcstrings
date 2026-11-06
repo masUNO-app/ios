@@ -4,15 +4,17 @@
     "" : {
 
     },
-    "%@ · %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$@ · %2$@"
-          }
-        }
-      }
+    "%@ can see you joined. Check where to meet and who's going." : {
+
+    },
+    "%@ created the chat" : {
+
+    },
+    "%@ joined" : {
+
+    },
+    "%@ left · a spot opened" : {
+
     },
     "%@ · Class of %@" : {
       "localizations" : {
@@ -20,16 +22,6 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "%1$@ · Class of %2$@"
-          }
-        }
-      }
-    },
-    "%@ · Host · %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$@ · Host · %2$@"
           }
         }
       }
@@ -66,9 +58,6 @@
           }
         }
       }
-    },
-    "%@ can see you joined. Say hi in the group chat so people know to wait for you." : {
-
     },
     "%@ cancelled this game" : {
 
@@ -158,9 +147,6 @@
     "1 spot left" : {
 
     },
-    "A spot opened in %@ — it's back at the top of the map." : {
-
-    },
     "a01234567@tec.mx" : {
 
     },
@@ -207,9 +193,6 @@
 
     },
     "Auto-repost on" : {
-
-    },
-    "Basketball" : {
 
     },
     "Be respectful. No harassment, hate or slurs." : {
@@ -389,10 +372,10 @@
     "First name" : {
 
     },
-    "For now, the meet-up spot and who's going are pinned here." : {
+    "Full" : {
 
     },
-    "Full" : {
+    "Game cancelled · Chat closed" : {
 
     },
     "Game cancelled. We let everyone going know." : {
@@ -419,9 +402,6 @@
 
     },
     "Group chat" : {
-
-    },
-    "Group chat · %lld new" : {
 
     },
     "Harassment or hate" : {
@@ -526,9 +506,6 @@
     "Meet-up spot: %@" : {
 
     },
-    "Messages are coming soon" : {
-
-    },
     "More" : {
 
     },
@@ -577,7 +554,7 @@
     "Open in Maps" : {
 
     },
-    "Padel" : {
+    "Password" : {
 
     },
     "Past · %lld" : {
@@ -590,6 +567,9 @@
 
     },
     "Pick at least one. Only you see your interests." : {
+
+    },
+    "Pick where the game is." : {
 
     },
     "Pickup games around Tec, one or two players short — and looking for you." : {
@@ -662,9 +642,6 @@
     "Search games" : {
 
     },
-    "Send" : {
-
-    },
     "Send code" : {
 
     },
@@ -683,10 +660,13 @@
     "Show my location" : {
 
     },
+    "Sign in" : {
+
+    },
     "Sign out" : {
 
     },
-    "Soccer" : {
+    "Someone" : {
 
     },
     "Someone just took the last spot." : {
@@ -741,9 +721,6 @@
     "Tec email" : {
 
     },
-    "Tennis" : {
-
-    },
     "Thanks — we'll review this within 24 hours." : {
 
     },
@@ -775,6 +752,9 @@
 
     },
     "This version is no longer supported. Update to keep finding games." : {
+
+    },
+    "Time or place changed" : {
 
     },
     "To change the date, time or location, edit the game from Me › Hosting." : {
@@ -811,9 +791,6 @@
 
     },
     "View game" : {
-
-    },
-    "Volleyball" : {
 
     },
     "We sent a 6-digit code to %@. It comes from masunoapp@gmail.com — check Junk if you don't see it." : {

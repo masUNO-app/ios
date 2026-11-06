@@ -1,6 +1,6 @@
 import Foundation
 
-/// Values from the `app_config` table (SPEC §8.3). Mocked until the live repositories land (B7).
+/// Values from the `app_config` table (SPEC §8.3).
 struct AppConfig: Hashable {
     /// Older builds see "Update masUNO" (E3).
     var minSupportedVersion: String
@@ -8,7 +8,8 @@ struct AppConfig: Hashable {
     /// Privacy & Terms page — set once Arianna's website pages are up (D4).
     var privacyURL: URL?
 
-    static let mock = AppConfig(minSupportedVersion: "0.1", supportEmail: "masunoapp@gmail.com", privacyURL: nil)
+    /// Used until the real values load, and if they can't.
+    static let fallback = AppConfig(minSupportedVersion: "0.1", supportEmail: "masunoapp@gmail.com", privacyURL: nil)
 
     /// App Store search, until the listing has an ID to link to directly.
     static let appStoreURL = URL(string: "itms-apps://search.itunes.apple.com/WebObjects/MZSearch.woa/wa/search?media=software&term=masUNO")!

@@ -2,15 +2,15 @@ import SwiftUI
 
 /// Figma: "Popup" (341:2046) — opens from a pin on the map.
 struct EventPopup: View {
-    @Environment(EventStore.self) private var store
+    @Environment(GameStore.self) private var store
     @Environment(AppViewModel.self) private var appViewModel
-    var event: SportsEvent
+    var event: Game
     var viewModel: EventMapViewModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 12) {
-                Avatar(name: event.host, size: 48)
+                Avatar(name: event.host.displayName, size: 48)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(event.title)
                         .font(.title3.bold())
@@ -29,11 +29,12 @@ struct EventPopup: View {
             }
 
             VStack(alignment: .leading, spacing: 6) {
-                Label("\(EventFormat.dayAndTime(event.start)) · starts in \(EventFormat.countdown(to: event.start))", systemImage: "clock")
-                Label(event.venue.name, systemImage: "mappin.and.ellipse")
+                Label("\(EventFormat.dayAndTime(event.startsAt)) · starts in \(EventFormat.countdown(to: event.startsAt))", systemImage: "clock")
+                Label(event.place.name, systemImage: "mappin.and.ellipse")
                 HStack(spacing: 8) {
-                    AvatarStack(names: store.visibleAttendees(of: event), size: 22)
-                    Text(store.visibleAttendees(of: event).map(Person.display).joined(separator: ", "))
+                    let names = store.attendees(of: event.id).map(\.person.displayName)
+                    AvatarStack(names: names, size: 22)
+                    Text(names.joined(separator: ", "))
                         .lineLimit(1)
                 }
             }
@@ -59,16 +60,16 @@ struct EventPopup: View {
         .background(Theme.card, in: .rect(cornerRadius: Theme.Radius.dialog))
         .overlay(RoundedRectangle(cornerRadius: Theme.Radius.dialog).strokeBorder(Theme.hairline))
         .shadow(color: Theme.shadow, radius: 16, y: 6)
+        .task(id: event.id) { await store.loadAttendees(event.id) }
     }
 
     @ViewBuilder
     private var primaryAction: some View {
-        if event.isHostedByYou {
+        if event.isHostedByMe {
             Button("Edit game") { appViewModel.presentGameForm(editing: event.id) }
-        } else if event.isYouGoing {
+        } else if event.isGoing {
             Button("View game") { appViewModel.path.append(.game(event.id)) }
         } else {
-            // TODO(auth): verify student email before the first join (E5/B5).
             Button("Join game") { viewModel.join(event.id, in: store) }
         }
     }

@@ -13,7 +13,7 @@ enum LocationService {
     /// and simulators without a location fix spin forever. Launch with `-realLocation YES`
     /// to use the phone's GPS. Remove once the live map loads real games (E9).
     static var mockCoordinate: CLLocationCoordinate2D? {
-        UserDefaults.standard.bool(forKey: "realLocation") ? nil : MockData.userLocation
+        UserDefaults.standard.bool(forKey: "realLocation") ? nil : Campus.mockUser
     }
 
     /// Asks for When-In-Use permission if needed, then returns the first location fix.
@@ -30,27 +30,22 @@ enum LocationService {
         throw Failure.unavailable
     }
 
-    /// Current location as a venue, named from a reverse-geocoded address.
-    static func currentVenue() async throws -> Venue {
+    /// Current location as a place, named from a reverse-geocoded address.
+    static func currentPlace() async throws -> Place {
         let location = try await currentLocation()
         let item = try? await MKReverseGeocodingRequest(location: location)?.mapItems.first
-        return Venue(mapItem: item, location: location, fallbackName: String(localized: "Current location"))
+        return Place(mapItem: item, location: location, fallbackName: String(localized: "Current location"))
     }
 }
 
-extension Venue {
-    /// Builds a venue from a MapKit result. Name falls back to the street, then to `fallbackName`.
-    init(mapItem: MKMapItem?, location: CLLocation, fallbackName: String) {
+extension Place {
+    /// Builds a place from a MapKit result. Name falls back to the street, then to `fallbackName`.
+    nonisolated init(mapItem: MKMapItem?, location: CLLocation, fallbackName: String) {
         let street = mapItem?.address?.shortAddress ?? ""
-        let full = mapItem?.address?.fullAddress ?? ""
-        // `fullAddress` repeats the street; keep only what follows it for the city line.
-        let city = full.hasPrefix(street) && !street.isEmpty
-            ? full.dropFirst(street.count).trimmingCharacters(in: CharacterSet(charactersIn: ", \n"))
-            : full
+        let full = (mapItem?.address?.fullAddress ?? "").replacingOccurrences(of: "\n", with: ", ")
         self.init(
             name: mapItem?.name ?? (street.isEmpty ? fallbackName : street),
-            street: street,
-            city: city.replacingOccurrences(of: "\n", with: ", "),
+            address: full,
             latitude: location.coordinate.latitude,
             longitude: location.coordinate.longitude
         )

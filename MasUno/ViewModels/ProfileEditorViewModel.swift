@@ -7,20 +7,18 @@ import Observation
 @Observable
 final class ProfileEditorViewModel {
     // Only write back when over the limit (an unconditional write recurses in @Observable).
-    var firstName: String { didSet { if firstName.count > Self.nameLimit { firstName = Self.limited(firstName) } } }
-    var lastName: String { didSet { if lastName.count > Self.nameLimit { lastName = Self.limited(lastName) } } }
+    var firstName: String { didSet { if firstName.count > ProfileInput.nameLimit { firstName = Self.limited(firstName) } } }
+    var lastName: String { didSet { if lastName.count > ProfileInput.nameLimit { lastName = Self.limited(lastName) } } }
     var classYear: Int
-    var interests: Set<Sport>
+    var interests: Set<Activity>
     var showsErrors = false
+    private(set) var isSaving = false
+    private(set) var saveError: String?
 
-    private let original: LegacyProfile
-    static let nameLimit = 30
-
-    init(profile: LegacyProfile) {
-        original = profile
+    init(profile: Profile) {
         firstName = profile.firstName
         lastName = profile.lastName
-        classYear = profile.classYear
+        classYear = profile.gradYear
         interests = Set(profile.interests)
     }
 
@@ -32,7 +30,7 @@ final class ProfileEditorViewModel {
 
     /// "Emilio G. · Class of 2029" — how others see you.
     var preview: String {
-        let name = Person.display("\(firstName.trimmingCharacters(in: .whitespaces)) \(lastName.trimmingCharacters(in: .whitespaces))")
+        let name = ProfileInput.previewName(first: firstName, last: lastName)
         return String(localized: "\(name) · Class of \(String(classYear))")
     }
 
@@ -50,25 +48,33 @@ final class ProfileEditorViewModel {
 
     // MARK: Intents
 
-    func toggle(_ sport: Sport) {
+    func toggle(_ sport: Activity) {
         if interests.contains(sport) { interests.remove(sport) } else { interests.insert(sport) }
     }
 
-    /// Returns true when saved. TODO(B7): `complete_profile`; interests also drive the
-    /// "New [sport] game near you" notification (2.0, B13).
-    func save(in store: EventStore) -> Bool {
+    /// Returns true when saved (`complete_profile`).
+    func save(in store: GameStore) async -> Bool {
         showsErrors = true
+        saveError = nil
         guard nameError(firstName) == nil, nameError(lastName) == nil, interestsError == nil else { return false }
-        var profile = original
-        profile.firstName = firstName.trimmingCharacters(in: .whitespaces)
-        profile.lastName = lastName.trimmingCharacters(in: .whitespaces)
-        profile.classYear = classYear
-        profile.interests = Sport.postable.filter(interests.contains)
-        store.profile = profile
-        return true
+        isSaving = true
+        defer { isSaving = false }
+        let input = ProfileInput(
+            firstName: firstName.trimmingCharacters(in: .whitespaces),
+            lastName: lastName.trimmingCharacters(in: .whitespaces),
+            gradYear: classYear,
+            interests: interests.sorted { $0.sortOrder < $1.sortOrder }
+        )
+        do {
+            try await store.updateProfile(input)
+            return true
+        } catch {
+            saveError = (error as? DomainError ?? .offline).message
+            return false
+        }
     }
 
     private static func limited(_ value: String) -> String {
-        value.count > nameLimit ? String(value.prefix(nameLimit)) : value
+        String(value.prefix(ProfileInput.nameLimit))
     }
 }

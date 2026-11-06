@@ -28,7 +28,7 @@ struct StatusChip: View {
 
 /// Interest on the Me card: "🏀 Basketball".
 struct InterestChip: View {
-    var sport: Sport
+    var sport: Activity
 
     var body: some View {
         HStack(spacing: 4) {
@@ -45,7 +45,7 @@ struct InterestChip: View {
 
 /// Rounded-square tile with a game's sport emoji.
 struct ActivityTile: View {
-    var sport: Sport
+    var sport: Activity
     var size: CGFloat = 44
 
     var body: some View {
@@ -62,7 +62,7 @@ struct ActivityTile: View {
 
 /// Selectable sport chip (onboarding "What do you play?", Edit profile & interests).
 struct InterestToggle: View {
-    var sport: Sport
+    var sport: Activity
     var isOn: Bool
     var action: () -> Void
 

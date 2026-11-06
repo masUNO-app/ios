@@ -1,11 +1,15 @@
 import SwiftUI
 
-/// TEMP onboarding (E5, SPEC §7.5) built from the spec copy until Arianna's D2 frames land.
+/// Onboarding (E5, SPEC §7.5), built from the spec copy; 2.0 restyles it from Arianna's D2 frames.
 /// Welcome → Tec email → code → about you → interests → community guidelines → map.
+/// `AuthService` moves the session along; when it reaches signed in, the root swaps to the map.
 struct OnboardingFlow: View {
-    @Environment(EventStore.self) private var store
     @Environment(AppViewModel.self) private var appViewModel
-    @State private var viewModel = OnboardingViewModel()
+    @State private var viewModel: OnboardingViewModel
+
+    init(auth: any AuthService) {
+        _viewModel = State(initialValue: OnboardingViewModel(auth: auth))
+    }
 
     var body: some View {
         @Bindable var viewModel = viewModel
@@ -19,7 +23,7 @@ struct OnboardingFlow: View {
                         case .code: CodeStep(viewModel: viewModel)
                         case .about: AboutStep(viewModel: viewModel)
                         case .interests: InterestsStep(viewModel: viewModel)
-                        case .guidelines: GuidelinesStep(viewModel: viewModel) { finish() }
+                        case .guidelines: GuidelinesStep(viewModel: viewModel)
                         }
                     }
                     .tint(Theme.ink)
@@ -50,11 +54,6 @@ struct OnboardingFlow: View {
         .toolbar(.hidden, for: .navigationBar)
     }
 
-    private func finish() {
-        store.profile = viewModel.profile()
-        appViewModel.signIn()
-    }
-
     #if DEBUG
     /// `-screen onboarding-email|code|about|interests|guidelines` opens a step with sample input.
     private func openDebugStep() {
@@ -62,7 +61,7 @@ struct OnboardingFlow: View {
         viewModel.email = "a01234567@tec.mx"
         viewModel.firstName = "Emilio"
         viewModel.lastName = "Garza"
-        viewModel.interests = [.basketball, .soccer]
+        viewModel.interests = [Activity.builtIn[0], Activity.builtIn[2]]
         let all: [OnboardingViewModel.Step] = [.email, .code, .about, .interests, .guidelines]
         let names = ["email", "code", "about", "interests", "guidelines"]
         if let index = names.firstIndex(of: String(step.dropFirst("onboarding-".count))) {
@@ -80,7 +79,7 @@ private struct EmailStep: View {
 
     var body: some View {
         OnboardingPage(title: "What's your Tec email?", message: "We'll send you a 6-digit code. No passwords.") {
-            FieldBox("Tec email", error: viewModel.emailError) {
+            FieldBox("Tec email", error: viewModel.usesPassword ? nil : viewModel.emailError) {
                 TextField("a01234567@tec.mx", text: $viewModel.email)
                     .keyboardType(.emailAddress)
                     .textContentType(.emailAddress)
@@ -90,9 +89,22 @@ private struct EmailStep: View {
                     .submitLabel(.continue)
                     .onSubmit { Task { await viewModel.submitEmail() } }
             }
+            // Review accounts only (SPEC §8.4).
+            if viewModel.usesPassword {
+                FieldBox("Password", error: viewModel.emailError) {
+                    SecureField("Password", text: $viewModel.password)
+                        .textContentType(.password)
+                        .onSubmit { Task { await viewModel.submitPassword() } }
+                }
+            }
         } footer: {
-            PrimaryAction("Send code", isWorking: viewModel.isWorking) { Task { await viewModel.submitEmail() } }
-                .disabled(viewModel.email.isEmpty)
+            if viewModel.usesPassword {
+                PrimaryAction("Sign in", isWorking: viewModel.isWorking) { Task { await viewModel.submitPassword() } }
+                    .disabled(viewModel.password.isEmpty)
+            } else {
+                PrimaryAction("Send code", isWorking: viewModel.isWorking) { Task { await viewModel.submitEmail() } }
+                    .disabled(viewModel.email.isEmpty)
+            }
         }
         .onAppear { focused = true }
     }
@@ -210,12 +222,15 @@ private struct InterestsStep: View {
     var body: some View {
         OnboardingPage(title: "What do you play?", message: "Pick at least one. Only you see your interests.") {
             FlowLayout(spacing: 8) {
-                ForEach(Sport.postable) { sport in
+                ForEach(Activity.builtIn.filter(\.interestSelectable)) { sport in
                     InterestToggle(sport: sport, isOn: viewModel.interests.contains(sport)) { viewModel.toggle(sport) }
                 }
             }
+            if let error = viewModel.profileError {
+                Text(error).font(.caption).foregroundStyle(Theme.error)
+            }
         } footer: {
-            PrimaryAction("Continue") { viewModel.path.append(.guidelines) }
+            PrimaryAction("Continue", isWorking: viewModel.isWorking) { Task { await viewModel.submitProfile() } }
                 .disabled(viewModel.interests.isEmpty)
         }
     }
@@ -223,7 +238,6 @@ private struct InterestsStep: View {
 
 private struct GuidelinesStep: View {
     @Bindable var viewModel: OnboardingViewModel
-    var onFinish: () -> Void
 
     private let rules: [LocalizedStringKey] = [
         "Be respectful. No harassment, hate or slurs.",
@@ -249,8 +263,11 @@ private struct GuidelinesStep: View {
             }
             .padding(16)
             .cardSurface()
+            if let error = viewModel.guidelinesError {
+                Text(error).font(.caption).foregroundStyle(Theme.error)
+            }
         } footer: {
-            PrimaryAction("I agree", action: onFinish)
+            PrimaryAction("I agree", isWorking: viewModel.isWorking) { Task { await viewModel.agreeToGuidelines() } }
         }
     }
 }

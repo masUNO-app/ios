@@ -3,7 +3,7 @@ import SwiftUI
 /// Blue sport pin (Figma "Sports event pin"). "Soon" when it starts within the hour;
 /// grows with a halo when selected; dims while another game's popup is open.
 struct EventPin: View {
-    var event: SportsEvent
+    var event: Game
     var now: Date
     var isSelected: Bool
     var isDimmed: Bool
@@ -20,7 +20,7 @@ struct EventPin: View {
             }
 
             PinMarker(size: 46) {
-                Text(event.sport.emoji).font(.system(size: 30))
+                Text(event.activity.emoji).font(.system(size: 30))
             }
             .background(alignment: .bottom) {
                 // Halo on the ground under the selected pin.
@@ -37,7 +37,7 @@ struct EventPin: View {
         .animation(.snappy, value: isSelected)
         .animation(.snappy, value: isDimmed)
         .contentShape(.rect)
-        .accessibilityLabel(Text("\(event.sport.name): \(event.title)"))
+        .accessibilityLabel(Text("\(event.activity.name): \(event.title)"))
     }
 }
 

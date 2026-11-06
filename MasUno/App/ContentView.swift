@@ -3,14 +3,26 @@ import SwiftUI
 /// Root of the app (SPEC §7.3): launch gate, then the map with game detail, Me and
 /// Settings pushed on top and the game form as a sheet.
 struct ContentView: View {
-    @State private var store = EventStore()
-    @State private var appViewModel = AppViewModel()
+    @State private var store: GameStore
+    @State private var appViewModel: AppViewModel
+    @Environment(\.scenePhase) private var scenePhase
+    private let services: AppServices
+
+    init() {
+        let services = AppServices.make()
+        self.services = services
+        _store = State(initialValue: GameStore(
+            games: services.games, profiles: services.profiles, safety: services.safety, catalog: services.catalog
+        ))
+        _appViewModel = State(initialValue: AppViewModel(auth: services.auth, catalog: services.catalog))
+    }
 
     var body: some View {
         Group {
             switch appViewModel.session {
+            case .launching: Theme.background.ignoresSafeArea()
             case .updateRequired: UpdateRequiredView()
-            case .signedOut: OnboardingFlow()
+            case .onboarding: OnboardingFlow(auth: appViewModel.auth)
             case .suspended: SuspendedView()
             case .signedIn: main
             }
@@ -22,8 +34,26 @@ struct ContentView: View {
         // Light mode only (SPEC §7.1).
         .preferredColorScheme(.light)
         .onOpenURL { appViewModel.handle($0) }
+        .task { await launch() }
+        // Onboarding finished. `launch()` handles an already signed-in session.
+        .onChange(of: appViewModel.session) { old, new in
+            if old == .onboarding, new == .signedIn { Task { await store.load() } }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active, appViewModel.session == .signedIn { Task { await store.refresh() } }
+        }
+    }
+
+    private func launch() async {
+        store.onSessionProblem = { [auth = appViewModel.auth] in Task { await auth.restoreSession() } }
+        await appViewModel.start()
         #if DEBUG
-        .onAppear { appViewModel.openDebugScreen(in: store) }
+        appViewModel.applyDebugSession(mock: services.mock)
+        #endif
+        guard appViewModel.session == .signedIn else { return }
+        await store.load()
+        #if DEBUG
+        await appViewModel.openDebugScreen(store: store, mock: services.mock)
         #endif
     }
 
@@ -47,7 +77,7 @@ struct ContentView: View {
         }
         .sheet(item: $appViewModel.sheet) { sheet in
             switch sheet {
-            case .gameForm(let id): GameFormSheet(editing: id.flatMap { store.event($0) })
+            case .gameForm(let id): GameFormSheet(editing: id.flatMap { store.game($0) })
             }
         }
     }
@@ -55,7 +85,7 @@ struct ContentView: View {
 
 /// Short toast for failed actions and confirmations ("Someone just took the last spot.").
 private struct NoticeBanner: View {
-    @Environment(EventStore.self) private var store
+    @Environment(GameStore.self) private var store
 
     var body: some View {
         if let notice = store.notice {

@@ -2,11 +2,11 @@ import SwiftUI
 
 /// Edit profile & interests (E21), reusing the onboarding "About you" + "Interests" fields.
 struct EditProfileSheet: View {
-    @Environment(EventStore.self) private var store
+    @Environment(GameStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     @State private var viewModel: ProfileEditorViewModel
 
-    init(profile: LegacyProfile) {
+    init(profile: Profile) {
         _viewModel = State(initialValue: ProfileEditorViewModel(profile: profile))
     }
 
@@ -53,11 +53,11 @@ struct EditProfileSheet: View {
                             .foregroundStyle(Theme.ink)
                             .padding(.top, 8)
                         FlowLayout(spacing: 8) {
-                            ForEach(Sport.postable) { sport in
+                            ForEach(store.interestActivities) { sport in
                                 InterestToggle(sport: sport, isOn: viewModel.interests.contains(sport)) { viewModel.toggle(sport) }
                             }
                         }
-                        if let error = viewModel.interestsError {
+                        if let error = viewModel.interestsError ?? viewModel.saveError {
                             Text(error).font(.caption).foregroundStyle(Theme.error)
                         } else {
                             Text("Only you see your interests.").font(.footnote).foregroundStyle(Theme.muted)
@@ -70,8 +70,9 @@ struct EditProfileSheet: View {
             .background(Theme.background)
             .safeAreaInset(edge: .bottom) {
                 Button("Save") {
-                    if viewModel.save(in: store) { dismiss() }
+                    Task { if await viewModel.save(in: store) { dismiss() } }
                 }
+                .disabled(viewModel.isSaving)
                 .buttonStyle(.glassProminent)
                 .controlSize(.large)
                 .buttonSizing(.flexible)

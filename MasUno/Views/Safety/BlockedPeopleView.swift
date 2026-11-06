@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Settings › Blocked people (SPEC §7.6.6), with Unblock.
 struct BlockedPeopleView: View {
-    @Environment(EventStore.self) private var store
+    @Environment(GameStore.self) private var store
 
     var body: some View {
         Form {
@@ -15,13 +15,13 @@ struct BlockedPeopleView: View {
                 .listRowBackground(Color.clear)
             } else {
                 Section {
-                    ForEach(store.blockedPeople, id: \.self) { name in
+                    ForEach(store.blockedPeople) { person in
                         HStack(spacing: 12) {
-                            Avatar(name: name, size: 32)
-                            Text(Person.display(name))
+                            Avatar(name: person.displayName, size: 32)
+                            Text(person.displayName)
                                 .foregroundStyle(Theme.ink)
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                            Button("Unblock") { withAnimation { store.unblock(name) } }
+                            Button("Unblock") { Task { await store.unblock(person) } }
                                 .buttonStyle(.glassProminent)
                                 .tint(Theme.accentSoft)
                                 .foregroundStyle(Theme.ink)

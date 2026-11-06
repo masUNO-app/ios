@@ -11,4 +11,14 @@ nonisolated enum ReportReason: String, CaseIterable, Identifiable, Hashable, Sen
     case harassment, inappropriate, spam, unsafe, other
 
     var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .harassment: String(localized: "Harassment or hate")
+        case .inappropriate: String(localized: "Inappropriate content")
+        case .spam: String(localized: "Spam or fake")
+        case .unsafe: String(localized: "Made me feel unsafe")
+        case .other: String(localized: "Something else")
+        }
+    }
 }

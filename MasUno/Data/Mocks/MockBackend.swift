@@ -18,6 +18,8 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
     var latency: Duration = .zero
     /// The clock the rules use. Tests set this to step past a game's end.
     var now: Date
+    /// `-raceJoin YES`: the next join waits a second, then loses the last spot to someone else.
+    var losesNextJoinRace = false
 
     let me: PersonSummary
     private var attendees: [UUID: [Attendee]]
@@ -34,6 +36,11 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         self.me = world.me.summary
         self.games = world.games
         self.attendees = world.attendees
+        self.activity = Dictionary(uniqueKeysWithValues: world.attendees.map { gameID, roster in
+            (gameID, roster.enumerated().map { index, attendee in
+                GameActivityEntry(id: UUID(), gameID: gameID, kind: index == 0 ? .created : .joined, actor: attendee.person, at: attendee.joinedAt)
+            })
+        })
         self.people = world.people
         self.state = state ?? .signedIn(userID: world.me.id)
         self.profile = state == nil ? world.me : nil
@@ -45,6 +52,15 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
     func fillGame(id: UUID) {
         guard let index = games.firstIndex(where: { $0.id == id }) else { return }
         games[index].goingCount = games[index].capacity
+    }
+
+    /// Another player leaves, firing auto-repost if the game was full.
+    func simulateDropOut(id: UUID) {
+        guard let index = games.firstIndex(where: { $0.id == id }) else { return }
+        let game = games[index]
+        guard game.goingCount > 1 else { return }
+        games[index].goingCount -= 1
+        if game.isFull, game.autoRepost, !game.isCancelled { games[index].repostedAt = now }
     }
 
     /// A moderator sets `banned_at`.
@@ -234,6 +250,11 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
     func joinGame(id: UUID) async throws -> Game {
         try await beginWrite()
         let index = try writableIndex(id)
+        if losesNextJoinRace {
+            losesNextJoinRace = false
+            try? await Task.sleep(for: .seconds(1))
+            fillGame(id: id)
+        }
         let game = decorated(games[index])
         if game.myRole != nil { return game }
         if game.isCancelled { throw DomainError.cancelled }
@@ -308,7 +329,7 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
 
     func fetchAppConfig() async throws -> AppConfig {
         try await begin()
-        return .mock
+        return .fallback
     }
 
     func fetchActivities() async throws -> [Activity] {

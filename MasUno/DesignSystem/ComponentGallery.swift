@@ -118,10 +118,10 @@ struct ComponentGallery: View {
                             StatusChip("Full")
                         }
                         HStack {
-                            ForEach(Sport.postable) { InterestChip(sport: $0) }
+                            ForEach(Activity.builtIn) { InterestChip(sport: $0) }
                         }
                         HStack(spacing: 12) {
-                            ForEach(Sport.allCases) { ActivityTile(sport: $0) }
+                            ForEach(Activity.builtIn) { ActivityTile(sport: $0) }
                         }
                     }
                 }
@@ -130,14 +130,13 @@ struct ComponentGallery: View {
                     HStack(spacing: 16) {
                         Avatar(name: "Leo Park", size: 40)
                         Avatar(name: "Maya", size: 40)
-                        Avatar(name: Person.you, size: 40)
-                        AvatarStack(names: ["Maya Chen", "Jordan Lee", "Leo Park"])
+                                                AvatarStack(names: ["Maya Chen", "Jordan Lee", "Leo Park"])
                         AvatarStack(names: ["Maya Chen", "Jordan Lee", "Leo Park", "Sofía Ramírez", "Diego Morales", "You"])
                     }
                 }
 
                 section("Game card") {
-                    GameCard(event: MockData.events()[0]) {
+                    GameCard(event: MockFixtures.world(now: .now).games[0]) {
                         Button(String("Leave")) {}
                             .buttonStyle(.glassProminent)
                             .tint(Theme.accentSoft)

@@ -3,14 +3,14 @@ import SwiftUI
 
 /// Figma: "Add event · Choose location" (341:2646) — "Where's the game?".
 struct LocationPickerSheet: View {
-    @Binding var venue: Venue
+    @Binding var place: Place?
     @Environment(\.dismiss) private var dismiss
     @State private var viewModel: LocationPickerViewModel
     @FocusState private var isSearchFocused: Bool
 
-    init(venue: Binding<Venue>) {
-        _venue = venue
-        _viewModel = State(initialValue: LocationPickerViewModel(current: venue.wrappedValue))
+    init(place: Binding<Place?>) {
+        _place = place
+        _viewModel = State(initialValue: LocationPickerViewModel(current: place.wrappedValue))
     }
 
     var body: some View {
@@ -46,12 +46,14 @@ struct LocationPickerSheet: View {
         @Bindable var viewModel = viewModel
 
         return Map(position: $viewModel.position) {
-            Annotation(viewModel.selection.name, coordinate: viewModel.selection.coordinate, anchor: .bottom) {
-                PinMarker(size: 36) {
-                    Image(systemName: "mappin").foregroundStyle(Theme.onAccent)
+            if let selection = viewModel.selection {
+                Annotation(selection.name, coordinate: selection.coordinate, anchor: .bottom) {
+                    PinMarker(size: 36) {
+                        Image(systemName: "mappin").foregroundStyle(Theme.onAccent)
+                    }
                 }
+                .annotationTitles(.hidden)
             }
-            .annotationTitles(.hidden)
         }
         .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))
         .mapControlVisibility(.hidden)
@@ -133,14 +135,19 @@ struct LocationPickerSheet: View {
     private var selectionBar: some View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(viewModel.selection.name).font(.headline).foregroundStyle(Theme.ink)
-                Text(verbatim: viewModel.selection.fullAddress).font(.footnote).foregroundStyle(Theme.muted)
+                if let selection = viewModel.selection {
+                    Text(selection.name).font(.headline).foregroundStyle(Theme.ink)
+                    Text(verbatim: selection.address).font(.footnote).foregroundStyle(Theme.muted)
+                } else {
+                    Text("Search for a court, field or address").font(.footnote).foregroundStyle(Theme.muted)
+                }
             }
             .lineLimit(1)
             Button("Set location") {
-                venue = viewModel.selection
+                place = viewModel.selection
                 dismiss()
             }
+            .disabled(viewModel.selection == nil)
             .buttonStyle(.glassProminent)
             .controlSize(.large)
             .buttonSizing(.flexible)

@@ -5,7 +5,7 @@ import SwiftUI
 /// Figma: "Sports event map" (341:1979) and "Popup" (341:2046). The popup is part of the
 /// selected pin's annotation, so MapKit moves it with the pin like any map callout.
 struct EventMapView: View {
-    @Environment(EventStore.self) private var store
+    @Environment(GameStore.self) private var store
     @Environment(AppViewModel.self) private var appViewModel
     @State private var viewModel = EventMapViewModel()
     @State private var screenSize: CGSize = .zero
@@ -69,16 +69,16 @@ struct EventMapView: View {
         .toolbarTitleDisplayMode(usesVerticalBar ? .inline : .automatic)
         .animation(.spring(duration: 0.4, bounce: 0.22), value: viewModel.selectedID)
         #if DEBUG
-        .onAppear { viewModel.openDebugPopup(in: store) }
+        .onAppear { viewModel.openDebugPopup() }
         #endif
         // Make room for the popup above a newly selected pin, like a map callout.
         .onChange(of: viewModel.selectedID) { _, id in
             viewModel.selectionChanged(to: id)
-            guard let id, let event = store.event(id) else { return }
+            guard let id, let event = store.game(id) else { return }
             viewModel.reveal(event)
         }
         .onChange(of: store.lastCreatedID) { _, id in
-            guard let id, let event = store.event(id) else { return }
+            guard let id, let event = store.game(id) else { return }
             viewModel.focus(on: event)
         }
     }
@@ -90,12 +90,12 @@ struct EventMapView: View {
         return Map(position: $viewModel.position, selection: $viewModel.selectedID, scope: mapScope) {
             if let mock = LocationService.mockCoordinate {
                 Annotation("You", coordinate: mock, anchor: .center) {
-                    UserPin(name: store.profile.fullName)
+                    UserPin(name: store.profile?.fullName ?? "")
                 }
                 .annotationTitles(.hidden)
             } else {
                 UserAnnotation {
-                    UserPin(name: store.profile.fullName)
+                    UserPin(name: store.profile?.fullName ?? "")
                 }
             }
 
@@ -115,7 +115,7 @@ struct EventMapView: View {
             // The popup is its own annotation on the pin's coordinate, so MapKit moves it with
             // the pin, and the pin's annotation never changes size (which made MapKit swap and
             // cross-fade it). Added last so it draws over the pins.
-            if let id = viewModel.popupID, let event = store.event(id) {
+            if let id = viewModel.popupID, let event = store.game(id) {
                 Annotation(event.title, coordinate: event.coordinate, anchor: viewModel.popupAnchor(for: event)) {
                     EventPopup(event: event, viewModel: viewModel)
                         .frame(width: 320)
@@ -136,7 +136,7 @@ struct EventMapView: View {
         .mapControlVisibility(.hidden)
         // Closes the popup once its pin scrolls off screen.
         .onMapCameraChange(frequency: .continuous) { context in
-            let selected = viewModel.selectedID.flatMap { store.event($0) }
+            let selected = viewModel.selectedID.flatMap { store.game($0) }
             viewModel.cameraChanged(to: context.region, selected: selected)
         }
         .ignoresSafeArea()
@@ -295,7 +295,7 @@ struct EventMapView: View {
         Menu {
             Button("All sports") { viewModel.clearSportFilter() }
             Divider()
-            ForEach(Sport.postable) { sport in
+            ForEach(store.postableActivities) { sport in
                 Toggle("\(sport.emoji) \(sport.name)", isOn: Binding(
                     get: { viewModel.sportFilter.contains(sport) },
                     set: { _ in viewModel.toggleSport(sport) }
@@ -331,7 +331,7 @@ struct EventMapView: View {
         Button {
             appViewModel.path.append(.me())
         } label: {
-            Avatar(name: store.profile.fullName, size: 32)
+            Avatar(name: store.profile?.fullName ?? "", size: 32)
                 .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { avatarFrame = $0 }
         }
         .accessibilityLabel("Me")

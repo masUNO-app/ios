@@ -3,7 +3,7 @@ import SwiftUI
 /// Game summary card from Me (Going / Hosting): tile, title, a compact trailing action,
 /// host line, date, place and status. An optional footer goes below a divider.
 struct GameCard<Accessory: View, Footer: View>: View {
-    var event: SportsEvent
+    var event: Game
     var showsHost = true
     /// Overrides the status line (e.g. "3 going · 3 spots left" on Hosting).
     var status: String?
@@ -15,7 +15,7 @@ struct GameCard<Accessory: View, Footer: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .center, spacing: 12) {
-                ActivityTile(sport: event.sport)
+                ActivityTile(sport: event.activity)
                 Text(event.title)
                     .font(.title3.weight(.semibold))
                     .foregroundStyle(Theme.ink)
@@ -26,17 +26,17 @@ struct GameCard<Accessory: View, Footer: View>: View {
 
             if showsHost {
                 HStack(spacing: 8) {
-                    Avatar(name: event.host, size: 24)
-                    Text("Hosted by \(Person.display(event.host))")
+                    Avatar(name: event.host.displayName, size: 24)
+                    Text("Hosted by \(event.host.displayName)")
                         .font(.subheadline)
                         .foregroundStyle(Theme.muted)
                 }
             }
 
             VStack(alignment: .leading, spacing: 6) {
-                Label(EventFormat.dayAndTime(event.start), systemImage: "calendar")
+                Label(EventFormat.dayAndTime(event.startsAt), systemImage: "calendar")
                 Label {
-                    Text(verbatim: "\(event.venue.name) · \(event.venue.street)")
+                    Text(verbatim: event.place.titleLine)
                 } icon: {
                     Image(systemName: "mappin")
                 }
@@ -77,7 +77,7 @@ extension GameCard {
 }
 
 extension GameCard where Footer == EmptyView {
-    init(event: SportsEvent, showsHost: Bool = true, status: String? = nil, @ViewBuilder accessory: () -> Accessory) {
+    init(event: Game, showsHost: Bool = true, status: String? = nil, @ViewBuilder accessory: () -> Accessory) {
         self.init(event: event, showsHost: showsHost, status: status, accessory: accessory, footer: { EmptyView() })
     }
 }

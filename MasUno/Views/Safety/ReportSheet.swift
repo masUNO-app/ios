@@ -1,15 +1,32 @@
 import SwiftUI
 
+/// Who a report sheet is about. The sheet needs the person's name; the RPC only takes IDs.
+enum ReportSubject: Hashable, Identifiable {
+    case person(PersonSummary)
+    case game(UUID)
+
+    var id: Self { self }
+
+    var target: ReportTarget {
+        switch self {
+        case .person(let person): .person(person.id)
+        case .game(let id): .game(id)
+        }
+    }
+}
+
 /// Report a person or a game (SPEC §7.6.6). After sending, people can also be blocked.
 struct ReportSheet: View {
-    @Environment(EventStore.self) private var store
+    @Environment(GameStore.self) private var store
     @Environment(\.dismiss) private var dismiss
-    var target: LegacyReportTarget
+    var target: ReportSubject
 
-    @State private var reason: EventStore.ReportReason?
+    @State private var reason: ReportReason?
     @State private var note = ""
     @State private var isSent = false
-    @State private var blockTarget: String?
+    @State private var blockTarget: PersonSummary?
+    @State private var isSending = false
+    @State private var errorMessage: String?
 
     private static let noteLimit = 280
 
@@ -35,7 +52,7 @@ struct ReportSheet: View {
 
     private var title: LocalizedStringKey {
         switch target {
-        case .person(let name): "Report \(Person.display(name))"
+        case .person(let person): "Report \(person.displayName)"
         case .game: "Report game"
         }
     }
@@ -43,7 +60,7 @@ struct ReportSheet: View {
     private var form: some View {
         Form {
             Section {
-                ForEach(EventStore.ReportReason.allCases) { option in
+                ForEach(ReportReason.allCases) { option in
                     Button {
                         reason = option
                     } label: {
@@ -66,23 +83,39 @@ struct ReportSheet: View {
                     .lineLimit(3...6)
                     .onChange(of: note) { if note.count > Self.noteLimit { note = String(note.prefix(Self.noteLimit)) } }
             } footer: {
-                Text("Only the masUNO team sees reports.")
+                if let errorMessage {
+                    Text(errorMessage).foregroundStyle(Theme.error)
+                } else {
+                    Text("Only the masUNO team sees reports.")
+                }
             }
         }
         .scrollContentBackground(.hidden)
         .safeAreaInset(edge: .bottom) {
             Button("Send report") {
-                guard let reason else { return }
-                store.report(target, reason: reason, note: note)
-                withAnimation { isSent = true }
+                Task { await send() }
             }
             .buttonStyle(.glassProminent)
             .controlSize(.large)
             .buttonSizing(.flexible)
             .fontWeight(.semibold)
-            .disabled(reason == nil)
+            .disabled(reason == nil || isSending)
             .padding(.horizontal, Theme.gutter)
             .padding(.bottom, 8)
+        }
+    }
+
+    private func send() async {
+        guard let reason else { return }
+        isSending = true
+        defer { isSending = false }
+        let trimmed = note.trimmingCharacters(in: .whitespacesAndNewlines)
+        do {
+            try await store.report(target.target, reason: reason, note: trimmed.isEmpty ? nil : trimmed)
+            errorMessage = nil
+            withAnimation { isSent = true }
+        } catch {
+            errorMessage = (error as? DomainError ?? .offline).message
         }
     }
 
@@ -96,8 +129,8 @@ struct ReportSheet: View {
                 .foregroundStyle(Theme.ink)
                 .multilineTextAlignment(.center)
             Spacer()
-            if case .person(let name) = target {
-                Button("Block \(Person.display(name))", role: .destructive) { blockTarget = name }
+            if case .person(let person) = target {
+                Button("Block \(person.displayName)", role: .destructive) { blockTarget = person }
                     .buttonStyle(.glassProminent)
                     .tint(Theme.destructive)
                     .controlSize(.large)
