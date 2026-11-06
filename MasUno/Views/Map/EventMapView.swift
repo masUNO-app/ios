@@ -34,7 +34,9 @@ struct EventMapView: View {
             VStack(alignment: .leading, spacing: 12) {
                 if !usesVerticalBar || showsSearchField { searchRow }
                 nearbyChip
+                if store.isOffline, !store.mapGames().isEmpty { OfflineBanner() }
                 if viewModel.isLocationDenied { locationBanner }
+                emptyOrFailedCard
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 20)
@@ -241,6 +243,31 @@ struct EventMapView: View {
         }
         .buttonStyle(.plain)
         .accessibilityHint("Refreshes the map")
+    }
+
+    /// A failed first load, or a map with nothing on it. Not while searching or filtering:
+    /// the chip already says "0 games nearby" there.
+    @ViewBuilder
+    private var emptyOrFailedCard: some View {
+        switch store.mapState {
+        case .failed:
+            RetryCard { await store.refreshMap() }
+        case .loaded where store.mapGames().isEmpty:
+            VStack(spacing: 12) {
+                Text("No open games right now. Start one?")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Theme.ink)
+                    .multilineTextAlignment(.center)
+                Button("Add game") { appViewModel.presentGameForm() }
+                    .buttonStyle(.glassProminent)
+                    .fontWeight(.semibold)
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity)
+            .cardSurface()
+        default:
+            EmptyView()
+        }
     }
 
     /// Location off: the map stays on campus (SPEC §7.6.1).

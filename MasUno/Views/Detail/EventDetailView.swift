@@ -20,16 +20,23 @@ struct EventDetailView: View {
                 ContentUnavailableView("This game isn't available.", systemImage: "sportscourt")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Theme.background)
+            } else if store.isOffline {
+                RetryCard(message: "Couldn't load this game.") { await load() }
+                    .padding(.horizontal, Theme.gutter)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Theme.background)
             } else {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Theme.background)
             }
         }
-        .task(id: viewModel.eventID) {
-            await store.loadGame(viewModel.eventID)
-            await store.loadAttendees(viewModel.eventID)
-        }
+        .task(id: viewModel.eventID) { await load() }
+    }
+
+    private func load() async {
+        await store.loadGame(viewModel.eventID)
+        await store.loadAttendees(viewModel.eventID)
     }
 
     private func content(_ event: Game) -> some View {
@@ -68,6 +75,7 @@ struct EventDetailView: View {
             .padding(.bottom, 24)
         }
         .background(Theme.background)
+        .refreshable { await load() }
         // The large title is in the content, so the bar stays empty.
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)

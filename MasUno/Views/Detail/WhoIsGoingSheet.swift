@@ -15,6 +15,9 @@ struct WhoIsGoingSheet: View {
                 if store.game(eventID) != nil {
                     let people = store.attendees(of: eventID)
                     VStack(alignment: .leading, spacing: 10) {
+                        if people.isEmpty, store.isOffline {
+                            RetryCard(message: "Couldn't load who's going.") { await store.loadAttendees(eventID) }
+                        }
                         VStack(spacing: 0) {
                             ForEach(Array(people.enumerated()), id: \.element.id) { index, attendee in
                                 if index > 0 { Divider().overlay(Theme.hairline).padding(.leading, 64) }

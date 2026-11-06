@@ -294,6 +294,15 @@
     "Couldn't get your location. Try searching instead." : {
 
     },
+    "Couldn't load games." : {
+
+    },
+    "Couldn't load this game." : {
+
+    },
+    "Couldn't load who's going." : {
+
+    },
     "Create" : {
 
     },
@@ -516,6 +525,9 @@
 
     },
     "No one blocked" : {
+
+    },
+    "No open games right now. Start one?" : {
 
     },
     "No saved games" : {
@@ -778,6 +790,9 @@
     "Too many tries. Wait a minute and try again." : {
 
     },
+    "Try again" : {
+
+    },
     "Turn on location in Settings to use where you are." : {
 
     },
@@ -871,6 +886,9 @@
 
     },
     "You're in · %@" : {
+
+    },
+    "You're offline — showing the last games we loaded." : {
 
     },
     "You're offline. Try again when you're connected." : {

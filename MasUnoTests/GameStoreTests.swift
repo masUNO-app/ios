@@ -247,3 +247,37 @@ struct AutoRepostTests {
         #expect(store.game(id)?.isBumped(now: backend.now) == true)
     }
 }
+
+@MainActor
+struct OfflineStateTests {
+    let backend = MockBackend()
+
+    private func makeStore() -> GameStore {
+        GameStore(
+            games: backend, profiles: backend, safety: backend, catalog: backend,
+            defaults: UserDefaults(suiteName: "OfflineStateTests.\(UUID().uuidString)")!
+        )
+    }
+
+    /// E14's "Done when": airplane mode never leaves a screen spinning.
+    @Test func gameThatCantLoadOfflineIsNotStuckLoading() async {
+        let store = makeStore()
+        backend.nextError = .offline
+        await store.loadGame(MockFixtures.GameID.open)
+        #expect(store.game(MockFixtures.GameID.open) == nil)
+        #expect(!store.isMissing(MockFixtures.GameID.open))
+        #expect(store.isOffline)
+        await store.loadGame(MockFixtures.GameID.open)
+        #expect(store.game(MockFixtures.GameID.open) != nil)
+        #expect(!store.isOffline)
+    }
+
+    @Test func failedMyGamesOffersRetryThenRecovers() async {
+        let store = makeStore()
+        backend.nextError = .offline
+        await store.refreshMyGames()
+        #expect(store.myGamesState == .failed(.offline))
+        await store.refreshMyGames()
+        #expect(store.myGamesState == .loaded)
+    }
+}

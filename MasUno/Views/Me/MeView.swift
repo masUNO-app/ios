@@ -18,6 +18,7 @@ struct MeView: View {
 
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
+                if store.isOffline { OfflineBanner() }
                 profileCard
 
                 Picker("Show", selection: $viewModel.tab) {
@@ -39,9 +40,13 @@ struct MeView: View {
                     }
                 }
 
-                switch viewModel.tab {
-                case .going: goingList
-                case .hosting: hostingList
+                if case .failed = store.myGamesState {
+                    RetryCard { await store.refreshMyGames() }
+                } else {
+                    switch viewModel.tab {
+                    case .going: goingList
+                    case .hosting: hostingList
+                    }
                 }
             }
             .padding(.horizontal, Theme.gutter)
@@ -124,7 +129,7 @@ struct MeView: View {
     @ViewBuilder
     private var goingList: some View {
         let events = store.goingGames()
-        if events.isEmpty {
+        if events.isEmpty, store.myGamesState == .loaded {
             emptyState("No games yet. Find one on the map.", systemImage: "sportscourt", action: "Find a game") {
                 appViewModel.path.removeAll()
             }
@@ -178,7 +183,7 @@ struct MeView: View {
     @ViewBuilder
     private var hostingList: some View {
         let events = store.hostedGames()
-        if events.isEmpty {
+        if events.isEmpty, store.myGamesState == .loaded {
             emptyState("Host a game in under a minute.", systemImage: "plus.circle", action: "Add game") {
                 appViewModel.presentGameForm()
             }
