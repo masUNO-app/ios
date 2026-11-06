@@ -106,8 +106,8 @@ final class OnboardingViewModel {
     }
 
     /// The finished profile. TODO(B5): `complete_profile` + `accept_guidelines`.
-    func profile() -> Profile {
-        Profile(
+    func profile() -> LegacyProfile {
+        LegacyProfile(
             firstName: firstName.trimmingCharacters(in: .whitespaces),
             lastName: lastName.trimmingCharacters(in: .whitespaces),
             classYear: classYear,

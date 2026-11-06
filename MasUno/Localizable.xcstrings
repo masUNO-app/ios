@@ -262,6 +262,9 @@
     "Changes are shared with everyone going." : {
 
     },
+    "Check the details and try again." : {
+
+    },
     "Check your email" : {
 
     },
@@ -580,6 +583,9 @@
     "Past · %lld" : {
 
     },
+    "Pick a start time in the next 7 days." : {
+
+    },
     "Pick at least one sport." : {
 
     },
@@ -595,7 +601,13 @@
     "Players" : {
 
     },
+    "Players can't be lower than the number going." : {
+
+    },
     "Please keep it friendly — try different wording." : {
+
+    },
+    "Please sign in again." : {
 
     },
     "Privacy & safety" : {
@@ -686,6 +698,9 @@
     "Something else" : {
 
     },
+    "Something went wrong. Try again." : {
+
+    },
     "Soon" : {
 
     },
@@ -735,13 +750,25 @@
     "That code didn't work. Check the email and try again." : {
 
     },
+    "That code expired. Send a new one." : {
+
+    },
+    "That email and password don't match." : {
+
+    },
     "This chat is for the people going to %@. To keep it friendly and safe:" : {
 
     },
     "This game has ended" : {
 
     },
+    "This game isn't available anymore." : {
+
+    },
     "This game isn't available." : {
+
+    },
+    "This game was cancelled." : {
 
     },
     "This is how others see you." : {
@@ -757,6 +784,9 @@
 
     },
     "Tomorrow" : {
+
+    },
+    "Too many tries. Wait a minute and try again." : {
 
     },
     "Turn on location in Settings to use where you are." : {
@@ -842,6 +872,9 @@
     "You can report or block anyone from the Who's going list." : {
 
     },
+    "You can't do that on this game." : {
+
+    },
     "You won't see each other's games or names, and neither of you can join the other's games." : {
 
     },
@@ -849,6 +882,9 @@
 
     },
     "You're in · %@" : {
+
+    },
+    "You're offline. Try again when you're connected." : {
 
     },
     "Your account is suspended" : {

@@ -31,7 +31,7 @@ enum MockData {
     }
 
     /// Your profile on the Me card. Replaced by the signed-in profile once auth lands (B5).
-    static let profile = Profile(
+    static let profile = LegacyProfile(
         firstName: "Emilio", lastName: "Garza", classYear: 2029,
         school: "Tec de Monterrey", isVerified: true,
         interests: [.basketball, .soccer, .tennis]

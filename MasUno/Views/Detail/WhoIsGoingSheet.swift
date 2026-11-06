@@ -6,7 +6,7 @@ struct WhoIsGoingSheet: View {
     @Environment(EventStore.self) private var store
     var eventID: SportsEvent.ID
 
-    @State private var reportTarget: ReportTarget?
+    @State private var reportTarget: LegacyReportTarget?
     @State private var blockTarget: String?
 
     var body: some View {

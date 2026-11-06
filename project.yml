@@ -56,3 +56,19 @@ targets:
         CODE_SIGN_STYLE: Automatic
         LOCALIZATION_PREFERS_STRING_CATALOGS: YES
         SWIFT_EMIT_LOC_STRINGS: YES
+    scheme:
+      testTargets:
+        - MasUnoTests
+  MasUnoTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: MasUnoTests
+    dependencies:
+      - target: MasUno
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.masuno.app.tests
+        GENERATE_INFOPLIST_FILE: YES
+        TARGETED_DEVICE_FAMILY: "1"
+        SUPPORTED_PLATFORMS: "iphoneos iphonesimulator"

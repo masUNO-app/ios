@@ -10,7 +10,7 @@ import Observation
 final class EventStore {
     /// Every game the phone knows about, including ones hidden by blocks.
     private var allEvents: [SportsEvent]
-    var profile: Profile
+    var profile: LegacyProfile
     /// People you blocked, newest first. Hidden immediately, before the server answers (App Review checks this).
     private(set) var blockedPeople: [String] = []
 
@@ -23,7 +23,7 @@ final class EventStore {
     /// Set after creating a game so the map can jump to it.
     var lastCreatedID: SportsEvent.ID?
 
-    init(events: [SportsEvent] = MockData.events(), profile: Profile = MockData.profile) {
+    init(events: [SportsEvent] = MockData.events(), profile: LegacyProfile = MockData.profile) {
         self.allEvents = events
         self.profile = profile
     }
@@ -160,7 +160,7 @@ final class EventStore {
     }
 
     /// TODO(B8): call the `report` RPC, which alerts the moderation channel.
-    func report(_ target: ReportTarget, reason: ReportReason, note: String) {}
+    func report(_ target: LegacyReportTarget, reason: ReportReason, note: String) {}
 
     func block(_ person: String) {
         guard person != Person.you, !blockedPeople.contains(person) else { return }
@@ -187,7 +187,7 @@ final class EventStore {
 }
 
 /// What a report is about: a person or a game.
-enum ReportTarget: Hashable, Identifiable {
+enum LegacyReportTarget: Hashable, Identifiable {
     case person(String)
     case game(SportsEvent.ID)
 

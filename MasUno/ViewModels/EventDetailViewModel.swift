@@ -14,7 +14,7 @@ final class EventDetailViewModel {
     var confirmsLeave = false
     var confirmsCancel = false
     var showsWhoIsGoing = false
-    var reportTarget: ReportTarget?
+    var reportTarget: LegacyReportTarget?
     var choosesMapsApp = false
     var addsToCalendar = false
 

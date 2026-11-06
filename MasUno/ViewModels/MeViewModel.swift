@@ -34,7 +34,7 @@ final class MeViewModel {
         store.hostedEvents.filter { !$0.hasEnded }
     }
 
-    func classLine(for profile: Profile) -> String {
+    func classLine(for profile: LegacyProfile) -> String {
         String(localized: "Class of \(String(profile.classYear)) · \(profile.school)")
     }
 

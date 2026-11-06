@@ -68,6 +68,7 @@
 | N26 | **1.1 stays the Mon Nov 16 fast follow** and doubles as the backstop if 1.0 slips. It no longer swaps in onboarding frames (N25). | Keeps the Nov 9 build small. | — |
 | N27 | **Release blockers found in the code** added to E14 and §10.4: Settings shows "Privacy & Terms — Coming soon"; the chat composer says "Messages are coming soon"; Invite shares an App Store *search* link; the mock location at Tec; the empty app icon; Delete account isn't wired. | Each one is an App Review 2.1 or 5.1.1(v) risk. | — |
 | N28 | **Auto-repost (N17) look:** the 2.0 Figma has no toggle and no "Reposted …" line yet. 1.0 ships the built toggle and line (1.0 UI); Arianna draws it in the 2.0 style (D11 → 2.0). The bump pin ("Spot open") still needs building (E25). | Built on mocks; the server half is in B3. | — |
+| N30 | **Contract gaps closed in `docs/API.md` (E1):** `game_activity` becomes an append-only table, because `leave_game` deletes the `rsvps` row a view would read; new `my_blocks()`, because RLS hides blocked people's names from Blocked people; `create_game` returns `game_cards` like every other game write; new error codes `not_authenticated` and `suspended`; `game_cards` gains `host_grad_year` and `sort_at`; `app_config` and `activities` are readable signed out; new `AppConfigRepository`. | The rev. 7 contract couldn't support these screens as written. | ⚑ Emilio |
 | N29 | **Trello is behind:** the 1.0 list still says "submit Sat Nov 21", most card dates are rev. 5's, and Ricardo/Arianna/Emilio cards show no progress. Each owner updates their cards to §5 at the Fri Nov 6 go/no-go (§6). | The plan only works if status is visible. | — |
 
 ### Rev. 6 (still in force unless changed above)
@@ -299,7 +300,7 @@ For 1.0, everything in Swift is Ethan's (screens and the data layer); everything
 | ID | Work | Release | Est. | Due | Status | Done when |
 | --- | --- | --- | --- | --- | --- | --- |
 | E0 | Repo setup (§6). | 0.1 | 2 h | Nov 1 | **Done** (#4) | Emilio clones, builds and opens a PR blocked until Ethan approves. |
-| E1 | **Contract + domain models** with Emilio: `Profile`/`PersonSummary`, `Activity`, `Place`, `Game`, `DomainError`; `AuthService`, `GameRepository`, `ProfileRepository`, `SafetyRepository` protocols + mocks. | 1.0 | 3 h | **Fri Nov 6 (noon)** | **To do** — Trello says Done, but no protocols in the repo; screens use `SportsEvent`/`EventStore` | Protocols merged; B3 and B5–B7 build against them. |
+| E1 | **Contract + domain models** with Emilio: `Profile`/`PersonSummary`, `Activity`, `Place`, `Game`, `DomainError`; `AuthService`, `GameRepository`, `ProfileRepository`, `SafetyRepository`, `AppConfigRepository` protocols + mocks. | 1.0 | 3 h | **Fri Nov 6 (noon)** | **Done** once the contract PR merges with both approvals | Protocols merged; B3 and B5–B7 build against them. |
 | E2 | Green design system (§7.1); colors in the asset catalog; String Catalog; DEBUG gallery. | 0.1 | 6 h | Nov 4 | **Done** (#5, #7) | No hard-coded colors in views. |
 | E3 | Navigation shell (§7.3) + update-required + suspended screens; `masuno://game/<id>`. | 0.1 | 2 h | Nov 4 | **Done** | All routes reachable. |
 | E4 | Map + popup redesign (341:1979, 341:2046), incl. iPad / iPhone Duo layout. | 0.1 | 5 h | Nov 4 | **Done** (#5, #7) | Matches the frames on mock data. |
@@ -339,7 +340,7 @@ For 1.0, everything in Swift is Ethan's (screens and the data layer); everything
 | ID | Work | Release | Est. | Due | Depends on | Status | Done when |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | B1 | **Supabase dev setup**: `masuno-dev`, CLI, `supabase init` in `supabase/`, seed script (Tec, **5 sports incl. padel**, Ricardo's venues, test users, games), `Config.xcconfig` values for dev. | 1.0 | 3 h | **Fri Nov 6 (morning)** | O2, O5 | **Not started** (placeholder folder) | `supabase db reset` works locally for Ethan too. |
-| — | **`docs/API.md`**: table names, RPC signatures, error codes (§8.5), agreed with Ethan's E1. | 1.0 | (in B3) | **Fri Nov 6 (noon)** | E1 | **Not started** (empty file) | Merged; both coders approve. |
+| — | **`docs/API.md`**: table names, RPC signatures, error codes (§8.5), agreed with Ethan's E1. | 1.0 | (in B3) | **Fri Nov 6 (noon)** | E1 | **Drafted** with E1; Emilio reviews (§1, N30) | Merged; both coders approve. |
 | B4 | **Auth hook** (deny by default), `auth_allowlist`, 2 review accounts with passwords, `sign_in_method(email)`. | 1.0 | 2 h | Fri Nov 6 (evening) | B1 | Not started | Non-Tec email gets the friendly error; review account signs in with a password. |
 | B2 | **Sign-in email via team Gmail** (§8.4): SMTP with app password, code-only template, 10-min expiry, raised rate limit, tested on Tec inboxes. | 1.0 | 1.5 h | Sat Nov 7 (morning) | O3, O4 | Not started | Codes reach Tec inboxes (not junk) within a minute. |
 | B3 | **Schema, RLS, RPCs** (§8.3–§8.5). Part 1 by **Sat Nov 7 noon**: tables, `game_cards`, `create/update/cancel/join/leave_game`. Part 2 by **Sat Nov 7 evening**: report/block, text filter, demo campus + daily refresh, **auto-repost** (`auto_repost`, `reposted_at` in `leave_game`/`update_game`), `game_activity` view for chat system rows. | 1.0 | 14 h | Sat Nov 7 noon / evening | E1, B1 | Not started | Every 1.0 RPC works from the SQL editor as a test user. |
@@ -401,7 +402,7 @@ For 1.0, everything in Swift is Ethan's (screens and the data layer); everything
 ## 6. How we work
 
 - **Repo:** `masUNO-app/ios` — `MasUno/` (app), `supabase/` (migrations, functions, tests, seed), `docs/` (this spec, `API.md`, `QA.md`). Rev. 7 replaces `docs/SPEC.md`.
-- **Code ownership:** `MasUno/Views`, view models, design system → Ethan. `MasUno/Data` → Ethan for 1.0 (N21; Emilio reviews), both from 2.0. `supabase/` → Emilio. Update `CODEOWNERS` so `MasUno/Data/` requests both.
+- **Code ownership:** `MasUno/Views`, view models, design system → Ethan. `MasUno/Data` → Ethan for 1.0 (N21; Emilio reviews), both from 2.0. `supabase/` → Emilio. `CODEOWNERS` requests both on `MasUno/Data/`.
 - **Branches:** `main` protected; short-lived branches; one approving review from the other coder; squash merge; review within 24 h — **within 2 h during Fri–Sun Nov 6–8**.
 - **Contract first:** `docs/API.md` and the Swift protocols are the boundary; a change to either is one PR reviewed by both coders.
 - **Migrations:** never edit an applied migration; only Emilio pushes to prod, only from `main`, before the matching TestFlight build.
@@ -508,7 +509,7 @@ Frames: `https://www.figma.com/design/5eKA3f0I90VVABrAuNMFD2/masuno-figma?node-i
 ### 7.5 Onboarding & sign-in (E5 screens · B5 `AuthService` · 2.0 frames in D2)
 
 1. **Welcome** — "Find your next game" / "Pickup games around Tec, one or two players short — and looking for you." **Continue with your Tec email**. Footer link: Privacy & Terms.
-2. **Email** — "What's your Tec email?" Must end exactly in `@tec.mx`, else "masUNO is just for Tec students right now. Use your @tec.mx email." Calls `sign_in_method(email)`: code, or (review accounts only) password.
+2. **Email** — "What's your Tec email?" Calls `sign_in_method(email)` first: review accounts are Gmail aliases and get a password field. Anyone else must end exactly in `@tec.mx`, else "masUNO is just for Tec students right now. Use your @tec.mx email."
 3. **Code** — "Check your email" / "We sent a 6-digit code to a0…@tec.mx. It comes from masunoapp@gmail.com — check Junk if you don't see it." Six boxes with one-time-code autofill; resend after 30 s; wrong / expired / too-many-tries messages.
 4. **About you** — first name, last name, class year; preview "Emilio G. · Class of 2029" with "This is how others see you."
 5. **Interests** — "What do you play?" Five sports, at least one.
@@ -575,7 +576,7 @@ Map with no games: "No open games right now. Start one?" Failed loads show a ret
 - Timeline: messages ("Maya C. · Host · 5:42 PM") and system rows — created, joined, left ("1 spot open"), meet-up updated, time/place changed, cancelled ("Chat closed").
 - Composer (if B20 lands): text filter, ≤ 1000 characters, report a message; rules from Appendix A.
 - "Before you chat" rules sheet once per account; opening marks the chat read ("Group chat · N new").
-- **Submission rule:** the mock messages and the disabled "Messages are coming soon" composer are dev-only. If messaging isn't live on prod by the Sun Nov 8 RC, the submitted build ships the **read-only fallback**: pinned card + system rows only, no composer, and the "Before you go" copy reverts (§7.2). System rows can come from a `game_activity` view over `rsvps` and `events` change times (B3).
+- **Submission rule:** the mock messages and the disabled "Messages are coming soon" composer are dev-only. If messaging isn't live on prod by the Sun Nov 8 RC, the submitted build ships the **read-only fallback**: pinned card + system rows only, no composer, and the "Before you go" copy reverts (§7.2). System rows come from `game_activity`, an append-only table the RPCs write to (B3, N30).
 
 #### 7.6.10 Saved (N15, E17)
 Bookmark on the popup, Event detail and the Saved list; filled green icon when saved. 1.0 stores bookmarks on the phone (survive relaunch, not reinstall). 2.0 syncs them (`bookmarks`, B15) and adds "Notify me if a spot opens".
@@ -691,7 +692,7 @@ Defaults below apply unless signed off otherwise (§12, R7-4…R7-10). Arianna u
 ### 8.2 Client modules
 - **Ethan:** design system (E2; 2.0 tokens in E27) · navigation + version gate (E3) · `LocationService` (E9) · calendar editor (E19) · all views and view models · for 1.0 also `AuthService` (B5), `GameStore` (B6) and live repositories (B7).
 - **Emilio:** reviews `MasUno/Data` · `NotificationService` (B16, 2.0).
-- **Shared:** protocols, domain models and mocks (E1); `ActivityCatalog` (cached, with a built-in fallback of the 5 sports).
+- **Shared:** protocols, domain models and mocks (E1: `MasUno/Models`, `MasUno/Data`, `MasUno/Data/Mocks`); `ActivityCatalog` (cached, with a built-in fallback of the 5 sports).
 
 ### 8.3 Schema
 
@@ -751,7 +752,7 @@ notification_outbox (id bigserial pk, user_id uuid, kind text, event_id uuid, pa
   attempts int default 0, error text)
 ```
 
-**Read views (RLS applies):** `game_cards` (event + host first name/initial + `going_count`, `spots_left`, `my_role`, `my_joined_at`, `has_blocked_attendee`, `auto_repost`, `reposted_at` (sorted by `coalesce(reposted_at, created_at) desc`); 2.0 `is_bookmarked`), `game_attendees(event_id)` (excludes blocked people), `my_profile`.
+**Read views (RLS applies, `security_invoker`):** `game_cards` (event + host first name/initial/class year + `going_count`, `spots_left`, `my_role`, `my_joined_at`, `has_blocked_attendee`, `auto_repost`, `reposted_at`, `sort_at = coalesce(reposted_at, created_at)` (the app orders by `sort_at desc`); 2.0 `is_bookmarked`), `game_attendees(event_id)` (excludes blocked people), `my_profile`. `game_activity` (N30) is an append-only table.
 
 ### 8.4 Security, sign-in & email
 - **Policies:** `profiles` readable within your university except blocked pairs; `profile_private` own row only; `events`/`rsvps` readable within your university unless the host is a blocked pair; all writes through RPCs; `reports` insert-only via RPC; `universities`, `activities`, `app_config` read-only; `auth_allowlist` no client access. Helpers `is_active(uid)` and `is_blocked_pair(a, b)`.
@@ -762,20 +763,21 @@ notification_outbox (id bigserial pk, user_id uuid, kind text, event_id uuid, pa
 
 ### 8.5 API contract (frozen Fri Nov 6 in `docs/API.md`)
 
-RPCs are `security definer`, pin `search_path`, check `auth.uid()` and `is_active()`, and raise a short code that `GameStore` maps to `DomainError`. Every write returns the updated `game_cards` row.
+`docs/API.md` has the exact signatures and wins over this summary. RPCs are `security definer`, pin `search_path`, check `auth.uid()` and `is_active()`, and raise a short code that `GameStore` maps to `DomainError`. Every game write returns the updated `game_cards` row. Any RPC can also raise `not_authenticated`, and any write `suspended`.
 
 | RPC | Purpose | Errors |
 | --- | --- | --- |
 | `sign_in_method(email) → text` | `'otp'` or `'password'` (anonymous; reads the allowlist only) | — |
 | `complete_profile(first, last, grad_year, interests[], locale)` | Create/update profile | `invalid_text`, `invalid_input` |
 | `accept_guidelines()` | Record agreement | — |
-| `create_game(…, auto_repost) → uuid` | Validate sport, 7-day window, limit, text; insert game + host | `invalid_time`, `invalid_text`, `limit_reached`, `invalid_input` |
-| `update_game(id, …, auto_repost)` | Host only; players ≥ going; record material changes; if capacity rises on a full game and `auto_repost`, set `reposted_at` | `not_allowed`, `cancelled`, `ended`, `capacity_below_going`, `invalid_time`, `invalid_text` |
-| `cancel_game(id)` | Host only; soft cancel | `not_allowed`, `ended` |
+| `create_game(…, auto_repost)` | Validate sport, 7-day window, limit, text; insert game + host | `invalid_time`, `invalid_text`, `limit_reached`, `invalid_input` |
+| `update_game(id, …, auto_repost)` | Host only; players ≥ going; record material changes; if capacity rises on a full game and `auto_repost`, set `reposted_at` | `not_found`, `not_allowed`, `cancelled`, `ended`, `capacity_below_going`, `invalid_time`, `invalid_text` |
+| `cancel_game(id)` | Host only; soft cancel | `not_found`, `not_allowed`, `ended` |
 | `join_game(id)` | Lock row; reject cancelled/ended/host/blocked; `full` if no spots; idempotent | `full`, `cancelled`, `ended`, `blocked`, `not_found` |
-| `leave_game(id)` | Lock row; remove; decrement; if the game was full and `auto_repost`, set `reposted_at` | `not_allowed` (host), `ended` |
+| `leave_game(id)` | Lock row; remove; decrement; if the game was full and `auto_repost`, set `reposted_at` | `not_found`, `not_allowed` (host), `ended` |
 | `report(user?, game?, reason, note?)` | Insert report → alert | `invalid_input` |
 | `block(user_id)` / `unblock(user_id)` | Own blocks | `invalid_input` |
+| `my_blocks()` | Names for Blocked people, which RLS otherwise hides | — |
 | *2.0:* `register_device`, `toggle_bookmark`, `set_notification_prefs` | | — |
 
 ### 8.6 Jobs & functions (Emilio)

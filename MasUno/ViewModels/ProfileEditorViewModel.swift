@@ -13,10 +13,10 @@ final class ProfileEditorViewModel {
     var interests: Set<Sport>
     var showsErrors = false
 
-    private let original: Profile
+    private let original: LegacyProfile
     static let nameLimit = 30
 
-    init(profile: Profile) {
+    init(profile: LegacyProfile) {
         original = profile
         firstName = profile.firstName
         lastName = profile.lastName

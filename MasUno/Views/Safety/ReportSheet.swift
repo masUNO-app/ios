@@ -4,7 +4,7 @@ import SwiftUI
 struct ReportSheet: View {
     @Environment(EventStore.self) private var store
     @Environment(\.dismiss) private var dismiss
-    var target: ReportTarget
+    var target: LegacyReportTarget
 
     @State private var reason: EventStore.ReportReason?
     @State private var note = ""

@@ -6,7 +6,7 @@ struct EditProfileSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var viewModel: ProfileEditorViewModel
 
-    init(profile: Profile) {
+    init(profile: LegacyProfile) {
         _viewModel = State(initialValue: ProfileEditorViewModel(profile: profile))
     }
 

@@ -40,13 +40,14 @@ MVVM, one folder per layer:
 ```
 MasUno/
 ├── App/           # @main entry, ContentView (launch gate + root NavigationStack), Route
-├── Models/        # Pure data: SportsEvent, Venue, Sport, Person, Profile, AppConfig
+├── Models/        # Pure data: Game, Profile, Activity, Place, DomainError (E1); legacy SportsEvent, Venue, Sport, Person until E24
 ├── Services/      # EventStore (mock source of truth + domain actions), MockData, LocationService
-├── Data/          # Supabase data layer (Emilio): AuthService, repositories, GameStore
+├── Data/          # Protocols (AuthService, repositories), mocks, GameStore; only place that imports Supabase
 ├── ViewModels/    # Per-screen presentation state & intents
 ├── Views/         # SwiftUI screens: Map/, Detail/, GameForm/, Chat/, Me/, Settings/, Safety/, Launch/
 ├── DesignSystem/  # Theme (green tokens, SPEC §7.1) + components; DEBUG ComponentGallery
 └── Utilities/     # EventFormat, TextFilter
+MasUnoTests/       # Unit tests (Cmd-U, or the MasUno scheme's Test action)
 supabase/          # Migrations, functions, seed (Emilio)
 docs/              # Spec, API contract, QA script
 ```
@@ -89,7 +90,6 @@ Placeholders that still need a real answer. Card IDs refer to SPEC §5.
 - [ ] Interest chip and activity tile colors for non-blue tints (only `chipSport` / `accentSoft` are tokens)
 
 ### Waiting on backend (Emilio)
-- [ ] Domain models + repository protocols (E1) — screens still use `SportsEvent` / `EventStore` mocks
 - [ ] Live data (B6, B7): create / edit / cancel, join / leave, the last-spot race (`-raceJoin YES` fakes it)
 - [ ] Report, block and unblock RPCs (B8); delete-account function (B9); sign out via `AuthService` (B5)
 - [ ] `app_config` (min version, support email, privacy URL) — mocked in `AppConfig.mock`
