@@ -211,3 +211,39 @@ struct GameStoreTests {
         #expect(store.mapState == .idle)
     }
 }
+
+@MainActor
+struct AutoRepostTests {
+    let backend = MockBackend()
+    let store: GameStore
+
+    init() async {
+        store = GameStore(
+            games: backend, profiles: backend, safety: backend, catalog: backend,
+            defaults: UserDefaults(suiteName: "AutoRepostTests.\(UUID().uuidString)")!
+        )
+        await store.load()
+    }
+
+    @Test func bumpedPinDrawsLast() {
+        let order = EventMapViewModel().pinOrder(in: store, now: backend.now)
+        #expect(order.last?.id == MockFixtures.GameID.bumped)
+    }
+
+    @Test func pinStopsBeingBumpedAfterTwoHours() {
+        let later = backend.now.addingTimeInterval(2 * 3600 + 1)
+        let order = EventMapViewModel().pinOrder(in: store, now: later)
+        #expect(order.last?.id != MockFixtures.GameID.bumped || order.count == 1)
+        #expect(store.game(MockFixtures.GameID.bumped)?.isBumped(now: later) == false)
+    }
+
+    /// E25's "Done when": a player leaves a full game and the host's card sees the repost.
+    @Test func playerLeavingAFullGameRepostsItForTheHost() async {
+        let id = MockFixtures.GameID.hosting
+        backend.fillGame(id: id)
+        backend.simulateDropOut(id: id)
+        await store.refreshMyGames()
+        #expect(store.game(id)?.repostedAt == backend.now)
+        #expect(store.game(id)?.isBumped(now: backend.now) == true)
+    }
+}

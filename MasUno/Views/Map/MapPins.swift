@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Blue sport pin (Figma "Sports event pin"). "Soon" when it starts within the hour;
-/// grows with a halo when selected; dims while another game's popup is open.
+/// Blue sport pin (Figma "Sports event pin"). "Spot open" for two hours after an auto-repost
+/// (SPEC §7.6.11), otherwise "Soon" when it starts within the hour; grows with a halo when selected; dims while another game's popup is open.
 struct EventPin: View {
     var event: Game
     var now: Date
@@ -10,8 +10,8 @@ struct EventPin: View {
 
     var body: some View {
         VStack(spacing: 6) {
-            if event.isSoon(now: now) {
-                Text("Soon")
+            if let tag = tag {
+                Text(tag)
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Theme.ink)
                     .padding(.horizontal, 10)
@@ -38,6 +38,11 @@ struct EventPin: View {
         .animation(.snappy, value: isDimmed)
         .contentShape(.rect)
         .accessibilityLabel(Text("\(event.activity.name): \(event.title)"))
+    }
+
+    private var tag: LocalizedStringKey? {
+        if event.isBumped(now: now) { return "Spot open" }
+        return event.isSoon(now: now) ? "Soon" : nil
     }
 }
 

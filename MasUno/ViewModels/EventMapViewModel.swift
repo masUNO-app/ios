@@ -28,6 +28,12 @@ final class EventMapViewModel {
         store.mapGames().filter { matchesSearch($0) && matchesFilter($0) }
     }
 
+    /// Pins in drawing order: MapKit draws later annotations on top, so bumped games go last.
+    func pinOrder(in store: GameStore, now: Date = .now) -> [Game] {
+        let games = mapEvents(in: store)
+        return games.filter { !$0.isBumped(now: now) } + games.filter { $0.isBumped(now: now) }
+    }
+
     var filterLabel: String {
         sportFilter.isEmpty ? String(localized: "Filter") : String(localized: "Filter · \(sportFilter.count)")
     }
@@ -65,7 +71,7 @@ final class EventMapViewModel {
     /// Anchors the popup annotation so its bottom sits 10 pt above the selected pin
     /// (and its "Soon" label). Same coordinate as the pin, so MapKit moves them together.
     func popupAnchor(for event: Game) -> UnitPoint {
-        let pinHeight: CGFloat = (event.isSoon() ? 88 : 56) * 1.15
+        let pinHeight: CGFloat = (event.isSoon() || event.isBumped() ? 88 : 56) * 1.15
         return UnitPoint(x: 0.5, y: 1 + (pinHeight + 10) / max(popupHeight, 1))
     }
 

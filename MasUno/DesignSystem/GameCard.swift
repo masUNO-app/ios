@@ -72,6 +72,7 @@ struct GameCard<Accessory: View, Footer: View>: View {
 extension GameCard {
     private var repostLine: String {
         guard let repostedAt = event.repostedAt else { return String(localized: "Auto-repost on") }
+        if Date.now.timeIntervalSince(repostedAt) < 60 { return String(localized: "Reposted just now") }
         return String(localized: "Reposted \(repostedAt.formatted(.relative(presentation: .named)))")
     }
 }

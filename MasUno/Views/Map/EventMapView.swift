@@ -99,7 +99,7 @@ struct EventMapView: View {
                 }
             }
 
-            ForEach(viewModel.mapEvents(in: store)) { event in
+            ForEach(viewModel.pinOrder(in: store, now: now)) { event in
                 let isSelected = viewModel.selectedID == event.id
                 Annotation(event.title, coordinate: event.coordinate, anchor: .bottom) {
                     EventPin(
