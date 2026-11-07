@@ -1,7 +1,7 @@
 # masUNO QA script
 
 Run this before each TestFlight build, on physical phones (two, plus a third for the last-spot race) with the exact build being sent (SPEC §9).
-Use two test school accounts (O4) on `masuno-prod`, or allowlisted accounts until Tec issues them: **Phone A** hosts, **Phone B** joins. File anything that fails as a Trello
+Use test school accounts (O4) on `masuno-prod`, or allowlisted accounts until Tec issues them, one per phone: **Phone A** hosts, **Phone B** joins. File anything that fails as a Trello
 bug with a screenshot. Sections 1–8 need the live backend.
 
 Before you start: delete the app from both phones, turn location on, and note the build number from Settings.
@@ -9,17 +9,20 @@ Before you start: delete the app from both phones, turn location on, and note th
 ## 1. Sign-in and onboarding
 
 - [ ] Fresh install → Welcome → Location primer → Sign in to join → Find your school → School sign-in → You're verified → Set up profile. Privacy & Terms opens the real page.
-- [ ] "Continue with your school account" is the only sign-in option. There's no Google, Microsoft or Apple button and no way to create an account.
-- [ ] A launch-campus school account signs in through the system web sheet and reaches You're verified.
+- [ ] The Location primer doesn't trigger the iOS prompt; that waits for the map.
+- [ ] **Not now** on the Sign in to join sheet closes it, and the app stays signed out.
+- [ ] "Find my school" → "Continue with school account" is the only way to sign in. There's no Google, Microsoft or Apple button and no way to create an account.
+- [ ] "Continue with school account" opens the school's own sign-in page in the system web sheet, with no "masUNO wants to use … to sign in" alert first. A launch-campus account signs in and reaches You're verified.
 - [ ] Closing the web sheet returns to Find your school with no error.
-- [ ] A personal Microsoft account can't sign in.
-- [ ] An account from another school shows "masUNO is just for Tec students right now." (with the launch campus's name)
+- [ ] A personal Microsoft account or another school's account can't get through the sign-in page. If one ever reaches masUNO, it shows "masUNO is just for Tec students right now." (with the launch campus's name)
 - [ ] Name is filled in from the school sign-in and can be edited. Name, class year and at least one sport are required. A rude name shows "Please keep it friendly."
 - [ ] Agreeing to the guidelines lands on the map, in under 2 minutes from install.
-- [ ] Quit the app mid-onboarding and reopen: it continues at the same step.
+- [ ] Quit the app after signing in but before agreeing to the guidelines, then reopen: it continues at the same step.
+- [ ] Sign out of an account that finished onboarding: the app returns to Welcome, and signing back in goes straight to the map.
 - [ ] Review account: **Use a review account** signs in with a password and lands on the demo campus, with no option to create an account.
+- [ ] A Tec test account used for App Review lands on the demo campus too.
 - [ ] A non-allowlisted address can't sign in or sign up with a password, including an `@tec.mx` address.
-- [ ] Sign out, then sign in with a different school account: the new account's profile loads.
+- [ ] Sign out, then sign in with a different school account: the school's page asks for the password again, and the new account's profile loads.
 
 ## 2. Map
 
@@ -70,11 +73,12 @@ Before you start: delete the app from both phones, turn location on, and note th
 
 - [ ] Phone A cancels a game. It leaves the map, and Phone B sees "cancelled this game".
 - [ ] Phone A deletes their account from Settings: signed out, hosted games cancelled, joined spots freed.
-- [ ] Signing in again with that school account starts onboarding from the beginning.
+- [ ] Signing in again with that school account starts onboarding from the beginning, including You're verified and Set up profile.
 
 ## 9. Bad conditions
 
 - [ ] **Airplane mode:** on the map, in Me and on an unopened game. No blank or endlessly spinning screen; retry works once back online.
+- [ ] **Find your school in airplane mode:** shows a retry card, and works once back online.
 - [ ] **Failed actions in airplane mode:** Join and Leave undo themselves with a short message.
 - [ ] **Location denied:** the map stays on campus with the "Turn on location" banner, which opens iOS Settings.
 - [ ] **Far from campus:** the map lands on your campus, or the demo campus for a review account.

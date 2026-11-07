@@ -5,8 +5,8 @@ The boundary between the app and Supabase (SPEC §8.5), matched by the Swift pro
 by both coders. If this file and the spec disagree, this file wins.
 
 **Status: frozen Fri Nov 6; sign-in amended the same day (SPEC N33).** Build the backend to this file. The
-backend hasn't started, so there's nothing to migrate. The Swift side still uses email codes and
-`open_universities` until E5 and B5 land.
+backend hasn't started, so there's nothing to migrate. The Swift side follows in E5 + B5, the one exception
+to the one-PR rule; "Swift changes owed" below lists what's left.
 
 ## Conventions
 
@@ -47,15 +47,18 @@ These come from Supabase Auth and the auth hook, not from RPCs. `AuthService` (B
 
 | Source | `DomainError` |
 | --- | --- |
-| Auth hook rejects the address, with message `email_not_allowed` | `.emailNotAllowed` |
-| The person closes the web sheet | None: back to Find your school, with no message |
-| The school requires admin consent | `.schoolApprovalNeeded` (new) |
-| Any other sign-in failure in the callback | `.signInFailed` (new) |
+| Auth hook rejects the account, with message `email_not_allowed` | `.emailNotAllowed` |
+| `ASWebAuthenticationSessionError.canceledLogin` (the person closes the web sheet) | None: back to Find your school, with no message |
+| Callback says consent was denied or is required | `.schoolApprovalNeeded` (new) |
+| Any other error from the web sheet or callback | `.signInFailed` (new) |
 | `over_request_rate_limit` | `.tooManyAttempts` |
 | `invalid_credentials` (review accounts) | `.invalidCredentials` |
 
-OAuth failures come back in the callback URL rather than as a thrown API error. B5 checks the exact
-format for a hook rejection and for missing consent on `masuno-dev`.
+OAuth failures come back in the callback URL's `error`, `error_code` and `error_description`, and
+`auth.signInWithOAuth` throws them as `AuthError.pkceGrantCodeExchange`. B5 checks the exact text for a
+hook rejection on `masuno-dev`. If admin consent is needed, Microsoft usually shows its own page in the
+sheet, and closing it counts as a cancel, so `.schoolApprovalNeeded` only appears if Microsoft sends an
+error back (B21 checks this).
 
 ## Reference data (readable by `anon`)
 
@@ -67,12 +70,14 @@ The version gate runs before sign-in, so these need a read policy for `anon`, no
 | `university_lookup` | see below | `University` |
 | `activities` | `slug`, `kind`, `label_en`, `label_es`, `emoji`, `sort_order`, `postable`, `interest_selectable`, `active` | `Activity` |
 
-`university_lookup` is a view used by Find your school: every campus that isn't `is_demo`, open or closed.
+`university_lookup` is a view used by Find your school: every campus with an `sso_provider` that isn't `is_demo`, open or closed.
 Columns: `id`, `name`, `short_name`, `email_domain`, `sso_provider`, `tenant_id`, `signup_enabled`,
 `center_lat`, `center_lng` → `University`. This is how the launch campus stays data (SPEC §8.10). Closed
 campuses stay listed so their existing accounts can sign back in; the auth hook stops new accounts there.
 With exactly one row where `signup_enabled` is true, onboarding names that campus; otherwise the copy stays generic.
 `tenant_id` is a record: Supabase sets the Azure tenant once per project, so the app doesn't send it.
+Because views use `security_invoker`, `anon` needs a policy that hides `is_demo` rows and a column-level
+grant limited to these columns, so `student_email_pattern` stays private.
 
 `activities` is seeded with the slugs `basketball`, `tennis`, `soccer`, `volleyball`, `padel`,
 which `Activity.builtIn` repeats as the offline fallback.
@@ -171,17 +176,33 @@ Rules the signatures don't show:
 
 ## Sign-in
 
-1. Find your school reads `university_lookup`. `sso_provider` picks the provider.
-2. School account: `auth.signInWithOAuth(provider: .azure, redirectTo: masuno://auth-callback, scopes: "openid email profile")`,
-   which opens `ASWebAuthenticationSession`. The app has no domain list of its own, and the school picked in the
-   app isn't trusted: the auth hook checks the provider and the email on the server (SPEC §8.4).
+1. Find your school reads `university_lookup`. `sso_provider` picks the provider and hint: `azure` →
+   `.azure` with `domain_hint=<email_domain>`; `google` → `.google` with `hd=<email_domain>`.
+2. School account, on supabase-swift v2 with its default PKCE flow:
+   `auth.signInWithOAuth(provider: .azure, redirectTo: masuno://auth-callback, scopes: "openid email profile", queryParams: [(name: "domain_hint", value: <email_domain>)], configure: { $0.prefersEphemeralWebBrowserSession = true })`.
+   The SDK opens `ASWebAuthenticationSession`, takes the callback scheme from `redirectTo`, finishes the exchange and
+   returns the session. Don't call `start()` in `configure`; the SDK does. The app has no domain list of its own, and the school picked in the app
+   isn't trusted: the auth hook checks the provider and the email on the server (SPEC §8.4). Set up profile
+   fills in the name from `user_metadata`, editable (B21 confirms the keys).
 3. Review account (only from **Use a review account**): `auth.signInWithPassword(email, password)`. Works only for
    `auth_allowlist` addresses. The app never calls `auth.signUp`, and the hook refuses any other address.
-4. Next step from `my_profile`: no row → `.needsProfile`; `guidelines_accepted_at` null →
+4. Next step from `my_profile`: no row → `.needsProfile` (You're verified comes first); `guidelines_accepted_at` null →
    `.needsGuidelines`; `banned_at` set → `.suspended`; otherwise `.signedIn`.
 
-Review accounts: `auth_allowlist` has `email`, `note` and `university_id` (the demo campus), so
-`complete_profile` can place them. They're either a Tec test account or a password account Emilio created.
+Review accounts: `auth_allowlist` has `email`, `note` and `university_id` (usually the demo campus), so
+`complete_profile` can place them. They're either a Tec test account or a password account Emilio created
+with the email already confirmed.
+
+## Swift changes owed (E5, B5)
+
+- `AuthService`: remove `signInMethod(for:)`, `sendCode(to:)`, `verifyCode(_:email:)` and `SignInMethod`; add school
+  sign-in for a `University`; keep `signIn(email:password:)`.
+- `AuthState.signedOut(email:)`: the email no longer prefills a step (SPEC §7.5, Coming back).
+- `AppConfigRepository.fetchOpenUniversities()`: read `university_lookup`, and rename it.
+- `University`: add `ssoProvider` and `signupEnabled`.
+- `DomainError`: remove `.codeInvalid` and `.codeExpired`; add `.schoolApprovalNeeded` and `.signInFailed`.
+- Add the supabase-swift v2 package to `project.yml`. The `masuno` URL scheme is already registered.
+- `MockBackend`, `ContractTests`, the onboarding view model and the `-screen onboarding-*` names follow.
 
 ## Edge Functions
 
