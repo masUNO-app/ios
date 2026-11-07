@@ -1,51 +1,65 @@
 import Observation
 import SwiftUI
 
-/// Onboarding (E5, SPEC §7.5), driven by `AuthService`: `sign_in_method(email)`,
-/// send/verify the code, `complete_profile`, `accept_guidelines`.
+/// Onboarding (E5, SPEC §7.5), driven by `AuthService`: school sign-in or a review account,
+/// then `complete_profile` and `accept_guidelines`.
 @Observable
 final class OnboardingViewModel {
     enum Step: Hashable {
-        case email, code, about, interests, guidelines
+        case locationPrimer, findSchool, reviewAccount, verified, about, interests, guidelines
+
+        /// Past sign-in there's nothing to go back to, and past the profile it's already saved.
+        var hidesBackButton: Bool {
+            switch self {
+            case .verified, .about, .guidelines: true
+            case .locationPrimer, .findSchool, .reviewAccount, .interests: false
+            }
+        }
     }
 
     var path: [Step] = []
+    var isSignInSheetPresented = false
 
+    private(set) var schools: [University] = []
+    private(set) var isLoadingSchools = false
+    private(set) var schoolsFailedToLoad = false
+    var schoolSearch = ""
+    var selectedSchool: University?
+
+    // Review accounts only (SPEC §8.4).
     var email = ""
     var password = ""
-    /// Review accounts sign in with a password instead of a code (SPEC §8.4).
-    private(set) var usesPassword = false
+
     // Only write back when the value changes: in an @Observable class an unconditional
     // write in didSet calls didSet again, forever.
-    var code = "" { didSet { let clean = String(code.filter(\.isNumber).prefix(6)); if clean != code { code = clean } } }
     var firstName = "" { didSet { if firstName.count > 30 { firstName = String(firstName.prefix(30)) } } }
     var lastName = "" { didSet { if lastName.count > 30 { lastName = String(lastName.prefix(30)) } } }
     var classYear = Calendar.current.component(.year, from: .now) + 3
     var interests: Set<Activity> = []
 
-    var emailError: String?
-    var codeError: String?
+    var signInError: String?
+    var reviewError: String?
     var aboutError: String?
     var profileError: String?
     var guidelinesError: String?
     private(set) var isWorking = false
-    /// Seconds until "Resend code" is available.
-    private(set) var resendIn = 0
 
     @ObservationIgnored private let auth: any AuthService
+    @ObservationIgnored private let catalog: any AppConfigRepository
     /// The only open campus, if there's just one: the copy then names it.
     let campus: University?
 
-    /// Picks up where the session is: an expired session prefills the email, and someone
-    /// who quit halfway through continues with the step they left.
-    init(auth: any AuthService, campus: University? = nil) {
+    /// Picks up where the session is: an expired session goes back to Find your school, and
+    /// someone who quit halfway through continues with the step they left.
+    init(auth: any AuthService, catalog: any AppConfigRepository, campus: University? = nil) {
         self.auth = auth
+        self.catalog = catalog
         self.campus = campus
         switch auth.state {
-        case .signedOut(let email?):
-            self.email = email
-            path = [.email]
+        case .signedOut(expired: true):
+            path = [.findSchool]
         case .needsProfile:
+            fillInName()
             path = [.about]
         case .needsGuidelines:
             path = [.guidelines]
@@ -56,41 +70,31 @@ final class OnboardingViewModel {
 
     // MARK: Presentation
 
-    /// "a0…@tec.mx"
-    var maskedEmail: String {
-        let parts = email.split(separator: "@", maxSplits: 1).map(String.init)
-        guard parts.count == 2 else { return email }
-        return "\(parts[0].prefix(2))…@\(parts[1])"
-    }
-
     var welcomeMessage: LocalizedStringKey {
         if let campus { return "Pickup games around \(campus.shortName), one or two players short — and looking for you." }
         return "Pickup games around campus, one or two players short — and looking for you."
     }
 
-    var continueTitle: LocalizedStringKey {
-        if let campus { return "Continue with your \(campus.shortName) email" }
-        return "Continue with your school email"
+    /// Matches the name, short name or domain, ignoring case and accents.
+    var filteredSchools: [University] {
+        let query = schoolSearch.trimmingCharacters(in: .whitespaces)
+        guard !query.isEmpty else { return schools }
+        return schools.filter { school in
+            [school.name, school.shortName, school.emailDomain].contains {
+                $0.range(of: query, options: [.caseInsensitive, .diacriticInsensitive]) != nil
+            }
+        }
     }
 
-    var emailTitle: LocalizedStringKey {
-        if let campus { return "What's your \(campus.shortName) email?" }
-        return "What's your school email?"
-    }
-
-    var emailLabel: LocalizedStringKey {
-        if let campus { return "\(campus.shortName) email" }
-        return "School email"
-    }
-
-    var emailPlaceholder: String {
-        "you@\(campus?.emailDomain ?? "school.edu")"
+    var verifiedMessage: LocalizedStringKey {
+        if let school = selectedSchool ?? campus { return "You're signed in with your \(school.name) account." }
+        return "You're signed in with your school account."
     }
 
     /// Names the campus in the "not allowed" message when there's only one to name.
     private func message(for error: DomainError) -> String {
         if error == .emailNotAllowed, let campus {
-            return String(localized: "masUNO is just for \(campus.shortName) students right now. Use your @\(campus.emailDomain) email.")
+            return String(localized: "masUNO is just for \(campus.shortName) students right now. Use your \(campus.shortName) school account.")
         }
         return error.message
     }
@@ -110,51 +114,57 @@ final class OnboardingViewModel {
 
     // MARK: Intents
 
-    /// Asks `sign_in_method`, which knows the open campuses and the review accounts.
-    func submitEmail() async {
-        let trimmed = email.trimmingCharacters(in: .whitespaces).lowercased()
-        guard !trimmed.isEmpty else { return }
-        email = trimmed
-        emailError = nil
-        await work {
-            let method = try await auth.signInMethod(for: trimmed)
-            if method == .password {
-                usesPassword = true
-                return
-            }
-            try await auth.sendCode(to: trimmed)
-            startResendTimer()
-            path.append(.code)
-        } onError: { emailError = $0 }
+    /// The primer explains location; the iOS prompt itself waits for the map (C11).
+    func continueFromPrimer() {
+        isSignInSheetPresented = true
     }
 
-    func submitPassword() async {
-        emailError = nil
-        await work {
-            try await auth.signIn(email: email, password: password)
-            advance()
-        } onError: { emailError = $0 }
+    func findMySchool() {
+        isSignInSheetPresented = false
+        path.append(.findSchool)
     }
 
-    func verifyCode() async {
-        guard code.count == 6, !isWorking else { return }
-        codeError = nil
-        await work {
-            try await auth.verifyCode(code, email: email)
-            advance()
-        } onError: {
-            codeError = $0
-            code = ""
+    /// With a single school there's nothing to choose, so it's already selected.
+    func loadSchools() async {
+        guard schools.isEmpty, !isLoadingSchools else { return }
+        isLoadingSchools = true
+        schoolsFailedToLoad = false
+        defer { isLoadingSchools = false }
+        do {
+            schools = try await catalog.fetchUniversities()
+            if selectedSchool == nil, schools.count == 1 { selectedSchool = schools[0] }
+        } catch {
+            schoolsFailedToLoad = true
         }
     }
 
-    func resendCode() async {
-        guard resendIn == 0 else { return }
-        codeError = nil
+    /// Opens the school's own page. If the person closes it, `state` doesn't change, so they
+    /// simply stay here.
+    func continueWithSchool() async {
+        guard let selectedSchool, !isWorking else { return }
+        signInError = nil
         await work {
-            try await auth.sendCode(to: email)
-            startResendTimer()
-        } onError: { codeError = $0 }
+            try await auth.signIn(at: selectedSchool)
+            switch auth.state {
+            case .needsProfile:
+                fillInName()
+                path.append(.verified)
+            case .needsGuidelines:
+                path.append(.guidelines)
+            default:
+                break
+            }
+        } onError: { signInError = $0 }
+    }
+
+    func submitReviewAccount() async {
+        let trimmed = email.trimmingCharacters(in: .whitespaces).lowercased()
+        guard !trimmed.isEmpty, !password.isEmpty else { return }
+        reviewError = nil
+        await work {
+            try await auth.signIn(email: trimmed, password: password)
+            advance()
+        } onError: { reviewError = $0 }
     }
 
     func submitAbout() {
@@ -202,10 +212,21 @@ final class OnboardingViewModel {
     /// The step after sign-in or the profile. Signed in needs nothing: the root swaps to the map.
     private func advance() {
         switch auth.state {
-        case .needsProfile: path.append(.about)
-        case .needsGuidelines: path.append(.guidelines)
-        default: break
+        case .needsProfile:
+            fillInName()
+            path.append(.about)
+        case .needsGuidelines:
+            path.append(.guidelines)
+        default:
+            break
         }
+    }
+
+    /// A starting point from the school's sign-in, never over something already typed.
+    private func fillInName() {
+        guard firstName.isEmpty, lastName.isEmpty, let name = auth.suggestedName else { return }
+        firstName = name.first
+        lastName = name.last
     }
 
     private func work(_ body: () async throws -> Void, onError: (String) -> Void) async {
@@ -215,16 +236,6 @@ final class OnboardingViewModel {
             try await body()
         } catch {
             onError(message(for: error as? DomainError ?? .offline))
-        }
-    }
-
-    private func startResendTimer() {
-        resendIn = 30
-        Task {
-            while resendIn > 0 {
-                try? await Task.sleep(for: .seconds(1))
-                resendIn -= 1
-            }
         }
     }
 }

@@ -1,14 +1,15 @@
 import SwiftUI
 
 /// Onboarding (E5, SPEC §7.5), built from the spec copy; 1.0 restyles it from Arianna's D2 frames.
-/// Welcome → school email → code → about you → interests → community guidelines → map.
+/// Welcome → Location primer → Sign in to join (sheet) → Find your school → the school's own page
+/// (system web sheet) → You're verified → about you → interests → community guidelines → map.
 /// `AuthService` moves the session along; when it reaches signed in, the root swaps to the map.
 struct OnboardingFlow: View {
     @Environment(AppViewModel.self) private var appViewModel
     @State private var viewModel: OnboardingViewModel
 
-    init(auth: any AuthService, campus: University?) {
-        _viewModel = State(initialValue: OnboardingViewModel(auth: auth, campus: campus))
+    init(auth: any AuthService, catalog: any AppConfigRepository, campus: University?) {
+        _viewModel = State(initialValue: OnboardingViewModel(auth: auth, catalog: catalog, campus: campus))
     }
 
     var body: some View {
@@ -19,15 +20,21 @@ struct OnboardingFlow: View {
                 .navigationDestination(for: OnboardingViewModel.Step.self) { step in
                     Group {
                         switch step {
-                        case .email: EmailStep(viewModel: viewModel)
-                        case .code: CodeStep(viewModel: viewModel)
+                        case .locationPrimer: LocationPrimerStep(viewModel: viewModel)
+                        case .findSchool: FindSchoolStep(viewModel: viewModel)
+                        case .reviewAccount: ReviewAccountStep(viewModel: viewModel)
+                        case .verified: VerifiedStep(viewModel: viewModel)
                         case .about: AboutStep(viewModel: viewModel)
                         case .interests: InterestsStep(viewModel: viewModel)
                         case .guidelines: GuidelinesStep(viewModel: viewModel)
                         }
                     }
                     .tint(Theme.ink)
+                    .navigationBarBackButtonHidden(step.hidesBackButton)
                 }
+        }
+        .sheet(isPresented: $viewModel.isSignInSheetPresented) {
+            SignInSheet(viewModel: viewModel)
         }
         #if DEBUG
         .onAppear(perform: openDebugStep)
@@ -43,7 +50,7 @@ struct OnboardingFlow: View {
             EmptyView()
         } footer: {
             VStack(spacing: 12) {
-                PrimaryAction(viewModel.continueTitle) { viewModel.path.append(.email) }
+                PrimaryAction("Continue") { viewModel.path.append(.locationPrimer) }
                 Link("Privacy & Terms", destination: appViewModel.config.privacyURL)
                     .font(.footnote)
                     .foregroundStyle(Theme.muted)
@@ -53,17 +60,25 @@ struct OnboardingFlow: View {
     }
 
     #if DEBUG
-    /// `-screen onboarding-email|code|about|interests|guidelines` opens a step with sample input.
+    /// `-screen onboarding-primer|sheet|school|review|verified|about|interests|guidelines`
+    /// opens a step with sample input.
     private func openDebugStep() {
         guard let step = UserDefaults.standard.string(forKey: "screen"), step.hasPrefix("onboarding-") else { return }
-        viewModel.email = "a01234567@tec.mx"
         viewModel.firstName = "Emilio"
         viewModel.lastName = "Garza"
         viewModel.interests = [Activity.builtIn[0], Activity.builtIn[2]]
-        let all: [OnboardingViewModel.Step] = [.email, .code, .about, .interests, .guidelines]
-        let names = ["email", "code", "about", "interests", "guidelines"]
-        if let index = names.firstIndex(of: String(step.dropFirst("onboarding-".count))) {
-            viewModel.path = Array(all[...index])
+        switch String(step.dropFirst("onboarding-".count)) {
+        case "primer": viewModel.path = [.locationPrimer]
+        case "sheet":
+            viewModel.path = [.locationPrimer]
+            viewModel.continueFromPrimer()
+        case "school": viewModel.path = [.locationPrimer, .findSchool]
+        case "review": viewModel.path = [.locationPrimer, .findSchool, .reviewAccount]
+        case "verified": viewModel.path = [.verified]
+        case "about": viewModel.path = [.about]
+        case "interests": viewModel.path = [.about, .interests]
+        case "guidelines": viewModel.path = [.guidelines]
+        default: break
         }
     }
     #endif
@@ -71,105 +86,185 @@ struct OnboardingFlow: View {
 
 // MARK: - Steps
 
-private struct EmailStep: View {
-    @Bindable var viewModel: OnboardingViewModel
-    @FocusState private var focused: Bool
-
-    var body: some View {
-        OnboardingPage(title: viewModel.emailTitle, message: "We'll send you a 6-digit code. No passwords.") {
-            FieldBox(viewModel.emailLabel, error: viewModel.usesPassword ? nil : viewModel.emailError) {
-                TextField(viewModel.emailPlaceholder, text: $viewModel.email)
-                    .keyboardType(.emailAddress)
-                    .textContentType(.emailAddress)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .focused($focused)
-                    .submitLabel(.continue)
-                    .onSubmit { Task { await viewModel.submitEmail() } }
-            }
-            // Review accounts only (SPEC §8.4).
-            if viewModel.usesPassword {
-                FieldBox("Password", error: viewModel.emailError) {
-                    SecureField("Password", text: $viewModel.password)
-                        .textContentType(.password)
-                        .onSubmit { Task { await viewModel.submitPassword() } }
-                }
-            }
-        } footer: {
-            if viewModel.usesPassword {
-                PrimaryAction("Sign in", isWorking: viewModel.isWorking) { Task { await viewModel.submitPassword() } }
-                    .disabled(viewModel.password.isEmpty)
-            } else {
-                PrimaryAction("Send code", isWorking: viewModel.isWorking) { Task { await viewModel.submitEmail() } }
-                    .disabled(viewModel.email.isEmpty)
-            }
-        }
-        .onAppear { focused = true }
-    }
-}
-
-private struct CodeStep: View {
-    @Bindable var viewModel: OnboardingViewModel
-    @FocusState private var focused: Bool
+private struct LocationPrimerStep: View {
+    var viewModel: OnboardingViewModel
 
     var body: some View {
         OnboardingPage(
-            title: "Check your email",
-            message: "We sent a 6-digit code to \(viewModel.maskedEmail). It comes from masunoapp@gmail.com — check Junk if you don't see it."
+            systemImage: "location",
+            title: "See games near you",
+            message: "The map uses your location to show nearby games. It never leaves your phone."
         ) {
-            VStack(alignment: .leading, spacing: 10) {
-                codeBoxes
-                if let error = viewModel.codeError {
-                    Text(error).font(.caption).foregroundStyle(Theme.error)
+            EmptyView()
+        } footer: {
+            PrimaryAction("Continue") { viewModel.continueFromPrimer() }
+        }
+    }
+}
+
+/// Sign in to join.
+private struct SignInSheet: View {
+    var viewModel: OnboardingViewModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Image(systemName: "checkmark.shield")
+                .font(.title2.weight(.medium))
+                .foregroundStyle(Theme.accent)
+                .frame(width: 56, height: 56)
+                .background(Theme.accentSoft, in: .circle)
+            Text("Quick check before you join")
+                .font(.title2.bold())
+                .foregroundStyle(Theme.ink)
+            Text("Sign in with your school account so other players know you're a verified student. Takes about 30 seconds.")
+                .foregroundStyle(Theme.muted)
+            Spacer(minLength: 8)
+            PrimaryAction("Find my school") { viewModel.findMySchool() }
+            Button("Not now") { viewModel.isSignInSheetPresented = false }
+                .buttonStyle(.glassProminent)
+                .tint(Theme.accentSoft)
+                .foregroundStyle(Theme.ink)
+                .controlSize(.large)
+                .buttonSizing(.flexible)
+                .fontWeight(.semibold)
+        }
+        .padding(Theme.gutter)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.background)
+        .presentationDetents([.height(390)])
+        .presentationDragIndicator(.visible)
+    }
+}
+
+private struct FindSchoolStep: View {
+    @Bindable var viewModel: OnboardingViewModel
+
+    var body: some View {
+        OnboardingPage(
+            title: "Find your school",
+            message: "You'll sign in with the account your school gave you. masUNO never sees your password."
+        ) {
+            if viewModel.schoolsFailedToLoad {
+                RetryCard(message: "Couldn't load schools.") { await viewModel.loadSchools() }
+            } else if viewModel.isLoadingSchools {
+                ProgressView().frame(maxWidth: .infinity).padding(.vertical, 24)
+            } else {
+                FieldBox("Search schools") {
+                    TextField("Search your school", text: $viewModel.schoolSearch)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
                 }
-                Button(viewModel.resendIn > 0 ? "Resend code in \(viewModel.resendIn) s" : "Resend code") {
-                    Task { await viewModel.resendCode() }
-                }
-                .font(.subheadline.weight(.semibold))
-                .tint(viewModel.resendIn > 0 ? Theme.muted : Theme.accent)
-                .disabled(viewModel.resendIn > 0)
-                .padding(.top, 4)
+                schoolList
+                Text("Don't see your school? masUNO is just for these campuses right now.")
+                    .font(.footnote)
+                    .foregroundStyle(Theme.muted)
+            }
+            if let error = viewModel.signInError {
+                Text(error).font(.caption).foregroundStyle(Theme.error)
             }
         } footer: {
-            PrimaryAction("Continue", isWorking: viewModel.isWorking) { Task { await viewModel.verifyCode() } }
-                .disabled(viewModel.code.count < 6)
+            VStack(spacing: 12) {
+                PrimaryAction("Continue with school account", isWorking: viewModel.isWorking) {
+                    Task { await viewModel.continueWithSchool() }
+                }
+                .disabled(viewModel.selectedSchool == nil)
+                // A small visible link, not a hidden one: App Review may need it (SPEC §8.4).
+                Button("Use a review account") { viewModel.path.append(.reviewAccount) }
+                    .font(.footnote)
+                    .tint(Theme.muted)
+            }
         }
-        .onAppear { focused = true }
-        .onChange(of: viewModel.code) { if viewModel.code.count == 6 { Task { await viewModel.verifyCode() } } }
+        .task { await viewModel.loadSchools() }
     }
 
-    /// Six boxes over one hidden field, so one-time-code autofill and paste work.
-    private var codeBoxes: some View {
-        ZStack {
-            TextField("", text: $viewModel.code)
-                .keyboardType(.numberPad)
-                .textContentType(.oneTimeCode)
-                .focused($focused)
-                .opacity(0.02)
-            HStack(spacing: 8) {
-                ForEach(0..<6, id: \.self) { index in
-                    let digits = Array(viewModel.code)
-                    let isCurrent = focused && index == digits.count
-                    Text(index < digits.count ? String(digits[index]) : "")
-                        .font(.title2.monospacedDigit().weight(.semibold))
-                        .foregroundStyle(Theme.ink)
-                        .frame(maxWidth: .infinity, minHeight: 56)
-                        .background(Theme.card, in: .rect(cornerRadius: Theme.Radius.field))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: Theme.Radius.field)
-                                .strokeBorder(
-                                    viewModel.codeError != nil ? Theme.error : (isCurrent ? Theme.accent : Theme.hairline),
-                                    lineWidth: isCurrent || viewModel.codeError != nil ? 1.5 : 1
-                                )
-                        }
+    private var schoolList: some View {
+        VStack(spacing: 0) {
+            ForEach(viewModel.filteredSchools) { school in
+                SchoolRow(school: school, isSelected: school.id == viewModel.selectedSchool?.id) {
+                    viewModel.selectedSchool = school
                 }
             }
-            .allowsHitTesting(false)
         }
-        .contentShape(.rect)
-        .onTapGesture { focused = true }
-        .accessibilityElement()
-        .accessibilityLabel(Text("Code, \(viewModel.code.count) of 6 digits"))
+        .clipShape(.rect(cornerRadius: Theme.Radius.card))
+        .cardSurface()
+    }
+}
+
+private struct SchoolRow: View {
+    var school: University
+    var isSelected: Bool
+    var onSelect: () -> Void
+
+    var body: some View {
+        Button(action: onSelect) {
+            HStack(spacing: 12) {
+                Text(school.shortName.uppercased())
+                    .font(.caption.weight(.semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .foregroundStyle(Theme.ink)
+                    .frame(width: 44, height: 44)
+                    .background(Theme.accentSoft, in: .rect(cornerRadius: 12))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(school.name).font(.body).foregroundStyle(Theme.ink)
+                    Text(school.emailDomain).font(.footnote).foregroundStyle(Theme.muted)
+                }
+                Spacer(minLength: 4)
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.medium))
+                    .foregroundStyle(Theme.muted)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(isSelected ? Theme.accentSoft.opacity(0.5) : .clear)
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+}
+
+/// For App Review and demo days. Sign-in only: only an allowlisted account can pass (SPEC §8.4).
+private struct ReviewAccountStep: View {
+    @Bindable var viewModel: OnboardingViewModel
+
+    var body: some View {
+        OnboardingPage(
+            title: "Review account",
+            message: "For App Review and demos. Students sign in with their school account."
+        ) {
+            FieldBox("Email") {
+                TextField("Email", text: $viewModel.email)
+                    .keyboardType(.emailAddress)
+                    .textContentType(.username)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+            }
+            FieldBox("Password", error: viewModel.reviewError) {
+                SecureField("Password", text: $viewModel.password)
+                    .textContentType(.password)
+                    .onSubmit { Task { await viewModel.submitReviewAccount() } }
+            }
+        } footer: {
+            PrimaryAction("Sign in", isWorking: viewModel.isWorking) { Task { await viewModel.submitReviewAccount() } }
+                .disabled(viewModel.email.isEmpty || viewModel.password.isEmpty)
+        }
+    }
+}
+
+private struct VerifiedStep: View {
+    var viewModel: OnboardingViewModel
+
+    var body: some View {
+        OnboardingPage(
+            systemImage: "checkmark.shield",
+            title: "You're verified",
+            message: viewModel.verifiedMessage
+        ) {
+            EmptyView()
+        } footer: {
+            PrimaryAction("Continue") { viewModel.path.append(.about) }
+        }
     }
 }
 

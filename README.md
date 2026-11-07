@@ -24,7 +24,9 @@ git-ignored too: Debug points at `masuno-dev`, Release at `masuno-prod`.
 Debug builds accept a `-screen` launch argument to jump straight to a screen for design review:
 `popup`, `popup-saved`, `saved`, `add`, `form-error`, `edit`, `picker`, `detail-open|in|full|hosting|ended|cancelled`
 (add `-raceJoin YES` to `detail-open` for the last-spot race; `-mockLocation YES` pins you at Tec), `who`, `report`, `blocked`, `me`,
-`me-hosting`, `profile`, `onboarding-email|code|about|interests|guidelines`, `calendar`, `chat`, `chat-host`, `meetup`, `repost`, `settings`, `update`, `signed-out`, `suspended`, `gallery`.
+`me-hosting`, `profile`, `onboarding-primer|sheet|school|review|verified|about|interests|guidelines`, `calendar`, `chat`, `chat-host`, `meetup`, `repost`, `settings`, `update`, `signed-out`, `session-expired`, `suspended`, `gallery`.
+
+With real keys in `Config.xcconfig`, `-liveAuth YES` signs in for real on `masuno-dev`, with games still on mocks until the live repositories land (B7).
 
 ## How we work
 

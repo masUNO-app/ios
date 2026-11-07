@@ -33,6 +33,10 @@
 	<array>
 		<string>comgooglemaps</string>
 	</array>
+	<key>SupabaseAnonKey</key>
+	<string>$(SUPABASE_ANON_KEY)</string>
+	<key>SupabaseURL</key>
+	<string>$(SUPABASE_URL)</string>
 	<key>UILaunchScreen</key>
 	<dict>
 		<key>UIColorName</key>

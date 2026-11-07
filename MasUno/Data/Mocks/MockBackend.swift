@@ -18,10 +18,13 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
     var latency: Duration = .zero
     /// The clock the rules use. Tests set this to step past a game's end.
     var now: Date
-    /// Campuses taking sign-ups. Change this to launch somewhere else.
-    var openUniversities = [MockFixtures.tec]
-    /// Campuses no longer taking sign-ups. Their existing accounts can still sign in.
-    var closedUniversities: [University] = []
+    /// `university_lookup`. Change this to launch somewhere else, or set `signupEnabled` to close a campus.
+    var universities = [MockFixtures.tec]
+    /// The account the next school sign-in comes back with, whichever school was picked.
+    /// By default it's a student at the school picked.
+    var schoolAccountEmail: String?
+    /// The next school sign-in closes the web sheet instead of signing in.
+    var cancelsNextSignIn = false
     /// `-raceJoin YES`: the next join waits a second, then loses the last spot to someone else.
     var losesNextJoinRace = false
 
@@ -31,10 +34,10 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
     private var people: [UUID: PersonSummary]
     private var blockedIDs: [UUID] = []
     private var isSuspended = false
-    /// The campus the email signing in belongs to.
+    /// The campus the account signing in belongs to.
     private var signInCampus = MockFixtures.tec
 
-    /// `state` defaults to signed in with the Monterrey fixtures. Pass `.signedOut(email: nil)`
+    /// `state` defaults to signed in with the Monterrey fixtures. Pass `.signedOut(expired: false)`
     /// to preview onboarding: the new account then has no profile until `completeProfile`.
     init(state: AuthState? = nil, now: Date = .now) {
         let world = MockFixtures.world(now: now)
@@ -75,43 +78,37 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         state = .suspended
     }
 
-    /// The saved session stopped working.
-    func expireSession(email: String?) {
-        state = .signedOut(email: email)
+    /// The session ended: on purpose, or `expired` if the saved session stopped working.
+    func endSession(expired: Bool) {
+        state = .signedOut(expired: expired)
     }
 
     // MARK: AuthService
 
+    var suggestedName: SuggestedName? {
+        state == .needsProfile ? SuggestedName(first: "Emilio", last: "Garza") : nil
+    }
+
     func restoreSession() async {
-        if state == .loading { state = .signedOut(email: nil) }
+        if state == .loading { state = .signedOut(expired: false) }
     }
 
-    func signInMethod(for email: String) async throws -> SignInMethod {
+    /// Debug has no web sheet. Like the auth hook, this checks the account, not the school picked,
+    /// and only for a new account: the hook doesn't run for an existing one.
+    func signIn(at school: University) async throws {
         try await begin()
-        if email.lowercased() == MockFixtures.reviewEmail { return .password }
-        // Closed campuses still get a code: the auth hook only stops new accounts.
-        guard campus(for: email, in: openUniversities + closedUniversities) != nil else { throw DomainError.emailNotAllowed }
-        return .otp
-    }
-
-    func sendCode(to email: String) async throws {
-        try await begin()
-        if let campus = campus(for: email, in: openUniversities) {
+        if cancelsNextSignIn {
+            cancelsNextSignIn = false
+            return
+        }
+        if profile == nil {
+            let email = schoolAccountEmail ?? "a01234567@\(school.emailDomain)"
+            guard let campus = campus(for: email, in: universities), campus.signupEnabled else {
+                throw DomainError.emailNotAllowed
+            }
             signInCampus = campus
-        } else if profile == nil || campus(for: email, in: closedUniversities) == nil {
-            // The auth hook: a new account needs an open campus.
-            throw DomainError.emailNotAllowed
         }
-    }
-
-    /// Any six digits work, except `000000` (wrong) and `111111` (expired).
-    func verifyCode(_ code: String, email: String) async throws {
-        try await begin()
-        switch code {
-        case "000000": throw DomainError.codeInvalid
-        case "111111": throw DomainError.codeExpired
-        default: state = profile == nil ? .needsProfile : .signedIn(userID: me.id)
-        }
+        state = profile == nil ? .needsProfile : .signedIn(userID: me.id)
     }
 
     func signIn(email: String, password: String) async throws {
@@ -138,7 +135,7 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
 
     func signOut() async throws {
         try await begin()
-        state = .signedOut(email: nil)
+        state = .signedOut(expired: false)
     }
 
     /// Cancels upcoming hosted games and frees joined spots, like `delete-account` (B9).
@@ -152,7 +149,7 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
             }
         }
         profile = nil
-        state = .signedOut(email: nil)
+        state = .signedOut(expired: false)
     }
 
     // MARK: GameRepository
@@ -353,9 +350,9 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         return Activity.builtIn
     }
 
-    func fetchOpenUniversities() async throws -> [University] {
+    func fetchUniversities() async throws -> [University] {
         try await begin()
-        return openUniversities
+        return universities
     }
 
     // MARK: Rules

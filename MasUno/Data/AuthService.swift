@@ -4,35 +4,32 @@ import Foundation
 nonisolated enum AuthState: Hashable, Sendable {
     /// Before the saved session has been checked.
     case loading
-    /// `email` prefills the email step after a session expires.
-    case signedOut(email: String?)
-    /// Onboarding steps 4–5.
+    /// `expired`: the saved session stopped working, so onboarding reopens at Find your school.
+    /// Signing out or deleting the account starts at Welcome (SPEC §7.5).
+    case signedOut(expired: Bool)
+    /// Set up profile: about you, then interests.
     case needsProfile
-    /// Onboarding step 6.
+    /// Set up profile: community guidelines.
     case needsGuidelines
     case suspended
     case signedIn(userID: UUID)
 }
 
-/// Raw values are what `sign_in_method` returns.
-nonisolated enum SignInMethod: String, Hashable, Sendable {
-    case otp, password
-}
-
-/// Sign-in and account lifecycle (SPEC §7.5, B5). Implementations are `@Observable`,
+/// Sign-in and account lifecycle (SPEC §7.5, §8.4, B5). Implementations are `@Observable`,
 /// so a view reading `state` updates when it changes. Failures are `DomainError`s.
 protocol AuthService: AnyObject {
     var state: AuthState { get }
+    /// The name the school's sign-in gave us, to fill in Set up profile.
+    var suggestedName: SuggestedName? { get }
 
     /// Checks the saved session at launch and leaves `.loading`.
     func restoreSession() async
 
-    /// The server decides who can sign in: a campus's domain gets `.otp`, a review account gets
-    /// `.password`, and anything else throws `.emailNotAllowed`. The app never checks a domain itself.
-    /// `sendCode` can also throw `.emailNotAllowed`: a new account at a campus that's closed to sign-ups.
-    func signInMethod(for email: String) async throws -> SignInMethod
-    func sendCode(to email: String) async throws
-    func verifyCode(_ code: String, email: String) async throws
+    /// Opens the school's own sign-in page. Closing the page isn't a failure: it returns with
+    /// `state` unchanged. The school picks the provider and hint, but doesn't decide who gets in:
+    /// the auth hook checks the account on the server and can throw `.emailNotAllowed`.
+    func signIn(at school: University) async throws
+    /// Allowlisted review, demo-day and QA accounts only. There's no way to create an account.
     func signIn(email: String, password: String) async throws
 
     /// `complete_profile`, then moves `.needsProfile` → `.needsGuidelines`.

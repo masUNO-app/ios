@@ -2,16 +2,15 @@
 import Foundation
 import Observation
 
-/// What Release builds run on until the live repositories land (B5, B7). Every call fails
+/// What Release builds run on without real keys, and for games until the live repositories land (B7). Every call fails
 /// as offline, so a Release build can't ever show mock data as real (N27, §10.4).
 @Observable
 final class UnavailableBackend: AuthService, GameRepository, ProfileRepository, SafetyRepository, AppConfigRepository {
-    private(set) var state = AuthState.signedOut(email: nil)
+    private(set) var state = AuthState.signedOut(expired: false)
+    let suggestedName: SuggestedName? = nil
 
     func restoreSession() async {}
-    func signInMethod(for email: String) async throws -> SignInMethod { throw DomainError.offline }
-    func sendCode(to email: String) async throws { throw DomainError.offline }
-    func verifyCode(_ code: String, email: String) async throws { throw DomainError.offline }
+    func signIn(at school: University) async throws { throw DomainError.offline }
     func signIn(email: String, password: String) async throws { throw DomainError.offline }
     func completeProfile(_ input: ProfileInput) async throws { throw DomainError.offline }
     func acceptGuidelines() async throws { throw DomainError.offline }
@@ -40,6 +39,6 @@ final class UnavailableBackend: AuthService, GameRepository, ProfileRepository, 
 
     func fetchAppConfig() async throws -> AppConfig { throw DomainError.offline }
     func fetchActivities() async throws -> [Activity] { throw DomainError.offline }
-    func fetchOpenUniversities() async throws -> [University] { throw DomainError.offline }
+    func fetchUniversities() async throws -> [University] { throw DomainError.offline }
 }
 #endif
