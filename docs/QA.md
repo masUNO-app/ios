@@ -1,21 +1,25 @@
 # masUNO QA script
 
 Run this before each TestFlight build, on physical phones (two, plus a third for the last-spot race) with the exact build being sent (SPEC §9).
-Use two accounts on `masuno-prod`: **Phone A** hosts, **Phone B** joins. File anything that fails as a Trello
+Use two test school accounts (O4) on `masuno-prod`, or allowlisted accounts until Tec issues them: **Phone A** hosts, **Phone B** joins. File anything that fails as a Trello
 bug with a screenshot. Sections 1–8 need the live backend.
 
 Before you start: delete the app from both phones, turn location on, and note the build number from Settings.
 
 ## 1. Sign-in and onboarding
 
-- [ ] Fresh install → welcome → Continue. Privacy & Terms opens the real page.
-- [ ] An email from another school shows "masUNO is just for Tec students right now." (with the launch campus's name)
-- [ ] A launch-campus email gets a code within a minute. Check Junk and note if it landed there.
-- [ ] A wrong code shows an error and clears the boxes. Resend is disabled for 30 s.
-- [ ] Name, class year and at least one sport are required. A rude name shows "Please keep it friendly."
+- [ ] Fresh install → Welcome → Location primer → Sign in to join → Find your school → School sign-in → You're verified → Set up profile. Privacy & Terms opens the real page.
+- [ ] "Continue with your school account" is the only sign-in option. There's no Google, Microsoft or Apple button and no way to create an account.
+- [ ] A launch-campus school account signs in through the system web sheet and reaches You're verified.
+- [ ] Closing the web sheet returns to Find your school with no error.
+- [ ] A personal Microsoft account can't sign in.
+- [ ] An account from another school shows "masUNO is just for Tec students right now." (with the launch campus's name)
+- [ ] Name is filled in from the school sign-in and can be edited. Name, class year and at least one sport are required. A rude name shows "Please keep it friendly."
 - [ ] Agreeing to the guidelines lands on the map, in under 2 minutes from install.
 - [ ] Quit the app mid-onboarding and reopen: it continues at the same step.
-- [ ] Review account: its email shows a password field instead of sending a code, and signs in.
+- [ ] Review account: **Use a review account** signs in with a password and lands on the demo campus, with no option to create an account.
+- [ ] A non-allowlisted address can't sign in or sign up with a password, including an `@tec.mx` address.
+- [ ] Sign out, then sign in with a different school account: the new account's profile loads.
 
 ## 2. Map
 
@@ -66,7 +70,7 @@ Before you start: delete the app from both phones, turn location on, and note th
 
 - [ ] Phone A cancels a game. It leaves the map, and Phone B sees "cancelled this game".
 - [ ] Phone A deletes their account from Settings: signed out, hosted games cancelled, joined spots freed.
-- [ ] Signing in again with that email starts onboarding from the beginning.
+- [ ] Signing in again with that school account starts onboarding from the beginning.
 
 ## 9. Bad conditions
 

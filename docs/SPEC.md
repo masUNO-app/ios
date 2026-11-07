@@ -3,7 +3,7 @@
 **Rev. 7 · 2026-11-05, updated Nov 6** · replaces rev. 6 (Nov 3), `PLAN.md` (rev. 2) and earlier revisions. Rev. 7 records what's done, keeps the 0.5 submission on **Mon Nov 9** by moving all remaining backend work into Fri–Sun Nov 6–8, and adds the **1.0 UI** from the new Figma (§7.7).
 **Team:**
 - **Ethan Wen** — frontend: the iOS app's screens, view logic and App Store submission; **for 0.5 also the Swift data layer** (rev. 7, N21).
-- **Emilio** — backend: Supabase (tables, rules, RPCs, functions, jobs, email, notifications).
+- **Emilio** — backend: Supabase (tables, rules, RPCs, functions, jobs, sign-in, notifications).
 - **Arianna** — design: Figma, app icon, website pages, decks, screenshots, design QA.
 - **Ricardo** — team lead and outreach: users, beta testers, hosts, copy, demo days, launch.
 
@@ -13,6 +13,7 @@
 - **Frontend (0.5 UI) is finished on mock data, in review:** PR #9 (`ethan/e1-contract`, not merged yet) adds the contract (`docs/API.md`, repository protocols, models, mocks) and `GameStore`, moves every screen onto them, and adds the states, release hygiene and `docs/QA.md`. Earlier work is on `main` (PRs #4–#7). Nothing talks to Supabase yet, so **Release builds can't sign in until B5 and B7 land** (N31).
 - **Backend has not started:** `supabase/` is still a placeholder, and every B-card in §5.2 is still to do. `docs/API.md` is the contract to build to.
 - **1.0 UI is designed:** the Figma file "masuno figma" now has per-sport flows (basketball, tennis, soccer, volleyball, padel), group chat for each sport, Me and Settings, plus `DESIGN.md` v2.0 in the project. This is the 1.0 look (§7.7); what's built is the 0.5 look.
+- **Sign-in moved to school SSO on Nov 6 (N33):** this spec and `docs/API.md` describe the new flow, but the Swift code and its contract tests still use email codes until E5 and B5 land.
 - `com.masuno.app` registered on the Boys & Girls Clubs of Chicago developer team (Oct 28). The app icon set is still empty.
 
 > **How to read this.** §0–§6 are the plan: releases, scope, calendar, who does what, how we work. §7–§9 are the product and technical spec (§7.1–§7.6 = 0.5 UI, §7.7 = 1.0 UI). §10–§13 are release steps, risks, decisions and what comes after. Items marked **⚑** need sign-off (§12).
@@ -39,23 +40,23 @@
   - **0.6 — fast follow, submitted Mon Nov 16:** review and beta fixes, plus anything cut from 0.5. 0.5 UI. Also the hard backstop for 0.5 if it slips on Sun Nov 8.
   - **1.0 — after Demo Day #3:** the 1.0 UI, notifications, synced Saved games, Spanish and polish. Beta Tue Dec 1, submitted Tue Dec 8, live for the Product Launch (Dec 16).
 - **Coders, split for 0.5** (N21):
-  - **Emilio** builds Supabase only: tables, rules, RPCs, auth hook, Gmail email, safety, delete-account, prod.
+  - **Emilio** builds Supabase only: tables, rules, RPCs, auth hook, school sign-in (Azure provider), safety, delete-account, prod.
   - **Ethan** builds everything in Swift, including the data layer (`AuthService`, `GameStore`, live repositories), because his screens are done and the backend is the critical path.
   - They meet at one contract (§8.5, `docs/API.md`) and the Swift repository protocols (E1), now due **Fri Nov 6 at noon**.
-- **Hours left:** Ethan ≈ 46 h (about 16 h for 0.5, re-estimated Nov 6; 30 h for 1.0); Emilio ≈ 54 h (30 h for 0.5, 24 h for 1.0); plus group-chat messaging as a stretch for both. **Emilio's ~27 h of 0.5 Supabase work by Sun Nov 8 morning — about 9 h a day, Fri to Sun — is the critical path** (K1); Ethan's ~16 h of live data layer (B5, B7), testing on dev and release work runs alongside it.
+- **Hours left:** Ethan ≈ 49 h (about 19 h for 0.5, re-estimated Nov 6 with 3 h added for the SSO screens, N33; 30 h for 1.0); Emilio ≈ 54 h (30 h for 0.5, 24 h for 1.0); plus group-chat messaging as a stretch for both. **Emilio's ~27 h of 0.5 Supabase work by Sun Nov 8 morning — about 9 h a day, Fri to Sun — is the critical path** (K1); Ethan's ~19 h of SSO screens (E5), live data layer (B5, B7), testing on dev and release work runs alongside it.
 - **Arianna (~5 h/week)** has finished the 1.0 look in Figma. By Sun Nov 8 she delivers the app icon (Fri), the website pages (Sat) and 0.5 screenshots (Sun). After that she draws the screens the 1.0 Figma doesn't have yet (onboarding, states, safety, notifications) in the 1.0 style.
 - **Ricardo (~5 h/week)** gets people:
-  - Supabase access for Emilio and the team Gmail first — both still unconfirmed and blocking; needed tonight.
-  - Tec test inboxes, venues, beta testers, hosts and real games.
+  - Supabase access for Emilio first (unconfirmed and blocking), and the team Gmail (Contact us, review accounts).
+  - Tec IT answers and test school accounts (O4), venues, beta testers, hosts and real games.
   - The policy and App Store copy, Spanish translation, demo-day stories and numbers.
   - The launch push and moderation.
-- **No domain, no custom email.** Sign-in codes come from a team Gmail; the policy and support pages live on `masuno-app.github.io`; report alerts go to the team chat; both Supabase projects stay on the free plan.
+- **No domain, no custom email.** Sign-in goes through the school's account, so we send no sign-in email; the team Gmail is only for Contact us and review accounts; the policy and support pages live on `masuno-app.github.io`; report alerts go to the team chat; both Supabase projects stay on the free plan.
 
 ---
 
 ## 1. What changed
 
-### This revision (rev. 7, Nov 5; N30–N32 added Nov 6)
+### This revision (rev. 7, Nov 5; N30–N33 added Nov 6)
 
 | # | Change | Why | Sign-off |
 | - | --- | --- | --- |
@@ -71,6 +72,7 @@
 | N30 | **Contract gaps closed in `docs/API.md` (E1):** `game_activity` becomes an append-only table, because `leave_game` deletes the `rsvps` row a view would read; new `my_blocks()`, because RLS hides blocked people's names from Blocked people; `create_game` returns `game_cards` like every other game write; new error codes `not_authenticated` and `suspended`; `game_cards` gains `host_grad_year` and `sort_at`; `app_config` and `activities` are readable signed out; new `AppConfigRepository`. | The rev. 7 contract couldn't support these screens as written. | Decided (Nov 6); backend not started, so this is the contract |
 | N31 | **Frontend for 0.5 finished on mocks, Nov 6** (`ethan/e1-contract`): every screen runs on the E1 models, `GameStore` and `AuthService`; `EventStore`, `MockData` and the old models are deleted; chat is the read-only fallback. Choices made along the way: no default place in the game form (pick one, or see an error); the "Turn on location" banner shows only when location is denied, since it would be wrong for a reviewer who has it on but is far away (they still land on campus); a map can't pull to refresh because dragging pans it, so tapping "N games nearby" refreshes; Invite a friend is hidden in Release until `AppConfig.appStoreID` is set; bumped games aren't "listed first in search", because map search only filters pins and has no list; **Release builds run on `UnavailableBackend` until B5 + B7**, so they can't show mock data, and can't sign in either. | Nothing left in Swift can move without the backend. | — |
 | N32 | **masUNO launches at Tec but isn't locked to it.** Which campuses are open is data (`universities.signup_enabled`), so the launch campus can change, or more can open, without an app release (§8.10). The app no longer hard-codes `@tec.mx`, "Tec" or the Monterrey map center. Tec stays the only launch plan; no other campus is being built for now. | If Tec doesn't work out, the team shouldn't have to resubmit to App Review to move. | Decided (Ethan, Nov 6) |
+| N33 | **Sign-in is school single sign-on, replacing email codes.** "Continue with your school account" is the only sign-in: Supabase's Azure (Microsoft Entra ID) provider for Tec, opened with `ASWebAuthenticationSession` through supabase-swift `signInWithOAuth` (§7.5, §8.4). Google Workspace schools (later campuses) would use the Google provider restricted to the school's domain. No consumer social login and no public email + password sign-up. Dates don't change, but **O4 now depends on Tec IT answering over a weekend** (K19). | University email filters often delay or quarantine one-time codes, so students get stuck at sign-in. Guideline 4.8 exempts education apps that require an existing education account; consumer login or open sign-up would make Sign in with Apple, or an equivalent privacy-focused login, required. | Decided (Ethan, Nov 6); ⚑ Emilio (B2, B4), Ricardo (O4) |
 | N29 | **Trello is behind:** the 0.5 list still says "submit Sat Nov 21", most card dates are rev. 5's, and Ricardo/Arianna/Emilio cards show no progress. Each owner updates their cards to §5 at the Fri Nov 6 go/no-go (§6). | The plan only works if status is visible. | — |
 
 ### Rev. 6 (still in force unless changed above)
@@ -99,7 +101,7 @@
 
 ### Rev. 4 (still in force)
 
-N1 builds at each demo day, 0.5 before Demo Day #3, 1.0 after it, launch Dec 16 · N2 smaller 0.5, notifications and polish in 1.0 · N3 no domain or custom email (Gmail SMTP, GitHub Pages, team-chat alerts, free Supabase) · N4 one-page Privacy & Terms.
+N1 builds at each demo day, 0.5 before Demo Day #3, 1.0 after it, launch Dec 16 · N2 smaller 0.5, notifications and polish in 1.0 · N3 no domain or custom email (Gmail SMTP *(dropped by N33)*, GitHub Pages, team-chat alerts, free Supabase) · N4 one-page Privacy & Terms.
 
 ### From rev. 2 (carried over)
 
@@ -118,12 +120,12 @@ N1 builds at each demo day, 0.5 before Demo Day #3, 1.0 after it, launch Dec 16 
 | C11 | Location asked when the map first opens; notifications (1.0) after the first join or hosted game. | Better grant rates; shorter onboarding. | — |
 | C12 | App Review uses a hidden **demo campus** with auto-refreshed games. | Reviewers always see joinable games; real users never see fake ones. | — |
 | C13 | Apple account: B&GC team; all four of us already have access. Still needed for 1.0: an APNs key. | `com.masuno.app` registered Oct 28. | — |
-| C14 | Raise Supabase's auth-email limit (30/hour default with custom SMTP). | A demo-day or launch post could exceed 30 sign-ups an hour. | — |
+| C14 | *(Dropped by N33: no sign-in email.)* Raise Supabase's auth-email limit (30/hour default with custom SMTP). | A demo-day or launch post could exceed 30 sign-ups an hour. | — |
 | C15 | Metrics from one SQL view + App Store Connect; no analytics SDK. | Demo-day numbers at ~2 h cost. | — |
 | C16 | Minimum-version gate in 0.5. | Lets 1.0 force an update if needed. | — |
 | C17 | `supabase/` lives in the `ios` repo. | One PR can change client and database together. | — |
 
-**Still locked from rev. 2:** Supabase; school email codes only (`@tec.mx` at launch, N32); sports only (Basketball, Tennis, Soccer, Volleyball, Padel — N19); no organizer approval; launching at Tec de Monterrey (N32); English first with strings externalized; venue search + pin + current location; 7-day posting window; light mode only; sign-in gates the app; no skill level; soft cancel; separate dev and prod projects.
+**Still locked from rev. 2:** Supabase; Tec school-account SSO only (Microsoft Entra via Supabase Azure provider, N33), no consumer social login or public sign-up; sports only (Basketball, Tennis, Soccer, Volleyball, Padel — N19); no organizer approval; launching at Tec de Monterrey (N32); English first with strings externalized; venue search + pin + current location; 7-day posting window; light mode only; sign-in gates the app; no skill level; soft cancel; separate dev and prod projects.
 
 ---
 
@@ -160,7 +162,7 @@ N1 builds at each demo day, 0.5 before Demo Day #3, 1.0 after it, launch Dec 16 
 
 ### 0.5 scope (submit Mon Nov 9)
 **Must work live — the App Review checklist (§10.4); never cut:**
-- Email-code sign-in for @tec.mx; App Review password path; onboarding (6 screens, guidelines agreement); suspended-account and update-required screens.
+- School SSO sign-in ("Continue with your school account"); App Review test account, with the allowlisted password path as fallback; onboarding (Welcome → Location primer → Sign in to join (sheet) → Find your school → School sign-in (system web sheet) → You're verified → Set up profile, including the guidelines agreement → (1.0) Notification primer); suspended-account and update-required screens.
 - Map from the database: pins with "Soon", popup, recenter, campus fallback when location is off or > 15 km away (reviewers aren't in Monterrey).
 - Game form: add/edit with server validation; Where's the game? (search + current location); meet-up spot; cancel game.
 - Event detail (all six states), join/leave with server-enforced capacity and optimistic UI, Who's going.
@@ -207,7 +209,7 @@ The submission stays on **Mon Nov 9**. All remaining 0.5 work happens Fri–Sun 
 | Wed Nov 4 | ~~Contract freeze~~ · Build 0.1 | Contract missed → Fri Nov 6. UI pass merged ✅ (#7). 0.1 upload not confirmed (E6). |
 | **Thu Nov 5** | **Demo Day #1** · Rev. 7 | Build 0.1 on a real phone. O2 + O3 done tonight. Rev. 7 shared in the team chat. |
 | **Fri Nov 6** | **Contract freeze** (noon) · Dev up · **Go/no-go #1** (evening) | Noon: `docs/API.md` + E1 protocols, models and mocks merged. Evening: `masuno-dev` exists and seeds (B1); auth hook + review accounts on dev (B4); `GameStore` on mock repositories (B6); latency test (O5) and policy copy (O6) in; app icon (D3). Call: everyone confirms they can work the weekend (R7-1, R7-2). |
-| **Sat Nov 7** | Backend core | Noon: `create/update/cancel/join/leave_game` + `game_cards` on dev (B3 part 1); a real code reaches a Tec inbox (B2); `masuno-prod` created (B12). Evening: report, block, text filter, demo campus, auto-repost on dev (B3 part 2); `AuthService` (B5) and live repositories (B7) working against dev; Privacy & Terms + Support pages live (D4); listing copy in App Store Connect (O7). **Evening check:** apply the cut order (§3). |
+| **Sat Nov 7** | Backend core | Noon: `create/update/cancel/join/leave_game` + `game_cards` on dev (B3 part 1); a Tec test account signs in on dev (B2; ⚠ needs O4 from Tec IT); `masuno-prod` created (B12). Evening: report, block, text filter, demo campus, auto-repost on dev (B3 part 2); `AuthService` (B5) and live repositories (B7) working against dev; Privacy & Terms + Support pages live (D4); listing copy in App Store Connect (O7). **Evening check:** apply the cut order (§3). |
 | **Sun Nov 8** | **Go/no-go #2** (noon) · Release candidate (evening) | Morning: safety backend (B8), delete-account (B9), migrations + demo campus + review accounts on prod; live wiring done (E24, E25, E14). **Noon:** on prod, the app signs in, creates, joins, leaves, cancels, reports, blocks and deletes the account — or submission slips (§3). Afternoon: two-phone QA (`docs/QA.md`); screenshots (D7). Evening: Release build uploaded and sent to Beta App Review; §10.4 all green. |
 | **Mon Nov 9** | **Submit 0.5** | Released on approval. |
 | Nov 10–13 | In review | Rejection → reply and resubmit within 24 h. Last resubmit to be live for Demo Day #2: **Fri Nov 13**. External beta opens when Beta App Review clears (O8). Database tests + CI (B10, B11) by Thu Nov 12. |
@@ -225,9 +227,9 @@ The submission stays on **Mon Nov 9**. All remaining 0.5 work happens Fri–Sun 
 
 | | Ethan | Emilio | Arianna | Ricardo |
 | --- | --- | --- | --- | --- |
-| **Fri** morning | E1 protocols + models + mocks; pair with Emilio on `API.md` | `API.md`; B1 `masuno-dev` + `supabase init` + seed | App icon (D3) | Venue list (O5); Tec inboxes (O4) |
+| **Fri** morning | E1 protocols + models + mocks; pair with Emilio on `API.md` | `API.md`; B1 `masuno-dev` + `supabase init` + seed | App icon (D3) | Venue list (O5); Tec IT questions (O4) |
 | **Fri** afternoon/evening | `GameStore` on mocks (B6) | Auth hook + allowlist + review accounts (B4); start B3 tables | Website pages (D4) | Latency test (O5); policy + support copy (O6); go/no-go call |
-| **Sat** morning | `AuthService` (B5) on dev as soon as B4 is up | B3 part 1 (games RPCs, `game_cards`); Gmail SMTP (B2); create `masuno-prod` (B12) | D4 pages live | Listing copy (O7) |
+| **Sat** morning | `AuthService` (B5) on dev as soon as B4 is up | B3 part 1 (games RPCs, `game_cards`); Azure provider + Entra app (B2); create `masuno-prod` (B12) | D4 pages live | Listing copy (O7) |
 | **Sat** afternoon/evening | Live repositories (B7) + live wiring (E24) | B3 part 2 (report, block, filter, demo campus, auto-repost, `game_activity`) | DD2 deck can wait — rest | Enter listing + URLs in App Store Connect; recruit beta testers (O8) |
 | **Sun** morning | E24/E25 finish; release hygiene (E14) | Safety alerts + bans (B8); delete-account (B9); migrations, demo campus and review accounts on prod | — | Moderation rota posted (O11) |
 | **Sun** noon | **Go/no-go #2** — everyone | | | |
@@ -241,7 +243,7 @@ Program weeks shown; the Wednesday Team Session doubles as our weekly sync.
 | Week | Ethan (frontend + Swift data layer) | Emilio (Supabase) | Arianna (design) | Ricardo (outreach) |
 | --- | --- | --- | --- | --- |
 | **Done** (Oct 29–Nov 4) | Repo (E0); design system (E2); every 0.5 screen on mocks (E3–E13, E17, E19, E21); padel; iPad/Duo layout | — (nothing in the repo yet) | 1.0 UI in Figma (all five sport flows, group chat ×5, Me, Settings) + `DESIGN.md` v2.0 | Not confirmed |
-| **Wk 7** (Nov 2–8) · DD1 Thu · **0.5 RC Sun** | 0.1 on TestFlight (E6); contract + protocols (E1); `GameStore` (B6); `AuthService` (B5); live repositories (B7); live wiring (E24, E25); release hygiene (E14); RC + QA Sun | **Everything for 0.5, Fri–Sun:** dev setup (B1), auth hook (B4), Gmail SMTP (B2), schema/RPCs (B3), safety (B8), delete-account (B9), prod + demo campus (B12) | DD1 deck (D5); app icon (D3) Fri; Privacy & Terms + Support pages (D4) Sat; screenshots (D7) + 0.5 design QA (D6) Sun | **O2 + O3 Thu night**; Tec inboxes (O4), venues + latency test (O5), policy copy (O6) Fri; listing (O7) Sat; kickoff decisions + targets (O1) |
+| **Wk 7** (Nov 2–8) · DD1 Thu · **0.5 RC Sun** | 0.1 on TestFlight (E6); contract + protocols (E1); `GameStore` (B6); `AuthService` (B5); live repositories (B7); live wiring (E24, E25); release hygiene (E14); RC + QA Sun | **Everything for 0.5, Fri–Sun:** dev setup (B1), auth hook (B4), Azure provider + Entra app (B2), schema/RPCs (B3), safety (B8), delete-account (B9), prod + demo campus (B12) | DD1 deck (D5); app icon (D3) Fri; Privacy & Terms + Support pages (D4) Sat; screenshots (D7) + 0.5 design QA (D6) Sun | **O2 + O3 Thu night**; Tec IT questions + test accounts (O4), venues + latency test (O5), policy copy (O6) Fri; listing (O7) Sat; kickoff decisions + targets (O1) |
 | **Wk 8** (Nov 9–15) · **submit 0.5 Mon** | Submit 0.5 (E15); answer review; 0.6 fixes; start 1.0 UI (E27: tokens, pins, popup, Me cards) | Database tests (B10), CI (B11), fixes from review; chat backend (B20) if it missed 0.5 | Resolve 1.0 conflicts (D12) Wed; start 1.0 frames for missing screens (D2/D8) | Beta testers once Beta App Review clears (O8); moderation (O11) |
 | **Wk 9** (Nov 16–22) · submit 0.6 Mon · DD2 Thu | Submit 0.6 Mon; 1.0 UI: court headers, detail, chat, Who's going (E27) | 1.0 backend start: notification backend (B13) | DD2 deck (D5); 1.0 frames for missing screens (D2/D8) by Sun; 1.0 tokens as Figma variables (D13) | Beta + real games (O8, O9); DD2 numbers (O10) |
 | **Wk 10** (Nov 23–29) · Thanksgiving | 1.0: notification screens (E16), Saved sync (E17), restyle onboarding/safety/states from D2 frames (E27) | `send-push` (B14), Saved backend (B15), `NotificationService` (B16) | Design QA of 0.x release | Spanish translation (O12); beta feedback summary (O8) |
@@ -306,7 +308,7 @@ For 0.5, everything in Swift is Ethan's (screens and the data layer); everything
 | E2 | Green design system (§7.1); colors in the asset catalog; String Catalog; DEBUG gallery. | 0.1 | 6 h | Nov 4 | **Done** (#5, #7) | No hard-coded colors in views. |
 | E3 | Navigation shell (§7.3) + update-required + suspended screens; `masuno://game/<id>`. | 0.1 | 2 h | Nov 4 | **Done** | All routes reachable. |
 | E4 | Map + popup redesign (341:1979, 341:2046), incl. iPad / iPhone Duo layout. | 0.1 | 5 h | Nov 4 | **Done** (#5, #7) | Matches the frames on mock data. |
-| E5 | Onboarding (§7.5) + suspended screen. | 0.5 | 4 h | Sat Nov 7 | **Built** on `AuthService` (mock); needs B5 | Signs in for real once B5 lands. 1.0 restyles it from D2 frames. |
+| E5 | Onboarding (§7.5) + suspended screen; **replace the Email and Code screens with the SSO screens (N33), +3 h**. | 0.5 | 4 h + 3 h | Sat Nov 7 | **Built for email codes on mocks; SSO screens to do**; needs B5 | Signs in for real once B5 lands. 1.0 restyles it from D2 frames. |
 | E6 | Build 0.1 to TestFlight. | 0.1 | 1 h | Nov 5 | **Not confirmed** | On TestFlight for Demo Day #1. |
 | E7 | Game form add/edit/cancel, validation. | 0.5 | 6 h | — | **Built** | Create/edit/cancel round-trip on `masuno-dev` (via E24). |
 | E8 | Where's the game?: search + current location. | 0.5 | 3 h | — | **Built** | Spot set by search or by location. |
@@ -317,7 +319,7 @@ For 0.5, everything in Swift is Ethan's (screens and the data layer); everything
 | E13 | Settings + Delete account. | 0.5 | 2.5 h | Sun Nov 8 | **Built**; Privacy & Terms opens the D4 URL; Delete account calls `AuthService`; needs B5 + B9 | Delete account signs you out and the account is gone. |
 | E14 | **States + release hygiene**: empty/error/offline basics; app icon; launch color; Release → prod; DEBUG-only demo tools (`-screen`, gallery, `simulateDropOut`); **remove "Coming soon" text, the disabled chat composer (unless E26), the App Store search invite link, the mock location** (N27); hide cut features. | 0.5 | 3 h | Sun Nov 8 | **Built** except: app icon (D3), `AppConfig.appStoreID` (E15), Release → prod (B5, B7) | Release build has no DEBUG menus, mock data, placeholder text or dead buttons; airplane mode never strands a screen. |
 | E15 | Submit 0.5: privacy label, age rating, review notes; Ricardo enters the listing (O7). | 0.5 | 2 h | **Mon Nov 9** | To do | 0.5 submitted. |
-| B5 | **`AuthService` (Swift)** — *moved to Ethan (N21)*: send/verify code, password path, session persistence, expired-session and suspended detection, `complete_profile` + `accept_guidelines`. | 0.5 | 4 h | Sat Nov 7 | To do | Onboarding signs in for real on `masuno-dev`. |
+| B5 | **`AuthService` (Swift)** — *moved to Ethan (N21)*: school sign-in with `signInWithOAuth` (N33), review password path, callback errors, session persistence, expired-session and suspended detection, `complete_profile` + `accept_guidelines`. | 0.5 | 4 h | Sat Nov 7 | To do | Onboarding signs in for real on `masuno-dev`. |
 | B6 | **`GameStore` (Swift)** — *moved to Ethan (N21)*: `@Observable`, `LoadState`, optimistic join/leave + rollback, error-code → `DomainError`, instant local hiding after a block; replaces `EventStore`; remove `SkillLevel`, `Venue`, `Person.you`. | 0.5 | 5 h | Fri Nov 6 | **Done** | Store unit tests green on mock repositories. |
 | B7 | **Live repositories** (`supabase-swift` v2) — *moved to Ethan (N21)*: games, profiles, safety; `ActivityCatalog` cached with a built-in fallback of the 5 sports. | 0.5 | 6 h | Sat Nov 7 | To do | Mock ↔ live is a one-line switch. |
 | E24 | **Live wiring**: move screens onto E1 models + `GameStore`/`AuthService`; delete `EventStore`/`MockData` from Release; group chat on live data — messaging if B20 + E26 land, otherwise the read-only fallback (N14); Saved persisted on the phone (N15). | 0.5 | 6 h | Sun Nov 8 (morning) | **Built** on mocks; needs B5 + B7 to reach `masuno-dev` | Every 0.5 screen works on `masuno-dev` with no mock data. |
@@ -326,14 +328,14 @@ For 0.5, everything in Swift is Ethan's (screens and the data layer); everything
 | E19 | Add to Calendar, Invite a friend, Google Maps option. | 0.5 | 2.5 h | — | **Built**; Invite a friend hidden in Release until `AppConfig.appStoreID` is set (E15) | Calendar editor opens prefilled with no permission prompt; invite shares the app's App Store link. |
 | E21 | Me: Past games + Edit profile & interests. | 0.5 | 3 h | — | **Built** on `ProfileRepository`; needs B7 | Edited interests save and reload from the server. |
 | E17 | Saved: local list (0.5) **built**; sync + Notify me (1.0). | 0.5 / 1.0 | 1.5 h | Nov 29 | Local version **built** | Saved survives reinstall; Notify me works. |
-| | *0.5 remaining (B5 4 h, B7 6 h, testing on dev 2 h, QA + RC 2 h, E15 2 h)* | | *~16 h + 4 h stretch* | | *~63 h already built* | |
+| | *0.5 remaining (E5 SSO screens 3 h, B5 4 h, B7 6 h, testing on dev 2 h, QA + RC 2 h, E15 2 h)* | | *~19 h + 4 h stretch* | | *~63 h already built* | |
 | E27 | **1.0 UI pass** (§7.7, N23): 1.0 tokens + rounded type (2 h); sport colors on pins, popup with tail, "+1" tokens (2 h); court/field headers ×5 with the lineup and "Room for N more" (4 h); Me cards + profile band (1.5 h); chat sport band, bubbles, join pill (1.5 h); Who's going rows, Settings icon tiles, form suggestion chips, copy (1 h); restyle onboarding/safety/states from D2 frames. | 1.0 | 12 h | Tue Dec 1 (start Nov 10) | — | 1.0 beta matches the 1.0 frames (or differences noted by Arianna). |
 | E16 | Notification screens. | 1.0 | 3.5 h | Nov 29 | — | Tapping each notification type opens the right game. |
 | E18 | Spanish. | 1.0 | 2 h | Dec 4 | — | Whole app readable in Spanish. |
 | E20 | Picker drag + "Happening now" + changed banner. | 1.0 | 3.5 h | Dec 5 | — | Drag sets a spot; banner shows after a host edit. |
 | E22 | Accessibility + UI tests. | 1.0 | 4 h | Dec 7 | — | Core loop with VoiceOver at XXL text. |
 | E23 | 0.x fixes + 1.0 submission. | 1.0 | 3 h | Dec 8 | — | 1.0 submitted. |
-| | **Ethan remaining** | | **0.5 ~16 h · 1.0 ~30 h · ≈ 46 h (+4 h stretch)** | | | |
+| | **Ethan remaining** | | **0.5 ~19 h · 1.0 ~30 h · ≈ 49 h (+4 h stretch)** | | | |
 
 ### 5.2 Emilio — backend (Supabase)
 
@@ -341,11 +343,11 @@ For 0.5, everything in Swift is Ethan's (screens and the data layer); everything
 
 | ID | Work | Release | Est. | Due | Depends on | Status | Done when |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| B1 | **Supabase dev setup**: `masuno-dev`, CLI, `supabase init` in `supabase/`, seed script (Tec, with `short_name` 'Tec' and `signup_enabled` on (N32); **5 sports incl. padel**, Ricardo's venues, test users, games), `Config.xcconfig` values for dev. | 0.5 | 3 h | **Fri Nov 6 (morning)** | O2, O5 | **Not started** (placeholder folder) | `supabase db reset` works locally for Ethan too. |
+| B1 | **Supabase dev setup**: `masuno-dev`, CLI, `supabase init` in `supabase/`, seed script (Tec, with `short_name` 'Tec', `sso_provider` 'azure' and `signup_enabled` on (N32, N33); **5 sports incl. padel**, Ricardo's venues, test users, games), `Config.xcconfig` values for dev. | 0.5 | 3 h | **Fri Nov 6 (morning)** | O2, O5 | **Not started** (placeholder folder) | `supabase db reset` works locally for Ethan too. |
 | — | **`docs/API.md`**: table names, RPC signatures, error codes (§8.5), agreed with Ethan's E1. | 0.5 | (in B3) | **Fri Nov 6 (noon)** | E1 | **Done** with E1, in PR #9 (N30, N32) | Merged; both coders approve. |
-| B4 | **Auth hook** (deny by default), `auth_allowlist`, 2 review accounts with passwords and `auth_allowlist.university_id` for the demo campus, `sign_in_method(email)` (incl. `not_allowed`, N32). | 0.5 | 2 h | Fri Nov 6 (evening) | B1 | Not started | Non-Tec email gets the friendly error; review account signs in with a password. |
-| B2 | **Sign-in email via team Gmail** (§8.4): SMTP with app password, code-only template, 10-min expiry, raised rate limit, tested on Tec inboxes. | 0.5 | 1.5 h | Sat Nov 7 (morning) | O3, O4 | Not started | Codes reach Tec inboxes (not junk) within a minute. |
-| B3 | **Schema, RLS, RPCs** (§8.3–§8.5). Part 1 by **Sat Nov 7 noon**: tables, `game_cards`, `my_profile` with campus fields, `open_universities` (N32), `create/update/cancel/join/leave_game`. Part 2 by **Sat Nov 7 evening**: report/block, text filter, demo campus + daily refresh, **auto-repost** (`auto_repost`, `reposted_at` in `leave_game`/`update_game`), `game_activity` table for chat system rows (N30). | 0.5 | 14 h | Sat Nov 7 noon / evening | E1, B1 | Not started | Every 0.5 RPC works from the SQL editor as a test user. |
+| B4 | **Auth hook changes for SSO** (§8.4, N33): deny by default, check the provider and the server-side email; `auth_allowlist`; 2 review accounts with passwords and `auth_allowlist.university_id` for the demo campus; `university_lookup`. `sign_in_method` is gone. | 0.5 | 2 h | Fri Nov 6 (evening) | B1 | Not started | Non-Tec account gets the friendly error; a password sign-up on an `@tec.mx` address is refused; review account signs in with a password. |
+| B2 | **Azure provider + Entra app registration** (§8.4, N33): register the app with the `organizations` authority (Tec's tenant once known), minimum scopes, `email` and `xms_edov` claims; turn on Supabase's Azure provider; add the `masuno://auth-callback` redirect. | 0.5 | 1.5 h | Sat Nov 7 (morning) | O4 (⚠ Tec IT, K19) | Not started | A Tec test account signs in on dev; a personal Microsoft account and another organization's account are refused. |
+| B3 | **Schema, RLS, RPCs** (§8.3–§8.5). Part 1 by **Sat Nov 7 noon**: tables, `game_cards`, `my_profile` with campus fields, `university_lookup` (N32, N33), `create/update/cancel/join/leave_game`. Part 2 by **Sat Nov 7 evening**: report/block, text filter, demo campus + daily refresh, **auto-repost** (`auto_repost`, `reposted_at` in `leave_game`/`update_game`), `game_activity` table for chat system rows (N30). | 0.5 | 14 h | Sat Nov 7 noon / evening | E1, B1 | Not started | Every 0.5 RPC works from the SQL editor as a test user. |
 | B8 | **Safety backend**: report-alert webhook to team chat, bans (`banned_at` rejected in every write RPC). (Instant local hiding is in Ethan's B6.) | 0.5 | 2.5 h | Sun Nov 8 (morning) | B3, O1 (chat pick) | Not started | Report alert arrives within a minute; banned user's writes fail. |
 | B9 | **`delete-account` Edge Function.** | 0.5 | 2 h | Sun Nov 8 (morning) | B3 | Not started | Deleting cancels hosted games and frees joined spots. |
 | B12 | **Prod project**: latency test (Ricardo, Fri Nov 6), create `masuno-prod` (Sat), migrations + demo campus + review accounts (Sun morning), keep-alive + weekly backup (§8.1). | 0.5 | 1.5 h | Sat Nov 7 / Sun Nov 8 | B3, O5 | Not started | A TestFlight build runs on prod. |
@@ -376,7 +378,7 @@ For 0.5, everything in Swift is Ethan's (screens and the data layer); everything
 | D6 | **Design QA**: 0.5 RC against the green `341:*` frames and §7 (Sun Nov 8); 1.0 beta against §7.7 frames (Dec 2); Trello bugs with screenshots; screenshot review in UI PRs. | All | 1.5 per build | Nov 8, Dec 2 | — |
 | D7 | **App Store screenshots** (6.9") from the release candidate — 0.5 UI for 0.5; redo in the 1.0 UI for 1.0. Real Monterrey venues only (no San Francisco map or "[Padel venue near Tec]" placeholders). | 0.5 / 1.0 | 3 | **Sun Nov 8** / Dec 8 | To do |
 | D12 | **Resolve 1.0 conflicts** (§7.7.6): agree defaults for R7-4…R7-10 with Ricardo and update the Figma (e.g. Who's going rows, Settings rows, "Cancel game", no "· Read", no mic glyph). | 1.0 | 1 | Wed Nov 11 | To do |
-| D2 + D8 | **1.0-style frames for screens the Figma doesn't have yet** (N25): onboarding (6) + update-required + suspended; Event detail Full / Hosting / Ended / Cancelled; report sheet, block dialog, Blocked people; empty/error/offline; group chat read-only variant; Saved list + empty state; notification primer + Notifications settings; Notify me; "Happening now"; "changed since you joined" banner; picker drag; **auto-repost toggle, hosting-card line and bumped pin (D11)**. | 1.0 | 8 | **Sun Nov 22** | To do |
+| D2 + D8 | **1.0-style frames for screens the Figma doesn't have yet** (N25): onboarding (Welcome → Location primer → Sign in to join (sheet) → Find your school → School sign-in (system web sheet) → You're verified → Set up profile → (1.0) Notification primer) + update-required + suspended; Event detail Full / Hosting / Ended / Cancelled; report sheet, block dialog, Blocked people; empty/error/offline; group chat read-only variant; Saved list + empty state; Notifications settings; Notify me; "Happening now"; "changed since you joined" banner; picker drag; **auto-repost toggle, hosting-card line and bumped pin (D11)**. | 1.0 | 8 | **Sun Nov 22** | To do |
 | D13 | **1.0 tokens as Figma variables** + hand-off table for E27 (sport colors, person colors, radii, glass recipes — §7.7.2). | 1.0 | 1 | Fri Nov 20 | Partly done (in `DESIGN.md`) |
 | D9 | Spanish layout check: long strings, truncation, buttons. | 1.0 | 1 | Dec 4 | — |
 | D10 | *Optional:* small SwiftUI PRs (spacing/color tweaks found in design QA), reviewed by Ethan. | — | — | Any time | — |
@@ -387,8 +389,8 @@ For 0.5, everything in Swift is Ethan's (screens and the data layer); everything
 | --- | --- | --- | --- | --- | --- |
 | O1 | **Kickoff as team lead**: sign off §12 (rev. 6 + rev. 7) decisions; set demo-day targets; pick the report-alert chat. | All | 1 | **Fri Nov 6** | In progress (Trello) |
 | O2 | **Supabase access**: add Emilio as Owner of the organization (or transfer it). | 0.5 | 0.5 | **Tonight, Thu Nov 5** — overdue, blocks B1 | Not confirmed |
-| O3 | **Team Gmail** with 2-step verification; shared password manager. | 0.5 | 0.5 | **Tonight, Thu Nov 5** — overdue, blocks B2 | Not confirmed |
-| O4 | **Tec email check** (format, staff domain) + 3–5 Tec inboxes for Emilio. | 0.5 | 1 | Fri Nov 6 | Not confirmed |
+| O3 | **Team Gmail** with 2-step verification; shared password manager. | 0.5 | 0.5 | **Tonight, Thu Nov 5** — overdue; needed for Contact us and review accounts, no longer blocks sign-in (N33) | Not confirmed |
+| O4 | **Tec IT questions (N33):** confirm Tec uses Microsoft 365; find Tec's tenant ID; ask whether user consent is allowed or admin consent is needed; request 2–3 test student accounts (one for App Review, without MFA if IT allows). Still check whether staff share `@tec.mx` (K12). | 0.5 | 1 | Fri Nov 6 — ⚠ ask today, but the answer depends on Tec IT (K19) | Not confirmed |
 | O5 | **Venue list** (10–15 real places near Tec, incl. padel) for seed data and the demo campus; **latency test** from a phone in Monterrey. | 0.5 | 2 | Fri Nov 6 (both) | Not confirmed |
 | O6 | **Policy + support copy** from §10.2; Emilio checks every data claim. | 0.5 | 2 | **Fri Nov 6** | Not confirmed |
 | O7 | **App Store listing**: name, subtitle, description, keywords, promo text, support/privacy URLs, entered in App Store Connect. Describes only what that version does — mention group messaging only if B20 shipped in that build. | 0.5 / 1.0 | 2 | **Sat Nov 7** / Dec 7 | To do |
@@ -413,7 +415,7 @@ For 0.5, everything in Swift is Ethan's (screens and the data layer); everything
 - **Done means:** check in §5 met · strings in the catalog · run on a real phone · reviewed · CI green (once B11 exists) · (screens) screenshot approved by Arianna.
 - **Cadence:** Wednesday Team Session = weekly sync (demo on a phone, hours vs §5, cut decisions, beta feedback). **Extra calls: go/no-go #1 Fri Nov 6 (evening), cut check Sat Nov 7 (evening), go/no-go #2 Sun Nov 8 (noon).**
 - **Trello** (board "2026 UnaMas"): rename the 0.5 list to **"MVP · 0.5 — submit Mon Nov 9"**; re-date each card to §5; move B5–B7 cards to Ethan; close D1, open E27, D12, D13 and the merged D2 + D8 card. A card is **Done** only when its "Done when" is true in the repo (E1 was marked Done early). Every card title starts with its owner's name and carries the owner's role label (Frontend = Ethan, Backend = Emilio, Design = Arianna, Marketing = Ricardo), plus a due date from §5. Each person clicks **Join** on their own cards.
-- **Secrets:** team Gmail, review-account passwords and the APNs key live in the shared password manager — never in the repo or a chat.
+- **Secrets:** team Gmail, review-account passwords, the Entra client secret and the APNs key live in the shared password manager — never in the repo or a chat.
 
 ---
 
@@ -510,16 +512,21 @@ Frames: `https://www.figma.com/design/5eKA3f0I90VVABrAuNMFD2/masuno-figma?node-i
 
 ### 7.5 Onboarding & sign-in (E5 screens · B5 `AuthService` · 1.0 frames in D2)
 
-*Campus names and domains below come from `open_universities`: "Tec" and `@tec.mx` at launch. If the list can't load or more than one campus is open, the copy says "campus" and "school email" instead (N32).*
+*Campus names below come from `university_lookup`: "Tec" at launch. If the list can't load or more than one campus is open, the copy says "campus" and "school account" instead (N32).*
 
-1. **Welcome** — "Find your next game" / "Pickup games around Tec, one or two players short — and looking for you." **Continue with your Tec email**. Footer link: Privacy & Terms.
-2. **Email** — "What's your Tec email?" Calls `sign_in_method(email)`, and the server decides: a campus's domain (exact match) gets a code (new accounts need an open campus; the auth hook enforces it), a review account gets a password field, and anyone else sees "masUNO is just for Tec students right now. Use your @tec.mx email." (with several campuses open: "masUNO isn't open at your school yet.")
-3. **Code** — "Check your email" / "We sent a 6-digit code to a0…@tec.mx. It comes from masunoapp@gmail.com — check Junk if you don't see it." Six boxes with one-time-code autofill; resend after 30 s; wrong / expired / too-many-tries messages.
-4. **About you** — first name, last name, class year; preview "Emilio G. · Class of 2029" with "This is how others see you."
-5. **Interests** — "What do you play?" Five sports, at least one.
-6. **Community guidelines** — four rules + "You can report or block anyone from the Who's going list." **I agree** (required).
+1. **Welcome** — "Find your next game" / "Pickup games around Tec, one or two players short — and looking for you." **Continue**. Footer link: Privacy & Terms.
+2. **Location primer** — says the map uses your location to show nearby games, and that it never leaves your phone. **Continue**.
+3. **Sign in to join (sheet)** — "masUNO is just for verified students." **Continue with your school account** is the only way in.
+4. **Find your school** — searchable list from `university_lookup`. The choice picks the sign-in provider; it doesn't decide who gets in. Footer link for reviewers only: **Use a review account** opens email + password, for sign-in only, with no way to create an account.
+5. **School sign-in (system web sheet)** — the school's own page in `ASWebAuthenticationSession`. Cancelling returns to Find your school. If the auth hook refuses the account: "masUNO is just for Tec students right now. Use your Tec school account." (with several campuses open: "masUNO isn't open at your school yet."). If the school requires admin approval: "Your school hasn't approved masUNO yet."
+6. **You're verified** — "You're verified" with the school's name, then **Continue**.
+7. **Set up profile** — three steps:
+   - **About you:** first name, last name (filled in from the school sign-in, editable), class year; preview "Emilio G. · Class of 2029" with "This is how others see you."
+   - **Interests:** "What do you play?" Five sports, at least one.
+   - **Community guidelines:** four rules + "You can report or block anyone from the Who's going list." **I agree** (required).
+8. **(1.0) Notification primer** — shown after your first join or hosted game (C11), not during first-run onboarding.
 
-Location is requested when the map first opens; if denied, the map centers on campus with a banner linking to iOS Settings. Notification permission (1.0) comes after your first join or hosted game.
+The iOS location prompt appears when the map first opens (C11); if denied, the map centers on campus with a banner linking to iOS Settings.
 
 ### 7.6 Feature specs
 
@@ -688,10 +695,10 @@ Defaults below apply unless signed off otherwise (§12, R7-4…R7-10). Arianna u
 ### 8.1 Architecture & environments
 - **Client:** SwiftUI, `@Observable`, iOS 26 target (Liquid Glass — confirm in `project.yml`), XcodeGen, `supabase-swift` v2 behind repository protocols; mocks for previews and tests.
 - **Layers:** Views + view models (Ethan) → `GameStore` + `AuthService` + repositories (Ethan for 0.5, rev. 7 N21) → Supabase (Emilio). Views never import the Supabase SDK.
-- **Backend:** Supabase Postgres with RLS on every table; Auth (email codes + allowlisted passwords); Edge Functions for `delete-account` and (1.0) `send-push`; `pg_cron` + `pg_net` for jobs.
+- **Backend:** Supabase Postgres with RLS on every table; Auth (school SSO through the Azure provider + allowlisted review passwords); Edge Functions for `delete-account` and (1.0) `send-push`; `pg_cron` + `pg_net` for jobs.
 - **Projects:** `masuno-dev` and `masuno-prod` in Ricardo's organization, with Emilio as an Owner; both on the **free plan** (2 active projects allowed). Free projects pause after a week without activity and have no automatic backups, so a daily GitHub Action pings prod and Emilio runs `supabase db dump` weekly into private storage (it contains personal data).
 - **Region:** no Mexico region. Before creating prod, compare round-trip times from a phone in Monterrey (Ricardo) to throwaway projects in `us-east-1`, `us-east-2` and `us-west-1`; pick the fastest. It can't be moved later.
-- **Secrets:** anon key in a git-ignored `Config.xcconfig` per configuration (template checked in); service-role key, Gmail app password and APNs key only in Supabase secrets.
+- **Secrets:** anon key in a git-ignored `Config.xcconfig` per configuration (template checked in); service-role key, Entra client secret and APNs key only in Supabase secrets.
 
 ### 8.2 Client modules
 - **Ethan:** design system (E2; 1.0 tokens in E27) · navigation + version gate (E3) · `LocationService` (E9) · calendar editor (E19) · all views and view models · for 0.5 also `AuthService` (B5), `GameStore` (B6) and live repositories (B7).
@@ -704,6 +711,8 @@ Defaults below apply unless signed off otherwise (§12, R7-4…R7-10). Arianna u
 universities (id uuid pk, name text,                                 -- 'Tec de Monterrey'
   short_name text,                                                    -- 'Tec', used in onboarding copy (N32)
   email_domain text unique,                                           -- 'tec.mx' (exact match)
+  sso_provider text,                                                  -- 'azure' at launch; 'google' for later Workspace schools
+  tenant_id text null,                                                -- Tec's Entra tenant, once O4 finds it
   student_email_pattern text null,                                    -- set if O4 finds staff share the domain
   center_lat float8, center_lng float8, timezone text,                -- 'America/Monterrey'
   signup_enabled bool default true, is_demo bool default false)       -- hidden App Review campus (C12)
@@ -759,23 +768,25 @@ notification_outbox (id bigserial pk, user_id uuid, kind text, event_id uuid, pa
   attempts int default 0, error text)
 ```
 
-**Read views (RLS applies, `security_invoker`):** `game_cards` (event + host first name/initial/class year + `going_count`, `spots_left`, `my_role`, `my_joined_at`, `has_blocked_attendee`, `auto_repost`, `reposted_at`, `sort_at = coalesce(reposted_at, created_at)` (the app orders by `sort_at desc`); 1.0 `is_bookmarked`), `game_attendees(event_id)` (excludes blocked people), `my_profile` (includes the campus's name, short name, domain and center), `open_universities` (campuses with `signup_enabled` and not `is_demo`; readable signed out, N32). `game_activity` (N30) is an append-only table.
+**Read views (RLS applies, `security_invoker`):** `game_cards` (event + host first name/initial/class year + `going_count`, `spots_left`, `my_role`, `my_joined_at`, `has_blocked_attendee`, `auto_repost`, `reposted_at`, `sort_at = coalesce(reposted_at, created_at)` (the app orders by `sort_at desc`); 1.0 `is_bookmarked`), `game_attendees(event_id)` (excludes blocked people), `my_profile` (includes the campus's name, short name, domain and center), `university_lookup` (every campus that isn't `is_demo`, open or closed, with `signup_enabled`, `sso_provider` and `tenant_id`; readable signed out; closed campuses stay listed so existing accounts can sign back in, N32, N33). `game_activity` (N30) is an append-only table.
 
 ### 8.4 Security, sign-in & email
 - **Policies:** `profiles` readable within your university except blocked pairs; `profile_private` own row only; `events`/`rsvps` readable within your university unless the host is a blocked pair; all writes through RPCs; `reports` insert-only via RPC; `universities`, `activities`, `app_config` read-only; `auth_allowlist` no client access. Helpers `is_active(uid)` and `is_blocked_pair(a, b)`.
-- **Auth hook (before user created):** allow only an active `universities.email_domain` with sign-up enabled (and `student_email_pattern` if set), or an `auth_allowlist` address. Otherwise reject with `email_not_allowed`. Deny by default — Supabase's sample allows unknown domains.
-- **Email without a domain:** Supabase custom SMTP → `smtp.gmail.com:587` with the team Gmail and an app password (needs 2-step verification). Sender name "masUNO". Template: the 6-digit code in plain text, no links. Personal Gmail allows about **500 messages a day** — fine for the program; if we approach that, move to a domain + email provider (§13).
-- **Rate limits:** raise auth emails/hour from the custom-SMTP default of 30 to ~100 (well under Gmail's daily cap); keep 60 s between codes per user.
-- **App Review accounts:** two Gmail aliases (e.g. `masunoapp+review1@gmail.com`) in `auth_allowlist` with passwords, attached to the demo campus through `auth_allowlist.university_id`.
+- **Sign-in (N33):** "Continue with your school account" only. For Tec (Microsoft 365) this is Supabase's Azure provider, opened with `ASWebAuthenticationSession` via supabase-swift `signInWithOAuth`. Google Workspace schools would use the Google provider restricted to the school's domain. No consumer social login and no public email + password sign-up: Guideline 4.8 exempts education apps that require an existing education account, and either addition would make Sign in with Apple, or an equivalent privacy-focused login, required.
+- **Entra app registration:** use the `organizations` authority, not `common`, so personal Microsoft accounts can't sign in; set Supabase's Azure tenant URL to match. Prefer locking to Tec's tenant ID once known, and do so before real students sign in on prod: `organizations` still admits every other organization's accounts, and only the tenant lock proves the account belongs to Tec. The tenant is set once per Supabase project, so `universities.tenant_id` is a record, not per-campus routing. Scopes: `openid`, `email`, `profile`, nothing else.
+- **Email claim:** Supabase's Azure provider requires the token to include an email address, so configure the optional `email` claim and verify on `masuno-dev` which claim carries the `@tec.mx` address (`email` vs `upn`/`preferred_username`). Also add `xms_edov`, so Supabase can tell whether the domain is verified; without it, another tenant could present an unverified `@tec.mx` address.
+- **Auth hook (before user created) is the real gate:** allow only an active `universities.email_domain` with sign-up enabled (and `student_email_pattern` if set), or an `auth_allowlist` address. Otherwise reject with `email_not_allowed`. Deny by default — Supabase's sample allows unknown domains. Verify the email claim server-side (from the hook's payload, never from the client or the school picked in the app). Check the provider too: the email provider has to stay on for review passwords, so it's allowlist-only, otherwise anyone could sign up with a password on an `@tec.mx` address. The hook only runs for new users, so existing accounts at a closed campus can still sign in.
+- **App Review accounts:** primary is a real test school account from Tec IT (O4), entered in the review notes. Add it to `auth_allowlist` with the demo campus, so reviewers see joinable games instead of a possibly empty Tec map. Fallback if Tec won't issue one: two Gmail aliases (e.g. `masunoapp+review1@gmail.com`) in `auth_allowlist` with passwords, created by Emilio and attached to the demo campus through `auth_allowlist.university_id`. Password sign-in works only for `auth_allowlist` addresses and isn't presented as a sign-up option; the review notes say so.
 
-### 8.5 API contract (frozen Fri Nov 6 in `docs/API.md`)
+### 8.5 API contract (frozen Fri Nov 6 in `docs/API.md`; sign-in amended by N33)
 
 `docs/API.md` has the exact signatures and wins over this summary. RPCs are `security definer`, pin `search_path`, check `auth.uid()` and `is_active()`, and raise a short code that `GameStore` maps to `DomainError`. Every game write returns the updated `game_cards` row. Any RPC can also raise `not_authenticated`, and any write `suspended`.
 
+**`university_lookup`** (readable signed out) feeds Find your school: name, short name, `email_domain`, `sso_provider`, `tenant_id`, `signup_enabled`, plus id and map center. It replaces `open_universities`.
+
 | RPC | Purpose | Errors |
 | --- | --- | --- |
-| `sign_in_method(email) → text` | `'otp'`, `'password'` or `'not_allowed'` (anonymous; reads the allowlist and campuses; closed campuses still get `'otp'` so existing accounts can sign back in) | — |
-| `complete_profile(first, last, grad_year, interests[], locale)` | Create/update profile; sets the campus on creation, from the email domain or `auth_allowlist.university_id` | `invalid_text`, `invalid_input` |
+| `complete_profile(first, last, grad_year, interests[], locale)` | Create/update profile; sets the campus on creation, from `auth_allowlist.university_id` if the address is listed, otherwise the email domain | `invalid_text`, `invalid_input` |
 | `accept_guidelines()` | Record agreement | — |
 | `create_game(…, auto_repost)` | Validate sport, 7-day window, limit, text; insert game + host | `invalid_time`, `invalid_text`, `limit_reached`, `invalid_input` |
 | `update_game(id, …, auto_repost)` | Host only; players ≥ going; record material changes; if capacity rises on a full game and `auto_repost`, set `reposted_at` | `not_found`, `not_allowed`, `cancelled`, `ended`, `capacity_below_going`, `invalid_time`, `invalid_text` |
@@ -805,7 +816,7 @@ notification_outbox (id bigserial pk, user_id uuid, kind text, event_id uuid, pa
 | Ricardo G. joined · 2 spots left | Host | Join/leave | Updates on games you host |
 
 ### 8.8 Privacy & data
-Your phone's location never leaves the phone. Email stays in Supabase Auth and is never shown to anyone. Others see first name, last initial and class year; interests are private. Reports are kept for moderation; deleted accounts are removed right away (reports stay, without the reporter). No analytics SDK; crashes come from Xcode Organizer.
+Your phone's location never leaves the phone. The school's sign-in gives us your name and school email, nothing else. Email stays in Supabase Auth and is never shown to anyone. Others see first name, last initial and class year; interests are private. Reports are kept for moderation; deleted accounts are removed right away (reports stay, without the reporter). No analytics SDK; crashes come from Xcode Organizer.
 
 ### 8.9 Metrics (B17; counted by hand for DD2)
 `metrics_daily` (dashboard only): sign-ups, finished onboarding, games created, joins, unique joiners, games that filled, repeat hosts, reports. Plus App Store Connect for TestFlight testers and downloads. Ricardo turns these into demo-day numbers (O10).
@@ -814,12 +825,12 @@ Your phone's location never leaves the phone. Email stays in Supabase Auth and i
 
 masUNO launches at Tec. To open somewhere else, no app release is needed:
 
-1. **Emilio:** insert the `universities` row (name, short name, email domain, center, timezone), plus `student_email_pattern` if staff share the domain. Seed its venues.
+1. **Emilio:** insert the `universities` row (name, short name, email domain, SSO provider, center, timezone), plus `student_email_pattern` if staff share the domain. Set up its provider: the Google provider restricted to its domain, or, for another Microsoft school, a change to the project's Azure tenant setting (§8.4). Seed its venues.
 2. **Emilio:** set `signup_enabled = true` on it. To close Tec, set it to `false` on Tec's row. Existing Tec accounts keep working and can sign back in; only new sign-ups stop, through the auth hook.
-3. **Ricardo:** confirm the email format and test codes on real inboxes there (as in O4; school mail servers differ, K4).
+3. **Ricardo:** ask its IT the O4 questions (which provider, tenant, user or admin consent, test accounts) and test sign-in with a real student account.
 4. **Ricardo + Arianna:** update what lives outside the app: Privacy & Terms and Support pages, App Store listing and screenshots, beta recruiting.
 
-With one campus open, onboarding names it. With several, it says "school email", and each person's games stay scoped to their own campus by RLS. A person's campus is set when their profile is created, and there's no moving between campuses.
+With one campus open, onboarding names it. With several, it says "school account", and each person's games stay scoped to their own campus by RLS. A person's campus is set when their profile is created, and there's no moving between campuses.
 
 ---
 
@@ -827,11 +838,11 @@ With one campus open, onboarding names it. With several, it says "school email",
 
 | Layer | What | Owner |
 | --- | --- | --- |
-| Database | Last-spot race (two sessions), `going_count` never above players, RLS visible/invisible, blocks both ways, bans, posting window, text filter, auth hook | Emilio |
+| Database | Last-spot race (two sessions), `going_count` never above players, RLS visible/invisible, blocks both ways, bans, posting window, text filter, auth hook (each provider, other domains, password sign-up refused) | Emilio |
 | Data layer | `GameStore` join/leave + rollback, error mapping, `AuthService` states | Ethan (0.5) |
 | Screens | Form validation, event-state logic, one UI smoke test | Ethan |
 | Design QA | 0.x builds vs the green frames and §7; 1.0 vs §7.7 frames; screenshots in UI PRs | Arianna |
-| Manual | `docs/QA.md` two-phone script: core loop, block/report, delete account, offline, location denied, far away, big text, small phone — run by Arianna and Ricardo on each build | Arianna, Ricardo |
+| Manual | `docs/QA.md` two-phone script: school sign-in, core loop, block/report, delete account, offline, location denied, far away, big text, small phone — run by Arianna and Ricardo on each build | Arianna, Ricardo |
 | Beta | 15–30 Tec students from ~Nov 10 (once Beta App Review clears the 0.5 RC); feedback form; weekly summary | Ricardo |
 
 ---
@@ -848,7 +859,7 @@ With one campus open, onboarding names it. With several, it says "school email",
 Plain language, at `masuno-app.github.io/privacy`, linked from onboarding, Settings and App Store Connect. Not legal advice; keep it true to what the app does — Emilio checks every data claim.
 1. **Who we are** — a student project in the App Accelerator; contact: team Gmail.
 2. **What we collect** — school email (sign-in only, never shown), name (others see first name + last initial), class year, sports you like, games you host or join, reports and blocks you make, (1.0) a notification token.
-3. **What we don't** — your phone's location never leaves your phone; no ads, no selling data, no tracking.
+3. **What we don't** — from your school's sign-in we receive your name and school email and nothing else: no contacts, no files, no calendar; your phone's location never leaves your phone; no ads, no selling data, no tracking.
 4. **Who sees what** — other students at your campus see your first name, last initial, class year and the games you're in; only the masUNO team sees reports.
 5. **Deletion** — delete your account in Settings and your data is removed right away (reports stay, without your name).
 6. **Rules** — be respectful, no harassment or hate, no spam; we can remove content and suspend accounts; you play at your own risk and are responsible for your own safety at games.
@@ -859,8 +870,9 @@ Plain language, at `masuno-app.github.io/privacy`, linked from onboarding, Setti
 - External: the 0.5 release candidate goes to Beta App Review on Sun Nov 8, the day before App Review. Ricardo manages the public link and testers. 0.6 and 1.0 beta builds go to the same group.
 
 ### 10.4 App Review checklist (green before Sun Nov 8, again before each later submission)
-- [ ] Review accounts in the notes; password sign-in works; demo campus shows joinable games; notes explain why reviewers can't use email codes.
-- [ ] Notes explain: school-email-only sign-in (why there's no Sign in with Apple), the demo campus, how to report and block, that reports are handled within 24 h.
+- [ ] A real test school account from Tec IT (O4) in the notes, signing in without a code the reviewer can't receive. Fallback if Tec won't issue one: the allowlisted review-only password login, and the notes say it's reachable only for `auth_allowlist` addresses and isn't a sign-up option. Either way, the demo campus shows joinable games.
+- [ ] Notes state plainly: "masUNO is only for verified university students; sign-in uses the student's existing school account. Here is a test account."
+- [ ] Notes explain: why there's no Sign in with Apple (Guideline 4.8 education exemption), the demo campus, how to report and block, that reports are handled within 24 h.
 - [ ] Guidelines agreed before use; text filter; report person and game; block works instantly; Blocked people undo.
 - [ ] Contact us in the app (team Gmail) and support URL (website) in App Store Connect.
 - [ ] Privacy & Terms URL in the app (**the Settings row opens it — no "Coming soon"**) and in App Store Connect; privacy label answered.
@@ -902,11 +914,11 @@ Alert in team chat → on-call person (Ricardo or Arianna) checks the report in 
 
 | # | Risk | Likelihood | Impact | Mitigation | Owner |
 | - | --- | --- | --- | --- | --- |
-| K1 | **Supabase not live on prod by Sun Nov 8 noon** (nothing in the repo as of Nov 5; ~27 h of Emilio's work in about three days, alongside ~16 h of Ethan's) | **High** | **High** | Swift data layer moved to Ethan (N21); `API.md` + E1 frozen Fri noon; B3 in two drops Sat; chat messaging (B20) treated as 0.6; cut check Sat evening; go/no-go #2 Sun noon; never submit a mock build — if must-haves slip, submit the day they're live, backstop Mon Nov 16 | Emilio, Ethan |
-| K2 | Access blockers (O2 Supabase Owner, O3 team Gmail, O4 Tec inboxes) still not done | **High** | High | Due tonight (Thu Nov 5); B1 Fri morning and B2 Sat morning can't start without them | Ricardo |
+| K1 | **Supabase not live on prod by Sun Nov 8 noon** (nothing in the repo as of Nov 5; ~27 h of Emilio's work in about three days, alongside ~19 h of Ethan's) | **High** | **High** | Swift data layer moved to Ethan (N21); `API.md` + E1 frozen Fri noon; B3 in two drops Sat; chat messaging (B20) treated as 0.6; cut check Sat evening; go/no-go #2 Sun noon; never submit a mock build — if must-haves slip, submit the day they're live, backstop Mon Nov 16 | Emilio, Ethan |
+| K2 | Access blockers (O2 Supabase Owner, O3 team Gmail, O4 Tec IT answers) still not done | **High** | High | Due tonight (Thu Nov 5); B1 Fri morning can't start without O2, and B2 Sat morning can't finish without O4 (K19) | Ricardo |
 | K3 | 0.5 rejected or stuck in review past Demo Day #2 | Medium | Medium | §10.4 checklist; submit Nov 9; resubmit within 24 h, last by Fri Nov 13; external TestFlight beta in parallel; worst case DD2 from TestFlight; 0.6 Mon Nov 16 | Ethan |
-| K4 | Codes from Gmail land in Tec's junk folder | Medium | High | Test real Tec inboxes Sat Nov 7; plain-text template; on-screen "check Junk" hint | Emilio, Ricardo |
-| K5 | Gmail daily cap or app-password revocation | Low | High | Cap is ~500/day; never change the Gmail password without updating Supabase | Emilio |
+| K4 | *(Retired by N33: no sign-in email.)* Codes from Gmail land in Tec's junk folder | — | — | Replaced by school SSO | — |
+| K5 | *(Retired by N33: no Gmail SMTP.)* Gmail daily cap or app-password revocation | — | — | Replaced by school SSO | — |
 | K6 | No one's role can create the APNs key | Low | Medium | Check roles before Nov 22; ask the B&GC Admin if needed. 1.0 still ships the 1.0 UI, Spanish and Saved without push | Ethan |
 | K7 | **1.0 is now bigger** (1.0 UI ~12 h on top of notifications, Spanish, Saved sync) and spans Thanksgiving | High | Medium | Start E27 the week of Nov 10 while 0.5 is in review; D2 + D8 frames by Nov 22; 1.0 cut order (§3) simplifies the court art first | Ethan, Arianna |
 | K8 | Thanksgiving / end-of-term squeeze 1.0 | High | Medium | Emilio's notification backend Nov 21–28; 1.0 cut order | Both coders |
@@ -918,8 +930,10 @@ Alert in team chat → on-call person (Ricardo or Arianna) checks the report in 
 | K14 | Reviewers far from Monterrey see an empty map | High without fallback | High | Campus fallback (§7.6.1) + demo campus with auto-refreshed games (C12); remove the mock location (E9/E14) | Ethan, Emilio |
 | K15 | Rushed RC ships a crash or a mock leftover | Medium | High | Known leftovers listed in N27 / E14; DEBUG-only tools; two-phone QA Sun Nov 8 | Ethan, Arianna |
 | K16 | **1.0 UI quietly undoes privacy or scope decisions** (interests on Who's going, calendar-sync and name-visibility rows) | Medium | Medium | §7.7.6 defaults; D12 updates the Figma by Nov 11; Privacy page changes before any data becomes visible | Arianna, Ricardo, Emilio |
-| K18 | **Tec doesn't work out as the launch campus** (no traction, email problems, end of semester) | Medium | High | Campus is data, not code (N32); the move is a server change plus the non-app steps in §8.10 | Ricardo, Emilio |
+| K18 | **Tec doesn't work out as the launch campus** (no traction, IT won't approve sign-in, end of semester) | Medium | High | Campus is data, not code (N32); the move is a server change plus the non-app steps in §8.10 | Ricardo, Emilio |
 | K17 | **Status drift**: Trello says done when the repo doesn't (E1), or shows no progress when work happened | High | Medium | Trello update at each go/no-go; "Done" means the "Done when" check passes in the repo (§6) | Everyone |
+| K19 | **Tec's Microsoft tenant blocks user consent for third-party apps, which would require IT admin consent.** The biggest risk: until it's resolved, real students can't sign in. A school test account may also require MFA, which a reviewer can't complete. | **High** | **High** | Contact Tec IT early (O4, today); ask for minimum scopes only; keep the allowlist password path for the demo. If there's no answer by the Sun Nov 8 go/no-go, N20's slip rule applies; ⚑ Ricardo decides whether 0.5 can go out before students can sign in | Ricardo, Emilio |
+| K20 | App Review argues masUNO is a social app, not an "education app", and asks for Sign in with Apple | Medium | High | Clear review notes (§10.4). Contingency: Sign in with Apple plus a school-email verification step | Ethan |
 
 ---
 
@@ -940,6 +954,8 @@ Alert in team chat → on-call person (Ricardo or Arianna) checks the report in 
 | R7-9 | App language follows the phone from 1.0; English stays the development language | Approve |
 | R7-10 | SF Pro Rounded in the app; Nunito in Figma and on the web | Approve (Arianna) |
 | R7-11 | N32 — launch at Tec, but keep the campus as data so it can change without a release | Decided (Ethan, Nov 6) |
+| R7-12 | N33 — sign-in is "Continue with your school account" only: Supabase's Azure (Microsoft Entra ID) provider for Tec via `ASWebAuthenticationSession` and `signInWithOAuth`; the Google provider restricted to the school's domain for later Google Workspace schools | Decided (Ethan, Nov 6) |
+| R7-13 | N33 — no consumer social login and no public email + password sign-up, which keeps the Guideline 4.8 education exemption (no Sign in with Apple required) | Decided (Ethan, Nov 6) |
 
 ### Rev. 6 (Nov 3)
 
@@ -971,7 +987,7 @@ Alert in team chat → on-call person (Ricardo or Arianna) checks the report in 
 | When | What |
 | --- | --- |
 | January 2027 | Chat push and retention (Appendix A items 8–9) if not done, profile photos with moderation, calendar sync, name-visibility setting, links that open a specific game |
-| Start of Tec's Feb–Jun semester | Campus launch (Ricardo): club hosts, recurring games, posters; own domain + email provider if sign-ups approach Gmail's limit; Supabase Pro for backups |
+| Start of Tec's Feb–Jun semester | Campus launch (Ricardo): club hosts, recurring games, posters; own domain + email provider if the team wants them; Supabase Pro for backups |
 | Later | Organizer approval, non-sport activities, IIT/UIC (new `universities` rows), dark mode, meet-up photo, pin clustering |
 
 ---
@@ -996,9 +1012,9 @@ Alert in team chat → on-call person (Ricardo or Arianna) checks the report in 
 
 ## Sources
 
-- Supabase — [Custom SMTP](https://supabase.com/docs/guides/auth/auth-smtp), [Going into prod (30 auth emails/hour default with custom SMTP)](https://supabase.com/docs/guides/deployment/going-into-prod), [Pricing (free plan: 2 active projects, paused after 1 week inactive, no backups)](https://supabase.com/pricing), [Before User Created hook](https://supabase.com/docs/guides/auth/auth-hooks/before-user-created-hook), [Regions](https://supabase.com/docs/guides/platform/regions)
-- Gmail — [SMTP settings and limits (500/day; app passwords need 2-step verification)](https://developer.nylas.com/docs/cookbook/email/gmail-smtp-settings/)
-- Apple — [App Review (2.1 placeholder content; support and privacy links)](https://developer.apple.com/distribute/app-review/), [Program roles](https://developer.apple.com/help/account/manage-your-team/roles/), [TN3152: Calendar access levels](https://developer.apple.com/documentation/technotes/tn3152-migrating-to-the-latest-calendar-access-levels), [Offering account deletion](https://developer.apple.com/support/offering-account-deletion-in-your-app), [Guideline 1.2 checklist (forums)](https://developer.apple.com/forums/thread/807358)
+- Supabase — [Login with Azure (email claim, tenant URL, `xms_edov`)](https://supabase.com/docs/guides/auth/social-login/auth-azure), [Pricing (free plan: 2 active projects, paused after 1 week inactive, no backups)](https://supabase.com/pricing), [Before User Created hook](https://supabase.com/docs/guides/auth/auth-hooks/before-user-created-hook), [Regions](https://supabase.com/docs/guides/platform/regions)
+- Microsoft — [Optional claims (`email`, `upn`, `xms_edov`)](https://learn.microsoft.com/en-us/entra/identity-platform/optional-claims-reference), [Publisher verification and user consent](https://learn.microsoft.com/en-us/entra/identity-platform/publisher-verification-overview)
+- Apple — [App Review Guidelines (4.8 Login Services)](https://developer.apple.com/app-store/review/guidelines/), [App Review (2.1 placeholder content; support and privacy links)](https://developer.apple.com/distribute/app-review/), [Program roles](https://developer.apple.com/help/account/manage-your-team/roles/), [TN3152: Calendar access levels](https://developer.apple.com/documentation/technotes/tn3152-migrating-to-the-latest-calendar-access-levels), [Offering account deletion](https://developer.apple.com/support/offering-account-deletion-in-your-app), [Guideline 1.2 checklist (forums)](https://developer.apple.com/forums/thread/807358)
 - Program schedule — App Accelerator calendar, Weeks 7–13 (team copy)
 - Design — Figma "masuno figma" (file `5eKA3f0I90VVABrAuNMFD2`, rows 1–8) and `DESIGN.md` v2.0 in the masUNO project (Nov 5)
 - Status — `masUNO-app/ios` `main` @ `96b270c` (Nov 4) and the Trello board "2026 UnaMas" (read Nov 5)

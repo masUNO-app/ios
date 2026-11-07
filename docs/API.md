@@ -4,8 +4,9 @@ The boundary between the app and Supabase (SPEC §8.5), matched by the Swift pro
 `MasUno/Data/` and the models in `MasUno/Models/`. A change to either side is one PR reviewed
 by both coders. If this file and the spec disagree, this file wins.
 
-**Status: frozen Fri Nov 6.** Build the backend to this file. The backend hasn't started, so there's
-nothing to migrate.
+**Status: frozen Fri Nov 6; sign-in amended the same day (SPEC N33).** Build the backend to this file. The
+backend hasn't started, so there's nothing to migrate. The Swift side still uses email codes and
+`open_universities` until E5 and B5 land.
 
 ## Conventions
 
@@ -24,7 +25,7 @@ An RPC fails with `raise exception '<code>'`, so PostgREST returns the code as `
 
 | Code | `DomainError` | Meaning |
 | --- | --- | --- |
-| `not_authenticated` | `.notAuthenticated` | No valid session. Any RPC except `sign_in_method`. |
+| `not_authenticated` | `.notAuthenticated` | No valid session. Any RPC. |
 | `suspended` | `.suspended` | `banned_at` is set. Any write RPC. The app shows the suspended screen. |
 | `full` | `.full` | No spots left. |
 | `cancelled` | `.cancelled` | The game is cancelled. |
@@ -47,13 +48,14 @@ These come from Supabase Auth and the auth hook, not from RPCs. `AuthService` (B
 | Source | `DomainError` |
 | --- | --- |
 | Auth hook rejects the address, with message `email_not_allowed` | `.emailNotAllowed` |
-| Wrong code | `.codeInvalid` |
-| Expired code | `.codeExpired` |
-| `over_email_send_rate_limit`, `over_request_rate_limit` | `.tooManyAttempts` |
+| The person closes the web sheet | None: back to Find your school, with no message |
+| The school requires admin consent | `.schoolApprovalNeeded` (new) |
+| Any other sign-in failure in the callback | `.signInFailed` (new) |
+| `over_request_rate_limit` | `.tooManyAttempts` |
 | `invalid_credentials` (review accounts) | `.invalidCredentials` |
 
-Supabase may report wrong and expired codes with the same `otp_expired` error. B5 checks this on
-`masuno-dev`; if they can't be told apart, both show the wrong-code message.
+OAuth failures come back in the callback URL rather than as a thrown API error. B5 checks the exact
+format for a hook rejection and for missing consent on `masuno-dev`.
 
 ## Reference data (readable by `anon`)
 
@@ -62,12 +64,15 @@ The version gate runs before sign-in, so these need a read policy for `anon`, no
 | Table | Columns | Swift |
 | --- | --- | --- |
 | `app_config` | `key`, `value jsonb`; keys `min_supported_version`, `support_email`, `privacy_url` | `AppConfig` |
-| `open_universities` | see below | `University` |
+| `university_lookup` | see below | `University` |
 | `activities` | `slug`, `kind`, `label_en`, `label_es`, `emoji`, `sort_order`, `postable`, `interest_selectable`, `active` | `Activity` |
 
-`open_universities` is a view: campuses with `signup_enabled` and not `is_demo`. Columns: `id`, `name`,
-`short_name`, `email_domain`, `center_lat`, `center_lng` → `University`. This is how the launch campus stays
-data (SPEC §8.10). With exactly one row, onboarding names that campus; otherwise the copy stays generic.
+`university_lookup` is a view used by Find your school: every campus that isn't `is_demo`, open or closed.
+Columns: `id`, `name`, `short_name`, `email_domain`, `sso_provider`, `tenant_id`, `signup_enabled`,
+`center_lat`, `center_lng` → `University`. This is how the launch campus stays data (SPEC §8.10). Closed
+campuses stay listed so their existing accounts can sign back in; the auth hook stops new accounts there.
+With exactly one row where `signup_enabled` is true, onboarding names that campus; otherwise the copy stays generic.
+`tenant_id` is a record: Supabase sets the Azure tenant once per project, so the app doesn't send it.
 
 `activities` is seeded with the slugs `basketball`, `tennis`, `soccer`, `volleyball`, `padel`,
 which `Activity.builtIn` repeats as the offline fallback.
@@ -136,7 +141,6 @@ Game writes return the updated `game_cards` row, so the app never needs a second
 
 | RPC | Returns | Errors |
 | --- | --- | --- |
-| `sign_in_method(p_email text)` | `text`: `otp`, `password` or `not_allowed`. Anonymous. | — |
 | `complete_profile(p_first_name text, p_last_name text, p_grad_year int, p_interests text[], p_locale text)` | `my_profile` | `invalid_text`, `invalid_input` |
 | `accept_guidelines()` | `void` | — |
 | `create_game(p_activity_slug text, p_title text, p_starts_at timestamptz, p_duration_minutes int, p_capacity int, p_notes text, p_place_name text, p_place_address text, p_lat float8, p_lng float8, p_meet_point text, p_auto_repost bool)` | `game_cards` | `invalid_time`, `invalid_text`, `limit_reached`, `invalid_input` |
@@ -150,13 +154,9 @@ Game writes return the updated `game_cards` row, so the app never needs a second
 
 Rules the signatures don't show:
 
-- **`sign_in_method`** returns `password` for an `auth_allowlist` address, `otp` for an exact match on any
-  non-demo campus's `email_domain` (and `student_email_pattern` if set), **open or closed**, and otherwise
-  `not_allowed`. Closed campuses still get `otp` so their existing accounts can sign back in; the auth hook,
-  which only runs for new users, stops new accounts there with `email_not_allowed`. The app has no domain
-  list of its own. `AuthService` turns `not_allowed` into `.emailNotAllowed`.
-- **`complete_profile`** sets the campus only when it creates the profile: from the email's domain, or from
-  `auth_allowlist.university_id` for a review account. Edits never change it.
+- **`complete_profile`** sets the campus only when it creates the profile: from
+  `auth_allowlist.university_id` if the address is listed (including a Tec test account used for App
+  Review), otherwise from the domain of the email in `auth.users`. Edits never change it.
 - **`update_game`** checks the time window only when `p_starts_at` changes, so a host can still fix
   the meet-up spot once a game has started. It sets `material_change_at` when the time, place or
   meet-up spot changes. If a full game gains a spot and `auto_repost` is on, it sets `reposted_at`.
@@ -171,15 +171,17 @@ Rules the signatures don't show:
 
 ## Sign-in
 
-1. `sign_in_method(email)` comes first. `password` shows the password field, `otp` sends the code, and
-   `not_allowed` shows the error. Review accounts are Gmail aliases, so the server has to make this call.
-2. Code: `auth.signInWithOTP(email)`, then `auth.verifyOTP(email, token, type: .email)`.
-3. Password: `auth.signInWithPassword(email, password)`.
+1. Find your school reads `university_lookup`. `sso_provider` picks the provider.
+2. School account: `auth.signInWithOAuth(provider: .azure, redirectTo: masuno://auth-callback, scopes: "openid email profile")`,
+   which opens `ASWebAuthenticationSession`. The app has no domain list of its own, and the school picked in the
+   app isn't trusted: the auth hook checks the provider and the email on the server (SPEC §8.4).
+3. Review account (only from **Use a review account**): `auth.signInWithPassword(email, password)`. Works only for
+   `auth_allowlist` addresses. The app never calls `auth.signUp`, and the hook refuses any other address.
 4. Next step from `my_profile`: no row → `.needsProfile`; `guidelines_accepted_at` null →
    `.needsGuidelines`; `banned_at` set → `.suspended`; otherwise `.signedIn`.
 
 Review accounts: `auth_allowlist` has `email`, `note` and `university_id` (the demo campus), so
-`complete_profile` can place them.
+`complete_profile` can place them. They're either a Tec test account or a password account Emilio created.
 
 ## Edge Functions
 
