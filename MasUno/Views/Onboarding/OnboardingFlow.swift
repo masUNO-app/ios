@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Onboarding (E5, SPEC §7.5), built from the spec copy; 2.0 restyles it from Arianna's D2 frames.
+/// Onboarding (E5, SPEC §7.5), built from the spec copy; 1.0 restyles it from Arianna's D2 frames.
 /// Welcome → school email → code → about you → interests → community guidelines → map.
 /// `AuthService` moves the session along; when it reaches signed in, the root swaps to the map.
 struct OnboardingFlow: View {

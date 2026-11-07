@@ -1,7 +1,7 @@
 import MapKit
 import SwiftUI
 
-/// Figma: "Event detail" (341:2586) and "You're in" (341:2989), plus the 1.0 states
+/// Figma: "Event detail" (341:2586) and "You're in" (341:2989), plus the 0.5 states
 /// from SPEC §7.6.4 (Full, Hosting, Ended, Cancelled).
 struct EventDetailView: View {
     @Environment(GameStore.self) private var store

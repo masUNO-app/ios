@@ -60,7 +60,7 @@ final class AppViewModel {
         sheet = .gameForm(editing: id)
     }
 
-    /// `masuno://game/<id>` → Event detail (2.0 notifications use this).
+    /// `masuno://game/<id>` → Event detail (1.0 notifications use this).
     func handle(_ url: URL) {
         guard url.scheme == "masuno", url.host() == "game",
               let id = UUID(uuidString: url.lastPathComponent) else { return }

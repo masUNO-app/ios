@@ -30,7 +30,7 @@ targets:
         # Launch color until Arianna's (D3).
         UILaunchScreen:
           UIColorName: Background
-        # masuno://game/<id> → Event detail (SPEC E3; used by 2.0 notifications).
+        # masuno://game/<id> → Event detail (SPEC E3; used by 1.0 notifications).
         CFBundleURLTypes:
           - CFBundleURLName: com.masuno.app
             CFBundleURLSchemes: [masuno]
@@ -53,7 +53,7 @@ targets:
         SUPPORTS_MACCATALYST: NO
         SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
         SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD: NO
-        MARKETING_VERSION: "1.0"
+        MARKETING_VERSION: "0.5"
         CURRENT_PROJECT_VERSION: "1"
         CODE_SIGN_STYLE: Automatic
         LOCALIZATION_PREFERS_STRING_CATALOGS: YES

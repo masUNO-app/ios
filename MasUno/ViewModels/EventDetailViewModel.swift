@@ -3,7 +3,7 @@ import Observation
 import SwiftUI
 import UIKit
 
-/// Game detail (SPEC §7.6.4): which 1.0 state you're in, and the join/leave/cancel intents.
+/// Game detail (SPEC §7.6.4): which 0.5 state you're in, and the join/leave/cancel intents.
 @Observable
 final class EventDetailViewModel {
     let eventID: UUID
