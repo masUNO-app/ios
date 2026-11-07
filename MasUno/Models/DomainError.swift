@@ -10,7 +10,7 @@ nonisolated enum DomainError: Error, Hashable, Sendable {
     case notAuthenticated, suspended
 
     // Raised by Supabase Auth or the auth hook; mapped in `AuthService` (B5).
-    case emailNotAllowed, codeInvalid, codeExpired, tooManyAttempts, invalidCredentials
+    case emailNotAllowed, schoolApprovalNeeded, signInFailed, tooManyAttempts, invalidCredentials
 
     // Client side.
     case offline
@@ -54,8 +54,8 @@ nonisolated enum DomainError: Error, Hashable, Sendable {
         case .notAuthenticated: String(localized: "Please sign in again.")
         case .suspended: String(localized: "Your account is suspended")
         case .emailNotAllowed: String(localized: "masUNO isn't open at your school yet.")
-        case .codeInvalid: String(localized: "That code didn't work. Check the email and try again.")
-        case .codeExpired: String(localized: "That code expired. Send a new one.")
+        case .schoolApprovalNeeded: String(localized: "Your school hasn't approved masUNO yet.")
+        case .signInFailed: String(localized: "We couldn't sign you in. Try again.")
         case .tooManyAttempts: String(localized: "Too many tries. Wait a minute and try again.")
         case .invalidCredentials: String(localized: "That email and password don't match.")
         case .offline: String(localized: "You're offline. Try again when you're connected.")

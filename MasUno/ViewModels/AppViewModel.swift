@@ -52,7 +52,10 @@ final class AppViewModel {
     func start() async {
         if let fetched = try? await catalog.fetchAppConfig() { config = fetched }
         isUpdateRequired = !config.supports(version: AppConfig.currentVersion)
-        if let open = try? await catalog.fetchOpenUniversities(), open.count == 1 { launchCampus = open[0] }
+        if let campuses = try? await catalog.fetchUniversities() {
+            let open = campuses.filter(\.signupEnabled)
+            if open.count == 1 { launchCampus = open[0] }
+        }
         await auth.restoreSession()
     }
 
@@ -93,14 +96,15 @@ final class AppViewModel {
     }
 
     #if DEBUG
-    /// `-screen update|suspended|signed-out|onboarding-*`: set before the session is read.
+    /// `-screen update|suspended|signed-out|session-expired|onboarding-*`: set before the session is read.
     func applyDebugSession(mock: MockBackend) {
         let screen = UserDefaults.standard.string(forKey: "screen") ?? ""
         switch screen {
         case "update": isUpdateRequired = true
         case "suspended": mock.suspend()
-        case "signed-out": mock.expireSession(email: nil)
-        case _ where screen.hasPrefix("onboarding-"): mock.expireSession(email: nil)
+        case "signed-out": mock.endSession(expired: false)
+        case "session-expired": mock.endSession(expired: true)
+        case _ where screen.hasPrefix("onboarding-"): mock.endSession(expired: false)
         default: break
         }
     }

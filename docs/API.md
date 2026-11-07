@@ -5,8 +5,8 @@ The boundary between the app and Supabase (SPEC §8.5), matched by the Swift pro
 by both coders. If this file and the spec disagree, this file wins.
 
 **Status: frozen Fri Nov 6; sign-in amended the same day (SPEC N33).** Build the backend to this file. The
-backend hasn't started, so there's nothing to migrate. The Swift side follows in E5 + B5, the one exception
-to the one-PR rule; "Swift changes owed" below lists what's left.
+backend hasn't started, so there's nothing to migrate. The Swift side is built to this file (E5, B5) but hasn't
+run against a real backend yet.
 
 ## Conventions
 
@@ -186,23 +186,12 @@ Rules the signatures don't show:
    fills in the name from `user_metadata`, editable (B21 confirms the keys).
 3. Review account (only from **Use a review account**): `auth.signInWithPassword(email, password)`. Works only for
    `auth_allowlist` addresses. The app never calls `auth.signUp`, and the hook refuses any other address.
-4. Next step from `my_profile`: no row → `.needsProfile` (You're verified comes first); `guidelines_accepted_at` null →
-   `.needsGuidelines`; `banned_at` set → `.suspended`; otherwise `.signedIn`.
+4. Next step from `my_profile`: no row → `.needsProfile` (You're verified comes first); `banned_at` set → `.suspended`;
+   `guidelines_accepted_at` null → `.needsGuidelines`; otherwise `.signedIn`.
 
 Review accounts: `auth_allowlist` has `email`, `note` and `university_id` (usually the demo campus), so
 `complete_profile` can place them. They're either a Tec test account or a password account Emilio created
 with the email already confirmed.
-
-## Swift changes owed (E5, B5)
-
-- `AuthService`: remove `signInMethod(for:)`, `sendCode(to:)`, `verifyCode(_:email:)` and `SignInMethod`; add school
-  sign-in for a `University`; keep `signIn(email:password:)`.
-- `AuthState.signedOut(email:)`: the email no longer prefills a step (SPEC §7.5, Coming back).
-- `AppConfigRepository.fetchOpenUniversities()`: read `university_lookup`, and rename it.
-- `University`: add `ssoProvider` and `signupEnabled`.
-- `DomainError`: remove `.codeInvalid` and `.codeExpired`; add `.schoolApprovalNeeded` and `.signInFailed`.
-- Add the supabase-swift v2 package to `project.yml`. The `masuno` URL scheme is already registered.
-- `MockBackend`, `ContractTests`, the onboarding view model and the `-screen onboarding-*` names follow.
 
 ## Edge Functions
 

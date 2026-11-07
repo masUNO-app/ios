@@ -10,10 +10,10 @@
 **Program:** App Accelerator: Startup to 1000 — Demo Day #1 **Thu Nov 5**, Demo Day #2 **Thu Nov 19**, Demo Day #3 **Thu Dec 3**, Product Launch **Wed Dec 16**
 
 **Status (Fri Nov 6):**
-- **Frontend (0.5 UI) is finished on mock data, apart from the SSO screens (N33):** PR #9 (`ethan/e1-contract`, merged Nov 6) added the contract (`docs/API.md`, repository protocols, models, mocks) and `GameStore`, moved every screen onto them, and added the states, release hygiene and `docs/QA.md`. Earlier work is in PRs #4–#7. Nothing talks to Supabase yet, so **Release builds can't sign in until B5 and B7 land** (N31).
+- **Frontend (0.5 UI) is finished on mock data, including the SSO screens (N33):** PR #9 (`ethan/e1-contract`, merged Nov 6) added the contract (`docs/API.md`, repository protocols, models, mocks) and `GameStore`, moved every screen onto them, and added the states, release hygiene and `docs/QA.md`. Earlier work is in PRs #4–#7. Sign-in and reference data can now reach Supabase (B5), but games can't until B7, so **Release builds aren't usable until B7 lands** (N31).
 - **Backend has not started:** `supabase/` is still a placeholder, and every B-card in §5.2 is still to do. `docs/API.md` is the contract to build to.
 - **1.0 UI is designed:** the Figma file "masuno figma" now has per-sport flows (basketball, tennis, soccer, volleyball, padel), group chat for each sport, Me and Settings, plus `DESIGN.md` v2.0 in the project. This is the 1.0 look (§7.7); what's built is the 0.5 look.
-- **Sign-in moved to school SSO on Nov 6 (N33):** this spec and `docs/API.md` describe the new flow, but the Swift code and its contract tests still use email codes until E5 and B5 land. The open question is whether Tec's tenant lets students approve the app themselves or needs IT (K19).
+- **Sign-in moved to school SSO on Nov 6 (N33):** the app is built to this spec and `docs/API.md` (E5, B5) but hasn't run against a real backend, because B1, B2 and B4 aren't up yet. The open question is whether Tec's tenant lets students approve the app themselves or needs IT (K19).
 - `com.masuno.app` registered on the Boys & Girls Clubs of Chicago developer team (Oct 28). The app icon set is still empty.
 
 > **How to read this.** §0–§6 are the plan: releases, scope, calendar, who does what, how we work. §7–§9 are the product and technical spec (§7.1–§7.6 = 0.5 UI, §7.7 = 1.0 UI). §10–§13 are release steps, risks, decisions and what comes after. Items marked **⚑** need sign-off (§12).
@@ -43,7 +43,7 @@
   - **Emilio** builds Supabase only: tables, rules, RPCs, auth hook, school sign-in (Azure provider), safety, delete-account, prod.
   - **Ethan** builds everything in Swift, including the data layer (`AuthService`, `GameStore`, live repositories), because his screens are done and the backend is the critical path.
   - They meet at one contract (§8.5, `docs/API.md`) and the Swift repository protocols (E1), now due **Fri Nov 6 at noon**.
-- **Hours left:** Ethan ≈ 49 h (about 19 h for 0.5, re-estimated Nov 6 with 3 h added for the SSO screens, N33; 30 h for 1.0); Emilio ≈ 55 h (31 h for 0.5, 24 h for 1.0); plus group-chat messaging as a stretch for both. **Emilio's ~28 h of 0.5 Supabase work by Sun Nov 8 morning — about 9 h a day, Fri to Sun — is the critical path** (K1); Ethan's ~19 h of SSO screens (E5), live data layer (B5, B7), testing on dev and release work runs alongside it.
+- **Hours left:** Ethan ≈ 42 h (about 12 h for 0.5, re-estimated Nov 6 after the SSO screens and `AuthService`, N33; 30 h for 1.0); Emilio ≈ 55 h (31 h for 0.5, 24 h for 1.0); plus group-chat messaging as a stretch for both. **Emilio's ~28 h of 0.5 Supabase work by Sun Nov 8 morning — about 9 h a day, Fri to Sun — is the critical path** (K1); Ethan's ~12 h of live repositories (B7), testing on dev and release work runs alongside it.
 - **Arianna (~5 h/week)** has finished the 1.0 look in Figma. By Sun Nov 8 she delivers the app icon (Fri), the website pages (Sat) and 0.5 screenshots (Sun). After that she draws the screens the 1.0 Figma doesn't have yet (onboarding, states, safety, notifications) in the 1.0 style.
 - **Ricardo (~5 h/week)** gets people:
   - Supabase access for Emilio first (unconfirmed and blocking), and the team Gmail (Contact us, review accounts).
@@ -229,7 +229,7 @@ The submission stays on **Mon Nov 9**. All remaining 0.5 work happens Fri–Sun 
 | --- | --- | --- | --- | --- |
 | **Fri** morning | E1 protocols + models + mocks; pair with Emilio on `API.md` | `API.md`; B1 `masuno-dev` + `supabase init` + seed | App icon (D3) | Venue list (O5); Tec IT questions (O4) |
 | **Fri** afternoon/evening | `GameStore` on mocks (B6) | Auth hook + allowlist + review accounts (B4); register the Entra app so O4 can include its consent link (B2); start B3 tables | Website pages (D4) | Latency test (O5); policy + support copy (O6); go/no-go call |
-| **Sat** morning | SSO screens (E5); `AuthService` (B5) on dev: review password path once B4 is up, school sign-in once B2 is up | B3 part 1 (games RPCs, `game_cards`); finish the Azure provider (B2); create `masuno-prod` (B12) | D4 pages live | Listing copy (O7); a real Tec account for B2 (O4) |
+| **Sat** morning | Run `AuthService` (B5) on dev: review password path once B4 is up, school sign-in once B2 is up | B3 part 1 (games RPCs, `game_cards`); finish the Azure provider (B2); create `masuno-prod` (B12) | D4 pages live | Listing copy (O7); a real Tec account for B2 (O4) |
 | **Sat** afternoon/evening | Live repositories (B7) + live wiring (E24) | B3 part 2 (report, block, filter, demo campus, auto-repost, `game_activity`) | DD2 deck can wait — rest | Enter listing + URLs in App Store Connect; recruit beta testers (O8) |
 | **Sun** morning | SSO spike with Emilio (B21); E24/E25 finish; release hygiene (E14) | SSO spike on a real iPhone (B21); safety alerts + bans (B8); delete-account (B9); migrations, Auth settings, demo campus and allowlisted accounts on prod | — | Moderation rota posted (O11) |
 | **Sun** noon | **Go/no-go #2** — everyone | | | |
@@ -308,7 +308,7 @@ For 0.5, everything in Swift is Ethan's (screens and the data layer); everything
 | E2 | Green design system (§7.1); colors in the asset catalog; String Catalog; DEBUG gallery. | 0.1 | 6 h | Nov 4 | **Done** (#5, #7) | No hard-coded colors in views. |
 | E3 | Navigation shell (§7.3) + update-required + suspended screens; `masuno://game/<id>`. | 0.1 | 2 h | Nov 4 | **Done** | All routes reachable. |
 | E4 | Map + popup redesign (341:1979, 341:2046), incl. iPad / iPhone Duo layout. | 0.1 | 5 h | Nov 4 | **Done** (#5, #7) | Matches the frames on mock data. |
-| E5 | Onboarding (§7.5) + suspended screen; **replace the Email and Code screens with the SSO screens (N33), +3 h**. | 0.5 | 4 h + 3 h | Sat Nov 7 | **Built for email codes on mocks; SSO screens to do**; needs B5 | Signs in for real once B5 lands; Debug's mock backend signs in without the web sheet; `ContractTests` and the README's `-screen` names match the new steps. 1.0 restyles it from D2 frames. |
+| E5 | Onboarding (§7.5) + suspended screen; **replace the Email and Code screens with the SSO screens (N33), +3 h**. | 0.5 | 4 h + 3 h | Sat Nov 7 | **Built** on mocks; real sign-in needs B1, B2 and B4 | Signs in for real once B5 lands; Debug's mock backend signs in without the web sheet; `ContractTests` and the README's `-screen` names match the new steps. 1.0 restyles it from D2 frames. |
 | E6 | Build 0.1 to TestFlight. | 0.1 | 1 h | Nov 5 | **Not confirmed** | On TestFlight for Demo Day #1. |
 | E7 | Game form add/edit/cancel, validation. | 0.5 | 6 h | — | **Built** | Create/edit/cancel round-trip on `masuno-dev` (via E24). |
 | E8 | Where's the game?: search + current location. | 0.5 | 3 h | — | **Built** | Spot set by search or by location. |
@@ -319,7 +319,7 @@ For 0.5, everything in Swift is Ethan's (screens and the data layer); everything
 | E13 | Settings + Delete account. | 0.5 | 2.5 h | Sun Nov 8 | **Built**; Privacy & Terms opens the D4 URL; Delete account calls `AuthService`; needs B5 + B9 | Delete account signs you out and the account is gone. |
 | E14 | **States + release hygiene**: empty/error/offline basics; app icon; launch color; Release → prod; DEBUG-only demo tools (`-screen`, gallery, `simulateDropOut`); **remove "Coming soon" text, the disabled chat composer (unless E26), the App Store search invite link, the mock location** (N27); hide cut features. | 0.5 | 3 h | Sun Nov 8 | **Built** except: app icon (D3), `AppConfig.appStoreID` (E15), Release → prod (B5, B7) | Release build has no DEBUG menus, mock data, placeholder text or dead buttons; airplane mode never strands a screen. |
 | E15 | Submit 0.5: privacy label, age rating, review notes; Ricardo enters the listing (O7). | 0.5 | 2 h | **Mon Nov 9** | To do | 0.5 submitted. |
-| B5 | **`AuthService` (Swift)** — *moved to Ethan (N21)*: add the supabase-swift v2 package (not in `project.yml` yet); school sign-in with `signInWithOAuth` (§8.4, N33), `sso_provider` → provider for Azure and Google, review password path, callback errors, the Swift changes listed in `docs/API.md`, session persistence, expired-session and suspended detection, `complete_profile` + `accept_guidelines`. | 0.5 | 4 h | Sat Nov 7 | To do | Onboarding signs in for real on `masuno-dev`. |
+| B5 | **`AuthService` (Swift)** — *moved to Ethan (N21)*: add the supabase-swift v2 package (not in `project.yml` yet); school sign-in with `signInWithOAuth` (§8.4, N33), `sso_provider` → provider for Azure and Google, review password path, callback errors, the Swift changes listed in `docs/API.md`, session persistence, expired-session and suspended detection, `complete_profile` + `accept_guidelines`. Run it on dev with `-liveAuth YES`. | 0.5 | 4 h | Sat Nov 7 | **Built**, covered by unit tests; not run against a backend yet (needs B1, B2, B4) | Onboarding signs in for real on `masuno-dev`. |
 | B6 | **`GameStore` (Swift)** — *moved to Ethan (N21)*: `@Observable`, `LoadState`, optimistic join/leave + rollback, error-code → `DomainError`, instant local hiding after a block; replaces `EventStore`; remove `SkillLevel`, `Venue`, `Person.you`. | 0.5 | 5 h | Fri Nov 6 | **Done** | Store unit tests green on mock repositories. |
 | B7 | **Live repositories** (`supabase-swift` v2) — *moved to Ethan (N21)*: games, profiles, safety; `ActivityCatalog` cached with a built-in fallback of the 5 sports. | 0.5 | 6 h | Sat Nov 7 | To do | Mock ↔ live is a one-line switch. |
 | E24 | **Live wiring**: move screens onto E1 models + `GameStore`/`AuthService`; delete `EventStore`/`MockData` from Release; group chat on live data — messaging if B20 + E26 land, otherwise the read-only fallback (N14); Saved persisted on the phone (N15). | 0.5 | 6 h | Sun Nov 8 (morning) | **Built** on mocks; needs B5 + B7 to reach `masuno-dev` | Every 0.5 screen works on `masuno-dev` with no mock data. |
@@ -328,14 +328,14 @@ For 0.5, everything in Swift is Ethan's (screens and the data layer); everything
 | E19 | Add to Calendar, Invite a friend, Google Maps option. | 0.5 | 2.5 h | — | **Built**; Invite a friend hidden in Release until `AppConfig.appStoreID` is set (E15) | Calendar editor opens prefilled with no permission prompt; invite shares the app's App Store link. |
 | E21 | Me: Past games + Edit profile & interests. | 0.5 | 3 h | — | **Built** on `ProfileRepository`; needs B7 | Edited interests save and reload from the server. |
 | E17 | Saved: local list (0.5) **built**; sync + Notify me (1.0). | 0.5 / 1.0 | 1.5 h | Nov 29 | Local version **built** | Saved survives reinstall; Notify me works. |
-| | *0.5 remaining (E5 SSO screens 3 h, B5 4 h, B7 6 h, testing on dev 2 h, QA + RC 2 h, E15 2 h)* | | *~19 h + 4 h stretch* | | *~63 h already built* | |
+| | *0.5 remaining (B7 6 h, testing on dev 2 h, QA + RC 2 h, E15 2 h)* | | *~12 h + 4 h stretch* | | *~63 h already built* | |
 | E27 | **1.0 UI pass** (§7.7, N23): 1.0 tokens + rounded type (2 h); sport colors on pins, popup with tail, "+1" tokens (2 h); court/field headers ×5 with the lineup and "Room for N more" (4 h); Me cards + profile band (1.5 h); chat sport band, bubbles, join pill (1.5 h); Who's going rows, Settings icon tiles, form suggestion chips, copy (1 h); restyle onboarding/safety/states from D2 frames. | 1.0 | 12 h | Tue Dec 1 (start Nov 10) | — | 1.0 beta matches the 1.0 frames (or differences noted by Arianna). |
 | E16 | Notification screens. | 1.0 | 3.5 h | Nov 29 | — | Tapping each notification type opens the right game. |
 | E18 | Spanish. | 1.0 | 2 h | Dec 4 | — | Whole app readable in Spanish. |
 | E20 | Picker drag + "Happening now" + changed banner. | 1.0 | 3.5 h | Dec 5 | — | Drag sets a spot; banner shows after a host edit. |
 | E22 | Accessibility + UI tests. | 1.0 | 4 h | Dec 7 | — | Core loop with VoiceOver at XXL text. |
 | E23 | 0.x fixes + 1.0 submission. | 1.0 | 3 h | Dec 8 | — | 1.0 submitted. |
-| | **Ethan remaining** | | **0.5 ~19 h · 1.0 ~30 h · ≈ 49 h (+4 h stretch)** | | | |
+| | **Ethan remaining** | | **0.5 ~12 h · 1.0 ~30 h · ≈ 42 h (+4 h stretch)** | | | |
 
 ### 5.2 Emilio — backend (Supabase)
 
@@ -409,7 +409,7 @@ For 0.5, everything in Swift is Ethan's (screens and the data layer); everything
 - **Repo:** `masUNO-app/ios` — `MasUno/` (app), `supabase/` (migrations, functions, tests, seed), `docs/` (this spec, `API.md`, `QA.md`). Rev. 7 replaces `docs/SPEC.md`.
 - **Code ownership:** `MasUno/Views`, view models, design system → Ethan. `MasUno/Data` → Ethan for 0.5 (N21; Emilio reviews), both from 1.0. `supabase/` → Emilio. `CODEOWNERS` requests both on `MasUno/Data/`.
 - **Branches:** `main` protected; short-lived branches; one approving review from the other coder; squash merge; review within 24 h — **within 2 h during Fri–Sun Nov 6–8**.
-- **Contract first:** `docs/API.md` and the Swift protocols are the boundary; a change to either is one PR reviewed by both coders. The one exception is N33: its contract went first so B2 and B4 can start, and its Swift half follows in E5 + B5.
+- **Contract first:** `docs/API.md` and the Swift protocols are the boundary; a change to either is one PR reviewed by both coders.
 - **Migrations:** never edit an applied migration; only Emilio pushes to prod, only from `main`, before the matching TestFlight build.
 - **Environments:** Debug → `masuno-dev`; TestFlight and App Store → `masuno-prod` from the 0.5 release candidate (beta games are real games).
 - **Design hand-off:** 0.x screens follow what's built and the green `341:*` frames; 1.0 screens follow §7.7 and the 1.0 frames marked "Ready". If a 1.0 frame isn't ready, Ethan builds from `DESIGN.md` and Arianna adjusts in design QA.
@@ -936,7 +936,7 @@ Alert in team chat → on-call person (Ricardo or Arianna) checks the report in 
 
 | # | Risk | Likelihood | Impact | Mitigation | Owner |
 | - | --- | --- | --- | --- | --- |
-| K1 | **Supabase not live on prod by Sun Nov 8 noon** (nothing in the repo as of Nov 5; ~28 h of Emilio's work in about three days, alongside ~19 h of Ethan's) | **High** | **High** | Swift data layer moved to Ethan (N21); `API.md` + E1 frozen Fri noon; B3 in two drops Sat; chat messaging (B20) treated as 0.6; cut check Sat evening; go/no-go #2 Sun noon; never submit a mock build — if must-haves slip, submit the day they're live, backstop Mon Nov 16 | Emilio, Ethan |
+| K1 | **Supabase not live on prod by Sun Nov 8 noon** (nothing in the repo as of Nov 5; ~28 h of Emilio's work in about three days, alongside ~12 h of Ethan's) | **High** | **High** | Swift data layer moved to Ethan (N21); `API.md` + E1 frozen Fri noon; B3 in two drops Sat; chat messaging (B20) treated as 0.6; cut check Sat evening; go/no-go #2 Sun noon; never submit a mock build — if must-haves slip, submit the day they're live, backstop Mon Nov 16 | Emilio, Ethan |
 | K2 | Access blockers (O2 Supabase Owner, O3 team Gmail, O4 Tec IT answers) still not done | **High** | High | Due tonight (Thu Nov 5); B1 Fri morning can't start without O2, and B2 Sat morning can't finish without a real Tec account from O4 (K19) | Ricardo |
 | K3 | 0.5 rejected or stuck in review past Demo Day #2 | Medium | Medium | §10.4 checklist; submit Nov 9; resubmit within 24 h, last by Fri Nov 13; external TestFlight beta in parallel; worst case DD2 from TestFlight; 0.6 Mon Nov 16 | Ethan |
 | K4 | *(Retired by N33: no sign-in email.)* Codes from Gmail land in Tec's junk folder | — | — | Replaced by school SSO | — |

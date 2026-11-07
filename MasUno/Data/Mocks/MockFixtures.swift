@@ -7,13 +7,13 @@ enum MockFixtures {
     static let tec = University(
         id: UUID(uuidString: "00000000-0000-0000-0000-00000000B001")!,
         name: "Tec de Monterrey", shortName: "Tec", emailDomain: "tec.mx",
-        centerLatitude: 25.6514, centerLongitude: -100.2895
+        centerLatitude: 25.6514, centerLongitude: -100.2895, ssoProvider: .azure
     )
     /// Any other campus, to prove nothing is tied to Tec.
     static let otherCampus = University(
         id: UUID(uuidString: "00000000-0000-0000-0000-00000000B002")!,
         name: "UANL", shortName: "UANL", emailDomain: "uanl.edu.mx",
-        centerLatitude: 25.7260, centerLongitude: -100.3120
+        centerLatitude: 25.7260, centerLongitude: -100.3120, ssoProvider: .google
     )
     /// Hidden App Review campus (C12): not listed as open, but review accounts land here.
     static let demoCampus = University(

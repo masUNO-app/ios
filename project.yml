@@ -4,6 +4,10 @@ options:
   deploymentTarget:
     iOS: "26.0"
   createIntermediateGroups: true
+packages:
+  Supabase:
+    url: https://github.com/supabase/supabase-swift
+    exactVersion: 2.55.6
 configs:
   Debug: debug
   Release: release
@@ -30,10 +34,16 @@ targets:
         # Launch color until Arianna's (D3).
         UILaunchScreen:
           UIColorName: Background
+        # From Config.xcconfig; read by SupabaseConfig. The anon key is public by design.
+        SupabaseURL: $(SUPABASE_URL)
+        SupabaseAnonKey: $(SUPABASE_ANON_KEY)
         # masuno://game/<id> → Event detail (SPEC E3; used by 1.0 notifications).
+        # masuno://auth-callback → school sign-in (SPEC §8.4).
         CFBundleURLTypes:
           - CFBundleURLName: com.masuno.app
             CFBundleURLSchemes: [masuno]
+    dependencies:
+      - package: Supabase
     configFiles:
       Debug: Config.xcconfig
       Release: Config.xcconfig
