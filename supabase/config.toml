@@ -1,0 +1,14 @@
+project_id = "masuno"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public"]
+
+[auth]
+site_url = "masuno://auth-callback"
+additional_redirect_urls = ["masuno://auth-callback"]
+enable_signup = true
+
+[functions.delete-account]
+verify_jwt = true
