@@ -2,8 +2,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 /**
  * Deletes only the caller. The service-role client is never exposed to iOS.
- * Hosted-game cancellation and RSVP removal use the database RPCs/row locks
- * before deleting the Auth user, which cascades the remaining private data.
+ * `delete_my_account_data` frees the caller's spots in upcoming games under
+ * row locks; deleting the Auth user then cascades the profile, hosted games,
+ * RSVPs and blocks, and keeps reports without the reporter.
  */
 Deno.serve(async (request) => {
     if (request.method !== "POST") {

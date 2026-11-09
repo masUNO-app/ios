@@ -5,10 +5,32 @@ enabled = true
 port = 54321
 schemas = ["public"]
 
+[db.seed]
+enabled = true
+sql_paths = ["./seed.sql"]
+
 [auth]
 site_url = "masuno://auth-callback"
 additional_redirect_urls = ["masuno://auth-callback"]
 enable_signup = true
+
+# The real sign-up gate (SPEC §8.4). Hosted projects register it in Dashboard → Auth → Hooks.
+[auth.hook.before_user_created]
+enabled = true
+uri = "pg-functions://postgres/public/before_user_created"
+
+# Review passwords need the email provider on; the hook keeps it allowlist-only.
+[auth.email]
+enable_signup = true
+enable_confirmations = false
+
+# Off locally: the Entra app only lists the hosted projects' callback URLs (B2).
+# Never use the "common" tenant, which admits personal Microsoft accounts.
+[auth.external.azure]
+enabled = false
+client_id = "env(SUPABASE_AUTH_EXTERNAL_AZURE_CLIENT_ID)"
+secret = "env(SUPABASE_AUTH_EXTERNAL_AZURE_SECRET)"
+url = "https://login.microsoftonline.com/organizations"
 
 [functions.delete-account]
 verify_jwt = true

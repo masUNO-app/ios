@@ -26,3 +26,4 @@ Carthage/Build/
 Config.xcconfig
 Secrets.xcconfig
 supabase/.temp/
+supabase/.branches/
