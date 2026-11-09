@@ -1,0 +1,27 @@
+# Free Supabase projects pause after a week without activity (SPEC §8.1), so read prod once a day.
+# Needs repository secrets PROD_SUPABASE_URL and PROD_SUPABASE_ANON_KEY (the public anon key).
+name: Keep prod awake
+
+on:
+  schedule:
+    - cron: "0 15 * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Read app_config on masuno-prod
+        env:
+          SUPABASE_URL: ${{ secrets.PROD_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.PROD_SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "::error::Set the PROD_SUPABASE_URL and PROD_SUPABASE_ANON_KEY repository secrets."
+            exit 1
+          fi
+          curl --fail --silent --show-error --max-time 30 \
+            "$SUPABASE_URL/rest/v1/app_config?select=key&limit=1" \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY"

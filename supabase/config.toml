@@ -21,7 +21,7 @@ uri = "pg-functions://postgres/public/before_user_created"
 
 # Review passwords need the email provider on; the hook keeps it allowlist-only.
 [auth.email]
-enable_signup = true
+enabled = true
 enable_confirmations = false
 
 # Off locally: the Entra app only lists the hosted projects' callback URLs (B2).

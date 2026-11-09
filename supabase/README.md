@@ -16,6 +16,7 @@ already applied to a shared project; add a new timestamped one. Only deploy prod
 1. Install the Supabase CLI and Docker, then run `supabase start`.
 2. `supabase db reset` applies the migrations and `seed.sql` (Tec test hosts and games).
 3. To sign in locally, create `official.masuno.app+local1@gmail.com` in Studio (Authentication → Add user, auto confirm on). The hook lets it in because `seed.sql` allowlists it.
+4. `supabase test db` runs the pgTAP tests in `tests/database` (auth hook, game rules, RLS and grants, blocks, bans, reports, account deletion). CI runs the same on every PR that touches `supabase/` (`.github/workflows/database.yml`). The two-phone last-spot race stays a manual check in `docs/QA.md`.
 
 ## Hosted project checklist (masuno-dev, then masuno-prod)
 
@@ -31,6 +32,7 @@ Migrations don't carry dashboard settings, so do these on each project (B2, B12)
    `select vault.create_secret('https://supabase.com/dashboard/project/<ref>/editor', 'report_alert_dashboard_url');`.
    Without the first secret, reports still save and Postgres logs a warning.
 7. Check **Integrations → Cron** shows `refresh-demo-campus` (daily, 00:15 Monterrey).
+8. **Prod only:** add GitHub repository secrets `PROD_SUPABASE_URL` and `PROD_SUPABASE_ANON_KEY` so `.github/workflows/keep-alive.yml` stops the free project from pausing, and run `supabase db dump` weekly into private storage (it contains personal data).
 
 ## Moderation
 

@@ -1,0 +1,24 @@
+# Database tests (B10, B11): applies every migration to a fresh local Supabase database and runs
+# supabase/tests/database. Make "Database / test" a required check on main.
+name: Database
+
+on:
+  pull_request:
+    paths: ["supabase/**", ".github/workflows/database.yml"]
+  push:
+    branches: [main]
+    paths: ["supabase/**", ".github/workflows/database.yml"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Start the database and apply migrations
+        run: supabase db start
+      - name: Run pgTAP tests
+        run: supabase test db
