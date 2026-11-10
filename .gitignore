@@ -27,3 +27,10 @@ Config.xcconfig
 Secrets.xcconfig
 supabase/.temp/
 supabase/.branches/
+
+# Claude Code local setup (settings, Supabase MCP, agent skills)
+.claude/settings.local.json
+.claude/skills/
+.mcp.json
+.agents/
+skills-lock.json
