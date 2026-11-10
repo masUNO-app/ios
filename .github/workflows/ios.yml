@@ -1,0 +1,53 @@
+# App build and unit tests (B11, iOS half): generates the project, then runs MasUnoTests on the newest
+# iPhone simulator. Debug runs on mocks with the template's placeholder keys, so it never calls
+# Supabase; LiveIntegrationTests skip themselves without MASUNO_LIVE_PASSWORD. Make "iOS / test" a
+# required check on main once it's green.
+name: iOS
+
+on:
+  pull_request:
+    paths: ["MasUno/**", "MasUnoTests/**", "project.yml", "Config.xcconfig.template", ".github/workflows/ios.yml"]
+  push:
+    branches: [main]
+    paths: ["MasUno/**", "MasUnoTests/**", "project.yml", "Config.xcconfig.template", ".github/workflows/ios.yml"]
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+      - name: Generate the project
+        run: |
+          brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
+          cp Config.xcconfig.template Config.xcconfig
+          xcodegen generate
+      - name: Pick the newest iPhone simulator
+        run: |
+          udid=$(xcrun simctl list devices available -j | python3 -c '
+          import json, re, sys
+          best = None
+          for runtime, devices in json.load(sys.stdin)["devices"].items():
+              match = re.search(r"iOS-(\d+)-(\d+)", runtime)
+              if not match:
+                  continue
+              version = tuple(map(int, match.groups()))
+              for device in devices:
+                  if device["name"].startswith("iPhone") and (best is None or version > best[0]):
+                      best = (version, device["udid"], device["name"])
+          print(best[1]); print(best, file=sys.stderr)
+          ')
+          echo "SIMULATOR=$udid" >> "$GITHUB_ENV"
+      - name: Build and test
+        run: |
+          set -o pipefail
+          xcodebuild test -project MasUno.xcodeproj -scheme MasUno \
+            -destination "id=$SIMULATOR" -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO | tail -n 80

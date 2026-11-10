@@ -138,15 +138,18 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         state = .signedOut(expired: false)
     }
 
-    /// Cancels upcoming hosted games and frees joined spots, like `delete-account` (B9).
+    /// Like `delete-account` (B9): frees the spots in upcoming joined games, then deletes every game
+    /// you host, so they're gone for everyone rather than cancelled.
     func deleteAccount() async throws {
         try await begin()
-        for game in games where game.myRole != nil && !game.hasEnded(now: now) {
-            if game.myRole == .host {
-                _ = try await cancelGame(id: game.id)
-            } else {
-                _ = try await leaveGame(id: game.id)
-            }
+        for game in games where game.myRole == .player && !game.hasEnded(now: now) {
+            _ = try await leaveGame(id: game.id)
+        }
+        let hosted = Set(games.filter { $0.host.id == me.id }.map(\.id))
+        games.removeAll { hosted.contains($0.id) }
+        for id in hosted {
+            attendees[id] = nil
+            activity[id] = nil
         }
         profile = nil
         state = .signedOut(expired: false)

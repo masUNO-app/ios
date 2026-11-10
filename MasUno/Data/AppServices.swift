@@ -16,18 +16,30 @@ struct AppServices {
         let mock = MockBackend()
         // `-raceJoin YES`: someone else takes the last spot while your join is in flight.
         mock.losesNextJoinRace = UserDefaults.standard.bool(forKey: "raceJoin")
-        // `-liveAuth YES`: real sign-in on `masuno-dev`, with games still on mocks until B7.
+        // `-liveAuth YES`: everything on `masuno-dev` (Debug's keys in `Config.xcconfig`).
         if UserDefaults.standard.bool(forKey: "liveAuth"), let live = LiveBackend.make() {
-            return AppServices(auth: live.auth, games: mock, profiles: mock, safety: mock, catalog: live.catalog, mock: mock)
+            return AppServices(live, mock: mock)
         }
         return AppServices(auth: mock, games: mock, profiles: mock, safety: mock, catalog: mock, mock: mock)
         #else
-        // TODO(B7): the live game, profile and safety repositories go here.
-        let backend = UnavailableBackend()
+        // Without real keys, every call fails as offline, so Release never shows mock data (N27).
         guard let live = LiveBackend.make() else {
+            let backend = UnavailableBackend()
             return AppServices(auth: backend, games: backend, profiles: backend, safety: backend, catalog: backend)
         }
-        return AppServices(auth: live.auth, games: backend, profiles: backend, safety: backend, catalog: live.catalog)
+        return AppServices(live)
         #endif
     }
+}
+
+private extension AppServices {
+    #if DEBUG
+    init(_ live: LiveBackend, mock: MockBackend) {
+        self.init(auth: live.auth, games: live.games, profiles: live.profiles, safety: live.safety, catalog: live.catalog, mock: mock)
+    }
+    #else
+    init(_ live: LiveBackend) {
+        self.init(auth: live.auth, games: live.games, profiles: live.profiles, safety: live.safety, catalog: live.catalog)
+    }
+    #endif
 }
