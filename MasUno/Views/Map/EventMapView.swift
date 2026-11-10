@@ -48,7 +48,11 @@ struct EventMapView: View {
         .mapScope(mapScope)
         .toolbar {
             // `usesVerticalBar` is only ever true from iOS 27.1.
+            #if compiler(>=6.4) // The vertical bar needs Xcode 27; see VerticalBarEdgeReader.
             if #available(iOS 27.1, *), usesVerticalBar { verticalBarActions } else { bottomActions }
+            #else
+            bottomActions
+            #endif
         }
         .background { VerticalBarEdgeReader(edge: $verticalBarEdge) }
         .sheet(isPresented: $showsSaved) {
@@ -286,6 +290,7 @@ struct EventMapView: View {
         .buttonStyle(.plain)
     }
 
+    #if compiler(>=6.4) // The vertical bar needs Xcode 27; see VerticalBarEdgeReader.
     /// With a vertical bar (iPhone Duo), search, saved games, recenter, filter and the avatar
     /// move into the bar (bottom to top: avatar, then filter + recenter); only Add game stays in
     /// the horizontal bottom bar. Floating over the map they would ignore the bar.
@@ -328,6 +333,7 @@ struct EventMapView: View {
         ToolbarItem(placement: .bottomBar) { profileButton }
             .axisBehavior(.verticalPreferred)
     }
+    #endif
 
     /// Bottom toolbar: sport filter · + Add game · avatar.
     @ToolbarContentBuilder
