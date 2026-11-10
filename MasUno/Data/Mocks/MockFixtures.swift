@@ -21,7 +21,7 @@ enum MockFixtures {
         name: "masUNO Demo", shortName: "Demo", emailDomain: "demo.masuno.invalid",
         centerLatitude: 25.6600, centerLongitude: -100.3000
     )
-    static let reviewEmail = "masunoapp+review1@gmail.com"
+    static let reviewEmail = "official.masuno.app+review1@gmail.com"
     static let reviewPassword = "review-password"
 
     /// Fixed so previews and tests can refer to a game by state.

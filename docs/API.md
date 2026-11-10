@@ -196,5 +196,5 @@ with the email already confirmed.
 ## Edge Functions
 
 `delete-account`: `POST` with the user's JWT and no body. `204` on success, after which the app signs
-out. Cancels upcoming hosted games, leaves joined games, keeps reports without the reporter, deletes
-the auth user.
+out. Leaves joined games (freeing the spots), deletes the auth user along with the games they host,
+and keeps reports without the reporter.
