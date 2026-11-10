@@ -27,16 +27,19 @@ Migrations don't carry dashboard settings, so do these on each project (B2, B12)
 3. **Auth → Providers → Azure:** client ID and secret from the Entra app; Azure Tenant URL `https://login.microsoftonline.com/organizations` until Tec's tenant is confirmed (O4), then lock it to Tec before real students sign in on prod. Never `common`.
 4. **Auth → URL Configuration:** add `masuno://auth-callback` to Redirect URLs.
 5. **Auth → Users:** create the three allowlisted password accounts with "Auto confirm" on: `official.masuno.app+review1@gmail.com`, `+review2`, `+qa1`. Passwords go in the shared password manager.
-6. **Report alerts:** in the SQL editor, run
-   `select vault.create_secret('<discord-or-slack-webhook-url>', 'report_alert_webhook_url');` and
+6. **Report alerts (Discord) — not set up yet on either project.** Until it is, check
+   `public.reports` in the dashboard at least once a day. To set it up, create a Discord channel
+   webhook (Channel settings → Integrations → Webhooks → New Webhook), then in the SQL editor run
+   `select vault.create_secret('<discord-webhook-url>', 'report_alert_webhook_url');` and
    `select vault.create_secret('https://supabase.com/dashboard/project/<ref>/editor', 'report_alert_dashboard_url');`.
-   Without the first secret, reports still save and Postgres logs a warning.
+   File a test report and confirm the alert arrives within a minute. Without the first secret,
+   reports still save and Postgres logs a warning.
 7. Check **Integrations → Cron** shows `refresh-demo-campus` (daily, 00:15 Monterrey).
 8. **Prod only:** add GitHub repository secrets `PROD_SUPABASE_URL` and `PROD_SUPABASE_ANON_KEY` so `.github/workflows/keep-alive.yml` stops the free project from pausing, and run `supabase db dump` weekly into private storage (it contains personal data).
 
 ## Moderation
 
-- New reports post to the team chat; act within 24 h (`public.reports`, set `resolved_at`).
+- New reports post to the team Discord once step 6 above is done; until then, check `public.reports` daily. Act within 24 h and set `resolved_at`.
 - Ban: `update public.profiles set banned_at = now() where id = '<user id>';`. Every write RPC then fails with `suspended`.
 - Add a filtered word: `insert into private.blocked_words (word) values ('<lowercase, no accents>');`.
 
