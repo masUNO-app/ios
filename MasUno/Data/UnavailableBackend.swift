@@ -2,8 +2,8 @@
 import Foundation
 import Observation
 
-/// What Release builds run on without real keys, and for games until the live repositories land (B7). Every call fails
-/// as offline, so a Release build can't ever show mock data as real (N27, §10.4).
+/// What Release builds run on without real keys in `Config.xcconfig`. Every call fails as offline, so a
+/// Release build can't ever show mock data as real (N27, §10.4).
 @Observable
 final class UnavailableBackend: AuthService, GameRepository, ProfileRepository, SafetyRepository, AppConfigRepository {
     private(set) var state = AuthState.signedOut(expired: false)

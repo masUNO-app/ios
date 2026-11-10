@@ -163,3 +163,379 @@ nonisolated struct SignInFailure: Hashable, Sendable {
         return .signInFailed
     }
 }
+
+// MARK: - Games, profiles and safety (B7)
+
+/// Postgres `timestamptz` as PostgREST sends it: ISO 8601 with up to microseconds and an offset.
+/// Rows parse it themselves, so they decode the same with any `JSONDecoder`.
+nonisolated enum ServerTime {
+    static func date(from text: String) -> Date? {
+        (try? Date.ISO8601FormatStyle(includingFractionalSeconds: true).parse(text))
+            ?? (try? Date.ISO8601FormatStyle().parse(text))
+    }
+
+    /// What RPC parameters and filters send: UTC with milliseconds.
+    static func string(from date: Date) -> String {
+        date.formatted(Date.ISO8601FormatStyle(includingFractionalSeconds: true))
+    }
+}
+
+nonisolated extension KeyedDecodingContainer {
+    func decodeServerTime(forKey key: Key) throws -> Date {
+        let text = try decode(String.self, forKey: key)
+        guard let date = ServerTime.date(from: text) else {
+            throw DecodingError.dataCorruptedError(forKey: key, in: self, debugDescription: "Not a timestamp: \(text)")
+        }
+        return date
+    }
+
+    func decodeServerTimeIfPresent(forKey key: Key) throws -> Date? {
+        guard let text = try decodeIfPresent(String.self, forKey: key) else { return nil }
+        guard let date = ServerTime.date(from: text) else {
+            throw DecodingError.dataCorruptedError(forKey: key, in: self, debugDescription: "Not a timestamp: \(text)")
+        }
+        return date
+    }
+}
+
+/// A row in `game_cards`, also what every game RPC returns.
+nonisolated struct GameCardRow: Decodable, Sendable {
+    let id: UUID
+    let hostID: UUID
+    let hostFirstName: String
+    let hostLastInitial: String
+    let hostGradYear: Int
+    let activitySlug: String
+    let title: String
+    let startsAt: Date
+    let durationMinutes: Int
+    let endsAt: Date
+    let capacity: Int
+    let goingCount: Int
+    let notes: String?
+    let placeName: String
+    let placeAddress: String
+    let lat: Double
+    let lng: Double
+    let meetPoint: String?
+    let materialChangeAt: Date?
+    let cancelledAt: Date?
+    let autoRepost: Bool
+    let repostedAt: Date?
+    let createdAt: Date
+    let myRole: String?
+    let myJoinedAt: Date?
+    let hasBlockedAttendee: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case id, title, capacity, notes, lat, lng
+        case hostID = "host_id"
+        case hostFirstName = "host_first_name"
+        case hostLastInitial = "host_last_initial"
+        case hostGradYear = "host_grad_year"
+        case activitySlug = "activity_slug"
+        case startsAt = "starts_at"
+        case durationMinutes = "duration_minutes"
+        case endsAt = "ends_at"
+        case goingCount = "going_count"
+        case placeName = "place_name"
+        case placeAddress = "place_address"
+        case meetPoint = "meet_point"
+        case materialChangeAt = "material_change_at"
+        case cancelledAt = "cancelled_at"
+        case autoRepost = "auto_repost"
+        case repostedAt = "reposted_at"
+        case createdAt = "created_at"
+        case myRole = "my_role"
+        case myJoinedAt = "my_joined_at"
+        case hasBlockedAttendee = "has_blocked_attendee"
+    }
+
+    init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        hostID = try c.decode(UUID.self, forKey: .hostID)
+        hostFirstName = try c.decode(String.self, forKey: .hostFirstName)
+        hostLastInitial = try c.decodeIfPresent(String.self, forKey: .hostLastInitial) ?? ""
+        hostGradYear = try c.decode(Int.self, forKey: .hostGradYear)
+        activitySlug = try c.decode(String.self, forKey: .activitySlug)
+        title = try c.decode(String.self, forKey: .title)
+        startsAt = try c.decodeServerTime(forKey: .startsAt)
+        durationMinutes = try c.decode(Int.self, forKey: .durationMinutes)
+        endsAt = try c.decodeServerTime(forKey: .endsAt)
+        capacity = try c.decode(Int.self, forKey: .capacity)
+        goingCount = try c.decode(Int.self, forKey: .goingCount)
+        notes = try c.decodeIfPresent(String.self, forKey: .notes)
+        placeName = try c.decode(String.self, forKey: .placeName)
+        placeAddress = try c.decode(String.self, forKey: .placeAddress)
+        lat = try c.decode(Double.self, forKey: .lat)
+        lng = try c.decode(Double.self, forKey: .lng)
+        meetPoint = try c.decodeIfPresent(String.self, forKey: .meetPoint)
+        materialChangeAt = try c.decodeServerTimeIfPresent(forKey: .materialChangeAt)
+        cancelledAt = try c.decodeServerTimeIfPresent(forKey: .cancelledAt)
+        autoRepost = try c.decode(Bool.self, forKey: .autoRepost)
+        repostedAt = try c.decodeServerTimeIfPresent(forKey: .repostedAt)
+        createdAt = try c.decodeServerTime(forKey: .createdAt)
+        myRole = try c.decodeIfPresent(String.self, forKey: .myRole)
+        myJoinedAt = try c.decodeServerTimeIfPresent(forKey: .myJoinedAt)
+        hasBlockedAttendee = try c.decodeIfPresent(Bool.self, forKey: .hasBlockedAttendee) ?? false
+    }
+
+    func game(activity: (String) -> Activity) -> Game {
+        Game(
+            id: id,
+            host: PersonSummary(id: hostID, firstName: hostFirstName, lastInitial: hostLastInitial, gradYear: hostGradYear),
+            activity: activity(activitySlug), title: title, startsAt: startsAt,
+            durationMinutes: durationMinutes, endsAt: endsAt, capacity: capacity, goingCount: goingCount,
+            notes: notes, place: Place(name: placeName, address: placeAddress, latitude: lat, longitude: lng),
+            meetPoint: meetPoint, materialChangeAt: materialChangeAt, cancelledAt: cancelledAt,
+            autoRepost: autoRepost, repostedAt: repostedAt, createdAt: createdAt,
+            myRole: myRole.flatMap(GameRole.init(rawValue:)), myJoinedAt: myJoinedAt,
+            hasBlockedAttendee: hasBlockedAttendee
+        )
+    }
+}
+
+/// A row in `game_attendees`.
+nonisolated struct AttendeeRow: Decodable, Sendable {
+    let userID: UUID
+    let firstName: String
+    let lastInitial: String
+    let gradYear: Int
+    let role: String
+    let joinedAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case role
+        case userID = "user_id"
+        case firstName = "first_name"
+        case lastInitial = "last_initial"
+        case gradYear = "grad_year"
+        case joinedAt = "joined_at"
+    }
+
+    init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        userID = try c.decode(UUID.self, forKey: .userID)
+        firstName = try c.decode(String.self, forKey: .firstName)
+        lastInitial = try c.decodeIfPresent(String.self, forKey: .lastInitial) ?? ""
+        gradYear = try c.decode(Int.self, forKey: .gradYear)
+        role = try c.decode(String.self, forKey: .role)
+        joinedAt = try c.decodeServerTime(forKey: .joinedAt)
+    }
+
+    var attendee: Attendee {
+        Attendee(
+            person: PersonSummary(id: userID, firstName: firstName, lastInitial: lastInitial, gradYear: gradYear),
+            role: GameRole(rawValue: role) ?? .player, joinedAt: joinedAt
+        )
+    }
+}
+
+/// A row in `game_activity`. The actor columns are null for a deleted account or a blocked pair.
+nonisolated struct GameActivityRow: Decodable, Sendable {
+    let id: UUID
+    let eventID: UUID
+    let kind: String
+    let actorID: UUID?
+    let actorFirstName: String?
+    let actorLastInitial: String?
+    let actorGradYear: Int?
+    let at: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id, kind, at
+        case eventID = "event_id"
+        case actorID = "actor_id"
+        case actorFirstName = "actor_first_name"
+        case actorLastInitial = "actor_last_initial"
+        case actorGradYear = "actor_grad_year"
+    }
+
+    init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        eventID = try c.decode(UUID.self, forKey: .eventID)
+        kind = try c.decode(String.self, forKey: .kind)
+        actorID = try c.decodeIfPresent(UUID.self, forKey: .actorID)
+        actorFirstName = try c.decodeIfPresent(String.self, forKey: .actorFirstName)
+        actorLastInitial = try c.decodeIfPresent(String.self, forKey: .actorLastInitial)
+        actorGradYear = try c.decodeIfPresent(Int.self, forKey: .actorGradYear)
+        at = try c.decodeServerTime(forKey: .at)
+    }
+
+    /// `nil` for a kind this build doesn't know, so an older app skips it instead of failing.
+    var entry: GameActivityEntry? {
+        guard let kind = GameActivityEntry.Kind(rawValue: kind) else { return nil }
+        var actor: PersonSummary?
+        if let actorID, let actorFirstName, let actorGradYear {
+            actor = PersonSummary(id: actorID, firstName: actorFirstName, lastInitial: actorLastInitial ?? "", gradYear: actorGradYear)
+        }
+        return GameActivityEntry(id: id, gameID: eventID, kind: kind, actor: actor, at: at)
+    }
+}
+
+/// A row in `my_profile`, also what `complete_profile` returns.
+nonisolated struct MyProfileRow: Decodable, Sendable {
+    let id: UUID
+    let firstName: String
+    let lastName: String
+    let gradYear: Int
+    let universityID: UUID
+    let universityName: String
+    let universityShortName: String
+    let universityEmailDomain: String
+    let centerLat: Double
+    let centerLng: Double
+    let interests: [String]
+
+    enum CodingKeys: String, CodingKey {
+        case id, interests
+        case firstName = "first_name"
+        case lastName = "last_name"
+        case gradYear = "grad_year"
+        case universityID = "university_id"
+        case universityName = "university_name"
+        case universityShortName = "university_short_name"
+        case universityEmailDomain = "university_email_domain"
+        case centerLat = "center_lat"
+        case centerLng = "center_lng"
+    }
+
+    init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        firstName = try c.decode(String.self, forKey: .firstName)
+        lastName = try c.decode(String.self, forKey: .lastName)
+        gradYear = try c.decode(Int.self, forKey: .gradYear)
+        universityID = try c.decode(UUID.self, forKey: .universityID)
+        universityName = try c.decode(String.self, forKey: .universityName)
+        universityShortName = try c.decode(String.self, forKey: .universityShortName)
+        universityEmailDomain = try c.decode(String.self, forKey: .universityEmailDomain)
+        centerLat = try c.decode(Double.self, forKey: .centerLat)
+        centerLng = try c.decode(Double.self, forKey: .centerLng)
+        interests = try c.decodeIfPresent([String].self, forKey: .interests) ?? []
+    }
+
+    /// `my_profile` doesn't carry the campus's sign-in provider; the map and Me card don't need it.
+    func profile(activity: (String) -> Activity) -> Profile {
+        Profile(
+            id: id, firstName: firstName, lastName: lastName, gradYear: gradYear,
+            university: University(
+                id: universityID, name: universityName, shortName: universityShortName,
+                emailDomain: universityEmailDomain, centerLatitude: centerLat, centerLongitude: centerLng
+            ),
+            interests: interests.map(activity)
+        )
+    }
+}
+
+/// A row from `my_blocks()`.
+nonisolated struct BlockedPersonRow: Decodable, Sendable {
+    let userID: UUID
+    let firstName: String
+    let lastInitial: String?
+    let gradYear: Int
+
+    enum CodingKeys: String, CodingKey {
+        case userID = "user_id"
+        case firstName = "first_name"
+        case lastInitial = "last_initial"
+        case gradYear = "grad_year"
+    }
+
+    var person: PersonSummary {
+        PersonSummary(id: userID, firstName: firstName, lastInitial: lastInitial ?? "", gradYear: gradYear)
+    }
+}
+
+/// Trimmed, and `nil` rather than "" (`docs/API.md`, Conventions).
+nonisolated func optionalText(_ text: String?) -> String? {
+    let trimmed = text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    return trimmed.isEmpty ? nil : trimmed
+}
+
+/// The parameters of `create_game`, plus `p_id` for `update_game`. PostgREST finds a function by
+/// its argument names, so every one is sent, with an explicit null when it's empty.
+nonisolated struct GameDraftParams: Encodable, Sendable {
+    let id: UUID?
+    let draft: GameDraft
+
+    enum CodingKeys: String, CodingKey {
+        case id = "p_id"
+        case activitySlug = "p_activity_slug"
+        case title = "p_title"
+        case startsAt = "p_starts_at"
+        case durationMinutes = "p_duration_minutes"
+        case capacity = "p_capacity"
+        case notes = "p_notes"
+        case placeName = "p_place_name"
+        case placeAddress = "p_place_address"
+        case lat = "p_lat"
+        case lng = "p_lng"
+        case meetPoint = "p_meet_point"
+        case autoRepost = "p_auto_repost"
+    }
+
+    init(id: UUID? = nil, _ draft: GameDraft) {
+        self.id = id
+        self.draft = draft
+    }
+
+    func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        if let id { try c.encode(id, forKey: .id) }
+        try c.encode(draft.activity.slug, forKey: .activitySlug)
+        try c.encode(draft.title.trimmingCharacters(in: .whitespacesAndNewlines), forKey: .title)
+        try c.encode(ServerTime.string(from: draft.startsAt), forKey: .startsAt)
+        try c.encode(draft.durationMinutes, forKey: .durationMinutes)
+        try c.encode(draft.capacity, forKey: .capacity)
+        try c.encode(optionalText(draft.notes), forKey: .notes)
+        try c.encode(draft.place.name, forKey: .placeName)
+        try c.encode(draft.place.address, forKey: .placeAddress)
+        try c.encode(draft.place.latitude, forKey: .lat)
+        try c.encode(draft.place.longitude, forKey: .lng)
+        try c.encode(optionalText(draft.meetPoint), forKey: .meetPoint)
+        try c.encode(draft.autoRepost, forKey: .autoRepost)
+    }
+}
+
+/// `p_id` for `cancel_game`, `join_game` and `leave_game`.
+nonisolated struct GameIDParams: Encodable, Sendable {
+    let id: UUID
+    enum CodingKeys: String, CodingKey { case id = "p_id" }
+}
+
+/// `p_user_id` for `block` and `unblock`.
+nonisolated struct UserIDParams: Encodable, Sendable {
+    let userID: UUID
+    enum CodingKeys: String, CodingKey { case userID = "p_user_id" }
+}
+
+/// The parameters of `report`: exactly one of the two IDs, the other sent as null.
+nonisolated struct ReportParams: Encodable, Sendable {
+    let target: ReportTarget
+    let reason: ReportReason
+    let note: String?
+
+    enum CodingKeys: String, CodingKey {
+        case userID = "p_user_id"
+        case gameID = "p_game_id"
+        case reason = "p_reason"
+        case note = "p_note"
+    }
+
+    func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        switch target {
+        case .person(let id):
+            try c.encode(id, forKey: .userID)
+            try c.encodeNil(forKey: .gameID)
+        case .game(let id):
+            try c.encodeNil(forKey: .userID)
+            try c.encode(id, forKey: .gameID)
+        }
+        try c.encode(reason.rawValue, forKey: .reason)
+        try c.encode(optionalText(note), forKey: .note)
+    }
+}

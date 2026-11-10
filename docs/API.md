@@ -4,9 +4,9 @@ The boundary between the app and Supabase (SPEC §8.5), matched by the Swift pro
 `MasUno/Data/` and the models in `MasUno/Models/`. A change to either side is one PR reviewed
 by both coders. If this file and the spec disagree, this file wins.
 
-**Status: frozen Fri Nov 6; sign-in amended the same day (SPEC N33).** Build the backend to this file. The
-backend hasn't started, so there's nothing to migrate. The Swift side is built to this file (E5, B5) but hasn't
-run against a real backend yet.
+**Status: frozen Fri Nov 6; sign-in amended the same day (SPEC N33).** The backend (PR #12) and the live
+repositories (B7) are built to this file and checked against `masuno-dev` by `LiveIntegrationTests`. From here
+on, a change is a new migration plus the matching Swift change.
 
 ## Conventions
 
@@ -126,8 +126,9 @@ Excludes anyone in a blocked pair with the reader. `going_count` still counts th
 
 ### `game_activity` → `GameActivityEntry`
 
-An append-only table the RPCs write to, not a view: `leave_game` deletes the `rsvps` row, and one
-`material_change_at` can't tell a meet-up edit from a time change. System rows for group chat: `id`, `event_id`, `kind`, `actor_id?`, `actor_first_name?`,
+A view over an append-only table the RPCs write to (`private.game_activity`): `leave_game` deletes the
+`rsvps` row, and one `material_change_at` can't tell a meet-up edit from a time change. Only people in the
+game can read its rows. System rows for group chat: `id`, `event_id`, `kind`, `actor_id?`, `actor_first_name?`,
 `actor_last_initial?`, `actor_grad_year?`, `at`. Oldest first. Actor columns are null for a deleted
 account or a blocked pair. `kind` is one of `created`, `joined`, `left`, `meet_point_updated`,
 `time_or_place_changed`, `cancelled`.

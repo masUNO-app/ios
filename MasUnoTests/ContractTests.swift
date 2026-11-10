@@ -301,11 +301,12 @@ struct MockAuthTests {
         await #expect(throws: DomainError.notAuthenticated) { try await auth.joinGame(id: MockFixtures.GameID.open) }
     }
 
-    @Test func deleteAccountCancelsHostedAndFreesJoined() async throws {
+    @Test func deleteAccountRemovesHostedAndFreesJoined() async throws {
         let auth = MockBackend()
         try await auth.deleteAccount()
         #expect(auth.state == .signedOut(expired: false))
-        #expect(auth.games.first { $0.id == MockFixtures.GameID.hosting }?.isCancelled == true)
+        #expect(!auth.games.contains { $0.id == MockFixtures.GameID.hosting })
+        #expect(!auth.games.contains { $0.host.id == auth.me.id })
         #expect(auth.games.first { $0.id == MockFixtures.GameID.going }?.goingCount == 4)
         #expect(auth.profile == nil)
     }
@@ -598,5 +599,171 @@ struct LiveContractTests {
         #expect(SupabaseConfig(url: "http://abc.supabase.co", anonKey: "key") == nil)
         #expect(SupabaseConfig(url: "https://abc.supabase.co", anonKey: "")  == nil)
         #expect(SupabaseConfig(url: "https://abc.supabase.co", anonKey: "key")?.url.host() == "abc.supabase.co")
+    }
+}
+
+/// The B7 rows and parameters: games, profiles and safety, as PostgREST sends and takes them.
+@MainActor
+struct LiveGameContractTests {
+    private func decode<Row: Decodable>(_ json: String) throws -> Row {
+        try JSONDecoder().decode(Row.self, from: Data(json.utf8))
+    }
+
+    private func encoded(_ value: some Encodable) throws -> [String: Any] {
+        let data = try JSONEncoder().encode(value)
+        return try #require(JSONSerialization.jsonObject(with: data, options: .fragmentsAllowed) as? [String: Any])
+    }
+
+    private let catalog = ActivityCatalog { Activity.builtIn }
+
+    /// A `game_cards` row the way Postgres formats it: microseconds and `+00:00`.
+    private let card = """
+    {"id":"6f1c2a9e-2f7b-4a59-9d3e-1d2c3b4a5f60","host_id":"0b7e4b8c-1111-4c3d-9a2b-123456789abc",
+     "host_first_name":"Sofía","host_last_initial":"M","host_grad_year":2027,"activity_slug":"padel",
+     "title":"Padel doubles","starts_at":"2026-11-10T23:30:00.123456+00:00","duration_minutes":90,
+     "ends_at":"2026-11-11T01:00:00.123456+00:00","capacity":4,"going_count":4,"spots_left":0,"notes":null,
+     "place_name":"Canchas de pádel","place_address":"Av. Eugenio Garza Sada 2501","lat":25.6505,"lng":-100.2899,
+     "meet_point":"North gate","material_change_at":null,"cancelled_at":null,"auto_repost":true,
+     "reposted_at":"2026-11-10T20:00:00+00:00","created_at":"2026-11-09T06:15:00.5+00:00",
+     "sort_at":"2026-11-10T20:00:00+00:00","my_role":"player","my_joined_at":"2026-11-09T07:00:00+00:00",
+     "has_blocked_attendee":false}
+    """
+
+    @Test func postgresTimestampsParse() throws {
+        let date = try #require(ServerTime.date(from: "2026-11-10T23:30:00.123456+00:00"))
+        #expect(ServerTime.string(from: date) == "2026-11-10T23:30:00.123Z")
+        #expect(ServerTime.date(from: "2026-11-10T17:30:00-06:00") == ServerTime.date(from: "2026-11-10T23:30:00Z"))
+        #expect(ServerTime.date(from: "yesterday") == nil)
+    }
+
+    @Test func gameCardRowBecomesAGame() throws {
+        let row: GameCardRow = try decode(card)
+        let game = row.game(activity: catalog.activity(slug:))
+        #expect(game.host.displayName == "Sofía M.")
+        #expect(game.activity.slug == "padel")
+        #expect(game.activity.emoji == "🏓")
+        #expect(game.durationMinutes == 90)
+        #expect(game.endsAt.timeIntervalSince(game.startsAt) == 90 * 60)
+        #expect(game.isFull)
+        #expect(game.myRole == .player)
+        #expect(game.status(now: game.startsAt.addingTimeInterval(-60)) == .going)
+        #expect(game.place.latitude == 25.6505)
+        #expect(game.meetPoint == "North gate")
+        #expect(game.notes == nil)
+        #expect(game.repostedAt == ServerTime.date(from: "2026-11-10T20:00:00Z"))
+    }
+
+    @Test func gameYouAreNotInHasNoRole() throws {
+        let row: GameCardRow = try decode(card.replacingOccurrences(of: #""my_role":"player""#, with: #""my_role":null"#))
+        #expect(row.game(activity: catalog.activity(slug:)).myRole == nil)
+    }
+
+    @Test func badTimestampFailsToDecode() {
+        #expect(throws: DecodingError.self) {
+            let _: GameCardRow = try decode(card.replacingOccurrences(of: "2026-11-10T23:30:00.123456+00:00", with: "soon"))
+        }
+    }
+
+    /// A sport added on the server after this build still shows, but can't be posted or picked.
+    @Test func unknownSportStillShows() throws {
+        let row: GameCardRow = try decode(card.replacingOccurrences(of: #""padel""#, with: #""ultimate_frisbee""#))
+        let activity = row.game(activity: catalog.activity(slug:)).activity
+        #expect(activity.labelEN == "Ultimate Frisbee")
+        #expect(!activity.postable)
+        #expect(!activity.interestSelectable)
+    }
+
+    @Test func catalogKeepsTheBuiltInListWhenTheServerFails() async {
+        let failing = ActivityCatalog { throw DomainError.offline }
+        await failing.loadIfNeeded()
+        #expect(failing.activities == Activity.builtIn)
+
+        var served = Activity.builtIn
+        served[0].labelEN = "Hoops"
+        let live = ActivityCatalog { served }
+        await live.loadIfNeeded()
+        #expect(live.activity(slug: "basketball").labelEN == "Hoops")
+    }
+
+    @Test func attendeeAndActivityRowsDecode() throws {
+        let attendee: AttendeeRow = try decode("""
+        {"event_id":"6f1c2a9e-2f7b-4a59-9d3e-1d2c3b4a5f60","user_id":"0b7e4b8c-1111-4c3d-9a2b-123456789abc",
+         "first_name":"Sofía","last_initial":"M","grad_year":2027,"role":"host","joined_at":"2026-11-09T06:15:00.5+00:00"}
+        """)
+        #expect(attendee.attendee.role == .host)
+        #expect(attendee.attendee.person.displayName == "Sofía M.")
+
+        let hidden: GameActivityRow = try decode("""
+        {"id":"7a1c2a9e-2f7b-4a59-9d3e-1d2c3b4a5f61","event_id":"6f1c2a9e-2f7b-4a59-9d3e-1d2c3b4a5f60",
+         "kind":"meet_point_updated","actor_id":null,"actor_first_name":null,"actor_last_initial":null,
+         "actor_grad_year":null,"at":"2026-11-10T21:00:00.000001+00:00"}
+        """)
+        let entry = try #require(hidden.entry)
+        #expect(entry.kind == .meetPointUpdated)
+        #expect(entry.actor == nil)
+
+        let future: GameActivityRow = try decode("""
+        {"id":"7a1c2a9e-2f7b-4a59-9d3e-1d2c3b4a5f62","event_id":"6f1c2a9e-2f7b-4a59-9d3e-1d2c3b4a5f60",
+         "kind":"message","at":"2026-11-10T21:00:00+00:00"}
+        """)
+        #expect(future.entry == nil)
+    }
+
+    @Test func myProfileRowBecomesAProfileOnItsCampus() throws {
+        let row: MyProfileRow = try decode("""
+        {"id":"0b7e4b8c-1111-4c3d-9a2b-123456789abc","first_name":"Ana","last_name":"Solis","grad_year":2028,
+         "university_id":"00000000-0000-0000-0000-00000000B003","university_name":"masUNO Demo",
+         "university_short_name":"Demo","university_email_domain":"demo.masuno.invalid","center_lat":25.66,
+         "center_lng":-100.3,"interests":["soccer","padel"],"guidelines_accepted_at":null,"banned_at":null}
+        """)
+        let profile = row.profile(activity: catalog.activity(slug:))
+        #expect(profile.university.id == MockFixtures.demoCampus.id)
+        #expect(profile.university.shortName == "Demo")
+        #expect(profile.interests.map(\.slug) == ["soccer", "padel"])
+        #expect(profile.summary.displayName == "Ana S.")
+    }
+
+    @Test func blockedPersonRowDecodes() throws {
+        let rows: [BlockedPersonRow] = try decode("""
+        [{"user_id":"0b7e4b8c-1111-4c3d-9a2b-123456789abc","first_name":"Alex","last_initial":"R","grad_year":2026}]
+        """)
+        #expect(rows.map(\.person.displayName) == ["Alex R."])
+    }
+
+    /// PostgREST matches a function by its argument names, so empty values go as null, never left out.
+    @Test func gameParamsSendEveryArgument() throws {
+        var draft = GameDraft(
+            activity: MockFixtures.activity("soccer"), title: "  Pickup soccer ", startsAt: Date(timeIntervalSince1970: 1_794_355_200),
+            durationMinutes: 60, capacity: 10, notes: "   ", place: MockFixtures.Places.basketballCourts, meetPoint: nil
+        )
+        let create = try encoded(GameDraftParams(draft))
+        #expect(Set(create.keys) == [
+            "p_activity_slug", "p_title", "p_starts_at", "p_duration_minutes", "p_capacity", "p_notes",
+            "p_place_name", "p_place_address", "p_lat", "p_lng", "p_meet_point", "p_auto_repost",
+        ])
+        #expect(create["p_title"] as? String == "Pickup soccer")
+        #expect(create["p_notes"] is NSNull)
+        #expect(create["p_meet_point"] is NSNull)
+        #expect(create["p_starts_at"] as? String == "2026-11-11T00:00:00.000Z")
+
+        draft.meetPoint = " South gate "
+        let id = UUID()
+        let update = try encoded(GameDraftParams(id: id, draft))
+        #expect(update["p_id"] as? String == id.uuidString)
+        #expect(update["p_meet_point"] as? String == "South gate")
+    }
+
+    @Test func reportParamsSendExactlyOneTarget() throws {
+        let id = UUID()
+        let person = try encoded(ReportParams(target: .person(id), reason: .harassment, note: ""))
+        #expect(person["p_user_id"] as? String == id.uuidString)
+        #expect(person["p_game_id"] is NSNull)
+        #expect(person["p_reason"] as? String == "harassment")
+        #expect(person["p_note"] is NSNull)
+
+        let game = try encoded(ReportParams(target: .game(id), reason: .spam, note: "Fake game"))
+        #expect(game["p_user_id"] is NSNull)
+        #expect(game["p_game_id"] as? String == id.uuidString)
+        #expect(game["p_note"] as? String == "Fake game")
     }
 }
