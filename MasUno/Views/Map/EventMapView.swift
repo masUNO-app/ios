@@ -426,18 +426,25 @@ struct EventMapView: View {
 }
 
 /// Publishes `toolbarVerticalEdge`, which is only available from iOS 27.1, to a binding.
+/// `toolbarVerticalEdge` is in the iOS 27.1 SDK (Xcode 27). GitHub's runners still have Xcode 26,
+/// so CI builds without it and the toolbar never switches to the vertical bar there.
 private struct VerticalBarEdgeReader: View {
     @Binding var edge: HorizontalEdge?
 
     var body: some View {
+        #if compiler(>=6.4)
         if #available(iOS 27.1, *) {
             VerticalBarEdgeReader27(edge: $edge)
         } else {
             Color.clear
         }
+        #else
+        Color.clear
+        #endif
     }
 }
 
+#if compiler(>=6.4) // `toolbarVerticalEdge` needs Xcode 27; see VerticalBarEdgeReader.
 @available(iOS 27.1, *)
 private struct VerticalBarEdgeReader27: View {
     @Binding var edge: HorizontalEdge?
@@ -448,6 +455,7 @@ private struct VerticalBarEdgeReader27: View {
             .onChange(of: verticalEdge, initial: true) { _, newValue in edge = newValue }
     }
 }
+#endif
 
 /// Toolbar items size to fit, so this gives Add game an explicit width to fill a
 /// horizontal bottom bar. When the system moves the toolbar into a vertical bar on
@@ -457,14 +465,19 @@ private struct BottomBarWidth: ViewModifier {
     var width: CGFloat?
 
     func body(content: Content) -> some View {
+        #if compiler(>=6.4) // `toolbarVerticalEdge` needs Xcode 27; see VerticalBarEdgeReader.
         if #available(iOS 27.1, *) {
             content.modifier(VerticalBarAwareWidth(width: width))
         } else {
             content.frame(width: width)
         }
+        #else
+        content.frame(width: width)
+        #endif
     }
 }
 
+#if compiler(>=6.4) // `toolbarVerticalEdge` needs Xcode 27; see VerticalBarEdgeReader.
 @available(iOS 27.1, *)
 private struct VerticalBarAwareWidth: ViewModifier {
     var width: CGFloat?
@@ -474,3 +487,4 @@ private struct VerticalBarAwareWidth: ViewModifier {
         content.frame(width: verticalEdge == nil ? width : nil)
     }
 }
+#endif
