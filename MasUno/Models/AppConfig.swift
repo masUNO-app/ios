@@ -17,9 +17,9 @@ struct AppConfig: Hashable {
         privacyURL: URL(string: "https://masuno-app.github.io/privacy")!
     )
 
-    /// TODO(E15): the Apple ID from App Store Connect. Until it's set, Release hides
+    /// The Apple ID from App Store Connect (E15). Without it, Release hides
     /// "Invite a friend" rather than share a search link (N27, SPEC §10.4).
-    static let appStoreID: String? = nil
+    static let appStoreID: String? = "6828191276"
 
     /// "Update masUNO": the listing if we know it, otherwise an App Store search.
     static var appStoreURL: URL {

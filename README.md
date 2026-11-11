@@ -95,7 +95,6 @@ Placeholders that still need a real answer. Card IDs refer to SPEC §5.
 ### Waiting on the team
 - [ ] Final app icon (D3): the one in the icon set is a temporary one from the designer; launch color uses `Background`
 - [ ] Privacy & Terms page live at `masuno-app.github.io/privacy` (D4): the app already links to it
-- [ ] `AppConfig.appStoreID` from App Store Connect (E15): Invite a friend stays hidden in Release until it's set
 - [ ] Version is 0.6 in `project.yml`. If 0.5 is still to be archived from this tree, set `MARKETING_VERSION` back to 0.5 for that archive
 - [ ] "Verified student" vs "Tec verified" (O4), real venues in `MockFixtures` for screenshots (O5)
 

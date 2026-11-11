@@ -31,6 +31,8 @@ targets:
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         # Lets "Open in Maps" offer Google Maps when it's installed (E19).
         LSApplicationQueriesSchemes: [comgooglemaps]
+        # HTTPS only, so App Store Connect doesn't ask about export compliance on each upload.
+        ITSAppUsesNonExemptEncryption: false
         # Launch color until Arianna's (D3).
         UILaunchScreen:
           UIColorName: Background
