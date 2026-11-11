@@ -38,6 +38,9 @@ An RPC fails with `raise exception '<code>'`, so PostgREST returns the code as `
 | `invalid_time` | `.invalidTime` | Start isn't in the future and within 7 days. |
 | `invalid_text` | `.invalidText` | The text filter rejected a title, note, meet-up spot or name. |
 | `invalid_input` | `.invalidInput` | Anything else out of range or malformed. |
+| `chat_rules_required` | `.chatRulesRequired` | `send_message` before `accept_chat_rules`. The app shows "Before you chat". |
+| `chat_disabled` | `.chatDisabled` | `send_message` while `app_config.chat_enabled` isn't `true`. |
+| `rate_limited` | `.rateLimited` | More than 20 messages in a minute. |
 
 Client-only: `.offline` (no connection) and `.unknown(code)`.
 
@@ -66,7 +69,7 @@ The version gate runs before sign-in, so these need a read policy for `anon`, no
 
 | Table | Columns | Swift |
 | --- | --- | --- |
-| `app_config` | `key`, `value jsonb`; keys `min_supported_version`, `support_email`, `privacy_url` | `AppConfig` |
+| `app_config` | `key`, `value jsonb`; string keys `min_supported_version`, `support_email`, `privacy_url`; boolean key `chat_enabled` (0.6; 0.5 skips it) | `AppConfig` |
 | `university_lookup` | see below | `University` |
 | `activities` | `slug`, `kind`, `label_en`, `label_es`, `emoji`, `sort_order`, `postable`, `interest_selectable`, `active` | `Activity` |
 
@@ -138,8 +141,8 @@ account or a blocked pair. `kind` is one of `created`, `joined`, `left`, `meet_p
 Your own row, or none until `complete_profile` has run: `id`, `first_name`, `last_name`, `grad_year`,
 `university_id`, `university_name`, `university_short_name`, `university_email_domain`, `center_lat`,
 `center_lng` (→ `Profile.university`; the map opens here, so review accounts land on the demo campus),
-`interests text[]`, `guidelines_accepted_at?`, `banned_at?`. `AuthService` uses the
-last two to choose between `.needsGuidelines`, `.suspended` and `.signedIn`.
+`interests text[]`, `guidelines_accepted_at?`, `banned_at?`, `chat_rules_accepted_at?` (0.6). `AuthService` uses
+`guidelines_accepted_at` and `banned_at` to choose between `.needsGuidelines`, `.suspended` and `.signedIn`.
 
 ## RPCs
 
@@ -174,6 +177,56 @@ Rules the signatures don't show:
 - **`report`** takes exactly one of `p_user_id` and `p_game_id`. `p_reason` is one of `harassment`,
   `inappropriate`, `spam`, `unsafe`, `other`.
 - **`block`** returns `invalid_input` for yourself or an unknown user; blocking twice is a no-op.
+
+## Group chat (0.6)
+
+Added by `20261110000000_group_chat` (B20). Nothing 0.5 reads or calls changes. System rows stay in
+`game_activity`; this section is messages.
+
+**The switch:** `app_config.chat_enabled` is `false` until someone sets it to `true` on that project. Off or
+missing, the app shows the read-only chat with no composer, and `send_message` answers `chat_disabled`.
+
+### `game_messages` → `ChatMessage`
+
+`id`, `event_id`, `sender_id`, `sender_first_name`, `sender_last_initial`, `sender_grad_year`, `body`,
+`client_id`, `created_at`. Only people in the game can read its rows, and leaving the game closes it.
+Messages from a sender in a blocked pair with the reader, and messages a moderator hid, are left out.
+
+| Method | PostgREST query |
+| --- | --- |
+| `fetchMessages(before:limit:)` | `event_id=eq.<id>&order=created_at.desc&limit=50`, plus `created_at=lte.<oldest>` for an older page |
+| `fetchMessages(since:)` | `event_id=eq.<id>&created_at=gte.<newest − 5 s>&order=created_at` |
+
+### `chat_unread`
+
+`event_id`, `unread_count`: one row per game with messages from other people since you last opened its
+chat. Games with none have no row.
+
+### RPCs
+
+| RPC | Returns | Errors |
+| --- | --- | --- |
+| `send_message(p_game_id uuid, p_body text, p_client_id uuid)` | `game_messages` | `not_found`, `not_allowed`, `chat_disabled`, `cancelled`, `ended`, `chat_rules_required`, `invalid_text`, `rate_limited`, `invalid_input` |
+| `accept_chat_rules()` | `void` | — |
+| `mark_chat_read(p_game_id uuid)` | `void` | — |
+| `report_message(p_message_id uuid, p_reason text, p_note text)` | `void` | `invalid_input` |
+
+- **`send_message`** needs you to be in the game (`not_allowed` otherwise). It refuses a cancelled game and
+  one that ended more than 24 hours ago (`ended`). The body is trimmed and goes through the same text filter
+  as titles, which also refuses links; the limit is 1000 characters. `p_client_id` is the app's own ID for the
+  send: sending it again returns the first message, so a retry never posts twice.
+- **`mark_chat_read`** does nothing if you aren't in the game.
+- **`report_message`** files a report against the sender with the message text copied in. You can't report
+  your own message or one you can't see. Reasons are the same as `report`.
+- Deleting an account deletes its messages. Message text is deleted 30 days after its game ended.
+
+### Realtime
+
+Each new message or `game_activity` row sends a Broadcast on the private channel `game:<game id>:chat`
+(the ID in lowercase), with event `message` or `activity` and payload `{"id": "<row id>"}`. Only people in
+the game can join the channel. The payload has no content on purpose: the app reads `game_messages` or
+`game_activity` when a ping arrives, so membership and blocks are checked in one place. The app also
+checks every 15 seconds while a chat is open, in case the channel is down.
 
 ## Sign-in
 

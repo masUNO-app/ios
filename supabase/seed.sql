@@ -52,3 +52,6 @@ games(host_id, activity_slug, title, days_ahead, capacity, place_name, place_add
     returning id, host_id
 )
 insert into public.rsvps (event_id, user_id, role) select id, host_id, 'host' from new_games;
+
+-- Group chat is on locally; hosted projects turn it on after the two-phone check (README).
+update public.app_config set value = 'true' where key = 'chat_enabled';
