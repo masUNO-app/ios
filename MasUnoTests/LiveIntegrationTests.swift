@@ -8,7 +8,8 @@ import Testing
 ///     TEST_RUNNER_MASUNO_LIVE_PASSWORD=… xcodebuild test … -only-testing:MasUnoTests/LiveIntegrationTests
 ///
 /// It writes to dev: joins and leaves a demo game, posts and cancels a game, blocks and unblocks a
-/// demo host, and files one report. Debug's keys in `Config.xcconfig` must point at dev. It doesn't sign
+/// demo host, files one report, and leaves one chat message in a demo game. The chat test needs
+/// `chat_enabled` on in dev. Debug's keys in `Config.xcconfig` must point at dev. It doesn't sign
 /// out: a global sign-out would end the next test's session too.
 @MainActor
 @Suite(.serialized, .enabled(if: ProcessInfo.processInfo.environment["MASUNO_LIVE_PASSWORD"] != nil))
@@ -132,5 +133,62 @@ struct LiveIntegrationTests {
         await #expect(throws: DomainError.invalidInput) {
             try await live.safety.block(userID: try #require(try await live.profiles.fetchMyProfile()).id)
         }
+    }
+
+    /// E26 + B20 end to end: consent, send, retry, read back, the private Realtime channel, and the
+    /// rules for people outside the game.
+    @Test func groupChatMessaging() async throws {
+        let live = try await signedIn()
+        try #require(try await live.catalog.fetchAppConfig().chatEnabled, "Turn chat_enabled on in masuno-dev (supabase/README.md)")
+
+        let map = try await live.games.fetchMapGames()
+        let target = try #require(map.first { $0.myRole == nil && $0.spotsLeft > 0 })
+        await #expect(throws: DomainError.notAllowed) {
+            try await live.chat.sendMessage(gameID: target.id, body: "Not in the game", clientID: UUID())
+        }
+        #expect(try await live.chat.fetchMessages(gameID: target.id, before: nil, limit: 50).isEmpty, "Outsiders can't read a chat")
+
+        _ = try await live.games.joinGame(id: target.id)
+        try await live.chat.acceptChatRules()
+        #expect(try #require(try await live.profiles.fetchMyProfile()).chatRulesAcceptedAt != nil)
+
+        // Listen first, and give the channel a few seconds to join before posting.
+        let heard = Task { () -> ChatUpdate? in
+            for await update in live.chat.updates(gameID: target.id) where update == .message { return update }
+            return nil
+        }
+        try await Task.sleep(for: .seconds(5))
+
+        let clientID = UUID()
+        let body = "E26 integration test \(clientID.uuidString.prefix(8))"
+        let sent = try await live.chat.sendMessage(gameID: target.id, body: "  \(body)  ", clientID: clientID)
+        #expect(sent.body == body)
+        #expect(sent.clientID == clientID)
+        #expect(try await live.chat.sendMessage(gameID: target.id, body: body, clientID: clientID).id == sent.id, "A retry doesn't post twice")
+
+        let giveUp = Task {
+            try await Task.sleep(for: .seconds(10))
+            heard.cancel()
+        }
+        #expect(await heard.value == .message, "No ping arrived on the game's private channel")
+        giveUp.cancel()
+
+        #expect(try await live.chat.fetchMessages(gameID: target.id, before: nil, limit: 50).contains { $0.id == sent.id })
+        #expect(try await live.chat.fetchMessages(gameID: target.id, since: sent.createdAt.addingTimeInterval(-5)).contains { $0.id == sent.id })
+        #expect(try await live.chat.fetchUnreadCounts()[target.id] == nil, "Your own messages aren't new")
+        try await live.chat.markRead(gameID: target.id)
+
+        await #expect(throws: DomainError.invalidText) {
+            try await live.chat.sendMessage(gameID: target.id, body: "pinche juego", clientID: UUID())
+        }
+        await #expect(throws: DomainError.invalidText) {
+            try await live.chat.sendMessage(gameID: target.id, body: "mira https://example.com", clientID: UUID())
+        }
+        await #expect(throws: DomainError.invalidInput) {
+            try await live.safety.report(.message(sent.id), reason: .other, note: nil)
+        }
+
+        _ = try await live.games.leaveGame(id: target.id)
+        #expect(try await live.chat.fetchMessages(gameID: target.id, before: nil, limit: 50).isEmpty, "Leaving closes the chat")
     }
 }

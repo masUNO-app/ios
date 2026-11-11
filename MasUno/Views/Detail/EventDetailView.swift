@@ -62,8 +62,12 @@ struct EventDetailView: View {
 
                 if state == .going {
                     section("Before you go") {
-                        // Read-only group chat copy (SPEC §7.2, N14).
-                        Text("\(event.host.firstName) can see you joined. Check where to meet and who's going.")
+                        if store.isChatEnabled {
+                            Text("\(event.host.firstName) can see you joined. Say hi in the group chat so people know to wait for you.")
+                        } else {
+                            // Read-only group chat copy (SPEC §7.2, N14).
+                            Text("\(event.host.firstName) can see you joined. Check where to meet and who's going.")
+                        }
                     }
                 }
                 if let notes = event.notes {

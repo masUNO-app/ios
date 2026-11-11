@@ -386,15 +386,15 @@ struct CampusTests {
     @Test func storeRemembersTheCampusForOfflineLaunches() async {
         let backend = MockBackend()
         let defaults = UserDefaults(suiteName: "CampusTests.\(UUID().uuidString)")!
-        let first = GameStore(games: backend, profiles: backend, safety: backend, catalog: backend, defaults: defaults)
+        let first = GameStore(games: backend, profiles: backend, safety: backend, chat: backend, catalog: backend, defaults: defaults)
         await first.load()
         #expect(first.campus == MockFixtures.tec)
 
-        let offline = GameStore(games: backend, profiles: backend, safety: backend, catalog: backend, defaults: defaults)
+        let offline = GameStore(games: backend, profiles: backend, safety: backend, chat: backend, catalog: backend, defaults: defaults)
         #expect(offline.campus == MockFixtures.tec)
 
         offline.reset()
-        let afterSignOut = GameStore(games: backend, profiles: backend, safety: backend, catalog: backend, defaults: defaults)
+        let afterSignOut = GameStore(games: backend, profiles: backend, safety: backend, chat: backend, catalog: backend, defaults: defaults)
         #expect(afterSignOut.campus == nil)
     }
 }

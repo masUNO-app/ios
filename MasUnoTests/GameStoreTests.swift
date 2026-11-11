@@ -10,7 +10,7 @@ struct GameStoreTests {
     init() async {
         let suite = "GameStoreTests.\(UUID().uuidString)"
         store = GameStore(
-            games: backend, profiles: backend, safety: backend, catalog: backend,
+            games: backend, profiles: backend, safety: backend, chat: backend, catalog: backend,
             defaults: UserDefaults(suiteName: suite)!
         )
         await store.load()
@@ -119,7 +119,7 @@ struct GameStoreTests {
     // MARK: Loads
 
     @Test func failedFirstLoadOffersRetry() async {
-        let fresh = GameStore(games: backend, profiles: backend, safety: backend, catalog: backend)
+        let fresh = GameStore(games: backend, profiles: backend, safety: backend, chat: backend, catalog: backend)
         backend.nextError = .offline
         await fresh.refreshMap()
         #expect(fresh.mapState == .failed(.offline))
@@ -193,12 +193,12 @@ struct GameStoreTests {
 
     @Test func savedGamesSurviveARelaunch() async {
         let suite = UserDefaults(suiteName: "GameStoreTests.\(UUID().uuidString)")!
-        let first = GameStore(games: backend, profiles: backend, safety: backend, catalog: backend, defaults: suite)
+        let first = GameStore(games: backend, profiles: backend, safety: backend, chat: backend, catalog: backend, defaults: suite)
         await first.load()
         first.toggleSaved(MockFixtures.GameID.lastSpot)
         #expect(first.savedGames().map(\.id) == [MockFixtures.GameID.lastSpot])
 
-        let relaunched = GameStore(games: backend, profiles: backend, safety: backend, catalog: backend, defaults: suite)
+        let relaunched = GameStore(games: backend, profiles: backend, safety: backend, chat: backend, catalog: backend, defaults: suite)
         await relaunched.load()
         #expect(relaunched.isSaved(MockFixtures.GameID.lastSpot))
         #expect(relaunched.savedGames().map(\.id) == [MockFixtures.GameID.lastSpot])
@@ -219,7 +219,7 @@ struct AutoRepostTests {
 
     init() async {
         store = GameStore(
-            games: backend, profiles: backend, safety: backend, catalog: backend,
+            games: backend, profiles: backend, safety: backend, chat: backend, catalog: backend,
             defaults: UserDefaults(suiteName: "AutoRepostTests.\(UUID().uuidString)")!
         )
         await store.load()
@@ -254,7 +254,7 @@ struct OfflineStateTests {
 
     private func makeStore() -> GameStore {
         GameStore(
-            games: backend, profiles: backend, safety: backend, catalog: backend,
+            games: backend, profiles: backend, safety: backend, chat: backend, catalog: backend,
             defaults: UserDefaults(suiteName: "OfflineStateTests.\(UUID().uuidString)")!
         )
     }

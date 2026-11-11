@@ -36,7 +36,7 @@ protocol ProfileRepository: AnyObject {
     func updateProfile(_ input: ProfileInput) async throws -> Profile
 }
 
-/// Reports and blocks. Instant local hiding after a block is `GameStore`'s job (B6).
+/// Reports (people, games and chat messages) and blocks. Instant local hiding after a block is `GameStore`'s job (B6).
 protocol SafetyRepository: AnyObject {
     func report(_ target: ReportTarget, reason: ReportReason, note: String?) async throws
     func block(userID: UUID) async throws
@@ -52,4 +52,25 @@ protocol AppConfigRepository: AnyObject {
     /// Find your school (`university_lookup`): every campus, open or closed, so existing accounts
     /// can sign back in at a closed one. Hidden demo campuses aren't listed.
     func fetchUniversities() async throws -> [University]
+}
+
+/// Group chat messaging (`game_messages`, `chat_unread` and the chat RPCs; SPEC Appendix A). System
+/// rows stay in `GameRepository.fetchActivity`.
+protocol ChatRepository: AnyObject {
+    /// The newest `limit` messages, oldest first. Pass the oldest one you have as `before` for the
+    /// page before it; that page can repeat it. Messages from people you blocked are left out.
+    func fetchMessages(gameID: UUID, before: Date?, limit: Int) async throws -> [ChatMessage]
+    /// Everything sent at or after `since`, oldest first.
+    func fetchMessages(gameID: UUID, since: Date) async throws -> [ChatMessage]
+    /// `clientID` identifies this send: sending it again returns the first message instead of
+    /// posting twice. Throws `.chatRulesRequired` until `acceptChatRules` has run.
+    func sendMessage(gameID: UUID, body: String, clientID: UUID) async throws -> ChatMessage
+    /// "Before you chat", once per account.
+    func acceptChatRules() async throws
+    func markRead(gameID: UUID) async throws
+    /// Messages you haven't seen, by game. Games with none are left out.
+    func fetchUnreadCounts() async throws -> [UUID: Int]
+    /// Fires when a game's chat has something new, for as long as the caller keeps listening. It
+    /// ends if the connection can't be made, so callers also check on a timer.
+    func updates(gameID: UUID) -> AsyncStream<ChatUpdate>
 }

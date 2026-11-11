@@ -1,9 +1,11 @@
 import Foundation
 
-/// What a report is about (`report` RPC: exactly one of `p_user_id`, `p_game_id`).
+/// What a report is about: a person or a game (`report` RPC: exactly one of `p_user_id`,
+/// `p_game_id`), or a chat message (`report_message`).
 nonisolated enum ReportTarget: Hashable, Sendable {
     case person(UUID)
     case game(UUID)
+    case message(UUID)
 }
 
 /// Raw values are what the `report` RPC stores in `reports.reason`.

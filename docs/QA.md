@@ -55,11 +55,26 @@ Before you start: delete the app from both phones, turn location on, and note th
 - [ ] On another phone the pin says "Spot open" and draws on top of nearby pins.
 - [ ] With auto-repost off, nothing changes when a player leaves.
 
-## 6. Group chat (read-only unless E26 shipped)
+## 6. Group chat
+
+With `chat_enabled` off on the project (0.5, and 0.6 until the check below passes there):
 
 - [ ] Opens from You're in, Hosting and Me. Shows the pinned card and rows for created, joined and left.
-- [ ] There's no composer and no sample messages.
+- [ ] There's no composer and no sample messages. Me cards say "Group chat" with no count.
 - [ ] The host can edit the meet-up spot; the pinned card and timeline update.
+
+With `chat_enabled` on (0.6, E26). Phone A hosts, Phone B joined:
+
+- [ ] The first time each phone opens a chat, "Before you chat" comes up. **Not now** goes back; **I agree** doesn't ask again, in this chat or any other.
+- [ ] Phone A sends a message. It shows on Phone B within a couple of seconds, without refreshing, as "Name · Host · time".
+- [ ] Phone B replies. Phone A, sitting on Me, shows "Group chat · 1 new" after a refresh; opening the chat clears it.
+- [ ] Phone B joins or leaves while Phone A has the chat open: the "joined" or "left" row appears on its own.
+- [ ] Airplane mode on Phone B: a sent message says "Not sent · Tap to retry". Back online, tapping it sends it once.
+- [ ] A message with a filtered word or a link never leaves the composer, and says why.
+- [ ] A third account that isn't in the game can't open the chat.
+- [ ] Touch and hold Phone A's message on Phone B: **Report message** sends, and the team-chat alert says "chat message". **Block** hides Phone A's messages at once.
+- [ ] Phone A cancels the game: both chats lose the composer and say the chat is closed.
+- [ ] Set `chat_enabled` back to `false`: after a relaunch the composer and messages are gone, with no error.
 
 ## 7. Safety
 

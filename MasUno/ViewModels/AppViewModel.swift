@@ -111,7 +111,7 @@ final class AppViewModel {
 
     /// Jump straight to a screen for design review, e.g. launch with `-screen me`. Options:
     /// me, me-hosting, repost, profile, settings, add, add-filled, form-error, edit, picker, gallery,
-    /// detail-*, who, report, blocked, calendar, chat, chat-host, meetup, saved, popup, popup-saved
+    /// detail-*, who, report, blocked, calendar, chat, chat-host, chat-rules, chat-new, chat-long, meetup, saved, popup, popup-saved
     /// (popup is handled in `EventMapViewModel`).
     func openDebugScreen(store: GameStore, mock: MockBackend) async {
         typealias IDs = MockFixtures.GameID
@@ -131,6 +131,24 @@ final class AppViewModel {
         case "edit": presentGameForm(editing: IDs.hosting)
         case "gallery": path = [.gallery]
         case "chat": path = [.chat(IDs.going)]
+        case "chat-rules":
+            // First time in a chat: "Before you chat" comes up over it.
+            mock.resetChatRules()
+            await store.load()
+            path = [.chat(IDs.going)]
+        case "chat-long":
+            // A busy chat on a slow connection: opens at the newest message, with "Earlier messages" above.
+            for index in 1...60 {
+                mock.now += 1
+                mock.receiveMessage(from: index.isMultiple(of: 3) ? MockFixtures.maya : MockFixtures.sam, in: IDs.going, body: "Message \(index)")
+            }
+            mock.latency = .milliseconds(400)
+            path = [.chat(IDs.going)]
+        case "chat-new":
+            // Someone wrote while you were away: "Group chat · 1 new" on the Going card.
+            mock.receiveMessage(from: MockFixtures.sam, in: IDs.going, body: "Courts are free, come early if you can")
+            await store.refreshUnread()
+            path = [.me()]
         case "chat-host", "meetup": path = [.chat(IDs.hosting)]
         case "who", "report": path = [.game(IDs.open)]
         case "blocked":
