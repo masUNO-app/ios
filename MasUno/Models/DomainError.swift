@@ -7,12 +7,13 @@ nonisolated enum DomainError: Error, Hashable, Sendable {
     case full, cancelled, ended, blocked, notFound, notAllowed
     case limitReached, capacityBelowGoing
     case invalidTime, invalidText, invalidInput
-    case notAuthenticated, suspended
+    case notAuthenticated, suspended, pendingApproval
     // Raised by the chat RPCs.
     case chatRulesRequired, chatDisabled, rateLimited
 
     // Raised by Supabase Auth or the auth hook; mapped in `AuthService` (B5).
     case emailNotAllowed, schoolApprovalNeeded, signInFailed, tooManyAttempts, invalidCredentials
+    case emailTaken, weakPassword
 
     // Client side.
     case offline
@@ -34,6 +35,7 @@ nonisolated enum DomainError: Error, Hashable, Sendable {
         case "invalid_input": .invalidInput
         case "not_authenticated": .notAuthenticated
         case "suspended": .suspended
+        case "pending_approval": .pendingApproval
         case "chat_rules_required": .chatRulesRequired
         case "chat_disabled": .chatDisabled
         case "rate_limited": .rateLimited
@@ -58,6 +60,7 @@ nonisolated enum DomainError: Error, Hashable, Sendable {
         case .invalidInput: String(localized: "Check the details and try again.")
         case .notAuthenticated: String(localized: "Please sign in again.")
         case .suspended: String(localized: "Your account is suspended")
+        case .pendingApproval: String(localized: "Your account is still waiting for approval.")
         case .chatRulesRequired: String(localized: "Agree to the chat rules to send messages.")
         case .chatDisabled: String(localized: "Messages are off right now. Try again later.")
         case .rateLimited: String(localized: "You're sending messages too fast. Wait a minute.")
@@ -66,6 +69,8 @@ nonisolated enum DomainError: Error, Hashable, Sendable {
         case .signInFailed: String(localized: "We couldn't sign you in. Try again.")
         case .tooManyAttempts: String(localized: "Too many tries. Wait a minute and try again.")
         case .invalidCredentials: String(localized: "That email and password don't match.")
+        case .emailTaken: String(localized: "There's already an account with that email. Sign in instead.")
+        case .weakPassword: String(localized: "Pick a stronger password: at least 8 characters.")
         case .offline: String(localized: "You're offline. Try again when you're connected.")
         case .unknown: String(localized: "Something went wrong. Try again.")
         }

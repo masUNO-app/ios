@@ -88,7 +88,7 @@ Group chat messaging (E26) is built and follows `app_config.chat_enabled` on the
 Placeholders that still need a real answer. Card IDs refer to SPEC §5.
 
 ### Waiting on backend
-- [ ] School sign-in for real students: the Entra ID app and Tec's tenant (B21, B22, K19). The last blocker for 0.5.
+- [x] Sign-in for real students: school email and password, approved by hand from the Discord alert (N36). On `masuno-dev`; `masuno-prod` needs the `20261111000000` migration. School SSO (B21, B22, K19) is kept in the code, unused, in case Tec IT approves the Entra app.
 - [ ] Group chat messaging (E26, B20) is built, and on `masuno-dev` with chat on. Run QA §6 there with two phones. Then
       apply `20261110000000_group_chat` to prod, turn `chat_enabled` on there and run QA §6 again (`supabase/README.md`).
 

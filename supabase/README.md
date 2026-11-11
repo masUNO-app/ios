@@ -10,6 +10,7 @@ already applied to a shared project; add a new timestamped one. Only deploy prod
 | `20261109000100_text_filter` | English + Spanish word filter in `private.clean_text` |
 | `20261109000200_campuses_and_demo` | Tec, the hidden demo campus and its daily refresh, allowlisted review/QA addresses |
 | `20261109000300_report_alerts` | Report alerts to the team chat |
+| `20261111000000_password_signup_approval` | Sign-up with a school email and a password, approved by hand (N36): `private.signup_requests`, the Discord alert, `approve_signup` / `reject_signup`, `signup_status()`, `pending_approval` |
 | `20261110000000_group_chat` | Group chat messaging (0.6): messages, unread counts, chat RPCs, the Realtime channel, 30-day cleanup. Ships switched off |
 
 ## Local setup
@@ -25,7 +26,11 @@ Migrations don't carry dashboard settings, so do these on each project (B2, B12)
 
 1. `supabase link --project-ref <ref>`, then `supabase db push` and `supabase functions deploy delete-account`.
 2. **Auth → Hooks:** register `public.before_user_created` as the **Before User Created** hook.
-3. **Auth → Providers → Azure:** client ID and secret from the Entra app; Azure Tenant URL `https://login.microsoftonline.com/organizations` until Tec's tenant is confirmed (O4), then lock it to Tec before real students sign in on prod. Never `common`.
+3. **Auth → Providers → Email:** on, with **Confirm email off** and sign-ups allowed. The app's Create account
+   needs a session straight back from `signUp`; approval by hand replaces the confirmation email (N36).
+   Sign-up alerts go to the report alerts' webhook (step 6) unless you add a separate one:
+   `select vault.create_secret('<discord-webhook-url>', 'signup_alert_webhook_url');`.
+   *School SSO, unused until a school approves it:* **Auth → Providers → Azure:** client ID and secret from the Entra app; Azure Tenant URL `https://login.microsoftonline.com/organizations` until Tec's tenant is confirmed (O4), then lock it to Tec before real students sign in on prod. Never `common`.
 4. **Auth → URL Configuration:** add `masuno://auth-callback` to Redirect URLs.
 5. **Auth → Users:** create the three allowlisted password accounts with "Auto confirm" on: `official.masuno.app+review1@gmail.com`, `+review2`, `+qa1`. Passwords go in the shared password manager.
 6. **Report alerts (Discord) — set up on masuno-dev and masuno-prod (Nov 11).** On a new project,
@@ -43,6 +48,20 @@ Migrations don't carry dashboard settings, so do these on each project (B2, B12)
    set it back to `'false'` if anything fails. The app reads the switch at launch. 0.5 ignores it and keeps the
    read-only chat, so people on 0.5 don't see messages from people on 0.6.
 9. **Prod only:** add GitHub repository secrets `PROD_SUPABASE_URL` and `PROD_SUPABASE_ANON_KEY` so `.github/workflows/keep-alive.yml` stops the free project from pausing, and run `supabase db dump` weekly into private storage (it contains personal data).
+
+## Sign-up approvals
+
+Students sign up with their school email and a password (N36). Each new one posts "New sign-up waiting for
+approval" to the team Discord with two lines to paste into the SQL editor:
+
+- Approve: `select private.approve_signup('<email>');`
+- Reject: `select private.reject_signup('<email>');` deletes the unapproved account, so the address can ask again.
+- Everyone still waiting: `select email, requested_at from private.signup_requests where approved_at is null order by requested_at;`
+- Approve everyone waiting: `select private.approve_signup(email) from private.signup_requests where approved_at is null;`
+
+Nobody checks that the person owns the address: there's no confirmation email (no custom SMTP yet). Approve
+only addresses you can vouch for. If the alert doesn't arrive, the request is still in the table and
+Postgres logs a warning. A forgotten password is reset in **Auth → Users**.
 
 ## Moderation
 

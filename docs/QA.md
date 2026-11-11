@@ -8,20 +8,21 @@ Before you start: delete the app from both phones, turn location on, and note th
 
 ## 1. Sign-in and onboarding
 
-- [ ] Fresh install → Welcome → Location primer → Sign in to join → Find your school → School sign-in → You're verified → Set up profile. Privacy & Terms opens the real page.
+- [ ] Fresh install → Welcome → Location primer → Sign in to join → Create account → We're checking your account. Privacy & Terms opens the real page.
 - [ ] The Location primer doesn't trigger the iOS prompt; that waits for the map.
-- [ ] **Not now** on the Sign in to join sheet closes it, and the app stays signed out.
-- [ ] "Find my school" → "Continue with school account" is the only way to sign in. There's no Google, Microsoft or Apple button and no way to create an account.
-- [ ] "Continue with school account" opens the school's own sign-in page in the system web sheet, with no "masUNO wants to use … to sign in" alert first. A launch-campus account signs in and reaches You're verified.
-- [ ] Closing the web sheet returns to Find your school with no error.
-- [ ] A personal Microsoft account or another school's account can't get through the sign-in page. If one ever reaches masUNO, it shows "masUNO is just for Tec students right now." (with the launch campus's name)
-- [ ] Name is filled in from the school sign-in and can be edited. Name, class year and at least one sport are required. A rude name shows "Please keep it friendly."
-- [ ] Agreeing to the guidelines lands on the map, in under 2 minutes from install.
-- [ ] Quit the app after signing in but before agreeing to the guidelines, then reopen: it continues at the same step.
-- [ ] Sign out of an account that finished onboarding: the app returns to Welcome, and signing back in goes straight to the map.
-- [ ] Review account: **Use a review account** signs in with a password and lands on the demo campus, with no option to create an account.
+- [ ] Create account with a school address posts "New sign-up waiting for approval" to the team Discord within a minute, with the approve and reject lines.
+- [ ] Create account with any other address (Gmail, another school, `@mail.tec.mx`) shows "masUNO is just for Tec students right now." (with the launch campus's name). A password under 8 characters and an address that already has an account each show their own message.
+- [ ] While waiting, **Check again** says "Not yet." Quit and reopen: still on We're checking your account. **Sign out** returns to Welcome, and signing back in returns to the waiting step.
+- [ ] Run the approve line in the SQL editor, then **Check again** (or leave the app and come back): You're in → Set up profile.
+- [ ] Run the reject line for a second waiting account: signing in with it then fails, and the same address can sign up again.
+- [ ] There's no Google, Microsoft or Apple button, and no way into Find your school (school SSO is kept in the code but unused, N36).
+- [ ] Name, class year and at least one sport are required. A rude name shows "Please keep it friendly."
+- [ ] Agreeing to the guidelines lands on the map.
+- [ ] Quit the app after approval but before agreeing to the guidelines, then reopen: it continues at the same step.
+- [ ] Sign out of an account that finished onboarding: the app returns to Welcome, and **I already have an account** goes straight to the map.
+- [ ] Review account: **I already have an account** signs in with the review password and lands on the demo campus, with no wait for approval.
 - [ ] A Tec test account used for App Review lands on the demo campus too.
-- [ ] A non-allowlisted address can't sign in or sign up with a password, including an `@tec.mx` address.
+- [ ] A waiting account can't do anything through the API either: `complete_profile` answers `pending_approval`.
 - [ ] Sign out, then sign in with a different school account: the school's page asks for the password again, and the new account's profile loads.
 
 ## 2. Map
@@ -93,7 +94,7 @@ With `chat_enabled` on (0.6, E26). Phone A hosts, Phone B joined:
 ## 9. Bad conditions
 
 - [ ] **Airplane mode:** on the map, in Me and on an unopened game. No blank or endlessly spinning screen; retry works once back online.
-- [ ] **Find your school in airplane mode:** shows a retry card, and works once back online.
+- [ ] **Create account in airplane mode:** shows "You're offline.", and works once back online.
 - [ ] **Failed actions in airplane mode:** Join and Leave undo themselves with a short message.
 - [ ] **Location denied:** the map stays on campus with the "Turn on location" banner, which opens iOS Settings.
 - [ ] **Far from campus:** the map lands on your campus, or the demo campus for a review account.

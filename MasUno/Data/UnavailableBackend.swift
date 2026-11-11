@@ -11,7 +11,9 @@ final class UnavailableBackend: AuthService, GameRepository, ProfileRepository, 
 
     func restoreSession() async {}
     func signIn(at school: University) async throws { throw DomainError.offline }
+    func signUp(email: String, password: String) async throws { throw DomainError.offline }
     func signIn(email: String, password: String) async throws { throw DomainError.offline }
+    func refreshStatus() async throws { throw DomainError.offline }
     func completeProfile(_ input: ProfileInput) async throws { throw DomainError.offline }
     func acceptGuidelines() async throws { throw DomainError.offline }
     func signOut() async throws { throw DomainError.offline }

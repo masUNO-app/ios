@@ -41,6 +41,10 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
     private var isSuspended = false
     /// The campus the account signing in belongs to.
     private var signInCampus = MockFixtures.tec
+    /// Accounts made with `signUp`: email → password.
+    private var passwords: [String: String] = [:]
+    /// Signed up and nobody has run `approveSignUp()` yet.
+    private var isAwaitingApproval = false
 
     /// `state` defaults to signed in with the Monterrey fixtures. Pass `.signedOut(expired: false)`
     /// to preview onboarding: the new account then has no profile until `completeProfile`.
@@ -98,6 +102,11 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         state = .suspended
     }
 
+    /// Someone on the team runs `private.approve_signup`. The app finds out on its next `refreshStatus()`.
+    func approveSignUp() {
+        isAwaitingApproval = false
+    }
+
     /// The session ended: on purpose, or `expired` if the saved session stopped working.
     func endSession(expired: Bool) {
         state = .signedOut(expired: expired)
@@ -131,8 +140,36 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         state = profile == nil ? .needsProfile : .signedIn(userID: me.id)
     }
 
+    /// Like the auth hook: a school address at an open campus gets in and waits for approval.
+    func signUp(email: String, password: String) async throws {
+        try await begin()
+        let email = email.lowercased()
+        guard let campus = campus(for: email, in: universities), campus.signupEnabled else {
+            throw DomainError.emailNotAllowed
+        }
+        guard passwords[email] == nil else { throw DomainError.emailTaken }
+        passwords[email] = password
+        signInCampus = campus
+        profile = nil
+        isAwaitingApproval = true
+        state = .pendingApproval
+    }
+
+    func refreshStatus() async throws {
+        try await begin()
+        if state == .pendingApproval, !isAwaitingApproval { state = .needsProfile }
+    }
+
     func signIn(email: String, password: String) async throws {
         try await begin()
+        if let saved = passwords[email.lowercased()], saved == password {
+            if isAwaitingApproval {
+                state = .pendingApproval
+            } else {
+                state = profile == nil ? .needsProfile : .signedIn(userID: me.id)
+            }
+            return
+        }
         guard email.lowercased() == MockFixtures.reviewEmail, password == MockFixtures.reviewPassword else {
             throw DomainError.invalidCredentials
         }
@@ -144,6 +181,7 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
 
     func completeProfile(_ input: ProfileInput) async throws {
         try await begin()
+        if isAwaitingApproval { throw DomainError.pendingApproval }
         profile = try validated(input)
         state = .needsGuidelines
     }
@@ -551,6 +589,7 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
     private func beginWrite() async throws {
         try await begin()
         if isSuspended { throw DomainError.suspended }
+        if isAwaitingApproval { throw DomainError.pendingApproval }
         if case .signedOut = state { throw DomainError.notAuthenticated }
     }
 }
