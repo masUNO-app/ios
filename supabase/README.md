@@ -28,9 +28,9 @@ Migrations don't carry dashboard settings, so do these on each project (B2, B12)
 3. **Auth → Providers → Azure:** client ID and secret from the Entra app; Azure Tenant URL `https://login.microsoftonline.com/organizations` until Tec's tenant is confirmed (O4), then lock it to Tec before real students sign in on prod. Never `common`.
 4. **Auth → URL Configuration:** add `masuno://auth-callback` to Redirect URLs.
 5. **Auth → Users:** create the three allowlisted password accounts with "Auto confirm" on: `official.masuno.app+review1@gmail.com`, `+review2`, `+qa1`. Passwords go in the shared password manager.
-6. **Report alerts (Discord) — not set up yet on either project.** Until it is, check
-   `public.reports` in the dashboard at least once a day. To set it up, create a Discord channel
-   webhook (Channel settings → Integrations → Webhooks → New Webhook), then in the SQL editor run
+6. **Report alerts (Discord) — set up on masuno-dev and masuno-prod (Nov 11).** On a new project,
+   create a Discord channel webhook (Channel settings → Integrations → Webhooks → New Webhook),
+   then in the SQL editor run
    `select vault.create_secret('<discord-webhook-url>', 'report_alert_webhook_url');` and
    `select vault.create_secret('https://supabase.com/dashboard/project/<ref>/editor', 'report_alert_dashboard_url');`.
    File a test report and confirm the alert arrives within a minute. Without the first secret,
@@ -46,7 +46,7 @@ Migrations don't carry dashboard settings, so do these on each project (B2, B12)
 
 ## Moderation
 
-- New reports post to the team Discord once step 6 above is done; until then, check `public.reports` daily. Act within 24 h and set `resolved_at`.
+- New reports post to the team Discord (step 6 above). Act within 24 h and set `resolved_at`.
 - Ban: `update public.profiles set banned_at = now() where id = '<user id>';`. Every write RPC then fails with `suspended`.
 - Hide a chat message: `update private.chat_messages set deleted_at = now() where id = '<message id>';`. A message report has `message_id` and a copy of the text in `message_body`.
 - Turn chat off everywhere: `update public.app_config set value = 'false' where key = 'chat_enabled';`.
