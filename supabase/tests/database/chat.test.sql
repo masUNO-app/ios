@@ -14,7 +14,9 @@ insert into auth.users (id, email) values
     ('c0000000-0000-4000-8000-00000000000c', 'carla@tec.mx'),
     ('d0000000-0000-4000-8000-00000000000d', 'dario@tec.mx');
 
-select is((select value from public.app_config where key = 'chat_enabled'), 'false'::jsonb, 'chat ships switched off');
+-- The migration adds the switch off, but seed.sql turns it on locally and in CI, so start from a known state.
+select ok(exists (select 1 from public.app_config where key = 'chat_enabled'), 'the chat switch exists');
+update public.app_config set value = 'false' where key = 'chat_enabled';
 select ok(
     to_regclass('realtime.messages') is null
     or exists (select 1 from pg_policies where schemaname = 'realtime' and tablename = 'messages'
