@@ -26,7 +26,7 @@ Debug builds accept a `-screen` launch argument to jump straight to a screen for
 (add `-raceJoin YES` to `detail-open` for the last-spot race; `-mockLocation YES` pins you at Tec), `who`, `report`, `blocked`, `me`,
 `me-hosting`, `profile`, `onboarding-primer|sheet|school|review|verified|about|interests|guidelines`, `calendar`, `chat`, `chat-host`, `meetup`, `repost`, `settings`, `update`, `signed-out`, `session-expired`, `suspended`, `gallery`.
 
-Running from Xcode passes `-liveAuth YES` (set in `project.yml`), which puts sign-in, games and chat on `masuno-dev` when `Config.xcconfig` has real Debug keys. Untick it in the scheme, or pass a `-screen` option from the command line without it, to run on in-memory mocks: sign-in is faked there and everything is forgotten on relaunch. Unit tests always run on mocks.
+A Debug build puts sign-in, games and chat on `masuno-dev` when `Config.xcconfig` has real Debug keys, including when you open it from the home screen after disconnecting from Xcode (launch arguments only exist for Xcode launches, so this is the default, not the argument). It runs on in-memory mocks, where sign-in is faked and everything is forgotten on relaunch, when you pass `-liveAuth NO` or any `-screen` option, or when there are no real keys. Unit tests pass `-liveAuth NO`.
 
 ## How we work
 
