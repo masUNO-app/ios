@@ -204,8 +204,13 @@ struct MeView: View {
     }
 
     private func chatButton(_ event: Game) -> some View {
-        NavigationLink(value: Route.chat(event.id)) {
-            Text("Group chat")
+        let unread = store.unreadCount(event.id)
+        return NavigationLink(value: Route.chat(event.id)) {
+            if unread > 0 {
+                Text("Group chat · \(unread) new")
+            } else {
+                Text("Group chat")
+            }
         }
         .buttonStyle(.glassProminent)
         .controlSize(.large)

@@ -8,6 +8,8 @@ nonisolated enum DomainError: Error, Hashable, Sendable {
     case limitReached, capacityBelowGoing
     case invalidTime, invalidText, invalidInput
     case notAuthenticated, suspended
+    // Raised by the chat RPCs.
+    case chatRulesRequired, chatDisabled, rateLimited
 
     // Raised by Supabase Auth or the auth hook; mapped in `AuthService` (B5).
     case emailNotAllowed, schoolApprovalNeeded, signInFailed, tooManyAttempts, invalidCredentials
@@ -32,6 +34,9 @@ nonisolated enum DomainError: Error, Hashable, Sendable {
         case "invalid_input": .invalidInput
         case "not_authenticated": .notAuthenticated
         case "suspended": .suspended
+        case "chat_rules_required": .chatRulesRequired
+        case "chat_disabled": .chatDisabled
+        case "rate_limited": .rateLimited
         case "email_not_allowed": .emailNotAllowed
         default: .unknown(serverCode)
         }
@@ -53,6 +58,9 @@ nonisolated enum DomainError: Error, Hashable, Sendable {
         case .invalidInput: String(localized: "Check the details and try again.")
         case .notAuthenticated: String(localized: "Please sign in again.")
         case .suspended: String(localized: "Your account is suspended")
+        case .chatRulesRequired: String(localized: "Agree to the chat rules to send messages.")
+        case .chatDisabled: String(localized: "Messages are off right now. Try again later.")
+        case .rateLimited: String(localized: "You're sending messages too fast. Wait a minute.")
         case .emailNotAllowed: String(localized: "masUNO isn't open at your school yet.")
         case .schoolApprovalNeeded: String(localized: "Your school hasn't approved masUNO yet.")
         case .signInFailed: String(localized: "We couldn't sign you in. Try again.")

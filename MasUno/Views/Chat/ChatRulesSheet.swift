@@ -42,7 +42,7 @@ struct ChatRulesSheet: View {
                 }
             }
 
-            Text("You can report anyone from the Who's going list.")
+            Text("Touch and hold a message to report it, or report anyone from the Who's going list.")
                 .font(.footnote)
                 .foregroundStyle(Theme.muted)
 

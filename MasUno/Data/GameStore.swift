@@ -35,7 +35,13 @@ final class GameStore {
     /// Games whose fetch came back `not_found`, so Event detail can say so.
     private var missingIDs: Set<UUID> = []
     private var savedIDs: Set<UUID> = []
+    private var unreadByGame: [UUID: Int] = [:]
 
+    /// `app_config.chat_enabled`, set at launch. Off, group chat is the read-only hub (SPEC N14).
+    var isChatEnabled = false
+
+    /// Messaging for the chat screen, which keeps its own timeline (`ChatViewModel`).
+    @ObservationIgnored let chat: any ChatRepository
     @ObservationIgnored private let games: any GameRepository
     @ObservationIgnored private let profiles: any ProfileRepository
     @ObservationIgnored private let safety: any SafetyRepository
@@ -44,8 +50,9 @@ final class GameStore {
 
     init(
         games: any GameRepository, profiles: any ProfileRepository, safety: any SafetyRepository,
-        catalog: any AppConfigRepository, defaults: UserDefaults = .standard
+        chat: any ChatRepository, catalog: any AppConfigRepository, defaults: UserDefaults = .standard
     ) {
+        self.chat = chat
         self.games = games
         self.profiles = profiles
         self.safety = safety
@@ -113,6 +120,15 @@ final class GameStore {
         }
     }
 
+    /// Messages you haven't seen in a game's chat, for "Group chat · 2 new".
+    func unreadCount(_ id: UUID) -> Int {
+        isChatEnabled ? unreadByGame[id] ?? 0 : 0
+    }
+
+    func isBlocked(_ personID: UUID) -> Bool {
+        blockedIDs.contains(personID)
+    }
+
     var postableActivities: [Activity] {
         activities.filter { $0.postable && $0.active }.sorted { $0.sortOrder < $1.sortOrder }
     }
@@ -144,14 +160,16 @@ final class GameStore {
         async let map: Void = refreshMap()
         async let mine: Void = refreshMyGames()
         async let saved: Void = refreshSaved()
-        _ = await (activities, blocked, map, mine, saved)
+        async let unread: Void = refreshUnread()
+        _ = await (activities, blocked, map, mine, saved, unread)
     }
 
     /// On foreground and pull to refresh.
     func refresh() async {
         async let map: Void = refreshMap()
         async let mine: Void = refreshMyGames()
-        _ = await (map, mine)
+        async let unread: Void = refreshUnread()
+        _ = await (map, mine, unread)
     }
 
     func refreshMap() async {
@@ -231,6 +249,12 @@ final class GameStore {
         } catch {
             noteFailure(domainError(error))
         }
+    }
+
+    /// Counts are a nicety: a failure leaves the last ones in place.
+    func refreshUnread() async {
+        guard isChatEnabled else { return }
+        if let counts = try? await chat.fetchUnreadCounts() { unreadByGame = counts }
     }
 
     private func loadProfile() async {
@@ -354,6 +378,24 @@ final class GameStore {
         }
     }
 
+    // MARK: Group chat
+
+    /// "Before you chat": I agree. Throws so the sheet can stay open.
+    func acceptChatRules() async throws {
+        do {
+            try await chat.acceptChatRules()
+            if profile?.chatRulesAcceptedAt == nil { profile?.chatRulesAcceptedAt = .now }
+        } catch {
+            throw noteThrown(error)
+        }
+    }
+
+    /// Opening a chat, or reading a message as it arrives, clears its count.
+    func markChatRead(_ id: UUID) async {
+        unreadByGame[id] = nil
+        try? await chat.markRead(gameID: id)
+    }
+
     // MARK: Profile
 
     func updateProfile(_ input: ProfileInput) async throws {
@@ -435,6 +477,7 @@ final class GameStore {
         activityByGame = [:]
         missingIDs = []
         savedIDs = []
+        unreadByGame = [:]
         blockedPeople = []
         profile = nil
         campus = nil
@@ -448,7 +491,7 @@ final class GameStore {
 
     // MARK: Errors
 
-    private func domainError(_ error: any Error) -> DomainError {
+    func domainError(_ error: any Error) -> DomainError {
         error as? DomainError ?? .unknown(String(describing: error))
     }
 
@@ -459,7 +502,7 @@ final class GameStore {
     }
 
     /// A failed load or action: track offline and session problems, without a toast.
-    private func noteFailure(_ error: DomainError) {
+    func noteFailure(_ error: DomainError) {
         if error == .offline { isOffline = true }
         if error == .suspended || error == .notAuthenticated { onSessionProblem?() }
     }

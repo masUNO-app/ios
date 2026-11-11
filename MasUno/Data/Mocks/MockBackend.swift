@@ -6,7 +6,7 @@ import Observation
 /// same rules and raises the same codes as the RPCs in `docs/API.md`, so code written
 /// against it behaves the same on `masuno-dev`. Compiled out of Release (N27).
 @Observable
-final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyRepository, AppConfigRepository {
+final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyRepository, ChatRepository, AppConfigRepository {
     private(set) var state: AuthState
     private(set) var games: [Game]
     private(set) var reports: [(target: ReportTarget, reason: ReportReason, note: String?)] = []
@@ -27,12 +27,17 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
     var cancelsNextSignIn = false
     /// `-raceJoin YES`: the next join waits a second, then loses the last spot to someone else.
     var losesNextJoinRace = false
+    /// `app_config.chat_enabled`. Off, `sendMessage` answers `chat_disabled`.
+    var chatEnabled = true
 
     let me: PersonSummary
     private var attendees: [UUID: [Attendee]]
     private var activity: [UUID: [GameActivityEntry]] = [:]
     private var people: [UUID: PersonSummary]
     private var blockedIDs: [UUID] = []
+    private var messages: [UUID: [ChatMessage]]
+    private var lastRead: [UUID: Date] = [:]
+    private var listeners: [UUID: [UUID: AsyncStream<ChatUpdate>.Continuation]] = [:]
     private var isSuspended = false
     /// The campus the account signing in belongs to.
     private var signInCampus = MockFixtures.tec
@@ -51,6 +56,7 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
             })
         })
         self.people = world.people
+        self.messages = world.messages
         self.state = state ?? .signedIn(userID: world.me.id)
         self.profile = state == nil ? world.me : nil
     }
@@ -70,6 +76,20 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         guard game.goingCount > 1 else { return }
         games[index].goingCount -= 1
         if game.isFull, game.autoRepost, !game.isCancelled { games[index].repostedAt = now }
+    }
+
+    /// Someone else in the game posts from their own phone, and the chat channel says so.
+    @discardableResult
+    func receiveMessage(from sender: PersonSummary, in gameID: UUID, body: String) -> ChatMessage {
+        let message = ChatMessage(id: UUID(), gameID: gameID, sender: sender, body: body, clientID: UUID(), createdAt: now)
+        messages[gameID, default: []].append(message)
+        announce(.message, in: gameID)
+        return message
+    }
+
+    /// The account hasn't agreed to "Before you chat" yet.
+    func resetChatRules() {
+        profile?.chatRulesAcceptedAt = nil
     }
 
     /// A moderator sets `banned_at`.
@@ -150,7 +170,9 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         for id in hosted {
             attendees[id] = nil
             activity[id] = nil
+            messages[id] = nil
         }
+        for id in messages.keys { messages[id]?.removeAll { $0.sender.id == me.id } }
         profile = nil
         state = .signedOut(expired: false)
     }
@@ -321,6 +343,11 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
 
     func report(_ target: ReportTarget, reason: ReportReason, note: String?) async throws {
         try await beginWrite()
+        if case .message(let id) = target {
+            // `report_message`: a message you can see, and not your own.
+            let message = messages.values.joined().first { $0.id == id }
+            guard let message, message.sender.id != me.id, isMember(of: message.gameID) else { throw DomainError.invalidInput }
+        }
         reports.append((target, reason, note))
     }
 
@@ -341,11 +368,81 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         return blockedIDs.compactMap { people[$0] }
     }
 
+    // MARK: ChatRepository
+
+    func fetchMessages(gameID: UUID, before: Date?, limit: Int) async throws -> [ChatMessage] {
+        try await begin()
+        let visible = readableMessages(gameID).filter { before == nil || $0.createdAt <= before! }
+        return Array(visible.suffix(limit))
+    }
+
+    func fetchMessages(gameID: UUID, since: Date) async throws -> [ChatMessage] {
+        try await begin()
+        return readableMessages(gameID).filter { $0.createdAt >= since }
+    }
+
+    /// The same checks, in the same order, as `send_message`.
+    func sendMessage(gameID: UUID, body: String, clientID: UUID) async throws -> ChatMessage {
+        try await beginWrite()
+        let game = try visibleGame(gameID)
+        guard game.myRole != nil else { throw DomainError.notAllowed }
+        if let sent = messages[gameID]?.first(where: { $0.sender.id == me.id && $0.clientID == clientID }) { return sent }
+        guard chatEnabled else { throw DomainError.chatDisabled }
+        if game.isCancelled { throw DomainError.cancelled }
+        guard now < game.endsAt.addingTimeInterval(ChatMessage.closesAfterEnd) else { throw DomainError.ended }
+        guard profile?.chatRulesAcceptedAt != nil else { throw DomainError.chatRulesRequired }
+        let text = body.trimmingCharacters(in: .whitespaces)
+        guard (1...ChatMessage.bodyLimit).contains(text.count), !TextFilter.hasLink(text), TextFilter.isFriendly(text) else {
+            throw DomainError.invalidText
+        }
+        let lastMinute = messages.values.joined().filter { $0.sender.id == me.id && $0.createdAt > now.addingTimeInterval(-60) }
+        guard lastMinute.count < 20 else { throw DomainError.rateLimited }
+
+        let message = ChatMessage(id: UUID(), gameID: gameID, sender: me, body: text, clientID: clientID, createdAt: now)
+        messages[gameID, default: []].append(message)
+        announce(.message, in: gameID)
+        return message
+    }
+
+    func acceptChatRules() async throws {
+        try await beginWrite()
+        if profile?.chatRulesAcceptedAt == nil { profile?.chatRulesAcceptedAt = now }
+    }
+
+    func markRead(gameID: UUID) async throws {
+        try await beginWrite()
+        if isMember(of: gameID) { lastRead[gameID] = now }
+    }
+
+    func fetchUnreadCounts() async throws -> [UUID: Int] {
+        try await begin()
+        var counts: [UUID: Int] = [:]
+        for gameID in messages.keys {
+            let unread = readableMessages(gameID).filter { message in
+                message.sender.id != me.id && lastRead[gameID].map { message.createdAt > $0 } ?? true
+            }
+            if !unread.isEmpty { counts[gameID] = unread.count }
+        }
+        return counts
+    }
+
+    func updates(gameID: UUID) -> AsyncStream<ChatUpdate> {
+        AsyncStream { continuation in
+            let listener = UUID()
+            listeners[gameID, default: [:]][listener] = continuation
+            continuation.onTermination = { [weak self] _ in
+                Task { @MainActor in self?.listeners[gameID]?[listener] = nil }
+            }
+        }
+    }
+
     // MARK: AppConfigRepository
 
     func fetchAppConfig() async throws -> AppConfig {
         try await begin()
-        return .fallback
+        var config = AppConfig.fallback
+        config.chatEnabled = chatEnabled
+        return config
     }
 
     func fetchActivities() async throws -> [Activity] {
@@ -383,6 +480,20 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         return game
     }
 
+    private func isMember(of gameID: UUID) -> Bool {
+        games.contains { $0.id == gameID && $0.myRole != nil }
+    }
+
+    /// What RLS lets you read: chats of games you're in, without anyone you blocked.
+    private func readableMessages(_ gameID: UUID) -> [ChatMessage] {
+        guard isMember(of: gameID), !blockedIDs.contains(where: { blocked in games.contains { $0.id == gameID && $0.host.id == blocked } }) else { return [] }
+        return (messages[gameID] ?? []).filter { !blockedIDs.contains($0.sender.id) }.sorted { $0.createdAt < $1.createdAt }
+    }
+
+    private func announce(_ update: ChatUpdate, in gameID: UUID) {
+        for listener in (listeners[gameID] ?? [:]).values { listener.yield(update) }
+    }
+
     private func writableIndex(_ id: UUID) throws -> Int {
         guard !blockedIDs.contains(where: { blocked in games.contains { $0.id == id && $0.host.id == blocked } }),
               let index = games.firstIndex(where: { $0.id == id })
@@ -417,13 +528,15 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         guard TextFilter.isFriendly(first), TextFilter.isFriendly(last) else { throw DomainError.invalidText }
         return Profile(
             id: me.id, firstName: first, lastName: last, gradYear: input.gradYear,
-            university: profile?.university ?? signInCampus, interests: input.interests
+            university: profile?.university ?? signInCampus, interests: input.interests,
+            chatRulesAcceptedAt: profile?.chatRulesAcceptedAt
         )
     }
 
     private func log(_ kind: GameActivityEntry.Kind, _ gameID: UUID, actor: PersonSummary) {
         let entry = GameActivityEntry(id: UUID(), gameID: gameID, kind: kind, actor: actor, at: now)
         activity[gameID, default: []].append(entry)
+        announce(.activity, in: gameID)
     }
 
     private func begin() async throws {

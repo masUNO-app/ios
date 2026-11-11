@@ -12,7 +12,7 @@ struct ContentView: View {
         let services = AppServices.make()
         self.services = services
         _store = State(initialValue: GameStore(
-            games: services.games, profiles: services.profiles, safety: services.safety, catalog: services.catalog
+            games: services.games, profiles: services.profiles, safety: services.safety, chat: services.chat, catalog: services.catalog
         ))
         _appViewModel = State(initialValue: AppViewModel(auth: services.auth, catalog: services.catalog))
     }
@@ -47,6 +47,7 @@ struct ContentView: View {
     private func launch() async {
         store.onSessionProblem = { [auth = appViewModel.auth] in Task { await auth.restoreSession() } }
         await appViewModel.start()
+        store.isChatEnabled = appViewModel.config.chatEnabled
         #if DEBUG
         appViewModel.applyDebugSession(mock: services.mock)
         #endif

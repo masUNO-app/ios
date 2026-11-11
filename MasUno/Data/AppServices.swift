@@ -6,6 +6,7 @@ struct AppServices {
     let games: any GameRepository
     let profiles: any ProfileRepository
     let safety: any SafetyRepository
+    let chat: any ChatRepository
     let catalog: any AppConfigRepository
     #if DEBUG
     let mock: MockBackend
@@ -20,12 +21,12 @@ struct AppServices {
         if UserDefaults.standard.bool(forKey: "liveAuth"), let live = LiveBackend.make() {
             return AppServices(live, mock: mock)
         }
-        return AppServices(auth: mock, games: mock, profiles: mock, safety: mock, catalog: mock, mock: mock)
+        return AppServices(auth: mock, games: mock, profiles: mock, safety: mock, chat: mock, catalog: mock, mock: mock)
         #else
         // Without real keys, every call fails as offline, so Release never shows mock data (N27).
         guard let live = LiveBackend.make() else {
             let backend = UnavailableBackend()
-            return AppServices(auth: backend, games: backend, profiles: backend, safety: backend, catalog: backend)
+            return AppServices(auth: backend, games: backend, profiles: backend, safety: backend, chat: backend, catalog: backend)
         }
         return AppServices(live)
         #endif
@@ -35,11 +36,11 @@ struct AppServices {
 private extension AppServices {
     #if DEBUG
     init(_ live: LiveBackend, mock: MockBackend) {
-        self.init(auth: live.auth, games: live.games, profiles: live.profiles, safety: live.safety, catalog: live.catalog, mock: mock)
+        self.init(auth: live.auth, games: live.games, profiles: live.profiles, safety: live.safety, chat: live.chat, catalog: live.catalog, mock: mock)
     }
     #else
     init(_ live: LiveBackend) {
-        self.init(auth: live.auth, games: live.games, profiles: live.profiles, safety: live.safety, catalog: live.catalog)
+        self.init(auth: live.auth, games: live.games, profiles: live.profiles, safety: live.safety, chat: live.chat, catalog: live.catalog)
     }
     #endif
 }

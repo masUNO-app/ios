@@ -1,7 +1,7 @@
 import Foundation
 import Supabase
 
-/// The live `SafetyRepository` (B7): the `report`, `block`, `unblock` and `my_blocks` RPCs.
+/// The live `SafetyRepository` (B7): the `report`, `report_message`, `block`, `unblock` and `my_blocks` RPCs.
 final class LiveSafetyRepository: SafetyRepository {
     private let client: SupabaseClient
 
@@ -11,7 +11,8 @@ final class LiveSafetyRepository: SafetyRepository {
 
     func report(_ target: ReportTarget, reason: ReportReason, note: String?) async throws {
         try await liveRequest {
-            _ = try await client.rpc("report", params: ReportParams(target: target, reason: reason, note: note)).execute()
+            let function = if case .message = target { "report_message" } else { "report" }
+            _ = try await client.rpc(function, params: ReportParams(target: target, reason: reason, note: note)).execute()
         }
     }
 

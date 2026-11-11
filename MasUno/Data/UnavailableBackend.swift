@@ -5,7 +5,7 @@ import Observation
 /// What Release builds run on without real keys in `Config.xcconfig`. Every call fails as offline, so a
 /// Release build can't ever show mock data as real (N27, §10.4).
 @Observable
-final class UnavailableBackend: AuthService, GameRepository, ProfileRepository, SafetyRepository, AppConfigRepository {
+final class UnavailableBackend: AuthService, GameRepository, ProfileRepository, SafetyRepository, ChatRepository, AppConfigRepository {
     private(set) var state = AuthState.signedOut(expired: false)
     let suggestedName: SuggestedName? = nil
 
@@ -36,6 +36,14 @@ final class UnavailableBackend: AuthService, GameRepository, ProfileRepository, 
     func block(userID: UUID) async throws { throw DomainError.offline }
     func unblock(userID: UUID) async throws { throw DomainError.offline }
     func fetchBlockedPeople() async throws -> [PersonSummary] { throw DomainError.offline }
+
+    func fetchMessages(gameID: UUID, before: Date?, limit: Int) async throws -> [ChatMessage] { throw DomainError.offline }
+    func fetchMessages(gameID: UUID, since: Date) async throws -> [ChatMessage] { throw DomainError.offline }
+    func sendMessage(gameID: UUID, body: String, clientID: UUID) async throws -> ChatMessage { throw DomainError.offline }
+    func acceptChatRules() async throws { throw DomainError.offline }
+    func markRead(gameID: UUID) async throws { throw DomainError.offline }
+    func fetchUnreadCounts() async throws -> [UUID: Int] { throw DomainError.offline }
+    func updates(gameID: UUID) -> AsyncStream<ChatUpdate> { AsyncStream { $0.finish() } }
 
     func fetchAppConfig() async throws -> AppConfig { throw DomainError.offline }
     func fetchActivities() async throws -> [Activity] { throw DomainError.offline }

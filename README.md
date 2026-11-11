@@ -26,7 +26,7 @@ Debug builds accept a `-screen` launch argument to jump straight to a screen for
 (add `-raceJoin YES` to `detail-open` for the last-spot race; `-mockLocation YES` pins you at Tec), `who`, `report`, `blocked`, `me`,
 `me-hosting`, `profile`, `onboarding-primer|sheet|school|review|verified|about|interests|guidelines`, `calendar`, `chat`, `chat-host`, `meetup`, `repost`, `settings`, `update`, `signed-out`, `session-expired`, `suspended`, `gallery`.
 
-With real keys in `Config.xcconfig`, `-liveAuth YES` signs in for real on `masuno-dev`, with games still on mocks until the live repositories land (B7).
+Running from Xcode passes `-liveAuth YES` (set in `project.yml`), which puts sign-in, games and chat on `masuno-dev` when `Config.xcconfig` has real Debug keys. Untick it in the scheme, or pass a `-screen` option from the command line without it, to run on in-memory mocks: sign-in is faked there and everything is forgotten on relaunch. Unit tests always run on mocks.
 
 ## How we work
 
@@ -81,21 +81,22 @@ masUNO launches at Tec, but the app has no campus built in: open campuses come f
 campus from `my_profile`. To change or add a campus, see SPEC §8.10; no release needed.
 
 Organizer approval (Join requests / Accept–Decline) is post-MVP and intentionally left out — spots are first come, first served.
-Group chat is read-only for now: pinned card and system rows, no composer (N14).
+Group chat messaging (E26) is built and follows `app_config.chat_enabled` on the server. Off, which is how it ships, the chat is read-only: pinned card and system rows, no composer (N14).
 
 ## TODO
 
 Placeholders that still need a real answer. Card IDs refer to SPEC §5.
 
 ### Waiting on backend
-- [ ] Live `AuthService` (B5) and repositories (B7), then swap them in `Data/AppServices.swift`. **Until then Release builds
-      run on `UnavailableBackend`: they contain no mock data, but can't sign in.**
-- [ ] Group chat messaging (E26, B20); chat is the read-only fallback until then. `ChatRulesSheet` is kept for it.
+- [ ] School sign-in for real students: the Entra ID app and Tec's tenant (B21, B22, K19). The last blocker for 0.5.
+- [ ] Group chat messaging (E26, B20) is built, and on `masuno-dev` with chat on. Run QA §6 there with two phones. Then
+      apply `20261110000000_group_chat` to prod, turn `chat_enabled` on there and run QA §6 again (`supabase/README.md`).
 
 ### Waiting on the team
-- [ ] App icon (D3): the icon set is empty; launch color uses `Background` until then
+- [ ] Final app icon (D3): the one in the icon set is a temporary one from the designer; launch color uses `Background`
 - [ ] Privacy & Terms page live at `masuno-app.github.io/privacy` (D4): the app already links to it
 - [ ] `AppConfig.appStoreID` from App Store Connect (E15): Invite a friend stays hidden in Release until it's set
+- [ ] Version is 0.6 in `project.yml`. If 0.5 is still to be archived from this tree, set `MARKETING_VERSION` back to 0.5 for that archive
 - [ ] "Verified student" vs "Tec verified" (O4), real venues in `MockFixtures` for screenshots (O5)
 
 ### Later

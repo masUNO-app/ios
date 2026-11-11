@@ -4,6 +4,7 @@ import SwiftUI
 enum ReportSubject: Hashable, Identifiable {
     case person(PersonSummary)
     case game(UUID)
+    case message(ChatMessage)
 
     var id: Self { self }
 
@@ -11,11 +12,21 @@ enum ReportSubject: Hashable, Identifiable {
         switch self {
         case .person(let person): .person(person.id)
         case .game(let id): .game(id)
+        case .message(let message): .message(message.id)
+        }
+    }
+
+    /// Who "Block" is offered for once the report is sent.
+    var person: PersonSummary? {
+        switch self {
+        case .person(let person): person
+        case .game: nil
+        case .message(let message): message.sender
         }
     }
 }
 
-/// Report a person or a game (SPEC §7.6.6). After sending, people can also be blocked.
+/// Report a person, a game or a chat message (SPEC §7.6.6). After sending, people can also be blocked.
 struct ReportSheet: View {
     @Environment(GameStore.self) private var store
     @Environment(\.dismiss) private var dismiss
@@ -54,6 +65,7 @@ struct ReportSheet: View {
         switch target {
         case .person(let person): "Report \(person.displayName)"
         case .game: "Report game"
+        case .message: "Report message"
         }
     }
 
@@ -76,6 +88,14 @@ struct ReportSheet: View {
                 }
             } header: {
                 Text("What's wrong?")
+            }
+
+            if case .message(let message) = target {
+                Section {
+                    Text(verbatim: message.body).foregroundStyle(Theme.ink)
+                } header: {
+                    Text("\(message.sender.displayName) wrote")
+                }
             }
 
             Section {
@@ -129,7 +149,7 @@ struct ReportSheet: View {
                 .foregroundStyle(Theme.ink)
                 .multilineTextAlignment(.center)
             Spacer()
-            if case .person(let person) = target {
+            if let person = target.person {
                 Button("Block \(person.displayName)", role: .destructive) { blockTarget = person }
                     .buttonStyle(.glassProminent)
                     .tint(Theme.destructive)

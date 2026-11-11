@@ -54,6 +54,7 @@ enum MockFixtures {
         var games: [Game]
         var attendees: [UUID: [Attendee]]
         var people: [UUID: PersonSummary]
+        var messages: [UUID: [ChatMessage]]
     }
 
     static func person(_ number: Int, _ first: String, _ initial: String, _ year: Int) -> PersonSummary {
@@ -73,7 +74,8 @@ enum MockFixtures {
         let me = Profile(
             id: UUID(uuidString: "00000000-0000-0000-0000-000000000099")!,
             firstName: "Emilio", lastName: "Garza", gradYear: 2029, university: tec,
-            interests: [activity("basketball"), activity("soccer"), activity("tennis")]
+            interests: [activity("basketball"), activity("soccer"), activity("tennis")],
+            chatRulesAcceptedAt: now.addingTimeInterval(-24 * 3600)
         )
         let all = [alex, priya, diego, sam, maya, ricardo, nina]
         var games: [Game] = []
@@ -122,8 +124,22 @@ enum MockFixtures {
         add(GameID.bumped, "Pickup soccer", "soccer", minutes: 50, duration: 90, capacity: 10,
             roster: [diego, nina, maya, alex], place: Places.stadium, repostedMinutesAgo: 25)
 
+        var messages: [UUID: [ChatMessage]] = [:]
+        func say(_ gameID: UUID, _ sender: PersonSummary, _ body: String, minutesAgo: Double) {
+            messages[gameID, default: []].append(ChatMessage(
+                id: UUID(), gameID: gameID, sender: sender, body: body, clientID: UUID(),
+                createdAt: now.addingTimeInterval(-minutesAgo * 60)
+            ))
+        }
+        say(GameID.going, sam, "Net's up on the far court. Bring water, it's hot in there.", minutesAgo: 95)
+        say(GameID.going, maya, "I can bring a second ball", minutesAgo: 90)
+        say(GameID.going, me.summary, "Perfect. First time playing with you all, see you there!", minutesAgo: 42)
+        say(GameID.going, sam, "Welcome! We start with a quick warm-up at 10 to.", minutesAgo: 40)
+        say(GameID.hosting, diego, "Should we bring bibs?", minutesAgo: 120)
+        say(GameID.hosting, me.summary, "I have a set, don't worry.", minutesAgo: 110)
+
         let people = Dictionary(uniqueKeysWithValues: all.map { ($0.id, $0) })
-        return World(me: me, games: games, attendees: attendees, people: people)
+        return World(me: me, games: games, attendees: attendees, people: people, messages: messages)
     }
 }
 #endif

@@ -63,14 +63,11 @@ targets:
         SUPPORTS_MACCATALYST: NO
         SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
         SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD: NO
-        MARKETING_VERSION: "0.5"
+        MARKETING_VERSION: "0.6"
         CURRENT_PROJECT_VERSION: "1"
         CODE_SIGN_STYLE: Automatic
         LOCALIZATION_PREFERS_STRING_CATALOGS: YES
         SWIFT_EMIT_LOC_STRINGS: YES
-    scheme:
-      testTargets:
-        - MasUnoTests
   MasUnoTests:
     type: bundle.unit-test
     platform: iOS
@@ -84,3 +81,28 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         TARGETED_DEVICE_FAMILY: "1"
         SUPPORTED_PLATFORMS: "iphoneos iphonesimulator"
+schemes:
+  MasUno:
+    build:
+      targets:
+        MasUno: all
+        MasUnoTests: [test]
+    run:
+      config: Debug
+      # Debug runs against masuno-dev (Debug keys in Config.xcconfig). Untick it in the scheme to run
+      # on in-memory mocks; without real keys the app falls back to mocks by itself.
+      commandLineArguments:
+        "-liveAuth YES": true
+    test:
+      config: Debug
+      targets:
+        - MasUnoTests
+      # Unit tests stay on mocks: their host app never calls the backend.
+      commandLineArguments:
+        "-liveAuth NO": true
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release

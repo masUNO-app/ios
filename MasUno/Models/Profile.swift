@@ -8,6 +8,8 @@ nonisolated struct Profile: Identifiable, Hashable, Sendable {
     var gradYear: Int
     var university: University
     var interests: [Activity]
+    /// When you agreed to "Before you chat". Nil until then; the server asks for it before your first message.
+    var chatRulesAcceptedAt: Date?
 
     var fullName: String { "\(firstName) \(lastName)" }
 

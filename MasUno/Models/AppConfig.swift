@@ -7,6 +7,9 @@ struct AppConfig: Hashable {
     var supportEmail: String
     /// Privacy & Terms page (D4).
     var privacyURL: URL
+    /// Whether group chat takes messages. Off, or missing on a server without chat, the chat is
+    /// read-only with no composer (SPEC N14).
+    var chatEnabled = false
 
     /// Used until the real values load, and if they can't.
     static let fallback = AppConfig(

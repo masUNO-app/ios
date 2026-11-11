@@ -35,10 +35,11 @@ nonisolated struct UniversityRow: Decodable, Sendable {
     }
 }
 
-/// A row in `app_config`. Every 0.5 value is a string; anything else is skipped.
+/// A row in `app_config`. Values are strings, or a boolean switch like `chat_enabled`; anything else is skipped.
 nonisolated struct AppConfigRow: Decodable, Sendable {
     let key: String
     let value: String?
+    let flag: Bool?
 
     enum CodingKeys: String, CodingKey { case key, value }
 
@@ -46,6 +47,7 @@ nonisolated struct AppConfigRow: Decodable, Sendable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         key = try container.decode(String.self, forKey: .key)
         value = try? container.decode(String.self, forKey: .value)
+        flag = try? container.decode(Bool.self, forKey: .value)
     }
 }
 
@@ -54,6 +56,7 @@ extension AppConfig {
     init(rows: [AppConfigRow]) {
         self = .fallback
         for row in rows {
+            if row.key == "chat_enabled" { chatEnabled = row.flag ?? false }
             guard let value = row.value else { continue }
             switch row.key {
             case "min_supported_version": minSupportedVersion = value
@@ -388,9 +391,11 @@ nonisolated struct MyProfileRow: Decodable, Sendable {
     let centerLat: Double
     let centerLng: Double
     let interests: [String]
+    let chatRulesAcceptedAt: Date?
 
     enum CodingKeys: String, CodingKey {
         case id, interests
+        case chatRulesAcceptedAt = "chat_rules_accepted_at"
         case firstName = "first_name"
         case lastName = "last_name"
         case gradYear = "grad_year"
@@ -415,6 +420,8 @@ nonisolated struct MyProfileRow: Decodable, Sendable {
         centerLat = try c.decode(Double.self, forKey: .centerLat)
         centerLng = try c.decode(Double.self, forKey: .centerLng)
         interests = try c.decodeIfPresent([String].self, forKey: .interests) ?? []
+        // Missing on a server without chat.
+        chatRulesAcceptedAt = try c.decodeServerTimeIfPresent(forKey: .chatRulesAcceptedAt)
     }
 
     /// `my_profile` doesn't carry the campus's sign-in provider; the map and Me card don't need it.
@@ -425,7 +432,7 @@ nonisolated struct MyProfileRow: Decodable, Sendable {
                 id: universityID, name: universityName, shortName: universityShortName,
                 emailDomain: universityEmailDomain, centerLatitude: centerLat, centerLongitude: centerLng
             ),
-            interests: interests.map(activity)
+            interests: interests.map(activity), chatRulesAcceptedAt: chatRulesAcceptedAt
         )
     }
 }
@@ -512,7 +519,8 @@ nonisolated struct UserIDParams: Encodable, Sendable {
     enum CodingKeys: String, CodingKey { case userID = "p_user_id" }
 }
 
-/// The parameters of `report`: exactly one of the two IDs, the other sent as null.
+/// The parameters of `report`: exactly one of the two IDs, the other sent as null. A message goes to
+/// `report_message` instead, with `p_message_id`.
 nonisolated struct ReportParams: Encodable, Sendable {
     let target: ReportTarget
     let reason: ReportReason
@@ -521,6 +529,7 @@ nonisolated struct ReportParams: Encodable, Sendable {
     enum CodingKeys: String, CodingKey {
         case userID = "p_user_id"
         case gameID = "p_game_id"
+        case messageID = "p_message_id"
         case reason = "p_reason"
         case note = "p_note"
     }
@@ -534,8 +543,93 @@ nonisolated struct ReportParams: Encodable, Sendable {
         case .game(let id):
             try c.encodeNil(forKey: .userID)
             try c.encode(id, forKey: .gameID)
+        case .message(let id):
+            try c.encode(id, forKey: .messageID)
         }
         try c.encode(reason.rawValue, forKey: .reason)
         try c.encode(optionalText(note), forKey: .note)
     }
+}
+
+// MARK: - Group chat (B20, E26)
+
+/// A row in `game_messages`, also what `send_message` returns.
+nonisolated struct GameMessageRow: Decodable, Sendable {
+    let id: UUID
+    let eventID: UUID
+    let senderID: UUID
+    let senderFirstName: String
+    let senderLastInitial: String
+    let senderGradYear: Int
+    let body: String
+    let clientID: UUID
+    let createdAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id, body
+        case eventID = "event_id"
+        case senderID = "sender_id"
+        case senderFirstName = "sender_first_name"
+        case senderLastInitial = "sender_last_initial"
+        case senderGradYear = "sender_grad_year"
+        case clientID = "client_id"
+        case createdAt = "created_at"
+    }
+
+    init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        eventID = try c.decode(UUID.self, forKey: .eventID)
+        senderID = try c.decode(UUID.self, forKey: .senderID)
+        senderFirstName = try c.decode(String.self, forKey: .senderFirstName)
+        senderLastInitial = try c.decodeIfPresent(String.self, forKey: .senderLastInitial) ?? ""
+        senderGradYear = try c.decode(Int.self, forKey: .senderGradYear)
+        body = try c.decode(String.self, forKey: .body)
+        clientID = try c.decode(UUID.self, forKey: .clientID)
+        createdAt = try c.decodeServerTime(forKey: .createdAt)
+    }
+
+    var message: ChatMessage {
+        ChatMessage(
+            id: id, gameID: eventID,
+            sender: PersonSummary(id: senderID, firstName: senderFirstName, lastInitial: senderLastInitial, gradYear: senderGradYear),
+            body: body, clientID: clientID, createdAt: createdAt
+        )
+    }
+}
+
+/// A row in `chat_unread`: a game with messages you haven't seen.
+nonisolated struct ChatUnreadRow: Decodable, Sendable {
+    let eventID: UUID
+    let unreadCount: Int
+
+    enum CodingKeys: String, CodingKey {
+        case eventID = "event_id"
+        case unreadCount = "unread_count"
+    }
+}
+
+/// The parameters of `send_message`.
+nonisolated struct SendMessageParams: Encodable, Sendable {
+    let gameID: UUID
+    let body: String
+    let clientID: UUID
+
+    enum CodingKeys: String, CodingKey {
+        case gameID = "p_game_id"
+        case body = "p_body"
+        case clientID = "p_client_id"
+    }
+}
+
+/// `p_game_id` for `mark_chat_read`.
+nonisolated struct ChatGameParams: Encodable, Sendable {
+    let gameID: UUID
+    enum CodingKeys: String, CodingKey { case gameID = "p_game_id" }
+}
+
+/// The name of a game's private Realtime channel. Postgres writes UUIDs in lowercase, and the
+/// channel policy compares the whole name.
+nonisolated func chatChannelName(gameID: UUID) -> String {
+    "game:\(gameID.uuidString.lowercased()):chat"
 }
