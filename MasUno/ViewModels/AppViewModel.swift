@@ -122,7 +122,7 @@ final class AppViewModel {
     }
 
     /// Jump straight to a screen for design review, e.g. launch with `-screen me`. Options:
-    /// me, me-hosting, me-empty, me-cancelled, me-leave, repost, profile, settings, sign-out, delete-account,
+    /// me, me-hosting, me-past, me-empty, me-cancelled, me-leave, repost, profile, settings, sign-out, delete-account,
     /// add, add-filled, form-error, edit, cancel-game, play-again, picker, gallery, detail-*,
     /// spot-alert, who, block, report, report-sent, invite, leave, blocked, calendar, chat, chat-host, chat-rules,
     /// chat-new, chat-long, meetup, saved, filter, search, location, popup, popup-saved
@@ -166,7 +166,7 @@ final class AppViewModel {
         case "chat-host", "meetup": path = [.chat(IDs.hosting)]
         case "who", "report", "report-sent", "block", "invite": path = [.game(IDs.open)]
         case "leave": path = [.game(IDs.going)]
-        case "me-leave": path = [.me()]
+        case "me-leave", "me-past": path = [.me()]
         case "me-empty":
             // Nothing coming up: leave the one game the fixtures put you in.
             await store.leave(IDs.going)

@@ -15,6 +15,8 @@ final class MeViewModel {
     var editsProfile = false
     /// "Report" on an earlier game.
     var reportTarget: ReportSubject?
+    /// Earlier games are collapsed until you open them.
+    var showsEarlier = false
 
     init(tab: Tab = .going) {
         self.tab = tab

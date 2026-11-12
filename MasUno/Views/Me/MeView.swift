@@ -22,6 +22,7 @@ struct MeView: View {
                 if store.isOffline { OfflineBanner() }
                 profileCard
 
+                // Segments only: Me is pushed over the map, so a swipe right is always Back.
                 Picker("Show", selection: $viewModel.tab) {
                     Text("Going").tag(MeViewModel.Tab.going)
                     Text("Hosting").tag(MeViewModel.Tab.hosting)
@@ -29,24 +30,7 @@ struct MeView: View {
                 .pickerStyle(.segmented)
                 .padding(.top, 8)
 
-                HStack {
-                    sectionTitle("Coming up")
-                    Spacer()
-                    if viewModel.tab == .hosting {
-                        Button("Add game", systemImage: "plus") { appViewModel.presentGameForm() }
-                            .labelStyle(.titleAndIcon)
-                            .pill(.secondary, expands: false, size: .small)
-                    }
-                }
-
-                if case .failed = store.myGamesState {
-                    RetryCard { await store.refreshMyGames() }
-                } else {
-                    switch viewModel.tab {
-                    case .going: goingList
-                    case .hosting: hostingList
-                    }
-                }
+                list
             }
             .padding(.horizontal, Theme.gutter)
             .padding(.bottom, 24)
@@ -73,10 +57,40 @@ struct MeView: View {
         .leaveGameDialog($viewModel.leaving)
         #if DEBUG
         .onAppear {
-            // `-screen me-leave`: the Leave confirmation over the first game you're in.
-            if UserDefaults.standard.string(forKey: "screen") == "me-leave" { viewModel.leaving = store.goingGames().first }
+            switch UserDefaults.standard.string(forKey: "screen") {
+            // The Leave confirmation over the first game you're in.
+            case "me-leave": viewModel.leaving = store.goingGames().first
+            case "me-past": viewModel.showsEarlier = true
+            default: break
+            }
         }
         #endif
+    }
+
+    // MARK: Tabs
+
+    @ViewBuilder
+    private var list: some View {
+        HStack {
+            sectionTitle("Coming up")
+            Spacer()
+            if viewModel.tab == .hosting {
+                Button("Add game", systemImage: "plus") { appViewModel.presentGameForm() }
+                    .labelStyle(.titleAndIcon)
+                    .pill(.secondary, expands: false, size: .small)
+            }
+        }
+        // The same height with or without Add game, so switching tabs doesn't nudge the list.
+        .frame(minHeight: 30)
+
+        if case .failed = store.myGamesState {
+            RetryCard { await store.refreshMyGames() }
+        } else {
+            switch viewModel.tab {
+            case .going: goingList
+            case .hosting: hostingList
+            }
+        }
     }
 
     private func sectionTitle(_ title: LocalizedStringKey) -> some View {
@@ -174,27 +188,36 @@ struct MeView: View {
         }
     }
 
-    /// Games from the last 14 days, so you can still report someone, or get the group back together.
+    /// Games from the last 14 days, so you can still report someone, or get the group back
+    /// together. Collapsed, so they don't push what's coming up out of sight.
     @ViewBuilder
     private var earlierSection: some View {
+        @Bindable var viewModel = viewModel
         let events = store.pastGames()
         if !events.isEmpty {
-            sectionTitle("Earlier")
-                .padding(.top, 4)
-            ForEach(events) { event in
-                NavigationLink(value: Route.game(event.id)) {
-                    GameCard(
-                        event: event, lineup: store.lineup(for: event), status: event.playedLine,
-                        time: EventFormat.cardTime(event), isMuted: true
-                    ) {
-                        Button("Report") { viewModel.reportTarget = .game(event.id) }
-                            .pill(.secondary, expands: false)
-                        Button("Play again") { appViewModel.presentPlayAgain(event.id) }
-                            .pill(.primary)
+            DisclosureGroup(isExpanded: $viewModel.showsEarlier) {
+                VStack(spacing: 16) {
+                    ForEach(events) { event in
+                        NavigationLink(value: Route.game(event.id)) {
+                            GameCard(
+                                event: event, lineup: store.lineup(for: event), status: event.playedLine,
+                                time: EventFormat.cardTime(event), isMuted: true
+                            ) {
+                                Button("Report") { viewModel.reportTarget = .game(event.id) }
+                                    .pill(.secondary, expands: false)
+                                Button("Play again") { appViewModel.presentPlayAgain(event.id) }
+                                    .pill(.primary)
+                            }
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
-                .buttonStyle(.plain)
+                .padding(.top, 12)
+            } label: {
+                sectionTitle("Earlier · \(events.count)")
             }
+            .tint(Theme.ink)
+            .padding(.top, 8)
         }
     }
 
