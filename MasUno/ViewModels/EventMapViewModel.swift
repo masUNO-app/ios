@@ -273,10 +273,6 @@ final class EventMapViewModel {
         withAnimation(.smooth) { position = .region(MKCoordinateRegion(center: region.center, span: span)) }
     }
 
-    func join(_ id: UUID, in store: GameStore) {
-        Task { await store.join(id) }
-    }
-
     #if DEBUG
     /// `-screen popup` opens the popup for "After-work hoops"; `popup-saved` for a bookmarked game.
     func openDebugPopup() {

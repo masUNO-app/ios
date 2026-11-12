@@ -25,6 +25,9 @@ final class AppViewModel {
 
     var path: [Route] = []
     var sheet: Sheet?
+    /// The game you just took a spot in from the map or Saved. Its details open with your spot
+    /// still empty for a moment, so you see yourself land on the court.
+    private(set) var arrivingIn: UUID?
     private(set) var config = AppConfig.fallback
     private(set) var isUpdateRequired = false
     /// The campus onboarding talks about, when exactly one is open. Otherwise the copy stays generic.
@@ -67,6 +70,19 @@ final class AppViewModel {
 
     func presentPlayAgain(_ id: UUID) {
         sheet = .playAgain(id)
+    }
+
+    /// "Count me in" away from the game's own screen: takes the spot right away (spots are
+    /// first come, first served) and opens the game, where you're shown arriving.
+    func joinAndOpen(_ id: UUID, in store: GameStore) {
+        arrivingIn = id
+        Task { await store.join(id) }
+        path.append(.game(id))
+    }
+
+    /// The game's screen has shown you arriving.
+    func finishArriving() {
+        arrivingIn = nil
     }
 
     /// Back to the map from wherever you are ("Find a game").
@@ -124,7 +140,7 @@ final class AppViewModel {
     /// Jump straight to a screen for design review, e.g. launch with `-screen me`. Options:
     /// me, me-hosting, me-past, me-empty, me-cancelled, me-leave, repost, profile, settings, sign-out, delete-account,
     /// add, add-filled, form-error, edit, cancel-game, play-again, picker, gallery, detail-*,
-    /// spot-alert, who, block, report, report-sent, invite, leave, blocked, calendar, chat, chat-host, chat-rules,
+    /// join, spot-alert, who, block, report, report-sent, invite, leave, blocked, calendar, chat, chat-host, chat-rules,
     /// chat-new, chat-long, meetup, saved, filter, search, location, popup, popup-saved
     /// (popup, filter, search and location are handled by the map).
     func openDebugScreen(store: GameStore, mock: MockBackend) async {
@@ -186,6 +202,10 @@ final class AppViewModel {
             path = [.me(), .settings, .blockedPeople]
         case "calendar": path = [.game(IDs.going)]
         case "detail-open": path = [.game(IDs.open)]
+        case "join":
+            // "Count me in" on the map, once it has settled.
+            try? await Task.sleep(for: .seconds(1.5))
+            joinAndOpen(IDs.open, in: store)
         case "detail-in": path = [.game(IDs.going)]
         case "detail-full": path = [.game(IDs.full)]
         case "detail-hosting": path = [.game(IDs.hosting)]

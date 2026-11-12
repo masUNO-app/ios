@@ -4,6 +4,7 @@ import SwiftUI
 /// hear about shows "Spot alert is on" in place of "Count me in".
 struct SavedGamesSheet: View {
     @Environment(GameStore.self) private var store
+    @Environment(AppViewModel.self) private var appViewModel
     @Environment(\.dismiss) private var dismiss
     /// Opens a game's detail from the list.
     var onOpen: (UUID) -> Void
@@ -76,8 +77,8 @@ struct SavedGamesSheet: View {
                 .accessibilityHint(isOn ? "Turns the spot alert off" : "Tells you when a spot opens")
         } else {
             Button("Count me in") {
-                Task { await store.join(event.id) }
-                open(event)
+                dismiss()
+                appViewModel.joinAndOpen(event.id, in: store)
             }
             .pill(.primary)
         }

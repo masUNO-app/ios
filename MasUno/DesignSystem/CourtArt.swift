@@ -266,6 +266,8 @@ struct CourtHeader: View {
     /// Total spots to draw: the game's capacity.
     var capacity: Int
     var scale: CGFloat = 1
+    /// Keeps your spot open for a moment, so you're seen arriving ("Count me in" from the map).
+    var holdsYou = false
     /// Off once a game is over or cancelled: nobody's being invited any more.
     var showsOpenSpots = true
     var onTap: () -> Void = {}
@@ -349,6 +351,7 @@ struct CourtHeader: View {
         if lineup.isHostedByMe, let mine = kinds.firstIndex(of: .you), slots.featured < kinds.count {
             kinds.swapAt(mine, slots.featured)
         }
+        if holdsYou, let mine = kinds.firstIndex(of: .you) { kinds[mine] = .open }
         return kinds.enumerated()
             .map { Place(kind: $1, slot: $0) }
             .filter { showsOpenSpots || $0.kind != .open }

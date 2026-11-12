@@ -38,7 +38,7 @@ struct EventPopup: View {
         } else if event.isGoing {
             Button("View game") { appViewModel.path.append(.game(event.id)) }
         } else {
-            Button("Count me in") { viewModel.join(event.id, in: store) }
+            Button("Count me in") { appViewModel.joinAndOpen(event.id, in: store) }
         }
     }
 }
