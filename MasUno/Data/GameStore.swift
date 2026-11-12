@@ -31,10 +31,16 @@ final class GameStore {
     private var cache: [UUID: Game] = [:]
     private var mapIDs: [UUID] = []
     private var attendeesByGame: [UUID: [Attendee]] = [:]
+    /// Each game's going count when its attendees were last fetched, to spot a stale list.
+    @ObservationIgnored private var attendeeCounts: [UUID: Int] = [:]
     private var activityByGame: [UUID: [GameActivityEntry]] = [:]
     /// Games whose fetch came back `not_found`, so Event detail can say so.
     private var missingIDs: Set<UUID> = []
     private var savedIDs: Set<UUID> = []
+    /// Saved full games you asked to hear about when a spot opens. On the phone, like Saved.
+    private var spotAlertIDs: Set<UUID> = []
+    /// Cancelled games you removed from Going.
+    private var dismissedIDs: Set<UUID> = []
     private var unreadByGame: [UUID: Int] = [:]
 
     /// `app_config.chat_enabled`, set at launch. Off, group chat is the read-only hub (SPEC N14).
@@ -79,9 +85,11 @@ final class GameStore {
         }
     }
 
-    /// Upcoming games you joined, soonest first. Cancelled ones stay, with a chip.
+    /// Upcoming games you joined, soonest first. Cancelled ones stay until you remove them.
     func goingGames(now: Date = .now) -> [Game] {
-        visibleGames.filter { $0.myRole == .player && !$0.hasEnded(now: now) }.sorted { $0.startsAt < $1.startsAt }
+        visibleGames
+            .filter { $0.myRole == .player && !$0.hasEnded(now: now) && !($0.isCancelled && dismissedIDs.contains($0.id)) }
+            .sorted { $0.startsAt < $1.startsAt }
     }
 
     func hostedGames(now: Date = .now) -> [Game] {
@@ -107,6 +115,17 @@ final class GameStore {
 
     func isSaved(_ id: UUID) -> Bool {
         savedIDs.contains(id)
+    }
+
+    /// "Spot alert is on": you'll hear when this full game has room.
+    func hasSpotAlert(_ id: UUID) -> Bool {
+        spotAlertIDs.contains(id)
+    }
+
+    /// A game's people and open spots, for token rows and the court. Before Who's going has
+    /// loaded it's the host (and you, if you're in), with the rest as a count.
+    func lineup(for game: Game) -> Lineup {
+        Lineup(game: game, attendees: attendees(of: game.id), me: profile?.summary)
     }
 
     /// Who's going, minus anyone you just blocked. `goingCount` still includes them.
@@ -155,6 +174,8 @@ final class GameStore {
     func load() async {
         await loadProfile()
         savedIDs = readSavedIDs()
+        spotAlertIDs = readIDs(spotAlertKey).intersection(savedIDs)
+        dismissedIDs = readIDs(dismissedKey)
         async let activities: Void = loadActivities()
         async let blocked: Void = loadBlockedPeople()
         async let map: Void = refreshMap()
@@ -168,8 +189,9 @@ final class GameStore {
     func refresh() async {
         async let map: Void = refreshMap()
         async let mine: Void = refreshMyGames()
+        async let saved: Void = refreshSaved()
         async let unread: Void = refreshUnread()
-        _ = await (map, mine, unread)
+        _ = await (map, mine, saved, unread)
     }
 
     func refreshMap() async {
@@ -238,8 +260,20 @@ final class GameStore {
     func loadAttendees(_ id: UUID) async {
         do {
             attendeesByGame[id] = try await games.fetchAttendees(gameID: id)
+            attendeeCounts[id] = cache[id]?.goingCount
         } catch {
             noteFailure(domainError(error))
+        }
+    }
+
+    /// Who's going for the games a list is about to draw tokens for, skipping any that are loaded
+    /// and still match the game's count. Quiet: a failure just leaves the host's token and a count.
+    func loadMissingAttendees(for ids: [UUID]) async {
+        for id in ids where attendeesByGame[id] == nil || attendeeCounts[id] != cache[id]?.goingCount {
+            if Task.isCancelled { return }
+            guard let fetched = try? await games.fetchAttendees(gameID: id) else { continue }
+            attendeesByGame[id] = fetched
+            attendeeCounts[id] = cache[id]?.goingCount
         }
     }
 
@@ -284,6 +318,21 @@ final class GameStore {
             cache[game.id] = game
             missingIDs.remove(game.id)
         }
+        announceOpenedSpots(in: fetched)
+    }
+
+    /// A full game you asked about has room again: say so once, and turn the alert off.
+    private func announceOpenedSpots(in fetched: [Game]) {
+        guard !spotAlertIDs.isEmpty else { return }
+        for game in fetched where spotAlertIDs.contains(game.id) {
+            if game.isCancelled || game.hasEnded() || game.isGoing {
+                spotAlertIDs.remove(game.id)
+            } else if !game.isFull {
+                spotAlertIDs.remove(game.id)
+                notice = String(localized: "A spot just opened in \(game.title).")
+            }
+        }
+        write(spotAlertIDs, forKey: spotAlertKey)
     }
 
     // MARK: Join and leave
@@ -448,8 +497,35 @@ final class GameStore {
     // MARK: Saved (on the phone, N15)
 
     func toggleSaved(_ id: UUID) {
-        if savedIDs.contains(id) { savedIDs.remove(id) } else { savedIDs.insert(id) }
-        defaults.set(savedIDs.map(\.uuidString), forKey: savedKey)
+        if savedIDs.contains(id) {
+            savedIDs.remove(id)
+            spotAlertIDs.remove(id)
+            write(spotAlertIDs, forKey: spotAlertKey)
+        } else {
+            savedIDs.insert(id)
+            notice = String(localized: "Saved. Find it under bookmarks.")
+        }
+        write(savedIDs, forKey: savedKey)
+    }
+
+    /// "Alert me if a spot opens" on a full game. Turning it on saves the game too, so it's in
+    /// Saved games. The check runs on this phone whenever games load; there's no push yet.
+    func toggleSpotAlert(_ id: UUID) {
+        if spotAlertIDs.contains(id) {
+            spotAlertIDs.remove(id)
+        } else {
+            spotAlertIDs.insert(id)
+            savedIDs.insert(id)
+            write(savedIDs, forKey: savedKey)
+        }
+        write(spotAlertIDs, forKey: spotAlertKey)
+    }
+
+    /// "Remove" on a cancelled game in Going. The game is still cancelled on the server; this
+    /// only stops listing it here.
+    func dismissCancelled(_ id: UUID) {
+        dismissedIDs.insert(id)
+        write(dismissedIDs, forKey: dismissedKey)
     }
 
     private static let campusKey = "lastCampus"
@@ -459,12 +535,21 @@ final class GameStore {
         defaults.set(try? JSONEncoder().encode(campus), forKey: Self.campusKey)
     }
 
-    private var savedKey: String {
-        "savedGames.\(profile?.id.uuidString ?? "signedOut")"
-    }
+    private var accountKey: String { profile?.id.uuidString ?? "signedOut" }
+    private var savedKey: String { "savedGames.\(accountKey)" }
+    private var spotAlertKey: String { "spotAlerts.\(accountKey)" }
+    private var dismissedKey: String { "dismissedGames.\(accountKey)" }
 
     private func readSavedIDs() -> Set<UUID> {
-        Set((defaults.stringArray(forKey: savedKey) ?? []).compactMap(UUID.init(uuidString:)))
+        readIDs(savedKey)
+    }
+
+    private func readIDs(_ key: String) -> Set<UUID> {
+        Set((defaults.stringArray(forKey: key) ?? []).compactMap(UUID.init(uuidString:)))
+    }
+
+    private func write(_ ids: Set<UUID>, forKey key: String) {
+        defaults.set(ids.map(\.uuidString), forKey: key)
     }
 
     // MARK: Sign-out
@@ -474,9 +559,12 @@ final class GameStore {
         cache = [:]
         mapIDs = []
         attendeesByGame = [:]
+        attendeeCounts = [:]
         activityByGame = [:]
         missingIDs = []
         savedIDs = []
+        spotAlertIDs = []
+        dismissedIDs = []
         unreadByGame = [:]
         blockedPeople = []
         profile = nil

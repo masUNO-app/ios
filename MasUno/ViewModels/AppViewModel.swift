@@ -17,6 +17,8 @@ final class AppViewModel {
 
     enum Sheet: Identifiable, Hashable {
         case gameForm(editing: UUID?)
+        /// "Play again": a new game that starts from an earlier one's sport, place and details.
+        case playAgain(UUID)
 
         var id: Self { self }
     }
@@ -61,6 +63,16 @@ final class AppViewModel {
 
     func presentGameForm(editing id: UUID? = nil) {
         sheet = .gameForm(editing: id)
+    }
+
+    func presentPlayAgain(_ id: UUID) {
+        sheet = .playAgain(id)
+    }
+
+    /// Back to the map from wherever you are ("Find a game").
+    func showMap() {
+        sheet = nil
+        path = []
     }
 
     /// `masuno://game/<id>` → Event detail (1.0 notifications use this).
@@ -110,9 +122,11 @@ final class AppViewModel {
     }
 
     /// Jump straight to a screen for design review, e.g. launch with `-screen me`. Options:
-    /// me, me-hosting, repost, profile, settings, add, add-filled, form-error, edit, picker, gallery,
-    /// detail-*, who, report, blocked, calendar, chat, chat-host, chat-rules, chat-new, chat-long, meetup, saved, popup, popup-saved
-    /// (popup is handled in `EventMapViewModel`).
+    /// me, me-hosting, me-empty, me-cancelled, me-leave, repost, profile, settings, sign-out, delete-account,
+    /// location-settings, add, add-filled, form-error, edit, cancel-game, play-again, picker, gallery, detail-*,
+    /// spot-alert, who, block, report, report-sent, invite, leave, blocked, calendar, chat, chat-host, chat-rules,
+    /// chat-new, chat-long, meetup, saved, filter, search, location, popup, popup-saved
+    /// (popup, filter, search and location are handled by the map).
     func openDebugScreen(store: GameStore, mock: MockBackend) async {
         typealias IDs = MockFixtures.GameID
         let screen = UserDefaults.standard.string(forKey: "screen") ?? ""
@@ -150,7 +164,24 @@ final class AppViewModel {
             await store.refreshUnread()
             path = [.me()]
         case "chat-host", "meetup": path = [.chat(IDs.hosting)]
-        case "who", "report": path = [.game(IDs.open)]
+        case "who", "report", "report-sent", "block", "invite": path = [.game(IDs.open)]
+        case "leave": path = [.game(IDs.going)]
+        case "me-leave": path = [.me()]
+        case "me-empty":
+            // Nothing coming up: leave the one game the fixtures put you in.
+            await store.leave(IDs.going)
+            path = [.me()]
+        case "me-cancelled":
+            mock.cancelAsHost(id: IDs.going)
+            await store.refreshMyGames()
+            path = [.me()]
+        case "sign-out", "delete-account": path = [.me(), .settings]
+        case "location-settings": path = [.me(), .settings, .locationSettings]
+        case "cancel-game": presentGameForm(editing: IDs.hosting)
+        case "play-again": presentPlayAgain(IDs.ended)
+        case "spot-alert":
+            if !store.hasSpotAlert(IDs.full) { store.toggleSpotAlert(IDs.full) }
+            path = [.game(IDs.full)]
         case "blocked":
             await store.block(MockFixtures.sam)
             path = [.me(), .settings, .blockedPeople]
@@ -163,6 +194,8 @@ final class AppViewModel {
         case "detail-cancelled": path = [.game(IDs.cancelled)]
         case "saved", "popup-saved":
             if !store.isSaved(IDs.lastSpot) { store.toggleSaved(IDs.lastSpot) }
+            if screen == "saved", !store.hasSpotAlert(IDs.full) { store.toggleSpotAlert(IDs.full) }
+            store.notice = nil
         default: break
         }
     }

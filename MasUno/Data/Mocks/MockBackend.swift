@@ -82,6 +82,13 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         if game.isFull, game.autoRepost, !game.isCancelled { games[index].repostedAt = now }
     }
 
+    /// The host of a game you're in cancels it, from their own phone.
+    func cancelAsHost(id: UUID) {
+        guard let index = games.firstIndex(where: { $0.id == id }) else { return }
+        games[index].cancelledAt = now
+        log(.cancelled, id, actor: games[index].host)
+    }
+
     /// Someone else in the game posts from their own phone, and the chat channel says so.
     @discardableResult
     func receiveMessage(from sender: PersonSummary, in gameID: UUID, body: String) -> ChatMessage {

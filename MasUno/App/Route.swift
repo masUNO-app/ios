@@ -6,6 +6,8 @@ enum Route: Hashable {
     case chat(UUID)
     case settings
     case blockedPeople
+    case locationSettings
+    case guidelines
     case me(MeViewModel.Tab = .going, editsProfile: Bool = false)
     #if DEBUG
     case gallery
