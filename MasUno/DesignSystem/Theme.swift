@@ -44,6 +44,9 @@ enum Theme {
     static let scrim = ink.opacity(0.35)
     /// Soft red behind a destructive dialog's icon.
     static let destructiveSoft = destructive.opacity(0.12)
+    /// A map pin that stands for several games: darker than the soccer and accent greens, so it
+    /// reads as "more" rather than as one more game.
+    static let groupPin = accent.mix(with: .black, by: 0.35)
 
     // MARK: Metrics
 

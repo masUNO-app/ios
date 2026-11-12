@@ -80,6 +80,51 @@ struct EventPin: View {
     }
 }
 
+/// Games whose pins would cover each other on screen share this one: a dark green pin with how
+/// many, over a dot for each sport. Tapping it lists them.
+struct GroupPin: View {
+    var games: [Game]
+    var isDimmed: Bool
+
+    private static let markerSize = CGSize(width: 48, height: 60)
+    /// From the marker's top to the pin's point, as on `EventPin`.
+    private static let tipY: CGFloat = 54
+    private static let dotsHeight: CGFloat = 10
+    private static let spacing: CGFloat = 4
+    /// Puts the pin's point on the coordinate, as `EventPin.anchor` does.
+    static let anchor = UnitPoint(x: 0.5, y: (1 + tipY) / (markerSize.height + 1 + spacing + dotsHeight))
+
+    var body: some View {
+        let sports = Array(Set(games.map(\.activity))).sorted { $0.sortOrder < $1.sortOrder }
+
+        VStack(spacing: Self.spacing) {
+            PinMarker(color: Theme.groupPin) {
+                Text(verbatim: "\(games.count)")
+                    .font(.rounded(size: 20, .bold))
+                    .foregroundStyle(Theme.onAccent)
+            }
+            .frame(width: Self.markerSize.width, height: Self.markerSize.height, alignment: .top)
+            .padding(.top, 1)
+
+            HStack(spacing: 3) {
+                ForEach(sports) { sport in
+                    Circle()
+                        .fill(sport.color)
+                        .overlay(Circle().strokeBorder(.white, lineWidth: 1.5))
+                        .frame(width: Self.dotsHeight, height: Self.dotsHeight)
+                }
+            }
+            .frame(height: Self.dotsHeight)
+        }
+        .opacity(isDimmed ? 0.45 : 1)
+        .animation(.snappy, value: isDimmed)
+        .contentShape(.rect)
+        .accessibilityElement()
+        .accessibilityLabel(Text("\(games.count) games here"))
+        .accessibilityAddTraits(.isButton)
+    }
+}
+
 /// "You" marker: your token in a soft halo with a green dot (Figma "User location pin").
 struct UserPin: View {
     var name: String

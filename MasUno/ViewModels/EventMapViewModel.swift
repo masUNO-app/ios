@@ -84,6 +84,36 @@ final class EventMapViewModel {
         return games.filter { !$0.isBumped(now: now) } + games.filter { $0.isBumped(now: now) }
     }
 
+    /// Pins closer than this on screen cover most of each other's head, so they share a pin.
+    private static let overlap = CGSize(width: 40, height: 48)
+
+    /// Pins as drawn: games close enough to cover each other at this zoom share one group pin.
+    /// The selected game always keeps its own, for its popup.
+    func pinGroups(in store: GameStore, now: Date = .now, mapSize: CGSize) -> [PinGroup] {
+        let games = pinOrder(in: store, now: now)
+        guard let span = settledSpan, mapSize.width > 0, mapSize.height > 0 else {
+            return games.map { PinGroup(games: [$0]) }
+        }
+        let pointsPerLongitude = mapSize.width / span.longitudeDelta
+        let pointsPerLatitude = mapSize.height / span.latitudeDelta
+
+        var groups: [PinGroup] = []
+        for game in games {
+            let joins = game.id == selectedID ? nil : groups.firstIndex { group in
+                let first = group.games[0]
+                return first.id != selectedID
+                    && abs(first.coordinate.longitude - game.coordinate.longitude) * pointsPerLongitude < Self.overlap.width
+                    && abs(first.coordinate.latitude - game.coordinate.latitude) * pointsPerLatitude < Self.overlap.height
+            }
+            if let joins {
+                groups[joins].games.append(game)
+            } else {
+                groups.append(PinGroup(games: [game]))
+            }
+        }
+        return groups
+    }
+
     /// The search list: games with a spot that just opened first, then the soonest.
     func searchResults(in store: GameStore, now: Date = .now) -> [Game] {
         mapEvents(in: store, now: now).sorted {
@@ -175,6 +205,17 @@ final class EventMapViewModel {
             longitude: event.coordinate.longitude
         )
         withAnimation(.smooth) { position = .region(MKCoordinateRegion(center: center, span: span)) }
+    }
+
+    /// The games behind the group pin you tapped, listed in a sheet.
+    var groupedIDs: [UUID] = []
+
+    /// Zoom the pins were last grouped at. Only updated once the camera stops, so pins don't
+    /// merge and split while you pinch.
+    private var settledSpan: MKCoordinateSpan?
+
+    func cameraSettled(on region: MKCoordinateRegion) {
+        settledSpan = region.span
     }
 
     /// Tracks the visible region and closes the popup once its pin leaves the screen.
@@ -275,7 +316,20 @@ final class EventMapViewModel {
 
     #if DEBUG
     /// `-screen popup` opens the popup for "After-work hoops"; `popup-saved` for a bookmarked game.
-    func openDebugPopup() {
+    /// `groups` zooms out until pins merge; `groups-list` then opens the biggest group's list.
+    func openDebugPopup(in store: GameStore) {
+        if let screen = UserDefaults.standard.string(forKey: "screen"), screen.hasPrefix("groups") {
+            Task {
+                try? await Task.sleep(for: .seconds(1.5))
+                guard let region = visibleRegion else { return }
+                let span = MKCoordinateSpan(latitudeDelta: region.span.latitudeDelta * 4, longitudeDelta: region.span.longitudeDelta * 4)
+                withAnimation { position = .region(MKCoordinateRegion(center: region.center, span: span)) }
+                guard screen == "groups-list" else { return }
+                try? await Task.sleep(for: .seconds(2))
+                groupedIDs = mapEvents(in: store).prefix(3).map(\.id)
+            }
+            return
+        }
         let id: UUID? = switch UserDefaults.standard.string(forKey: "screen") {
         case "popup": MockFixtures.GameID.open
         case "popup-saved": MockFixtures.GameID.lastSpot
@@ -328,6 +382,23 @@ final class EventMapViewModel {
             if here.distance(from: there) > limit { return false }
         }
         return true
+    }
+}
+
+/// One pin on the map: a game, or several that would cover each other.
+struct PinGroup: Identifiable {
+    var games: [Game]
+
+    /// The first game's: a pin keeps its identity as others merge into it.
+    var id: UUID { games[0].id }
+
+    /// The middle of the games it stands for.
+    var coordinate: CLLocationCoordinate2D {
+        let count = Double(games.count)
+        return CLLocationCoordinate2D(
+            latitude: games.map(\.coordinate.latitude).reduce(0, +) / count,
+            longitude: games.map(\.coordinate.longitude).reduce(0, +) / count
+        )
     }
 }
 

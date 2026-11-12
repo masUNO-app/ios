@@ -12,6 +12,8 @@ struct EventMapView: View {
     @State private var screenSize: CGSize = .zero
     @State private var showsSaved = false
     @State private var showsFilters = false
+    /// The map's own size, full screen, to tell how close pins are on screen.
+    @State private var mapSize: CGSize = .zero
     /// Keeps When-In-Use location authorized while the map is up.
     @State private var locationSession: CLServiceSession?
     /// "See games near you", before the iOS prompt.
@@ -72,6 +74,9 @@ struct EventMapView: View {
         .sheet(isPresented: $showsSaved) {
             SavedGamesSheet { appViewModel.path.append(.game($0)) }
         }
+        .sheet(isPresented: Binding(get: { !viewModel.groupedIDs.isEmpty }, set: { if !$0 { viewModel.groupedIDs = [] } })) {
+            PinGroupSheet(gameIDs: viewModel.groupedIDs, viewModel: viewModel) { appViewModel.path.append(.game($0)) }
+        }
         .sheet(isPresented: $showsFilters) {
             FilterSheet(viewModel: viewModel)
         }
@@ -119,7 +124,7 @@ struct EventMapView: View {
         .animation(.spring(duration: 0.4, bounce: 0.22), value: viewModel.selectedID)
         .animation(.snappy, value: isSearching)
         #if DEBUG
-        .onAppear { viewModel.openDebugPopup() }
+        .onAppear { viewModel.openDebugPopup(in: store) }
         #endif
         // Make room for the popup above a newly selected pin, like a map callout.
         .onChange(of: viewModel.selectedID) { _, id in
@@ -142,6 +147,35 @@ struct EventMapView: View {
 
     // MARK: Map
 
+    @MapContentBuilder
+    private func eventPin(_ event: Game, now: Date) -> some MapContent {
+        let isSelected = viewModel.selectedID == event.id
+        Annotation(event.title, coordinate: event.coordinate, anchor: EventPin.anchor(for: event, now: now)) {
+            EventPin(
+                event: event,
+                people: Array(store.lineup(for: event).people.prefix(3)),
+                now: now,
+                isSelected: isSelected,
+                isDimmed: viewModel.selectedID != nil && !isSelected
+            )
+            // Annotation content doesn't inherit the environment.
+            .environment(\.currentUserID, store.profile?.id)
+            .fontDesign(.rounded)
+        }
+        .annotationTitles(.hidden)
+        .tag(event.id)
+    }
+
+    /// Not selectable: tapping lists its games instead of opening a popup.
+    private func groupPin(_ group: PinGroup) -> some MapContent {
+        Annotation(String(localized: "\(group.games.count) games here"), coordinate: group.coordinate, anchor: GroupPin.anchor) {
+            GroupPin(games: group.games, isDimmed: viewModel.selectedID != nil)
+                .fontDesign(.rounded)
+                .onTapGesture { viewModel.groupedIDs = group.games.map(\.id) }
+        }
+        .annotationTitles(.hidden)
+    }
+
     private func map(now: Date) -> some View {
         @Bindable var viewModel = viewModel
 
@@ -158,22 +192,12 @@ struct EventMapView: View {
                 }
             }
 
-            ForEach(viewModel.pinOrder(in: store, now: now)) { event in
-                let isSelected = viewModel.selectedID == event.id
-                Annotation(event.title, coordinate: event.coordinate, anchor: EventPin.anchor(for: event, now: now)) {
-                    EventPin(
-                        event: event,
-                        people: Array(store.lineup(for: event).people.prefix(3)),
-                        now: now,
-                        isSelected: isSelected,
-                        isDimmed: viewModel.selectedID != nil && !isSelected
-                    )
-                    // Annotation content doesn't inherit the environment.
-                    .environment(\.currentUserID, store.profile?.id)
-                    .fontDesign(.rounded)
+            ForEach(viewModel.pinGroups(in: store, now: now, mapSize: mapSize)) { group in
+                if group.games.count == 1, let event = group.games.first {
+                    eventPin(event, now: now)
+                } else {
+                    groupPin(group)
                 }
-                .annotationTitles(.hidden)
-                .tag(event.id)
             }
 
             // The popup is its own annotation on the pin's coordinate, so MapKit moves it with
@@ -205,7 +229,11 @@ struct EventMapView: View {
             let selected = viewModel.selectedID.flatMap { store.game($0) }
             viewModel.cameraChanged(to: context.region, selected: selected)
         }
+        .onMapCameraChange(frequency: .onEnd) { context in
+            viewModel.cameraSettled(on: context.region)
+        }
         .ignoresSafeArea()
+        .onGeometryChange(for: CGSize.self) { $0.size } action: { mapSize = $0 }
     }
 
     /// 16 pt from each edge on a phone, as in the Figma; never wider than the Figma card.
@@ -300,7 +328,7 @@ struct EventMapView: View {
                                 isSearchFocused = false
                                 appViewModel.path.append(.game(event.id))
                             } label: {
-                                resultRow(event)
+                                GameListRow(event: event, line: viewModel.resultLine(for: event))
                             }
                             .buttonStyle(.plain)
                         }
@@ -313,28 +341,6 @@ struct EventMapView: View {
             }
         }
         .transition(.opacity)
-    }
-
-    private func resultRow(_ event: Game) -> some View {
-        HStack(spacing: 14) {
-            ActivityTile(sport: event.activity)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(verbatim: event.title)
-                    .font(.rounded(.body))
-                    .foregroundStyle(Theme.ink)
-                Text(verbatim: viewModel.resultLine(for: event))
-                    .font(.rounded(.footnote))
-                    .foregroundStyle(Theme.muted)
-            }
-            .lineLimit(1)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            Image(systemName: "chevron.right")
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(Theme.muted.opacity(0.6))
-        }
-        .padding(.horizontal, 14)
-        .frame(height: 68)
-        .contentShape(.rect)
     }
 
     /// Clears the query and puts the keyboard away; with a vertical bar, hides the field too.
