@@ -146,7 +146,7 @@ struct EventDetailView: View {
             // `-screen who|report|invite|calendar|leave`: open a sheet or dialog on this game.
             switch UserDefaults.standard.string(forKey: "screen") {
             case "who", "block": viewModel.showsWhoIsGoing = true
-            case "report": viewModel.reportTarget = .person(event.host)
+            case "report", "report-sent": viewModel.reportTarget = .person(event.host)
             case "invite": viewModel.showsInvite = true
             case "calendar": viewModel.addsToCalendar = true
             case "leave": viewModel.leaving = event

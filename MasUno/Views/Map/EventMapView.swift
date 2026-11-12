@@ -421,6 +421,10 @@ struct EventMapView: View {
     /// Asks with our own card before the iOS prompt, the first time the map opens (C11).
     /// Once the answer is known, keeps location on while the map is up.
     private func startLocation() {
+        #if DEBUG
+        // `-screen location` shows the primer even with a mocked location or permission given.
+        if UserDefaults.standard.string(forKey: "screen") == "location" { return asksForLocation = true }
+        #endif
         guard LocationService.mockCoordinate == nil, locationSession == nil else { return }
         switch CLLocationManager().authorizationStatus {
         case .notDetermined:
