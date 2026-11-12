@@ -13,6 +13,7 @@ struct DomainModelTests {
         ("invalid_text", .invalidText), ("invalid_input", .invalidInput),
         ("not_authenticated", .notAuthenticated), ("suspended", .suspended),
         ("email_not_allowed", .emailNotAllowed),
+        ("pending_approval", .pendingApproval),
     ])
     func serverCodesMap(code: String, error: DomainError) {
         #expect(DomainError(serverCode: code) == error)
@@ -265,6 +266,35 @@ struct MockAuthTests {
         #expect(auth.state == .signedOut(expired: false))
     }
 
+    /// N36: a school address signs up with a password and waits for the team.
+    @Test func passwordSignUpWaitsForApproval() async throws {
+        let auth = MockBackend(state: .signedOut(expired: false))
+        await #expect(throws: DomainError.emailNotAllowed) { try await auth.signUp(email: "someone@gmail.com", password: "long-enough") }
+        #expect(auth.state == .signedOut(expired: false))
+
+        try await auth.signUp(email: "A0123@tec.mx", password: "long-enough")
+        #expect(auth.state == .pendingApproval)
+        await #expect(throws: DomainError.pendingApproval) { try await auth.completeProfile(input) }
+        await #expect(throws: DomainError.emailTaken) { try await auth.signUp(email: "a0123@tec.mx", password: "another-one") }
+
+        // Still waiting after signing out and back in.
+        try await auth.signOut()
+        await #expect(throws: DomainError.invalidCredentials) { try await auth.signIn(email: "a0123@tec.mx", password: "wrong") }
+        try await auth.signIn(email: "a0123@tec.mx", password: "long-enough")
+        #expect(auth.state == .pendingApproval)
+        try await auth.refreshStatus()
+        #expect(auth.state == .pendingApproval)
+
+        auth.approveSignUp()
+        try await auth.refreshStatus()
+        #expect(auth.state == .needsProfile)
+        try await auth.completeProfile(input)
+        try await auth.acceptGuidelines()
+        try await auth.signOut()
+        try await auth.signIn(email: "a0123@tec.mx", password: "long-enough")
+        #expect(auth.state == .signedIn(userID: auth.me.id))
+    }
+
     @Test func reviewAccountUsesAPassword() async throws {
         let auth = MockBackend(state: .signedOut(expired: false))
         await #expect(throws: DomainError.invalidCredentials) {
@@ -470,24 +500,81 @@ struct OnboardingFlowTests {
 
     @Test func comingBackPicksUpWhereTheSessionIs() {
         #expect(model(.signedOut(expired: false)).0.path.isEmpty)
-        #expect(model(.signedOut(expired: true)).0.path == [.findSchool])
+        #expect(model(.signedOut(expired: true)).0.path == [.signIn])
+        #expect(model(.pendingApproval).0.path == [.pending])
         #expect(model(.needsProfile).0.path == [.about])
         #expect(model(.needsProfile).0.firstName == "Emilio")
         #expect(model(.needsGuidelines).0.path == [.guidelines])
     }
 
-    @Test func reviewAccountSignsInWithoutTheSchoolPage() async {
+    @Test func reviewAccountSignsInWithAPassword() async {
         let (model, auth) = model()
         model.email = " \(MockFixtures.reviewEmail.uppercased()) "
         model.password = MockFixtures.reviewPassword
-        await model.submitReviewAccount()
+        await model.submitSignIn()
         #expect(auth.state == .signedIn(userID: auth.me.id))
 
         let (wrong, _) = self.model()
         wrong.email = MockFixtures.reviewEmail
         wrong.password = "nope"
-        await wrong.submitReviewAccount()
-        #expect(wrong.reviewError == "That email and password don't match.")
+        await wrong.submitSignIn()
+        #expect(wrong.signInError == "That email and password don't match.")
+    }
+
+    /// N36: Create account → We're checking your account → (approved) → You're in → profile.
+    @Test func newStudentSignsUpWaitsAndGetsIn() async {
+        let (model, auth) = model()
+        model.path.append(.locationPrimer)
+        model.continueFromPrimer()
+        model.createAccount()
+        #expect(!model.isSignInSheetPresented)
+        #expect(model.path == [.locationPrimer, .signUp])
+
+        model.email = " A0123@Tec.mx "
+        model.password = "short"
+        await model.submitSignUp()
+        #expect(model.passwordError == "Pick a stronger password: at least 8 characters.")
+        #expect(auth.state == .signedOut(expired: false))
+
+        model.password = "long-enough"
+        await model.submitSignUp()
+        #expect(model.passwordError == nil)
+        #expect(auth.state == .pendingApproval)
+        #expect(model.path == [.pending])
+        #expect(model.password.isEmpty)
+
+        await model.checkApproval()
+        #expect(model.isStillPending)
+        #expect(model.path == [.pending])
+
+        auth.approveSignUp()
+        await model.checkApproval()
+        #expect(auth.state == .needsProfile)
+        #expect(model.path == [.verified])
+    }
+
+    @Test func signUpNamesTheCampusWhenTheAddressIsNotAllowed() async {
+        let (model, auth) = model()
+        model.email = "someone@gmail.com"
+        model.password = "long-enough"
+        await model.submitSignUp()
+        #expect(model.signUpError == "masUNO is just for Tec students right now. Use your Tec school account.")
+        #expect(auth.state == .signedOut(expired: false))
+    }
+
+    @Test func waitingStudentCanSignOutAndComeBack() async {
+        let (model, auth) = model()
+        model.email = "a0123@tec.mx"
+        model.password = "long-enough"
+        await model.submitSignUp()
+        await model.signOutWhilePending()
+        #expect(auth.state == .signedOut(expired: false))
+        #expect(model.path.isEmpty)
+
+        model.haveAnAccount()
+        model.password = "long-enough"
+        await model.submitSignIn()
+        #expect(model.path == [.pending])
     }
 
     @Test func nameFromSignInNeverReplacesWhatYouTyped() async {
@@ -560,6 +647,7 @@ struct LiveContractTests {
     @Test func myProfileDecidesTheNextStep() throws {
         let id = UUID()
         #expect(AuthState(profile: nil, userID: id) == .needsProfile)
+        #expect(AuthState(profile: nil, isPending: true, userID: id) == .pendingApproval)
         let new: ProfileStatusRow = try decode(#"{"guidelines_accepted_at":null,"banned_at":null}"#)
         #expect(AuthState(profile: new, userID: id) == .needsGuidelines)
         let done: ProfileStatusRow = try decode(#"{"guidelines_accepted_at":"2026-11-07T00:00:00Z","banned_at":null}"#)

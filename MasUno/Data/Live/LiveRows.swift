@@ -109,11 +109,12 @@ nonisolated struct ProfileStatusRow: Decodable, Sendable {
 }
 
 extension AuthState {
-    /// `row` is nil until `complete_profile` has run. A ban comes first, so a banned account
-    /// never lands on a step it can't finish.
-    init(profile row: ProfileStatusRow?, userID: UUID) {
+    /// `row` is nil until `complete_profile` has run, which an account can't do while it waits
+    /// for approval (`signup_status`). A ban comes first, so a banned account never lands on a
+    /// step it can't finish.
+    init(profile row: ProfileStatusRow?, isPending: Bool = false, userID: UUID) {
         guard let row else {
-            self = .needsProfile
+            self = isPending ? .pendingApproval : .needsProfile
             return
         }
         if row.bannedAt != nil {

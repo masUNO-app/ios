@@ -1,9 +1,11 @@
 import SwiftUI
 
 /// Onboarding (E5, SPEC §7.5), built from the spec copy; 1.0 restyles it from Arianna's D2 frames.
-/// Welcome → Location primer → Sign in to join (sheet) → Find your school → the school's own page
-/// (system web sheet) → You're verified → about you → interests → community guidelines → map.
+/// Welcome → Location primer → Sign in to join (sheet) → Create account (school email + password)
+/// → We're checking your account (the team approves by hand, N36) → You're in → about you →
+/// interests → community guidelines → map. Coming back: Sign in.
 /// `AuthService` moves the session along; when it reaches signed in, the root swaps to the map.
+/// `FindSchoolStep` (school SSO) is kept but nothing navigates to it.
 struct OnboardingFlow: View {
     @Environment(AppViewModel.self) private var appViewModel
     @State private var viewModel: OnboardingViewModel
@@ -21,8 +23,10 @@ struct OnboardingFlow: View {
                     Group {
                         switch step {
                         case .locationPrimer: LocationPrimerStep(viewModel: viewModel)
+                        case .signUp: SignUpStep(viewModel: viewModel)
+                        case .signIn: SignInStep(viewModel: viewModel)
+                        case .pending: PendingStep(viewModel: viewModel)
                         case .findSchool: FindSchoolStep(viewModel: viewModel)
-                        case .reviewAccount: ReviewAccountStep(viewModel: viewModel)
                         case .verified: VerifiedStep(viewModel: viewModel)
                         case .about: AboutStep(viewModel: viewModel)
                         case .interests: InterestsStep(viewModel: viewModel)
@@ -60,7 +64,7 @@ struct OnboardingFlow: View {
     }
 
     #if DEBUG
-    /// `-screen onboarding-primer|sheet|school|review|verified|about|interests|guidelines`
+    /// `-screen onboarding-primer|sheet|signup|signin|pending|school|verified|about|interests|guidelines`
     /// opens a step with sample input.
     private func openDebugStep() {
         guard let step = UserDefaults.standard.string(forKey: "screen"), step.hasPrefix("onboarding-") else { return }
@@ -72,8 +76,10 @@ struct OnboardingFlow: View {
         case "sheet":
             viewModel.path = [.locationPrimer]
             viewModel.continueFromPrimer()
+        case "signup": viewModel.path = [.locationPrimer, .signUp]
+        case "signin", "review": viewModel.path = [.locationPrimer, .signIn]
+        case "pending": viewModel.path = [.pending]
         case "school": viewModel.path = [.locationPrimer, .findSchool]
-        case "review": viewModel.path = [.locationPrimer, .findSchool, .reviewAccount]
         case "verified": viewModel.path = [.verified]
         case "about": viewModel.path = [.about]
         case "interests": viewModel.path = [.about, .interests]
@@ -116,11 +122,11 @@ private struct SignInSheet: View {
             Text("Quick check before you join")
                 .font(.title2.bold())
                 .foregroundStyle(Theme.ink)
-            Text("Sign in with your school account so other players know you're a verified student. Takes about 30 seconds.")
+            Text("Create an account with your school email so other players know you're a real student. We approve each one by hand.")
                 .foregroundStyle(Theme.muted)
             Spacer(minLength: 8)
-            PrimaryAction("Find my school") { viewModel.findMySchool() }
-            Button("Not now") { viewModel.isSignInSheetPresented = false }
+            PrimaryAction("Create account") { viewModel.createAccount() }
+            Button("I already have an account") { viewModel.haveAnAccount() }
                 .buttonStyle(.glassProminent)
                 .tint(Theme.accentSoft)
                 .foregroundStyle(Theme.ink)
@@ -136,6 +142,105 @@ private struct SignInSheet: View {
     }
 }
 
+/// Create account: school email and a password. The server decides which addresses may sign up.
+private struct SignUpStep: View {
+    @Bindable var viewModel: OnboardingViewModel
+
+    var body: some View {
+        OnboardingPage(title: "Create your account", message: viewModel.signUpMessage) {
+            FieldBox("School email", error: viewModel.signUpError) {
+                TextField(viewModel.emailPlaceholder, text: $viewModel.email)
+                    .keyboardType(.emailAddress)
+                    .textContentType(.username)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+            }
+            FieldBox("Password", error: viewModel.passwordError) {
+                SecureField("At least 8 characters", text: $viewModel.password)
+                    .textContentType(.newPassword)
+                    .onSubmit { Task { await viewModel.submitSignUp() } }
+            }
+        } footer: {
+            VStack(spacing: 12) {
+                PrimaryAction("Create account", isWorking: viewModel.isWorking) { Task { await viewModel.submitSignUp() } }
+                    .disabled(viewModel.email.isEmpty || viewModel.password.isEmpty)
+                Button("I already have an account") { viewModel.path = [.locationPrimer, .signIn] }
+                    .font(.footnote)
+                    .tint(Theme.muted)
+            }
+        }
+    }
+}
+
+/// Sign in, for students and for the review and demo accounts.
+private struct SignInStep: View {
+    @Environment(AppViewModel.self) private var appViewModel
+    @Bindable var viewModel: OnboardingViewModel
+
+    var body: some View {
+        OnboardingPage(title: "Sign in", message: "Welcome back. Use the email and password you signed up with.") {
+            FieldBox("Email") {
+                TextField(viewModel.emailPlaceholder, text: $viewModel.email)
+                    .keyboardType(.emailAddress)
+                    .textContentType(.username)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+            }
+            FieldBox("Password", error: viewModel.signInError) {
+                SecureField("Password", text: $viewModel.password)
+                    .textContentType(.password)
+                    .onSubmit { Task { await viewModel.submitSignIn() } }
+            }
+            // No reset email yet: the team resets a password by hand.
+            if let mail = appViewModel.config.supportMailURL {
+                Link("Forgot your password? Contact us", destination: mail)
+                    .font(.footnote)
+                    .tint(Theme.muted)
+            }
+        } footer: {
+            VStack(spacing: 12) {
+                PrimaryAction("Sign in", isWorking: viewModel.isWorking) { Task { await viewModel.submitSignIn() } }
+                    .disabled(viewModel.email.isEmpty || viewModel.password.isEmpty)
+                Button("Create an account") { viewModel.path = [.locationPrimer, .signUp] }
+                    .font(.footnote)
+                    .tint(Theme.muted)
+            }
+        }
+    }
+}
+
+/// We're checking your account: the team approves each sign-up by hand (N36). Checks again
+/// whenever the app comes back to the front.
+private struct PendingStep: View {
+    @Environment(\.scenePhase) private var scenePhase
+    var viewModel: OnboardingViewModel
+
+    var body: some View {
+        OnboardingPage(
+            systemImage: "hourglass",
+            title: "We're checking your account",
+            message: "We approve each account by hand, usually within a day. You don't need to do anything — just come back later."
+        ) {
+            if let error = viewModel.pendingError {
+                Text(error).font(.caption).foregroundStyle(Theme.error)
+            } else if viewModel.isStillPending {
+                Text("Not yet. We'll get to it soon.").font(.footnote).foregroundStyle(Theme.muted)
+            }
+        } footer: {
+            VStack(spacing: 12) {
+                PrimaryAction("Check again", isWorking: viewModel.isWorking) { Task { await viewModel.checkApproval() } }
+                Button("Sign out") { Task { await viewModel.signOutWhilePending() } }
+                    .font(.footnote)
+                    .tint(Theme.muted)
+            }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { Task { await viewModel.checkApproval(quietly: true) } }
+        }
+    }
+}
+
+/// School SSO. Not shown while sign-in is email and password (N36).
 private struct FindSchoolStep: View {
     @Bindable var viewModel: OnboardingViewModel
 
@@ -168,8 +273,7 @@ private struct FindSchoolStep: View {
                     Task { await viewModel.continueWithSchool() }
                 }
                 .disabled(viewModel.selectedSchool == nil)
-                // A small visible link, not a hidden one: App Review may need it (SPEC §8.4).
-                Button("Use a review account") { viewModel.path.append(.reviewAccount) }
+                Button("Use email and password") { viewModel.path.append(.signIn) }
                     .font(.footnote)
                     .tint(Theme.muted)
             }
@@ -224,41 +328,13 @@ private struct SchoolRow: View {
     }
 }
 
-/// For App Review and demo days. Sign-in only: only an allowlisted account can pass (SPEC §8.4).
-private struct ReviewAccountStep: View {
-    @Bindable var viewModel: OnboardingViewModel
-
-    var body: some View {
-        OnboardingPage(
-            title: "Review account",
-            message: "For App Review and demos. Students sign in with their school account."
-        ) {
-            FieldBox("Email") {
-                TextField("Email", text: $viewModel.email)
-                    .keyboardType(.emailAddress)
-                    .textContentType(.username)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-            }
-            FieldBox("Password", error: viewModel.reviewError) {
-                SecureField("Password", text: $viewModel.password)
-                    .textContentType(.password)
-                    .onSubmit { Task { await viewModel.submitReviewAccount() } }
-            }
-        } footer: {
-            PrimaryAction("Sign in", isWorking: viewModel.isWorking) { Task { await viewModel.submitReviewAccount() } }
-                .disabled(viewModel.email.isEmpty || viewModel.password.isEmpty)
-        }
-    }
-}
-
 private struct VerifiedStep: View {
     var viewModel: OnboardingViewModel
 
     var body: some View {
         OnboardingPage(
             systemImage: "checkmark.shield",
-            title: "You're verified",
+            title: "You're in",
             message: viewModel.verifiedMessage
         ) {
             EmptyView()

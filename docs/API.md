@@ -4,7 +4,8 @@ The boundary between the app and Supabase (SPEC §8.5), matched by the Swift pro
 `MasUno/Data/` and the models in `MasUno/Models/`. A change to either side is one PR reviewed
 by both coders. If this file and the spec disagree, this file wins.
 
-**Status: frozen Fri Nov 6; sign-in amended the same day (SPEC N33).** The backend (PR #12) and the live
+**Status: frozen Fri Nov 6; sign-in amended the same day (SPEC N33) and again Nov 11 (SPEC N36: email and
+password with manual approval; school SSO kept but unused).** The backend (PR #12) and the live
 repositories (B7) are built to this file and checked against `masuno-dev` by `LiveIntegrationTests`. From here
 on, a change is a new migration plus the matching Swift change.
 
@@ -27,6 +28,7 @@ An RPC fails with `raise exception '<code>'`, so PostgREST returns the code as `
 | --- | --- | --- |
 | `not_authenticated` | `.notAuthenticated` | No valid session. Any RPC. |
 | `suspended` | `.suspended` | `banned_at` is set. Any write RPC. The app shows the suspended screen. |
+| `pending_approval` | `.pendingApproval` | The account signed up with a password and the team hasn't approved it yet (N36). Any write RPC, including `complete_profile`. The app shows "We're checking your account". |
 | `full` | `.full` | No spots left. |
 | `cancelled` | `.cancelled` | The game is cancelled. |
 | `ended` | `.ended` | The game has ended. |
@@ -55,7 +57,9 @@ These come from Supabase Auth and the auth hook, not from RPCs. `AuthService` (B
 | Callback says consent was denied or is required | `.schoolApprovalNeeded` (new) |
 | Any other error from the web sheet or callback | `.signInFailed` (new) |
 | `over_request_rate_limit` | `.tooManyAttempts` |
-| `invalid_credentials` (review accounts) | `.invalidCredentials` |
+| `invalid_credentials` | `.invalidCredentials` |
+| `user_already_exists` or `email_exists` on sign-up | `.emailTaken` (new, N36) |
+| `weak_password` on sign-up | `.weakPassword` (new, N36) |
 
 OAuth failures come back in the callback URL's `error`, `error_code` and `error_description`, and
 `auth.signInWithOAuth` throws them as `AuthError.pkceGrantCodeExchange`. B5 checks the exact text for a
@@ -230,22 +234,45 @@ checks every 15 seconds while a chat is open, in case the channel is down.
 
 ## Sign-in
 
+Email and password, with each new account approved by hand (SPEC N36). School SSO is below as "kept, unused".
+
+1. **Create account:** `auth.signUp(email, password)`. The Before User Created hook lets through a school
+   address at an open campus (`universities.email_domain`, `signup_enabled`, not `is_demo`, `student_email_pattern`)
+   and refuses anything else with `email_not_allowed`. For a school address it also adds a row to
+   `private.signup_requests` and posts "New sign-up waiting for approval" to the team Discord. "Confirm email" is
+   off, so `signUp` returns a session straight away. The app checks 8 characters before sending.
+2. **Sign in:** `auth.signInWithPassword(email, password)`, for students and for the `auth_allowlist` accounts.
+3. **Next step:** `my_profile` first. No row → RPC `signup_status()` (returns `'pending'` or `'approved'`, raises
+   `not_authenticated`): `'pending'` → `.pendingApproval` ("We're checking your account"), otherwise
+   `.needsProfile`. With a row: `banned_at` set → `.suspended`; `guidelines_accepted_at` null →
+   `.needsGuidelines`; otherwise `.signedIn`.
+4. **While pending:** every write RPC raises `pending_approval`, so there's no profile, and without a profile RLS
+   shows nothing. The app asks again (`AuthService.refreshStatus()`) on "Check again" and whenever it comes back
+   to the front. Once approved it shows "You're in", then Set up profile.
+5. **Approving** is the team's job, in the SQL editor: `select private.approve_signup('<email>');` or
+   `select private.reject_signup('<email>');` (deletes the unapproved account). Both lines are in the Discord
+   alert. See `supabase/README.md`, "Sign-up approvals".
+
+There's no password reset email: Sign in links to Contact us, and the team resets a password in the dashboard.
+
+Allowlisted accounts (`auth_allowlist`: `email`, `note`, `university_id`, usually the demo campus) never wait
+for approval, and `complete_profile` places them on their campus. They're password accounts Emilio created
+with the email already confirmed.
+
+### School SSO (kept, unused)
+
+Tec IT hasn't approved the Entra app, so nothing in the app opens this path. The code stays for the day a
+school does: `AuthService.signIn(at:)`, `OnboardingViewModel.continueWithSchool()` and `FindSchoolStep`, plus
+the SSO branch of the hook.
+
 1. Find your school reads `university_lookup`. `sso_provider` picks the provider and hint: `azure` →
    `.azure` with `domain_hint=<email_domain>`; `google` → `.google` with `hd=<email_domain>`.
 2. School account, on supabase-swift v2 with its default PKCE flow:
    `auth.signInWithOAuth(provider: .azure, redirectTo: masuno://auth-callback, scopes: "openid email profile", queryParams: [(name: "domain_hint", value: <email_domain>)], configure: { $0.prefersEphemeralWebBrowserSession = true })`.
    The SDK opens `ASWebAuthenticationSession`, takes the callback scheme from `redirectTo`, finishes the exchange and
-   returns the session. Don't call `start()` in `configure`; the SDK does. The app has no domain list of its own, and the school picked in the app
-   isn't trusted: the auth hook checks the provider and the email on the server (SPEC §8.4). Set up profile
-   fills in the name from `user_metadata`, editable (B21 confirms the keys).
-3. Review account (only from **Use a review account**): `auth.signInWithPassword(email, password)`. Works only for
-   `auth_allowlist` addresses. The app never calls `auth.signUp`, and the hook refuses any other address.
-4. Next step from `my_profile`: no row → `.needsProfile` (You're verified comes first); `banned_at` set → `.suspended`;
-   `guidelines_accepted_at` null → `.needsGuidelines`; otherwise `.signedIn`.
-
-Review accounts: `auth_allowlist` has `email`, `note` and `university_id` (usually the demo campus), so
-`complete_profile` can place them. They're either a Tec test account or a password account Emilio created
-with the email already confirmed.
+   returns the session. Don't call `start()` in `configure`; the SDK does. The school picked in the app
+   isn't trusted: the auth hook checks the provider and the email on the server (SPEC §8.4). An SSO account
+   needs no approval.
 
 ## Edge Functions
 

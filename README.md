@@ -88,14 +88,13 @@ Group chat messaging (E26) is built and follows `app_config.chat_enabled` on the
 Placeholders that still need a real answer. Card IDs refer to SPEC §5.
 
 ### Waiting on backend
-- [ ] School sign-in for real students: the Entra ID app and Tec's tenant (B21, B22, K19). The last blocker for 0.5.
+- [x] Sign-in for real students: school email and password, approved by hand from the Discord alert (N36). On `masuno-dev`; `masuno-prod` needs the `20261111000000` migration. School SSO (B21, B22, K19) is kept in the code, unused, in case Tec IT approves the Entra app.
 - [ ] Group chat messaging (E26, B20) is built, and on `masuno-dev` with chat on. Run QA §6 there with two phones. Then
       apply `20261110000000_group_chat` to prod, turn `chat_enabled` on there and run QA §6 again (`supabase/README.md`).
 
 ### Waiting on the team
 - [ ] Final app icon (D3): the one in the icon set is a temporary one from the designer; launch color uses `Background`
 - [ ] Privacy & Terms page live at `masuno-app.github.io/privacy` (D4): the app already links to it
-- [ ] `AppConfig.appStoreID` from App Store Connect (E15): Invite a friend stays hidden in Release until it's set
 - [ ] Version is 0.6 in `project.yml`. If 0.5 is still to be archived from this tree, set `MARKETING_VERSION` back to 0.5 for that archive
 - [ ] "Verified student" vs "Tec verified" (O4), real venues in `MockFixtures` for screenshots (O5)
 

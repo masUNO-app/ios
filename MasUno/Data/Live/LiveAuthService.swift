@@ -3,8 +3,9 @@ import Foundation
 import Observation
 import Supabase
 
-/// The live `AuthService` (B5, SPEC §8.4). Students sign in on their school's own page; masUNO
-/// never sees the password. The auth hook on the server decides who gets in.
+/// The live `AuthService` (B5, SPEC §8.4). Students sign up with their school email and a
+/// password, and wait for the team to approve the account (N36). The auth hook on the server
+/// decides which addresses may sign up. School SSO (`signIn(at:)`) is kept but unused.
 @Observable
 final class LiveAuthService: AuthService {
     private(set) var state = AuthState.loading
@@ -73,10 +74,30 @@ final class LiveAuthService: AuthService {
         }
     }
 
+    func signUp(email: String, password: String) async throws {
+        do {
+            let response = try await client.auth.signUp(email: email, password: password)
+            // No session means the project has "Confirm email" on, which this flow doesn't use
+            // (supabase/README, hosted checklist).
+            guard let session = response.session else { throw DomainError.signInFailed }
+            try await refreshState(userID: session.user.id)
+        } catch {
+            throw translate(error)
+        }
+    }
+
     func signIn(email: String, password: String) async throws {
         do {
             let session = try await client.auth.signIn(email: email, password: password)
             try await refreshState(userID: session.user.id)
+        } catch {
+            throw translate(error)
+        }
+    }
+
+    func refreshStatus() async throws {
+        do {
+            try await refreshState()
         } catch {
             throw translate(error)
         }
@@ -133,7 +154,13 @@ final class LiveAuthService: AuthService {
             .select("guidelines_accepted_at,banned_at")
             .execute()
             .value
-        state = AuthState(profile: rows.first, userID: id)
+        // Only an account without a profile can still be waiting for approval.
+        var isPending = false
+        if rows.isEmpty {
+            let status: String = try await client.rpc("signup_status").execute().value
+            isPending = status == "pending"
+        }
+        state = AuthState(profile: rows.first, isPending: isPending, userID: id)
     }
 
     /// The session is gone. If there was an account in use and nobody asked for this, it expired.
@@ -142,7 +169,7 @@ final class LiveAuthService: AuthService {
         switch state {
         case .loading: state = .signedOut(expired: false)
         case .signedOut: break
-        case .needsProfile, .needsGuidelines, .suspended, .signedIn: state = .signedOut(expired: true)
+        case .pendingApproval, .needsProfile, .needsGuidelines, .suspended, .signedIn: state = .signedOut(expired: true)
         }
     }
 
@@ -167,10 +194,14 @@ final class LiveAuthService: AuthService {
             return SignInFailure(error: failure, code: code, message: message).domainError
         case .api(let message, let code, _, _):
             if code == .invalidCredentials { return .invalidCredentials }
+            if code == .userAlreadyExists || code == .emailExists { return .emailTaken }
+            if code == .weakPassword { return .weakPassword }
             if code == .overRequestRateLimit { return .tooManyAttempts }
             return SignInFailure(code: code.rawValue, message: message).domainError
         case .sessionMissing:
             return .notAuthenticated
+        case .weakPassword:
+            return .weakPassword
         default:
             return .signInFailed
         }

@@ -19,12 +19,13 @@ enable_signup = true
 enabled = true
 uri = "pg-functions://postgres/public/before_user_created"
 
-# Review passwords need the email provider on; the hook keeps it allowlist-only.
+# Sign-up is a school email and a password, approved by hand (N36). No confirmation email: the
+# hook limits who can sign up and the team approves each account.
 [auth.email]
 enabled = true
 enable_confirmations = false
 
-# Off locally by default: the Entra app only lists the hosted projects' callback URLs (B2).
+# School SSO, unused while sign-in is email and password (N36). Off locally by default: the Entra app only lists the hosted projects' callback URLs (B2).
 # `enabled` is left undeclared on purpose, so `supabase config push` doesn't switch off the
 # provider that's turned on in the hosted dashboards. Never use the "common" tenant, which
 # admits personal Microsoft accounts.

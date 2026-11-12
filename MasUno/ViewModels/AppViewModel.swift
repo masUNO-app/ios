@@ -40,7 +40,7 @@ final class AppViewModel {
         if isUpdateRequired { return .updateRequired }
         switch auth.state {
         case .loading: return .launching
-        case .signedOut, .needsProfile, .needsGuidelines: return .onboarding
+        case .signedOut, .pendingApproval, .needsProfile, .needsGuidelines: return .onboarding
         case .suspended: return .suspended
         case .signedIn: return .signedIn
         }
