@@ -8,7 +8,9 @@ struct EventDetailView: View {
     @Environment(GameStore.self) private var store
     @Environment(AppViewModel.self) private var appViewModel
     @State private var viewModel: EventDetailViewModel
-    @State private var width: CGFloat = CourtArt.designWidth
+    @State private var size = CGSize(width: CourtArt.designWidth, height: 874)
+    /// The sheet has scrolled far enough that its title is under the navigation bar.
+    @State private var isTitleUnderBar = false
 
     /// The court stops growing here, so the header doesn't swallow a big screen.
     private static let maxCourtWidth: CGFloat = 480
@@ -47,39 +49,67 @@ struct EventDetailView: View {
     private func content(_ event: Game) -> some View {
         @Bindable var viewModel = viewModel
         let state = event.status()
-        let scale = min(width, Self.maxCourtWidth) / CourtArt.designWidth
+        let scale = min(size.width, Self.maxCourtWidth) / CourtArt.designWidth
+        // The sheet's rounded top rides up over the court.
+        let courtWindow = CourtHeader.designHeight * scale - Theme.Radius.sheet
 
+        // The court stays put and the sheet scrolls up over it.
         return ScrollView {
             VStack(spacing: 0) {
-                CourtHeader(
-                    activity: event.activity, lineup: store.lineup(for: event),
-                    capacity: event.capacity, scale: scale
-                ) {
-                    viewModel.showsWhoIsGoing = true
-                }
+                Color.clear
+                    .frame(height: courtWindow)
+                    .contentShape(.rect)
+                    .onTapGesture { viewModel.showsWhoIsGoing = true }
+                    .accessibilityHidden(true)
 
                 sheet(event, state: state)
-                    // The sheet's rounded top rides up over the court.
-                    .padding(.top, -Theme.Radius.sheet)
+                    // Always reaches the bottom, so the court only ever shows above it.
+                    .frame(minHeight: size.height - courtWindow, alignment: .top)
+                    .background {
+                        // Carries on under the sheet when it bounces past the bottom.
+                        UnevenRoundedRectangle(topLeadingRadius: Theme.Radius.sheet, topTrailingRadius: Theme.Radius.sheet)
+                            .fill(Theme.background)
+                            .padding(.bottom, -size.height)
+                    }
             }
         }
         .ignoresSafeArea(edges: .top)
-        .background {
-            // Sport color above for the pull-down bounce; the page color below.
-            VStack(spacing: 0) {
-                event.activity.color.frame(height: 320)
-                Theme.background
+        // The indicator would run down the court.
+        .scrollIndicators(.hidden)
+        .background(alignment: .top) {
+            CourtHeader(
+                activity: event.activity, lineup: store.lineup(for: event),
+                capacity: event.capacity, scale: scale
+            ) {
+                viewModel.showsWhoIsGoing = true
             }
+            .frame(maxHeight: .infinity, alignment: .top)
+            // Sport color behind the court for the pull-down bounce.
+            .background(event.activity.color)
             .ignoresSafeArea()
         }
-        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
+        .onGeometryChange(for: CGSize.self) { $0.size } action: { size = $0 }
         .refreshable { await load() }
-        // Nothing dims the court behind the bar's two buttons.
-        .scrollEdgeEffectHidden(true, for: .top)
-        // The title is in the content, so the bar only carries Back and •••.
-        .navigationTitle("")
+        .onScrollGeometryChange(for: Bool.self) { geometry in
+            geometry.contentOffset.y > courtWindow - 70
+        } action: { _, isUnder in
+            withAnimation(.easeOut(duration: 0.2)) { isTitleUnderBar = isUnder }
+        }
+        // Nothing dims the court behind the bar's two buttons; the bar only steps in once the
+        // sheet's own title has scrolled up under it.
+        .scrollEdgeEffectHidden(!isTitleUnderBar, for: .top)
+        .navigationTitle(event.title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            // The title is in the content; the bar shows it once that one has scrolled away.
+            ToolbarItem(placement: .principal) {
+                Text(verbatim: event.title)
+                    .font(.rounded(.headline, .bold))
+                    .foregroundStyle(Theme.ink)
+                    .lineLimit(1)
+                    .opacity(isTitleUnderBar ? 1 : 0)
+                    .accessibilityHidden(!isTitleUnderBar)
+            }
             ToolbarItem(placement: .topBarTrailing) { overflowMenu(event, state: state).tint(Theme.ink) }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -142,10 +172,6 @@ struct EventDetailView: View {
         .padding(.top, 20)
         .padding(.bottom, 24)
         .readableColumn()
-        .background(
-            Theme.background,
-            in: .rect(topLeadingRadius: Theme.Radius.sheet, topTrailingRadius: Theme.Radius.sheet)
-        )
     }
 
     /// "Room for 4 more" · **Who's going ›**, and the line under it once you're in.
