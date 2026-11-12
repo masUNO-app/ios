@@ -257,14 +257,24 @@ nonisolated enum CourtLayout {
 }
 
 /// The full-bleed header on game details (SPEC §7.7.3): the court in the sport's color, with
-/// everyone going standing on it and a "+1" on every open spot.
+/// everyone going standing on it and a "+1" on every open spot. People shift their weight while
+/// they wait and open spots pulse, as on the website; when you take a spot you pop in and the
+/// others hop. All of it rests under Reduce Motion.
 struct CourtHeader: View {
     var activity: Activity
     var lineup: Lineup
     /// Total spots to draw: the game's capacity.
     var capacity: Int
     var scale: CGFloat = 1
+    /// Off once a game is over or cancelled: nobody's being invited any more.
+    var showsOpenSpots = true
     var onTap: () -> Void = {}
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Counts the times you joined while the court was on screen; each one sets off a hop.
+    @State private var cheers = 0
+    /// Past the first moment on screen, so a game you're already in doesn't celebrate on open.
+    @State private var isSettled = false
 
     /// The Figma header: 402 × 410, with the court lines starting 48 pt down.
     static let designHeight: CGFloat = 410
@@ -272,7 +282,7 @@ struct CourtHeader: View {
 
     var body: some View {
         let slots = CourtLayout.slots(for: activity.court, count: max(capacity, 1))
-        let places = Self.places(lineup: lineup, slots: slots)
+        let places = places(in: slots)
 
         GeometryReader { geo in
             let inset = (geo.size.width - CourtArt.designWidth * scale) / 2
@@ -280,48 +290,74 @@ struct CourtHeader: View {
                 CourtArt(kind: activity.court, scale: scale)
                     .offset(y: Self.artTop * scale)
 
-                ForEach(Array(places.enumerated()), id: \.offset) { index, place in
-                    let point = slots.points[index]
+                ForEach(places) { place in
+                    let point = slots.points[place.slot]
                     token(place, slots: slots)
                         .position(x: inset + point.x * scale, y: point.y * scale + labelOffset(place, slots: slots))
                 }
             }
-            .animation(.spring(duration: 0.45, bounce: 0.3), value: places)
+            // A bit of bounce, so You pops onto the court.
+            .animation(reduceMotion ? nil : .spring(duration: 0.5, bounce: 0.4), value: places)
         }
         .frame(height: Self.designHeight * scale)
         .background(activity.color)
         .clipped()
         .contentShape(.rect)
         .onTapGesture(perform: onTap)
+        .onChange(of: places.contains { $0.kind == .you }) { _, isIn in
+            if isIn, isSettled, !reduceMotion { cheers += 1 }
+        }
+        .task {
+            try? await Task.sleep(for: .milliseconds(300))
+            isSettled = true
+        }
         .accessibilityElement()
         .accessibilityLabel(Text(verbatim: lineup.accessibilityLabel))
         .accessibilityAddTraits(.isButton)
         .accessibilityHint("Shows who's going")
     }
 
-    private enum Place: Equatable {
-        case person(PersonSummary)
-        case you
-        case unlisted
-        case open
+    /// One spot on the court. People keep their identity as others come and go, and an open
+    /// spot is known by where it is, so taking it swaps that one spot and nothing else.
+    private struct Place: Identifiable, Equatable {
+        enum Kind: Equatable {
+            case person(PersonSummary)
+            case you
+            case unlisted
+            case open
+        }
+
+        var kind: Kind
+        var slot: Int
+
+        var id: String {
+            switch kind {
+            case .person(let person): "person-\(person.id)"
+            case .you: "you"
+            case .unlisted: "unlisted-\(slot)"
+            case .open: "open-\(slot)"
+            }
+        }
     }
 
     /// People in joining order, then open spots. When it's your game you take the featured spot.
-    private static func places(lineup: Lineup, slots: CourtLayout.Slots) -> [Place] {
-        var people: [Place] = lineup.people.map { $0.id == lineup.myID ? .you : .person($0) }
-        people += Array(repeating: .unlisted, count: lineup.unlisted)
-        var places = Array(people.prefix(slots.points.count))
-        places += Array(repeating: .open, count: max(slots.points.count - places.count, 0))
-        if lineup.isHostedByMe, let mine = places.firstIndex(of: .you), slots.featured < places.count {
-            places.swapAt(mine, slots.featured)
+    private func places(in slots: CourtLayout.Slots) -> [Place] {
+        var kinds: [Place.Kind] = lineup.people.map { $0.id == lineup.myID ? .you : .person($0) }
+        kinds += Array(repeating: .unlisted, count: lineup.unlisted)
+        kinds = Array(kinds.prefix(slots.points.count))
+        kinds += Array(repeating: .open, count: max(slots.points.count - kinds.count, 0))
+        if lineup.isHostedByMe, let mine = kinds.firstIndex(of: .you), slots.featured < kinds.count {
+            kinds.swapAt(mine, slots.featured)
         }
-        return places
+        return kinds.enumerated()
+            .map { Place(kind: $1, slot: $0) }
+            .filter { showsOpenSpots || $0.kind != .open }
     }
 
     @ViewBuilder
     private func token(_ place: Place, slots: CourtLayout.Slots) -> some View {
         let size = slots.tokenSize * scale
-        switch place {
+        switch place.kind {
         case .person(let person):
             VStack(spacing: 3) {
                 PersonAvatar(person: person, size: size)
@@ -333,21 +369,120 @@ struct CourtHeader: View {
                         .frame(width: 64 * scale)
                 }
             }
+            .modifier(Hop(trigger: cheers, delay: Double(place.slot) * 0.07, height: 14 * scale))
+            .modifier(Idle(slot: place.slot, scale: scale))
             .transition(.scale.combined(with: .opacity))
         case .you:
             YouToken(size: size)
-                .transition(.scale(scale: 0.4).combined(with: .opacity))
+                .modifier(Burst(trigger: cheers))
+                .modifier(Idle(slot: place.slot, scale: scale))
+                .transition(.asymmetric(insertion: .scale(scale: 0.4).combined(with: .opacity), removal: .scale(scale: 0.5).combined(with: .opacity)))
         case .unlisted:
             PersonToken(initials: "", color: .white.opacity(0.6), size: size)
+                .modifier(Hop(trigger: cheers, delay: Double(place.slot) * 0.07, height: 14 * scale))
+                .modifier(Idle(slot: place.slot, scale: scale))
         case .open:
-            OpenSpotToken(size: size, fill: .white.opacity(0.38))
-                .transition(.opacity)
+            OpenSpotToken(size: size, fill: .white.opacity(0.38), isLive: true)
+                .background { Ping(slot: place.slot) }
+                .transition(.scale(scale: 0.5).combined(with: .opacity))
         }
     }
 
     /// A token with a name under it is centered on the pair, so shift it down to keep the circle on its spot.
     private func labelOffset(_ place: Place, slots: CourtLayout.Slots) -> CGFloat {
-        if case .person = place, slots.showsNames { return 9 * scale }
+        if case .person = place.kind, slots.showsNames { return 9 * scale }
         return 0
+    }
+}
+
+/// Shifting your weight while you wait, as on the website: a slow 5 pt bob every 5.5 s, each
+/// spot 1.1 s behind the one before, plus a faint sway on a longer beat so it doesn't look
+/// mechanical. Repeating animations rather than a per-frame timeline, so an idle court costs
+/// nothing to keep on screen.
+private struct Idle: ViewModifier {
+    var slot: Int
+    var scale: CGFloat
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isMoving = false
+
+    func body(content: Content) -> some View {
+        let lag = Double(slot % 5) * 1.1
+        content
+            .animation(beat(2.75, lag: lag)) { $0.offset(y: isMoving ? -5 * scale : 0) }
+            .animation(beat(3.9, lag: lag * 0.7)) { $0.offset(x: isMoving ? 1.5 * scale : 0) }
+            .onAppear { isMoving = !reduceMotion }
+            .onChange(of: reduceMotion) { isMoving = !reduceMotion }
+    }
+
+    private func beat(_ duration: TimeInterval, lag: TimeInterval) -> Animation? {
+        isMoving ? .easeInOut(duration: duration).repeatForever(autoreverses: true).delay(lag) : nil
+    }
+}
+
+/// Everyone already there jumps when you join, one after another.
+private struct Hop: ViewModifier {
+    var trigger: Int
+    var delay: TimeInterval
+    var height: CGFloat
+
+    func body(content: Content) -> some View {
+        content.keyframeAnimator(initialValue: CGFloat.zero, trigger: trigger) { view, lift in
+            view.offset(y: lift)
+        } keyframes: { _ in
+            KeyframeTrack {
+                LinearKeyframe(0, duration: max(delay, 0.001))
+                CubicKeyframe(-height, duration: 0.2)
+                SpringKeyframe(0, duration: 0.45, spring: .bouncy)
+            }
+        }
+    }
+}
+
+/// A white ring that bursts out from You as you land on the court.
+private struct Burst: ViewModifier {
+    var trigger: Int
+
+    private struct Ring {
+        var scale: CGFloat = 1
+        var opacity: Double = 0
+    }
+
+    func body(content: Content) -> some View {
+        content.background {
+            Circle()
+                .stroke(.white, lineWidth: 3)
+                .keyframeAnimator(initialValue: Ring(), trigger: trigger) { ring, value in
+                    ring.scaleEffect(value.scale).opacity(value.opacity)
+                } keyframes: { _ in
+                    KeyframeTrack(\.scale) {
+                        LinearKeyframe(1, duration: 0.1)
+                        CubicKeyframe(2.2, duration: 0.7)
+                    }
+                    KeyframeTrack(\.opacity) {
+                        LinearKeyframe(0.9, duration: 0.1)
+                        CubicKeyframe(0, duration: 0.7)
+                    }
+                }
+        }
+    }
+}
+
+/// A soft white pulse behind an open spot, every few seconds.
+private struct Ping: View {
+    var slot: Int
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isOut = false
+
+    var body: some View {
+        Circle()
+            .fill(.white.opacity(0.5))
+            .scaleEffect(isOut ? 1.6 : 1)
+            .opacity(isOut ? 0 : 0.7)
+            .animation(
+                isOut ? .easeOut(duration: 2.6).repeatForever(autoreverses: false).delay(Double(slot % 4) * 0.45) : nil,
+                value: isOut
+            )
+            .onAppear { isOut = !reduceMotion }
+            .onChange(of: reduceMotion) { isOut = !reduceMotion }
     }
 }

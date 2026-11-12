@@ -53,6 +53,8 @@ struct EventDetailView: View {
         // The sheet's rounded top rides up over the court.
         let courtWindow = CourtHeader.designHeight * scale - Theme.Radius.sheet
 
+        let isOver = event.isCancelled || event.hasEnded()
+
         // The court stays put and the sheet scrolls up over it.
         return ScrollView {
             VStack(spacing: 0) {
@@ -79,7 +81,8 @@ struct EventDetailView: View {
         .background(alignment: .top) {
             CourtHeader(
                 activity: event.activity, lineup: store.lineup(for: event),
-                capacity: event.capacity, scale: scale
+                capacity: event.capacity, scale: scale,
+                showsOpenSpots: !isOver
             ) {
                 viewModel.showsWhoIsGoing = true
             }

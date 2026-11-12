@@ -89,6 +89,11 @@ struct OpenSpotToken: View {
     var count = 1
     /// White over a sport color; clear on a plain surface.
     var fill: Color = .white.opacity(0.7)
+    /// On the court the dashed ring slowly turns, so the spot looks like it's waiting for someone.
+    var isLive = false
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isTurning = false
 
     var body: some View {
         Circle()
@@ -101,10 +106,15 @@ struct OpenSpotToken: View {
                     .minimumScaleFactor(0.6)
             }
             .overlay {
-                Circle().strokeBorder(Theme.ink, style: StrokeStyle(lineWidth: 1.5, dash: [3, 2.5]))
+                Circle()
+                    .strokeBorder(Theme.ink, style: StrokeStyle(lineWidth: 1.5, dash: [3, 2.5]))
+                    .rotationEffect(.degrees(isTurning ? 360 : 0))
+                    .animation(isTurning ? .linear(duration: 16).repeatForever(autoreverses: false) : nil, value: isTurning)
             }
             .frame(width: size, height: size)
             .accessibilityHidden(true)
+            .onAppear { isTurning = isLive && !reduceMotion }
+            .onChange(of: reduceMotion) { isTurning = isLive && !reduceMotion }
     }
 }
 
