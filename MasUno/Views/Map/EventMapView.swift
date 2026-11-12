@@ -25,12 +25,13 @@ struct EventMapView: View {
     /// With a vertical bar, the search field only shows after tapping Search in the bar.
     @State private var showsSearchField = false
     @FocusState private var isSearchFocused: Bool
-    @Namespace private var mapScope
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.openURL) private var openURL
 
     private static let declinedPrimerKey = "declinedLocationPrimer"
+    /// The bottom bar's round buttons (Filter).
+    private static let mapButtonSize: CGFloat = 48
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 30)) { context in
@@ -59,7 +60,6 @@ struct EventMapView: View {
         .overlay(alignment: .bottomLeading) {
             if !usesVerticalBar, !isSearching { locationButton }
         }
-        .mapScope(mapScope)
         .toolbar {
             // `usesVerticalBar` is only ever true from iOS 27.1.
             #if compiler(>=6.4) // The vertical bar needs Xcode 27; see VerticalBarEdgeReader.
@@ -143,7 +143,7 @@ struct EventMapView: View {
         @Bindable var viewModel = viewModel
 
         // Native selection: tap a pin to select, tap empty map to dismiss the popup.
-        return Map(position: $viewModel.position, selection: $viewModel.selectedID, scope: mapScope) {
+        return Map(position: $viewModel.position, selection: $viewModel.selectedID) {
             if let mock = LocationService.mockCoordinate {
                 Annotation("You", coordinate: mock, anchor: .center) {
                     UserPin(name: store.profile?.fullName ?? "")
@@ -465,35 +465,33 @@ struct EventMapView: View {
         .buttonStyle(.plain)
     }
 
-    /// Native `MapUserLocationButton` for the real location; a glass button with the same
-    /// look while the location is mocked (the native one can only follow real GPS).
-    @ViewBuilder
-    private var userLocationButton: some View {
-        if LocationService.mockCoordinate != nil {
-            Button("Show my location", systemImage: "location") { viewModel.centerOnMockLocation() }
-                .labelStyle(.iconOnly)
-                .buttonStyle(.glass)
-        } else {
-            MapUserLocationButton(scope: mapScope)
-        }
-    }
-
-    /// "Show my location" button, centered over the avatar in the bottom bar.
+    /// "Show my location" button, centered over the avatar in the bottom bar. Interactive glass
+    /// the size of the bar's Filter button, rather than the larger native `MapUserLocationButton`.
     private var locationButton: some View {
         GeometryReader { geo in
             let container = geo.frame(in: .global)
             // Big portrait screens (iPad, iPhone Duo's inner display) raise the avatar past the
             // default gap, so keep clear of its top: its glass adds about 6, plus 10 of space.
             let clearsAvatar = avatarFrame == .zero ? 0 : container.maxY - avatarFrame.minY + 16
-            userLocationButton
-                .buttonBorderShape(.circle)
-                .controlSize(.large)
-                .tint(Theme.ink)
-                .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { locationButtonWidth = $0 }
-                .offset(x: avatarFrame.midX - container.minX - locationButtonWidth / 2)
-                .frame(maxHeight: .infinity, alignment: .bottom)
-                .padding(.bottom, max(8, clearsAvatar))
-                .opacity(avatarFrame == .zero ? 0 : 1)
+            Button {
+                viewModel.centerOnUserLocation()
+            } label: {
+                // Filled while the map follows you, like the native button.
+                Image(systemName: viewModel.position.followsUserLocation ? "location.fill" : "location")
+                    .font(.system(size: 17, weight: .medium))
+                    .foregroundStyle(Theme.ink)
+                    .contentTransition(.symbolEffect(.replace))
+                    .frame(width: Self.mapButtonSize, height: Self.mapButtonSize)
+                    .glassEffect(.regular.interactive(), in: .circle)
+                    .contentShape(.circle)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Show my location")
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { locationButtonWidth = $0 }
+            .offset(x: avatarFrame.midX - container.minX - locationButtonWidth / 2)
+            .frame(maxHeight: .infinity, alignment: .bottom)
+            .padding(.bottom, max(8, clearsAvatar))
+            .opacity(avatarFrame == .zero ? 0 : 1)
         }
     }
 

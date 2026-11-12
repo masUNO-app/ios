@@ -30,8 +30,7 @@ struct EventPin: View {
                     .foregroundStyle(Theme.ink)
                     .padding(.horizontal, 10)
                     .frame(height: Self.tagHeight)
-                    .background(Theme.card, in: .capsule)
-                    .shadow(color: Theme.ink.opacity(0.15), radius: 3, y: 2)
+                    .glassEffect(.regular, in: .capsule)
                     .opacity(isSelected ? 0 : 1)
             }
 

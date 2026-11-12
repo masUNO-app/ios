@@ -215,7 +215,7 @@ final class EventMapViewModel {
         }
     }
 
-    /// Recenter on the mock location. The real location uses the native `MapUserLocationButton`.
+    /// Recenter on the mock location.
     func centerOnMockLocation() {
         guard let mock = LocationService.mockCoordinate else { return }
         withAnimation {
