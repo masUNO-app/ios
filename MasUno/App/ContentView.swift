@@ -83,7 +83,6 @@ struct ContentView: View {
                     case .me(let tab, let editsProfile): MeView(tab: tab, editsProfile: editsProfile)
                     case .settings: SettingsView()
                     case .blockedPeople: BlockedPeopleView()
-                    case .locationSettings: LocationSettingsView()
                     case .guidelines: CommunityGuidelinesView()
                     #if DEBUG
                     case .gallery: ComponentGallery()

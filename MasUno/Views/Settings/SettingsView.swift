@@ -10,14 +10,24 @@ struct SettingsView: View {
     @State private var confirmsSignOut = false
     @State private var confirmsDelete = false
     @State private var locationStatus = CLLocationManager().authorizationStatus
+    @Environment(\.openURL) private var openURL
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
                 section("Privacy & safety") {
-                    NavigationLink(value: Route.locationSettings) {
-                        row("Location", subtitle: Text(locationSubtitle), systemImage: "mappin.and.ellipse", color: Color(.sportVolleyball).opacity(0.45))
+                    // iOS owns the setting, so the row goes straight to it.
+                    Button {
+                        if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
+                    } label: {
+                        row(
+                            "Location", subtitle: Text(locationSubtitle), systemImage: "mappin.and.ellipse",
+                            color: Color(.sportVolleyball).opacity(0.45), trailing: "arrow.up.forward"
+                        )
                     }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Opens iPhone Settings")
                     NavigationLink(value: Route.blockedPeople) {
                         row("Blocked people", subtitle: Text(blockedSubtitle), systemImage: "nosign", color: Color(.person5).opacity(0.5))
                     }
@@ -63,6 +73,8 @@ struct SettingsView: View {
             }
             #endif
         }
+        // Back from iPhone Settings: show the new answer.
+        .onChange(of: scenePhase) { locationStatus = CLLocationManager().authorizationStatus }
         .dialog(isPresented: $confirmsSignOut) {
             DialogCard(
                 systemImage: "rectangle.portrait.and.arrow.right", tone: .destructive,
@@ -143,61 +155,6 @@ struct SettingsView: View {
         .padding(.horizontal, 14)
         .frame(minHeight: 58)
         .contentShape(.rect)
-    }
-}
-
-/// Figma "Location". iOS owns the setting, so the two rows show where it stands and
-/// **Open iPhone Settings** is the way to change it.
-struct LocationSettingsView: View {
-    @Environment(GameStore.self) private var store
-    @Environment(\.openURL) private var openURL
-    @Environment(\.scenePhase) private var scenePhase
-    @State private var status = CLLocationManager().authorizationStatus
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                Text("masUNO uses your location only to show games near you. It never leaves your phone.")
-                    .font(.rounded(.body))
-                    .foregroundStyle(Theme.muted)
-
-                OptionRow(title: String(localized: "While using the app"), isSelected: isOn) { openSettings() }
-                OptionRow(title: String(localized: "Never"), isSelected: isOff) { openSettings() }
-
-                Text(offNote)
-                    .font(.rounded(.footnote))
-                    .foregroundStyle(Theme.muted)
-
-                Button("Open iPhone Settings") { openSettings() }
-                    .pill(.quiet)
-                    .padding(.top, 6)
-            }
-            .padding(.horizontal, Theme.gutter)
-            .padding(.top, 4)
-            .readableColumn()
-        }
-        .background(Theme.background)
-        .navigationTitle("Location")
-        .navigationBarTitleDisplayMode(.large)
-        // Back from iPhone Settings: show the new answer.
-        .onChange(of: scenePhase) { status = CLLocationManager().authorizationStatus }
-    }
-
-    private var isOn: Bool {
-        status == .authorizedWhenInUse || status == .authorizedAlways
-    }
-
-    private var isOff: Bool {
-        status == .denied || status == .restricted
-    }
-
-    private var offNote: String {
-        if let campus = store.campus { return String(localized: "When it's off, we show games around \(campus.shortName) instead.") }
-        return String(localized: "When it's off, we show games around your campus instead.")
-    }
-
-    private func openSettings() {
-        if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
     }
 }
 

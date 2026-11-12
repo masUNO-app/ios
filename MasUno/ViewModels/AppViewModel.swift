@@ -123,7 +123,7 @@ final class AppViewModel {
 
     /// Jump straight to a screen for design review, e.g. launch with `-screen me`. Options:
     /// me, me-hosting, me-empty, me-cancelled, me-leave, repost, profile, settings, sign-out, delete-account,
-    /// location-settings, add, add-filled, form-error, edit, cancel-game, play-again, picker, gallery, detail-*,
+    /// add, add-filled, form-error, edit, cancel-game, play-again, picker, gallery, detail-*,
     /// spot-alert, who, block, report, report-sent, invite, leave, blocked, calendar, chat, chat-host, chat-rules,
     /// chat-new, chat-long, meetup, saved, filter, search, location, popup, popup-saved
     /// (popup, filter, search and location are handled by the map).
@@ -176,7 +176,6 @@ final class AppViewModel {
             await store.refreshMyGames()
             path = [.me()]
         case "sign-out", "delete-account": path = [.me(), .settings]
-        case "location-settings": path = [.me(), .settings, .locationSettings]
         case "cancel-game": presentGameForm(editing: IDs.hosting)
         case "play-again": presentPlayAgain(IDs.ended)
         case "spot-alert":
