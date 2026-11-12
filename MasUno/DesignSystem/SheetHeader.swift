@@ -28,11 +28,11 @@ struct SheetHeader: View {
 }
 
 extension View {
-    /// The look every 1.0 sheet shares: page background, a grabber, rounded top corners.
+    /// The look every 1.0 sheet shares: page background and a grabber. The corners are the
+    /// system's, which follow the screen's own curve; a fixed radius clips against it.
     func sheetChrome(detents: Set<PresentationDetent> = [.large], background: Color = Theme.background) -> some View {
         presentationDetents(detents)
             .presentationDragIndicator(.visible)
             .presentationBackground(background)
-            .presentationCornerRadius(34)
     }
 }
