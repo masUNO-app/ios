@@ -24,6 +24,10 @@ targets:
       - path: MasUno
         excludes:
           - "**/README.md"
+          - "AppIcon.icon"
+      # Icon Composer bundle: XcodeGen doesn't put it in a build phase by default, so add it by hand.
+      - path: MasUno/AppIcon.icon
+        buildPhase: resources
     info:
       path: MasUno/Info.plist
       properties:
