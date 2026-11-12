@@ -2,20 +2,63 @@ import MapKit
 import Observation
 import SwiftUI
 
-/// Presentation state and intents for the map: search, sport filter, pin
+/// Presentation state and intents for the map: search, the Filter games sheet, pin
 /// selection and camera position. Game data comes from `GameStore`.
 @Observable
 final class EventMapViewModel {
+    /// Filter games › When.
+    enum WhenFilter: CaseIterable, Identifiable {
+        case anyTime, today, tomorrow
+
+        var id: Self { self }
+
+        var label: String {
+            switch self {
+            case .anyTime: String(localized: "Any day this week")
+            case .today: String(localized: "Today, any time")
+            case .tomorrow: String(localized: "Tomorrow, any time")
+            }
+        }
+    }
+
+    /// Filter games › How far, measured from you (or from campus when location is off).
+    enum DistanceFilter: CaseIterable, Identifiable {
+        case anywhere, walking, biking
+
+        var id: Self { self }
+
+        var label: String {
+            switch self {
+            case .anywhere: String(localized: "Any distance")
+            case .walking: String(localized: "Walking distance · 20 min")
+            case .biking: String(localized: "Biking distance · 20 min")
+            }
+        }
+
+        /// About 20 minutes at a walk or on a bike.
+        var meters: CLLocationDistance? {
+            switch self {
+            case .anywhere: nil
+            case .walking: 1_600
+            case .biking: 5_000
+            }
+        }
+    }
+
     var searchText = ""
     /// Empty means "all sports".
     var sportFilter: Set<Activity> = []
+    var whenFilter = WhenFilter.anyTime
+    var distanceFilter = DistanceFilter.anywhere
+    /// Only games starting in the next hour.
+    var startingSoonOnly = false
     var selectedID: UUID?
     /// The game whose popup is on the map. Lags behind `selectedID` while the popup shrinks away.
     private(set) var popupID: UUID?
     /// Grows / shrinks the popup (animated inside its annotation).
     private(set) var isPopupShown = false
     /// Measured popup height, to sit it just above its pin.
-    var popupHeight: CGFloat = 260
+    var popupHeight: CGFloat = 340
     /// Opens on your campus, and moves to you once a fix shows you're near it (SPEC §7.6.1).
     var position: MapCameraPosition = LocationService.mockCoordinate.map { .region(EventMapViewModel.region(around: $0)) }
         ?? .automatic
@@ -29,19 +72,52 @@ final class EventMapViewModel {
 
     // MARK: Queries
 
-    /// Games you can actually join: not cancelled, ended or full (SPEC §7.6.1).
-    func mapEvents(in store: GameStore) -> [Game] {
-        store.mapGames().filter { matchesSearch($0) && matchesFilter($0) }
+    /// Games you can actually join: not cancelled, ended or full (SPEC §7.6.1), that match the
+    /// search and the filters.
+    func mapEvents(in store: GameStore, now: Date = .now) -> [Game] {
+        store.mapGames(now: now).filter { matchesSearch($0) && matchesFilter($0, now: now) }
     }
 
     /// Pins in drawing order: MapKit draws later annotations on top, so bumped games go last.
     func pinOrder(in store: GameStore, now: Date = .now) -> [Game] {
-        let games = mapEvents(in: store)
+        let games = mapEvents(in: store, now: now)
         return games.filter { !$0.isBumped(now: now) } + games.filter { $0.isBumped(now: now) }
     }
 
+    /// The search list: games with a spot that just opened first, then the soonest.
+    func searchResults(in store: GameStore, now: Date = .now) -> [Game] {
+        mapEvents(in: store, now: now).sorted {
+            ($0.isBumped(now: now) ? 0 : 1, $0.startsAt) < ($1.isBumped(now: now) ? 0 : 1, $1.startsAt)
+        }
+    }
+
+    /// "Basketball near you" when every result is one sport; otherwise "Games near you".
+    func resultsTitle(for results: [Game]) -> String {
+        let sports = Set(results.map(\.activity))
+        if sports.count == 1, let sport = sports.first { return String(localized: "\(sport.name) near you") }
+        return String(localized: "Games near you")
+    }
+
+    /// "Today, 7:35 PM · 0.4 km · room for 4". The distance is left out when there's nowhere to measure from.
+    func resultLine(for game: Game) -> String {
+        var parts = [EventFormat.shortDayAndTime(game.startsAt)]
+        if let origin = userCoordinate { parts.append(EventFormat.distance(from: origin, to: game.coordinate)) }
+        parts.append(String(localized: "room for \(game.spotsLeft)"))
+        return parts.joined(separator: " · ")
+    }
+
+    /// How many filters are on, for the badge on the Filter button.
+    var activeFilterCount: Int {
+        sportFilter.count + (whenFilter == .anyTime ? 0 : 1) + (distanceFilter == .anywhere ? 0 : 1) + (startingSoonOnly ? 1 : 0)
+    }
+
     var filterLabel: String {
-        sportFilter.isEmpty ? String(localized: "Filter") : String(localized: "Filter · \(sportFilter.count)")
+        activeFilterCount == 0 ? String(localized: "Filter") : String(localized: "Filter · \(activeFilterCount)")
+    }
+
+    /// Where you are, if the phone has said: the mocked spot in design review, otherwise the last fix.
+    var userCoordinate: CLLocationCoordinate2D? {
+        LocationService.mockCoordinate ?? lastFix
     }
 
     // MARK: Intents
@@ -74,11 +150,10 @@ final class EventMapViewModel {
         }
     }
 
-    /// Anchors the popup annotation so its bottom sits 10 pt above the selected pin
-    /// (and its "Soon" label). Same coordinate as the pin, so MapKit moves them together.
+    /// Anchors the popup annotation so its tail ends just above the selected pin's head.
+    /// Same coordinate as the pin, so MapKit moves them together.
     func popupAnchor(for event: Game) -> UnitPoint {
-        let pinHeight: CGFloat = (event.isSoon() || event.isBumped() ? 88 : 56) * 1.15
-        return UnitPoint(x: 0.5, y: 1 + (pinHeight + 10) / max(popupHeight, 1))
+        UnitPoint(x: 0.5, y: 1 + (EventPin.selectedHeight + 6) / max(popupHeight, 1))
     }
 
     /// Last visible region, so selecting a pin can keep the current zoom.
@@ -88,7 +163,7 @@ final class EventMapViewModel {
     func reveal(_ event: Game) {
         let span = visibleRegion?.span ?? University.mapSpan
         let center = CLLocationCoordinate2D(
-            latitude: event.coordinate.latitude + span.latitudeDelta * 0.22,
+            latitude: event.coordinate.latitude + span.latitudeDelta * 0.13,
             longitude: event.coordinate.longitude
         )
         withAnimation(.smooth) { position = .region(MKCoordinateRegion(center: center, span: span)) }
@@ -170,8 +245,24 @@ final class EventMapViewModel {
         }
     }
 
-    func clearSportFilter() {
+    /// Filter games › Reset.
+    func resetFilters() {
         sportFilter.removeAll()
+        whenFilter = .anyTime
+        distanceFilter = .anywhere
+        startingSoonOnly = false
+    }
+
+    /// "Look farther away" on an empty map: drop the distance limit and zoom out.
+    func lookFartherAway() {
+        distanceFilter = .anywhere
+        let region = visibleRegion ?? campus?.region
+        guard let region else { return }
+        let span = MKCoordinateSpan(
+            latitudeDelta: min(region.span.latitudeDelta * 3, 1.5),
+            longitudeDelta: min(region.span.longitudeDelta * 3, 1.5)
+        )
+        withAnimation(.smooth) { position = .region(MKCoordinateRegion(center: region.center, span: span)) }
     }
 
     func join(_ id: UUID, in store: GameStore) {
@@ -217,8 +308,22 @@ final class EventMapViewModel {
             .contains { $0.localizedCaseInsensitiveContains(query) }
     }
 
-    private func matchesFilter(_ event: Game) -> Bool {
-        sportFilter.isEmpty || sportFilter.contains(event.activity)
+    private func matchesFilter(_ event: Game, now: Date) -> Bool {
+        guard sportFilter.isEmpty || sportFilter.contains(event.activity) else { return false }
+        if startingSoonOnly, !event.isSoon(now: now) { return false }
+        switch whenFilter {
+        case .anyTime: break
+        case .today: if !Calendar.current.isDate(event.startsAt, inSameDayAs: now) { return false }
+        case .tomorrow:
+            guard let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: now),
+                  Calendar.current.isDate(event.startsAt, inSameDayAs: tomorrow) else { return false }
+        }
+        if let limit = distanceFilter.meters, let origin = userCoordinate ?? campus?.center {
+            let here = CLLocation(latitude: origin.latitude, longitude: origin.longitude)
+            let there = CLLocation(latitude: event.place.latitude, longitude: event.place.longitude)
+            if here.distance(from: there) > limit { return false }
+        }
+        return true
     }
 }
 

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Figma: "Popup" (341:2046) — opens from a pin on the map.
+/// Figma: "Popup" (341:2046) — the game card with a tail, opening from a pin on the map.
 struct EventPopup: View {
     @Environment(GameStore.self) private var store
     @Environment(AppViewModel.self) private var appViewModel
@@ -8,58 +8,26 @@ struct EventPopup: View {
     var viewModel: EventMapViewModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top, spacing: 12) {
-                Avatar(name: event.host.displayName, size: 48)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(event.title)
-                        .font(.title3.bold())
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                        .foregroundStyle(Theme.ink)
-                    Text(event.hostLine)
-                        .font(.footnote)
-                        .foregroundStyle(Theme.muted)
-                    Text(event.spotsLine)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Theme.ink)
-                }
-                Spacer(minLength: 0)
+        VStack(spacing: 0) {
+            GameCard(
+                event: event, lineup: store.lineup(for: event),
+                status: event.discoverLine(), time: EventFormat.cardTime(event), isFloating: true
+            ) {
                 BookmarkButton(event: event)
-            }
-
-            VStack(alignment: .leading, spacing: 6) {
-                Label("\(EventFormat.dayAndTime(event.startsAt)) · starts in \(EventFormat.countdown(to: event.startsAt))", systemImage: "clock")
-                Label(event.place.name, systemImage: "mappin.and.ellipse")
-                HStack(spacing: 8) {
-                    let names = store.attendees(of: event.id).map(\.person.displayName)
-                    AvatarStack(names: names, size: 22)
-                    Text(names.joined(separator: ", "))
-                        .lineLimit(1)
-                }
-            }
-            .font(.footnote)
-            .foregroundStyle(Theme.ink)
-            .labelStyle(MutedIconLabelStyle())
-
-            HStack(spacing: 10) {
+            } actions: {
                 Button("Details") { appViewModel.path.append(.game(event.id)) }
-                    .buttonStyle(.glassProminent)
-                    .tint(Theme.accentSoft)
-                    .foregroundStyle(Theme.ink)
+                    .pill(.secondary, expands: false)
                 primaryAction
-                    .buttonStyle(.glassProminent)
-                    .buttonSizing(.flexible)
+                    .pill(.primary)
             }
-            .controlSize(.large)
-            .fontWeight(.semibold)
+
+            CalloutTail()
+                .fill(Theme.card)
+                .frame(width: 28, height: 13)
+                .shadow(color: Theme.ink.opacity(0.12), radius: 3, y: 4)
+                // Tucked under the card so the border doesn't show between them.
+                .padding(.top, -1)
         }
-        .padding(16)
-        .frame(maxWidth: 340, alignment: .leading)
-        // Solid card, as in the Figma (glass picked up the map's colors and read as lavender).
-        .background(Theme.card, in: .rect(cornerRadius: Theme.Radius.dialog))
-        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.dialog).strokeBorder(Theme.hairline))
-        .shadow(color: Theme.shadow, radius: 16, y: 6)
         .task(id: event.id) { await store.loadAttendees(event.id) }
     }
 
@@ -70,7 +38,7 @@ struct EventPopup: View {
         } else if event.isGoing {
             Button("View game") { appViewModel.path.append(.game(event.id)) }
         } else {
-            Button("Join game") { viewModel.join(event.id, in: store) }
+            Button("Count me in") { viewModel.join(event.id, in: store) }
         }
     }
 }
