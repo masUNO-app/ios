@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 import Supabase
 
 /// The live `GameRepository` (B7): reads `game_cards`, `game_attendees` and `game_activity`, and writes
@@ -6,6 +7,7 @@ import Supabase
 final class LiveGameRepository: GameRepository {
     private let client: SupabaseClient
     private let activities: ActivityCatalog
+    private static let logger = Logger(subsystem: "com.masuno.app", category: "GameChanges")
 
     init(client: SupabaseClient, activities: ActivityCatalog) {
         self.client = client
@@ -91,6 +93,33 @@ final class LiveGameRepository: GameRepository {
 
     func leaveGame(id: UUID) async throws -> Game {
         try await write("leave_game", GameIDParams(id: id))
+    }
+
+    /// Yields once per ping on the campus's games channel. The stream ends if the channel can't
+    /// connect, so `GameStore` re-opens it.
+    func changes(campus: UUID) -> AsyncStream<GameChanges> {
+        let client = client
+        return AsyncStream { continuation in
+            let listener = Task {
+                let channel = client.channel(gamesChannelName(campus: campus)) { $0.isPrivate = true }
+                let pings = channel.broadcastStream(event: "changed")
+                do {
+                    try await channel.subscribeWithError()
+                    for await message in pings { continuation.yield(Self.changes(in: message)) }
+                } catch {
+                    Self.logger.error("Games channel didn't connect: \(error.localizedDescription, privacy: .public)")
+                }
+                await client.removeChannel(channel)
+                continuation.finish()
+            }
+            continuation.onTermination = { _ in listener.cancel() }
+        }
+    }
+
+    /// `{"ids": [...]}`, or `{}` when the server had too many to list.
+    private static func changes(in message: JSONObject) -> GameChanges {
+        guard let ids = message["payload"]?.objectValue?["ids"]?.arrayValue else { return .unlisted }
+        return .games(Set(ids.compactMap { $0.stringValue.flatMap(UUID.init(uuidString:)) }))
     }
 
     // MARK: Helpers

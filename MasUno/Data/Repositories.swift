@@ -4,6 +4,14 @@ import Foundation
 // models only see these protocols, and only this folder imports `supabase-swift` (B7).
 // Every method throws `DomainError`. A change here is one PR reviewed by both coders.
 
+/// A ping on a campus's games channel (`campus:<id>:games`).
+nonisolated enum GameChanges: Equatable, Sendable {
+    /// These games changed, or a spot in them did.
+    case games(Set<UUID>)
+    /// Too many to list, such as a bulk change on the server: re-read everything on screen.
+    case unlisted
+}
+
 /// Games: `game_cards`, `game_attendees`, `game_activity` and the game RPCs.
 protocol GameRepository: AnyObject {
     /// Open games for the map: not cancelled, ended or full, starting within 7 days,
@@ -26,6 +34,10 @@ protocol GameRepository: AnyObject {
     func cancelGame(id: UUID) async throws -> Game
     func joinGame(id: UUID) async throws -> Game
     func leaveGame(id: UUID) async throws -> Game
+    /// Fires when a game on `campus`, or a spot in one, changes, for as long as the caller keeps
+    /// listening. It says which games, not how, so callers re-read them. It ends if the connection
+    /// can't be made or drops.
+    func changes(campus: UUID) -> AsyncStream<GameChanges>
 }
 
 /// Your own profile (`my_profile`, `complete_profile`).

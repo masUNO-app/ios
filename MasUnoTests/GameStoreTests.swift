@@ -153,6 +153,44 @@ struct GameStoreTests {
         #expect(store.game(MockFixtures.GameID.open)?.myRole == nil)
     }
 
+    // MARK: Live refresh
+
+    @Test func aGameFillingOnAnotherPhoneLeavesTheMap() async throws {
+        let id = MockFixtures.GameID.open
+        try await eventually { backend.gameChangeListenerCount > 0 }
+        backend.fillGame(id: id)
+        backend.announceGameChange([id])
+        try await eventually { !store.mapGames().contains { $0.id == id } }
+    }
+
+    @Test func aGameWithRoomAgainComesBackToTheMap() async throws {
+        let id = MockFixtures.GameID.open
+        try await eventually { backend.gameChangeListenerCount > 0 }
+        backend.fillGame(id: id)
+        await store.refreshMap()
+        #expect(!store.mapGames().contains { $0.id == id })
+
+        backend.simulateDropOut(id: id)
+        backend.announceGameChange([id])
+        try await eventually { store.mapGames().contains { $0.id == id } }
+    }
+
+    @Test func aHostCancellingFromTheirPhoneShowsInGoing() async throws {
+        let id = MockFixtures.GameID.going
+        try await eventually { backend.gameChangeListenerCount > 0 }
+        backend.cancelAsHost(id: id)
+        backend.announceGameChange([id])
+        try await eventually { store.game(id)?.isCancelled == true }
+    }
+
+    /// Polls briefly until `condition` holds; the store's listener and debounce run in the background.
+    private func eventually(_ condition: () -> Bool) async throws {
+        for _ in 0..<100 where !condition() {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        #expect(condition())
+    }
+
     // MARK: Hosting
 
     @Test func createdGameIsOnTheMapAndInHosting() async throws {

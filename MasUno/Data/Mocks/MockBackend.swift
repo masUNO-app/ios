@@ -38,6 +38,7 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
     private var messages: [UUID: [ChatMessage]]
     private var lastRead: [UUID: Date] = [:]
     private var listeners: [UUID: [UUID: AsyncStream<ChatUpdate>.Continuation]] = [:]
+    private var gameChangeListeners: [UUID: AsyncStream<GameChanges>.Continuation] = [:]
     private var isSuspended = false
     /// The campus the account signing in belongs to.
     private var signInCampus = MockFixtures.tec
@@ -282,6 +283,7 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         games.append(game)
         attendees[game.id] = [Attendee(person: me, role: .host, joinedAt: now)]
         log(.created, game.id, actor: me)
+        announceGameChange([game.id])
         return game
     }
 
@@ -314,6 +316,7 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         if old.isFull, !new.isFull, new.autoRepost { new.repostedAt = now }
 
         games[index] = new
+        announceGameChange([new.id])
         if timeOrPlaceChanged { log(.timeOrPlaceChanged, id, actor: me) }
         if meetPointChanged { log(.meetPointUpdated, id, actor: me) }
         return new
@@ -327,6 +330,7 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         if games[index].hasEnded(now: now) { throw DomainError.ended }
         games[index].cancelledAt = now
         log(.cancelled, id, actor: me)
+        announceGameChange([id])
         return games[index]
     }
 
@@ -350,6 +354,7 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         games[index].myJoinedAt = now
         attendees[id, default: []].append(Attendee(person: me, role: .player, joinedAt: now))
         log(.joined, id, actor: me)
+        announceGameChange([id])
         return decorated(games[index])
     }
 
@@ -367,6 +372,7 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         attendees[id]?.removeAll { $0.id == me.id }
         if game.isFull, game.autoRepost, !game.isCancelled { games[index].repostedAt = now }
         log(.left, id, actor: me)
+        announceGameChange([id])
         return decorated(games[index])
     }
 
@@ -479,6 +485,28 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
                 Task { @MainActor in self?.listeners[gameID]?[listener] = nil }
             }
         }
+    }
+
+    /// One campus in the mock, so `campus` isn't checked.
+    func changes(campus: UUID) -> AsyncStream<GameChanges> {
+        AsyncStream { continuation in
+            let listener = UUID()
+            gameChangeListeners[listener] = continuation
+            continuation.onTermination = { [weak self] _ in
+                Task { @MainActor in self?.gameChangeListeners[listener] = nil }
+            }
+        }
+    }
+
+    var gameChangeListenerCount: Int { gameChangeListeners.count }
+
+    /// Pings like the server does. Tests call it to act as another phone changing a game.
+    func announceGameChange(_ ids: Set<UUID>) {
+        announce(.games(ids))
+    }
+
+    func announce(_ changes: GameChanges) {
+        for listener in gameChangeListeners.values { listener.yield(changes) }
     }
 
     // MARK: AppConfigRepository

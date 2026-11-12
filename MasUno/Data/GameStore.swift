@@ -53,6 +53,20 @@ final class GameStore {
     @ObservationIgnored private let safety: any SafetyRepository
     @ObservationIgnored private let catalog: any AppConfigRepository
     @ObservationIgnored private let defaults: UserDefaults
+    /// Listens for game changes made on other phones, and the re-read they schedule.
+    @ObservationIgnored private var changesTask: Task<Void, Never>?
+    @ObservationIgnored private var pendingRefresh: Task<Void, Never>?
+    /// What the pings since the last re-read named.
+    @ObservationIgnored private var pendingChanges: GameChanges?
+    /// One join writes a spot row and then the game row, so wait out a burst before re-reading.
+    private static let refreshDebounce: Duration = .milliseconds(400)
+    /// Every phone on a campus hears the same ping, so each waits up to this much longer, at
+    /// random, and their re-reads don't all reach the server in the same instant.
+    private static let refreshSpreadMilliseconds = 0...600
+    /// Waits before re-opening a games channel that dropped, longer each time it fails again.
+    private static let reconnectDelays: [Duration] = [.seconds(2), .seconds(5), .seconds(15), .seconds(30), .seconds(60)]
+    /// A channel that stayed open this long was connected, so pings may have been missed while it was down.
+    private static let connectedLongEnough: Duration = .seconds(10)
 
     init(
         games: any GameRepository, profiles: any ProfileRepository, safety: any SafetyRepository,
@@ -183,6 +197,7 @@ final class GameStore {
         async let saved: Void = refreshSaved()
         async let unread: Void = refreshUnread()
         _ = await (activities, blocked, map, mine, saved, unread)
+        listenForGameChanges()
     }
 
     /// On foreground and pull to refresh.
@@ -192,6 +207,88 @@ final class GameStore {
         async let saved: Void = refreshSaved()
         async let unread: Void = refreshUnread()
         _ = await (map, mine, saved, unread)
+    }
+
+    /// Re-reads when a game or spot on your campus changes on another phone. Opens once per
+    /// signed-in session; `reset()` closes it.
+    private func listenForGameChanges() {
+        guard changesTask == nil, let campus = profile?.university.id else { return }
+        changesTask = Task { [weak self] in
+            var failures = 0
+            while !Task.isCancelled {
+                guard let stream = self?.games.changes(campus: campus) else { return }
+                let opened = ContinuousClock.now
+                for await changes in stream { self?.note(changes) }
+
+                let wasConnected = ContinuousClock.now - opened >= Self.connectedLongEnough
+                failures = wasConnected ? 0 : failures + 1
+                let delay = Self.reconnectDelays[min(failures, Self.reconnectDelays.count - 1)]
+                do { try await Task.sleep(for: delay) } catch { return }
+                // Catch up on whatever changed while the channel was down.
+                if wasConnected { self?.note(.unlisted) }
+            }
+        }
+    }
+
+    /// Collects what the pings name, then re-reads once they've been quiet for a moment.
+    private func note(_ changes: GameChanges) {
+        pendingChanges = switch (pendingChanges, changes) {
+        case (nil, _): changes
+        case (.games(let held), .games(let new)): .games(held.union(new))
+        default: .unlisted
+        }
+        pendingRefresh?.cancel()
+        pendingRefresh = Task { [weak self] in
+            let spread = Duration.milliseconds(Int.random(in: Self.refreshSpreadMilliseconds))
+            do { try await Task.sleep(for: Self.refreshDebounce + spread) } catch { return }
+            guard let self, let changes = pendingChanges else { return }
+            pendingChanges = nil
+            await refresh(after: changes)
+        }
+    }
+
+    /// Re-reads only what a ping named: those games and their people, if this phone holds them,
+    /// and the map if a game it hasn't seen, or one with room again, might belong there.
+    private func refresh(after changes: GameChanges) async {
+        guard case .games(let ids) = changes else {
+            async let lists: Void = refresh()
+            async let held = refreshHeldGames(Set(cache.keys))
+            _ = await (lists, held)
+            return
+        }
+        let held = ids.filter { cache[$0] != nil }
+        let reopened = await refreshHeldGames(held)
+        if reopened || held.count < ids.count { await refreshMap() }
+    }
+
+    /// Re-reads games this phone holds, and their people where Who's going was loaded. A game that
+    /// doesn't come back was deleted or is now hidden by a block, so it goes.
+    /// - Parameter ids: Games already in the cache.
+    /// - Returns: Whether one of them is open again but isn't on the map yet.
+    @discardableResult
+    private func refreshHeldGames(_ ids: Set<UUID>) async -> Bool {
+        guard !ids.isEmpty else { return false }
+        let fetched: [Game]
+        do {
+            fetched = try await games.fetchGames(ids: Array(ids))
+        } catch {
+            noteFailure(domainError(error))
+            return false
+        }
+        store(fetched)
+        for id in ids.subtracting(fetched.map(\.id)) {
+            cache[id] = nil
+            mapIDs.removeAll { $0 == id }
+            missingIDs.insert(id)
+        }
+
+        let withPeople = ids.filter { attendeesByGame[$0] != nil && cache[$0] != nil }
+        await withTaskGroup(of: Void.self) { group in
+            for id in withPeople { group.addTask { await self.loadAttendees(id) } }
+        }
+        return fetched.contains { game in
+            !mapIDs.contains(game.id) && !game.isCancelled && !game.hasEnded() && !game.isFull
+        }
     }
 
     func refreshMap() async {
@@ -556,6 +653,11 @@ final class GameStore {
 
     /// Clears everything held for this account. Saved games stay on the phone, by account.
     func reset() {
+        changesTask?.cancel()
+        changesTask = nil
+        pendingRefresh?.cancel()
+        pendingRefresh = nil
+        pendingChanges = nil
         cache = [:]
         mapIDs = []
         attendeesByGame = [:]

@@ -12,6 +12,7 @@ already applied to a shared project; add a new timestamped one. Only deploy prod
 | `20261109000300_report_alerts` | Report alerts to the team chat |
 | `20261111000000_password_signup_approval` | Sign-up with a school email and a password, approved by hand (N36): `private.signup_requests`, the Discord alert, `approve_signup` / `reject_signup`, `signup_status()`, `pending_approval` |
 | `20261110000000_group_chat` | Group chat messaging (0.6): messages, unread counts, chat RPCs, the Realtime channel, 30-day cleanup. Ships switched off |
+| `20261112000000_games_realtime` | Live game lists (1.0 refresh): a Realtime ping on `campus:<id>:games` naming the games or spots that changed, so open phones on that campus re-read just those |
 
 ## Local setup
 

@@ -634,3 +634,8 @@ nonisolated struct ChatGameParams: Encodable, Sendable {
 nonisolated func chatChannelName(gameID: UUID) -> String {
     "game:\(gameID.uuidString.lowercased()):chat"
 }
+
+/// Must match the topic in `20261112000000_games_realtime`, which only lets the campus's people listen.
+nonisolated func gamesChannelName(campus: UUID) -> String {
+    "campus:\(campus.uuidString.lowercased()):games"
+}
