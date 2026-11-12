@@ -131,6 +131,9 @@ struct EventMapView: View {
             guard let id, let event = store.game(id) else { return }
             viewModel.focus(on: event)
         }
+        .onChange(of: viewModel.mapEvents(in: store).map(\.id)) { _, ids in
+            if let id = viewModel.selectedID, !ids.contains(id) { viewModel.dropSelection() }
+        }
         // A popup and the results list would cover each other.
         .onChange(of: isSearching) { _, searching in
             if searching { viewModel.selectedID = nil }

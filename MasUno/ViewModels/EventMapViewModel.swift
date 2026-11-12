@@ -150,6 +150,14 @@ final class EventMapViewModel {
         }
     }
 
+    /// The selected game left the map (cancelled, deleted, filled): its popup goes at once,
+    /// without shrinking into a pin that's no longer there.
+    func dropSelection() {
+        popupID = nil
+        isPopupShown = false
+        selectedID = nil
+    }
+
     /// Anchors the popup annotation so its tail ends just above the selected pin's head.
     /// Same coordinate as the pin, so MapKit moves them together.
     func popupAnchor(for event: Game) -> UnitPoint {
