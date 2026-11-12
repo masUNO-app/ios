@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Figma: "Me · Going" (341:2165) and "Me · Hosting" (341:2240). Replaces "Registered
-/// events" and "Hosted events".
+/// Figma: "Me · Going" (341:2165) and "Me · Hosting" (341:2240): the sky-blue profile card,
+/// Plays chips, and your games as sport-colored cards with their people and "+1" tokens.
 struct MeView: View {
     @Environment(GameStore.self) private var store
     @Environment(AppViewModel.self) private var appViewModel
@@ -15,6 +15,7 @@ struct MeView: View {
 
     var body: some View {
         @Bindable var viewModel = viewModel
+        let listed = store.goingGames() + store.pastGames() + store.hostedGames()
 
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -26,17 +27,15 @@ struct MeView: View {
                     Text("Hosting").tag(MeViewModel.Tab.hosting)
                 }
                 .pickerStyle(.segmented)
+                .padding(.top, 8)
 
                 HStack {
-                    Text("Coming up")
-                        .font(.headline)
-                        .foregroundStyle(Theme.ink)
+                    sectionTitle("Coming up")
                     Spacer()
                     if viewModel.tab == .hosting {
-                        Button("Create", systemImage: "plus") { appViewModel.presentGameForm() }
-                            .buttonStyle(.glassProminent)
-                            .tint(Theme.accentSoft)
-                            .foregroundStyle(Theme.ink)
+                        Button("Add game", systemImage: "plus") { appViewModel.presentGameForm() }
+                            .labelStyle(.titleAndIcon)
+                            .pill(.secondary, expands: false, size: .small)
                     }
                 }
 
@@ -51,6 +50,8 @@ struct MeView: View {
             }
             .padding(.horizontal, Theme.gutter)
             .padding(.bottom, 24)
+            .readableColumn()
+            .animation(.snappy, value: store.goingGames().map(\.id))
         }
         .background(Theme.background)
         .navigationTitle("Me")
@@ -64,19 +65,25 @@ struct MeView: View {
             }
         }
         .refreshable { await store.refresh() }
+        .task(id: listed.map(\.id)) { await store.loadMissingAttendees(for: listed.map(\.id)) }
         .sheet(isPresented: $viewModel.editsProfile) {
             if let profile = store.profile { EditProfileSheet(profile: profile) }
         }
-        .alert(
-            Text("Leave \(viewModel.leaving?.title ?? "")?"),
-            isPresented: Binding(get: { viewModel.leaving != nil }, set: { if !$0 { viewModel.leaving = nil } }),
-            presenting: viewModel.leaving
-        ) { event in
-            Button("Leave game", role: .destructive) { viewModel.leave(event, in: store) }
-            Button("Stay in", role: .cancel) {}
-        } message: { _ in
-            Text("Your spot opens up for someone else.")
+        .sheet(item: $viewModel.reportTarget) { ReportSheet(target: $0) }
+        .leaveGameDialog($viewModel.leaving)
+        #if DEBUG
+        .onAppear {
+            // `-screen me-leave`: the Leave confirmation over the first game you're in.
+            if UserDefaults.standard.string(forKey: "screen") == "me-leave" { viewModel.leaving = store.goingGames().first }
         }
+        #endif
+    }
+
+    private func sectionTitle(_ title: LocalizedStringKey) -> some View {
+        Text(title)
+            .font(.rounded(.footnote, .bold))
+            .foregroundStyle(Theme.ink)
+            .accessibilityAddTraits(.isHeader)
     }
 
     // MARK: Profile
@@ -87,41 +94,41 @@ struct MeView: View {
     }
 
     private func profileCard(_ profile: Profile) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 14) {
-                Avatar(name: profile.fullName, size: 64)
+                MeToken(name: profile.fullName, size: 72, ring: 4)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(profile.fullName)
-                        .font(.title2.bold())
+                    Text(verbatim: profile.fullName)
+                        .font(.rounded(.title2, .bold))
                         .foregroundStyle(Theme.ink)
-                    Text(viewModel.classLine(for: profile))
-                        .font(.subheadline)
-                        .foregroundStyle(Theme.muted)
+                    Text(verbatim: viewModel.classLine(for: profile))
+                        .font(.rounded(.footnote))
+                        .foregroundStyle(Theme.ink)
                     // O4: "Tec verified" if staff turn out to share the student domain.
-                    StatusChip(String(localized: "Verified student"), systemImage: "checkmark.seal.fill")
+                    VerifiedBadge()
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .padding(18)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Theme.you)
 
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Your interests")
-                    .font(.footnote.weight(.semibold))
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Plays")
+                    .font(.rounded(.footnote))
                     .foregroundStyle(Theme.muted)
-                FlowLayout(spacing: 8) {
-                    ForEach(profile.interests) { InterestChip(sport: $0) }
+                FlowLayout(spacing: 6) {
+                    ForEach(profile.interests) { SportChip(sport: $0) }
                 }
+                Button("Edit profile and sports") { viewModel.editsProfile = true }
+                    .pill(.secondary)
+                    .padding(.top, 4)
             }
-
-            Button("Edit profile & interests") { viewModel.editsProfile = true }
-                .buttonStyle(.glassProminent)
-                .tint(Theme.accentSoft)
-                .foregroundStyle(Theme.ink)
-                .controlSize(.large)
-                .buttonSizing(.flexible)
-                .fontWeight(.semibold)
+            .padding(18)
         }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .cardSurface()
+        .background(Theme.card)
+        .clipShape(.rect(cornerRadius: Theme.Radius.dialog))
+        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.dialog).strokeBorder(Theme.separator))
     }
 
     // MARK: Lists
@@ -130,53 +137,64 @@ struct MeView: View {
     private var goingList: some View {
         let events = store.goingGames()
         if events.isEmpty, store.myGamesState == .loaded {
-            emptyState("No games yet. Find one on the map.", systemImage: "sportscourt", action: "Find a game") {
-                appViewModel.path.removeAll()
+            EmptyCard(title: "No games yet", message: "Find one nearby, or start your own. Most games just need one more.") {
+                Button("Find a game") { appViewModel.showMap() }
+                    .pill(.primary)
+                Button("Add a game") { appViewModel.presentGameForm() }
+                    .pill(.secondary)
             }
         }
         ForEach(events) { event in
             NavigationLink(value: Route.game(event.id)) {
-                GameCard(event: event) {
-                    if !event.isCancelled {
-                        Button("Leave") { viewModel.leaving = event }
-                            .buttonStyle(.glassProminent)
-                            .tint(Theme.accentSoft)
-                            .foregroundStyle(Theme.ink)
-                    }
-                } footer: {
-                    if !event.isCancelled { chatButton(event) }
-                }
+                if event.isCancelled { cancelledCard(event) } else { goingCard(event) }
             }
             .buttonStyle(.plain)
         }
-        pastSection
+        earlierSection
     }
 
-    /// Last 14 days, collapsed.
+    private func goingCard(_ event: Game) -> some View {
+        GameCard(event: event, lineup: store.lineup(for: event), status: event.goingLine, time: EventFormat.cardTime(event)) {
+            Button("Leave") { viewModel.leaving = event }
+                .pill(.secondary, expands: false)
+            chatButton(event)
+        }
+    }
+
+    /// Stays in Going, greyed out, until you remove it.
+    private func cancelledCard(_ event: Game) -> some View {
+        GameCard(
+            event: event, lineup: store.lineup(for: event), status: event.cancelledLine,
+            time: EventFormat.cancelledTime(event), isMuted: true
+        ) {
+            Button("Remove") { store.dismissCancelled(event.id) }
+                .pill(.secondary, expands: false)
+            Button("Find another game") { appViewModel.showMap() }
+                .pill(.primary)
+        }
+    }
+
+    /// Games from the last 14 days, so you can still report someone, or get the group back together.
     @ViewBuilder
-    private var pastSection: some View {
-        @Bindable var viewModel = viewModel
+    private var earlierSection: some View {
         let events = store.pastGames()
         if !events.isEmpty {
-            DisclosureGroup(isExpanded: $viewModel.showsPast) {
-                VStack(spacing: 16) {
-                    ForEach(events) { event in
-                        NavigationLink(value: Route.game(event.id)) {
-                            GameCard(event: event, status: String(localized: "Ended · \(event.goingCount) played")) {
-                                EmptyView()
-                            }
-                        }
-                        .buttonStyle(.plain)
+            sectionTitle("Earlier")
+                .padding(.top, 4)
+            ForEach(events) { event in
+                NavigationLink(value: Route.game(event.id)) {
+                    GameCard(
+                        event: event, lineup: store.lineup(for: event), status: event.playedLine,
+                        time: EventFormat.cardTime(event), isMuted: true
+                    ) {
+                        Button("Report") { viewModel.reportTarget = .game(event.id) }
+                            .pill(.secondary, expands: false)
+                        Button("Play again") { appViewModel.presentPlayAgain(event.id) }
+                            .pill(.primary)
                     }
                 }
-                .padding(.top, 12)
-            } label: {
-                Text("Past · \(events.count)")
-                    .font(.headline)
-                    .foregroundStyle(Theme.ink)
+                .buttonStyle(.plain)
             }
-            .tint(Theme.ink)
-            .padding(.top, 8)
         }
     }
 
@@ -184,18 +202,16 @@ struct MeView: View {
     private var hostingList: some View {
         let events = store.hostedGames()
         if events.isEmpty, store.myGamesState == .loaded {
-            emptyState("Host a game in under a minute.", systemImage: "plus.circle", action: "Add game") {
-                appViewModel.presentGameForm()
+            EmptyCard(title: "Nothing on the map yet", message: "Host a game in under a minute. Most games just need one more.") {
+                Button("Add a game") { appViewModel.presentGameForm() }
+                    .pill(.primary)
             }
         }
         ForEach(events) { event in
             NavigationLink(value: Route.game(event.id)) {
-                GameCard(event: event, showsHost: false, status: event.statusLine, showsRepost: true) {
+                GameCard(event: event, lineup: store.lineup(for: event), status: hostingStatus(event), time: EventFormat.cardTime(event)) {
                     Button("Edit") { appViewModel.presentGameForm(editing: event.id) }
-                        .buttonStyle(.glassProminent)
-                        .tint(Theme.accentSoft)
-                        .foregroundStyle(Theme.ink)
-                } footer: {
+                        .pill(.secondary, expands: false)
                     chatButton(event)
                 }
             }
@@ -203,39 +219,19 @@ struct MeView: View {
         }
     }
 
-    private func chatButton(_ event: Game) -> some View {
-        let unread = store.unreadCount(event.id)
-        return NavigationLink(value: Route.chat(event.id)) {
-            if unread > 0 {
-                Text("Group chat · \(unread) new")
-            } else {
-                Text("Group chat")
-            }
-        }
-        .buttonStyle(.glassProminent)
-        .controlSize(.large)
-        .buttonSizing(.flexible)
-        .fontWeight(.semibold)
+    /// "3 joined · room for 6 more", then the auto-repost line when there's news (SPEC §7.6.11).
+    private func hostingStatus(_ event: Game) -> String {
+        guard event.autoRepost, let repostedAt = event.repostedAt else { return event.hostingLine }
+        let when = Date.now.timeIntervalSince(repostedAt) < 60
+            ? String(localized: "Reposted just now")
+            : String(localized: "Reposted \(repostedAt.formatted(.relative(presentation: .named)))")
+        return "\(event.hostingLine)\n\(when)"
     }
 
-    private func emptyState(
-        _ message: LocalizedStringKey, systemImage: String, action: LocalizedStringKey,
-        perform: @escaping () -> Void
-    ) -> some View {
-        VStack(spacing: 14) {
-            Image(systemName: systemImage)
-                .font(.largeTitle)
-                .foregroundStyle(Theme.muted)
-            Text(message)
-                .font(.headline)
-                .foregroundStyle(Theme.ink)
-                .multilineTextAlignment(.center)
-            Button(action, action: perform)
-                .buttonStyle(.glassProminent)
-                .controlSize(.large)
-                .fontWeight(.semibold)
+    private func chatButton(_ event: Game) -> some View {
+        NavigationLink(value: Route.chat(event.id)) {
+            Text(verbatim: viewModel.chatTitle(unread: store.unreadCount(event.id)))
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 32)
+        .pill(.primary)
     }
 }
