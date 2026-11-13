@@ -15,6 +15,7 @@ struct EventPopup: View {
                 event: event, lineup: store.lineup(for: event),
                 status: event.discoverLine(), time: EventFormat.cardTime(event), isFloating: true
             ) {
+                // For a guest it asks them to make an account, like every other account action.
                 BookmarkButton(event: event)
             } actions: {
                 // Once you're in, Details and View game open the same screen.
@@ -36,7 +37,11 @@ struct EventPopup: View {
                 // Tucked under the card so the border doesn't show between them.
                 .padding(.top, -1)
         }
-        .task(id: event.id) { await store.loadAttendees(event.id) }
+        // Guest previews have no names to load.
+        .task(id: event.id) {
+            guard !event.hidesPeople else { return }
+            await store.loadAttendees(event.id)
+        }
         .leaveGameDialog($leaving)
     }
 

@@ -27,6 +27,16 @@ final class LiveGameRepository: GameRepository {
         }
     }
 
+    /// `guest_games` runs as the anon role when signed out; the server applies the map's filters and order.
+    func fetchGuestGames(campus: UUID) async throws -> [Game] {
+        try await liveRequest {
+            let rows: [GuestGameRow] = try await client.rpc("guest_games", params: GuestGamesParams(campus: campus))
+                .execute().value
+            await activities.loadIfNeeded()
+            return rows.map { $0.game(activity: activities.activity(slug:)) }
+        }
+    }
+
     func fetchMyGames() async throws -> [Game] {
         let cutoff = Date.now.addingTimeInterval(-14 * 24 * 3600)
         return try await games {

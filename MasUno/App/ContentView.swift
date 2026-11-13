@@ -26,8 +26,8 @@ struct ContentView: View {
             case .launching: Theme.background.ignoresSafeArea()
             case .updateRequired: UpdateRequiredView()
             case .onboarding: OnboardingFlow(auth: appViewModel.auth, catalog: services.catalog, campus: appViewModel.launchCampus)
+            case .guest, .signedIn: main
             case .suspended: SuspendedView()
-            case .signedIn: main
             }
         }
         // Over the bottom bar on the map, as in the Figma; at the top elsewhere, clear of the
@@ -50,7 +50,8 @@ struct ContentView: View {
         .task { await launch() }
         // Onboarding finished. `launch()` handles an already signed-in session.
         .onChange(of: appViewModel.session) { old, new in
-            if old == .onboarding, new == .signedIn {
+            if new == .signedIn, old == .onboarding || old == .guest {
+                appViewModel.clearGuestBrowsingFlag()
                 Task {
                     await store.load()
                     appViewModel.push?.noteAccount(store.profile?.id)
@@ -63,9 +64,11 @@ struct ContentView: View {
             if phase == .active {
                 Task {
                     await appViewModel.finishPendingSignOutIfNeeded()
-                    guard appViewModel.session == .signedIn else { return }
+                    guard appViewModel.session == .signedIn || appViewModel.session == .guest else { return }
                     await store.refresh()
-                    await appViewModel.push?.refreshRegistration(force: false)
+                    if appViewModel.session == .signedIn {
+                        await appViewModel.push?.refreshRegistration(force: false)
+                    }
                 }
             }
         }
@@ -85,10 +88,24 @@ struct ContentView: View {
         )) {
             NotificationPrimerSheet()
         }
+        .dialog(item: Bindable(appViewModel).accountPrompt) { prompt in
+            DialogCard(
+                systemImage: "checkmark.shield",
+                title: Text(verbatim: prompt.title),
+                message: Text(verbatim: prompt.message),
+                confirm: DialogAction("Create account") {
+                    appViewModel.endGuestBrowsing(resume: .signUp, store: store)
+                },
+                cancel: DialogAction("I already have an account") {
+                    appViewModel.endGuestBrowsing(resume: .signIn, store: store)
+                }
+            )
+        }
     }
 
     private var showsNoticeAtBottom: Bool {
-        appViewModel.session == .signedIn && appViewModel.path.isEmpty && appViewModel.sheet == nil
+        (appViewModel.session == .signedIn || appViewModel.session == .guest)
+            && appViewModel.path.isEmpty && appViewModel.sheet == nil
     }
 
     private func launch() async {
@@ -101,9 +118,15 @@ struct ContentView: View {
         store.isChatEnabled = appViewModel.config.chatEnabled
         #if DEBUG
         appViewModel.applyDebugSession(mock: services.mock)
+        if UserDefaults.standard.string(forKey: "screen")?.hasPrefix("guest") == true {
+            await appViewModel.openDebugScreen(store: store, mock: services.mock)
+            return
+        }
         #endif
         // After the session exists, so a tap that arrived first can send and route.
         if let push = appViewModel.push { await notifications.connect(push) }
+        // A guest from last time goes straight back to the map.
+        if appViewModel.session == .guest { return await appViewModel.resumeGuestBrowsing(store: store) }
         guard appViewModel.session == .signedIn else { return }
         await store.load()
         appViewModel.push?.noteAccount(store.profile?.id)

@@ -299,6 +299,122 @@ struct GameStoreTests {
     }
 }
 
+/// Browsing signed out (R7-15): the map without names, and nothing an account does.
+@MainActor
+struct GuestStoreTests {
+    let backend = MockBackend(state: .signedOut(expired: false))
+    let store: GameStore
+
+    init() {
+        store = GameStore(
+            games: backend, profiles: backend, safety: backend, chat: backend, catalog: backend,
+            defaults: UserDefaults(suiteName: "GuestStoreTests.\(UUID().uuidString)")!
+        )
+    }
+
+    @Test func guestMapHasGamesWithoutNames() async {
+        await store.loadGuest(campus: MockFixtures.tec)
+        #expect(store.isGuest)
+        #expect(store.campus == MockFixtures.tec)
+        #expect(store.mapState == .loaded)
+        let map = store.mapGames()
+        #expect(map.contains { $0.id == MockFixtures.GameID.open })
+        #expect(map.allSatisfy { $0.host.isHidden && $0.notes == nil && $0.meetPoint == nil && $0.myRole == nil })
+        #expect(store.profile == nil)
+        #expect(backend.gameChangeListenerCount == 0)
+    }
+
+    @Test func guestActionsChangeNothingAndAreNotSessionProblems() async throws {
+        var reported = false
+        store.onSessionProblem = { reported = true }
+        await store.loadGuest(campus: MockFixtures.tec)
+        let id = MockFixtures.GameID.open
+        let before = try #require(store.game(id))
+
+        await store.join(id)
+        store.toggleSaved(id)
+        let draft = GameDraft(
+            activity: MockFixtures.activity("padel"), title: "New game",
+            startsAt: backend.now.addingTimeInterval(7200), durationMinutes: 60, capacity: 4,
+            place: MockFixtures.Places.park
+        )
+        await #expect(throws: DomainError.notAuthenticated) { try await store.createGame(draft) }
+
+        #expect(store.game(id) == before)
+        #expect(backend.games.first { $0.id == id }?.goingCount == before.goingCount)
+        #expect(!store.isSaved(id))
+        #expect(store.notice == nil)
+        #expect(!reported)
+    }
+
+    @Test func failedGuestLoadOffersRetryThenRecovers() async {
+        backend.nextError = .offline
+        await store.loadGuest(campus: MockFixtures.tec)
+        #expect(store.mapState == .failed(.offline))
+        #expect(store.isOffline)
+        await store.refresh()
+        #expect(store.mapState == .loaded)
+        #expect(!store.isOffline)
+        #expect(!store.mapGames().isEmpty)
+    }
+
+    @Test func guestDetailOfAGameThatFilledIsMissing() async {
+        await store.loadGuest(campus: MockFixtures.tec)
+        let id = MockFixtures.GameID.open
+        backend.fillGame(id: id)
+        await store.loadGame(id)
+        #expect(store.isMissing(id))
+        #expect(store.game(id) == nil)
+    }
+
+    @Test func signingInLeavesNoNamelessGames() async throws {
+        await store.loadGuest(campus: MockFixtures.tec)
+        try await backend.signIn(email: MockFixtures.reviewEmail, password: MockFixtures.reviewPassword)
+        await store.load()
+        #expect(!store.isGuest)
+        #expect(store.profile != nil)
+        #expect(store.campus == MockFixtures.demoCampus)
+        #expect(!store.mapGames().isEmpty)
+        #expect(store.mapGames().allSatisfy { !$0.host.isHidden })
+    }
+
+    @Test func closedCampusShowsAnEmptyMap() async {
+        var closedTec = MockFixtures.tec
+        closedTec.signupEnabled = false
+        backend.universities = [closedTec]
+        await store.loadGuest(campus: closedTec)
+        #expect(store.mapState == .loaded)
+        #expect(store.mapGames().isEmpty)
+
+        await store.loadGuest(campus: MockFixtures.demoCampus)
+        #expect(store.mapGames().isEmpty)
+    }
+
+    @Test func guestCampusIsNotRememberedAndResetEndsGuestMode() async {
+        let defaults = UserDefaults(suiteName: "GuestStoreTests.\(UUID().uuidString)")!
+        let guest = GameStore(games: backend, profiles: backend, safety: backend, chat: backend, catalog: backend, defaults: defaults)
+        await guest.loadGuest(campus: MockFixtures.tec)
+        let relaunched = GameStore(games: backend, profiles: backend, safety: backend, chat: backend, catalog: backend, defaults: defaults)
+        #expect(relaunched.campus == nil)
+
+        guest.reset()
+        #expect(!guest.isGuest)
+        #expect(guest.campus == nil)
+        #expect(guest.mapGames().isEmpty)
+    }
+
+    @Test func guestGameCopyAndLineupLeavePeopleOut() async throws {
+        await store.loadGuest(campus: MockFixtures.tec)
+        let game = try #require(store.game(MockFixtures.GameID.open))
+        #expect(game.hidesPeople)
+        #expect(game.hostLine == game.activity.name)
+        let lineup = store.lineup(for: game)
+        #expect(lineup.people.isEmpty)
+        #expect(lineup.unlisted == game.goingCount)
+        #expect(lineup.open == game.spotsLeft)
+    }
+}
+
 @MainActor
 struct AutoRepostTests {
     let backend = MockBackend()

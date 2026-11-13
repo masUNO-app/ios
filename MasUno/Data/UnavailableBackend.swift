@@ -20,6 +20,7 @@ final class UnavailableBackend: AuthService, GameRepository, ProfileRepository, 
     func deleteAccount() async throws { throw DomainError.offline }
 
     func fetchMapGames() async throws -> [Game] { throw DomainError.offline }
+    func fetchGuestGames(campus: UUID) async throws -> [Game] { throw DomainError.offline }
     func fetchMyGames() async throws -> [Game] { throw DomainError.offline }
     func fetchGame(id: UUID) async throws -> Game { throw DomainError.offline }
     func fetchGames(ids: [UUID]) async throws -> [Game] { throw DomainError.offline }

@@ -53,7 +53,19 @@ struct EventDetailView: View {
 
     private func load() async {
         await store.loadGame(viewModel.eventID)
-        await store.loadAttendees(viewModel.eventID)
+        // Guest previews have no attendee names to fetch.
+        if let event = store.game(viewModel.eventID), !event.hidesPeople {
+            await store.loadAttendees(viewModel.eventID)
+        }
+    }
+
+    /// Who's going / court tap: guests get the account card instead of empty faces.
+    private func openWhoIsGoing() {
+        if store.isGuest || store.game(viewModel.eventID)?.hidesPeople == true {
+            appViewModel.requireAccount(.whosGoing)
+        } else {
+            viewModel.showsWhoIsGoing = true
+        }
     }
 
     private func content(_ event: Game) -> some View {
@@ -65,7 +77,7 @@ struct EventDetailView: View {
         return CourtScaffold(
             activity: event.activity, lineup: store.lineup(for: event), capacity: event.capacity,
             holdsYou: appViewModel.arrivingIn == event.id, showsOpenSpots: !isOver,
-            onTap: { viewModel.showsWhoIsGoing = true },
+            onTap: { openWhoIsGoing() },
             onSheetUnderBar: { isUnder in
                 withAnimation(.easeOut(duration: 0.2)) { isTitleUnderBar = isUnder }
             }
@@ -160,7 +172,7 @@ struct EventDetailView: View {
                     .contentTransition(.opacity)
                 Spacer(minLength: 12)
                 Button {
-                    viewModel.showsWhoIsGoing = true
+                    openWhoIsGoing()
                 } label: {
                     HStack(spacing: 4) {
                         Text("Who's going")
@@ -283,7 +295,11 @@ struct EventDetailView: View {
             let isSaved = store.isSaved(event.id)
             if state != .hosting {
                 Button(isSaved ? "Remove bookmark" : "Bookmark", systemImage: isSaved ? "bookmark.fill" : "bookmark") {
-                    store.toggleSaved(event.id)
+                    if store.isGuest {
+                        appViewModel.requireAccount(.save)
+                    } else {
+                        store.toggleSaved(event.id)
+                    }
                 }
             }
             switch state {
@@ -302,13 +318,20 @@ struct EventDetailView: View {
                     viewModel.leaving = event
                 }
             default:
+                Button("Open in Maps", systemImage: "arrow.up.forward.square") { viewModel.openInMaps(event) }
                 reportGameButton(event)
             }
         }
     }
 
     private func reportGameButton(_ event: Game) -> some View {
-        Button("Report game", systemImage: "flag") { viewModel.reportTarget = .game(event.id) }
+        Button("Report game", systemImage: "flag") {
+            if store.isGuest {
+                appViewModel.requireAccount(.report)
+            } else {
+                viewModel.reportTarget = .game(event.id)
+            }
+        }
     }
 
     /// The sticky bar: one green action, with a mint one beside it once you're in.
@@ -319,9 +342,17 @@ struct EventDetailView: View {
         Group {
             switch state {
             case .open:
-                barColumn(caption: "One tap and you're in. Change your mind anytime.") {
-                    Button("Count me in") { viewModel.join(in: store) }
-                        .pill(.primary)
+                barColumn(caption: store.isGuest
+                    ? "Create a student account to take a spot."
+                    : "One tap and you're in. Change your mind anytime.") {
+                    Button("Count me in") {
+                        if store.isGuest {
+                            appViewModel.requireAccount(.join)
+                        } else {
+                            viewModel.join(in: store)
+                        }
+                    }
+                    .pill(.primary)
                 }
             case .going:
                 buttonPair {
@@ -347,11 +378,17 @@ struct EventDetailView: View {
                 }
             case .full:
                 let isOn = store.hasSpotAlert(event.id)
-                barColumn(caption: isOn
+                barColumn(caption: store.isGuest
+                    ? "Create an account to hear when a spot opens."
+                    : isOn
                     ? "We'll tell you in the app when someone drops out. Tap to turn it off."
                     : "We'll tell you in the app the moment someone drops out.") {
                     Button(isOn ? "Spot alert is on" : "Alert me if a spot opens") {
-                        withAnimation(.snappy) { store.toggleSpotAlert(event.id) }
+                        if store.isGuest {
+                            appViewModel.requireAccount(.save)
+                        } else {
+                            withAnimation(.snappy) { store.toggleSpotAlert(event.id) }
+                        }
                     }
                     .pill(isOn ? .secondary : .primary)
                     .sensoryFeedback(.selection, trigger: isOn)
