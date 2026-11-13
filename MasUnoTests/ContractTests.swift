@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import MasUno
+@testable import masUNO
 
 /// The E1 contract: error codes, model rules and the mock backend's RPC behavior.
 /// If a test here changes, `docs/API.md` probably should too.

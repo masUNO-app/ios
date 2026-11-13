@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import MasUno
+@testable import masUNO
 
 @MainActor
 struct GameStoreTests {
