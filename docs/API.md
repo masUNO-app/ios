@@ -89,6 +89,32 @@ grant limited to these columns, so `student_email_pattern` stays private.
 `activities` is seeded with the slugs `basketball`, `tennis`, `soccer`, `volleyball`, `padel`,
 which `Activity.builtIn` repeats as the offline fallback.
 
+## Guests (1.0)
+
+Added by `20261113000000_guest_games` (SPEC R7-15). Signed out, people browse the map and game details,
+but names stay with verified students (SPEC §8.8): no host or attendees, no host's note, no meet-up spot,
+no chat. Joining, saving, hosting and Who's going need an account. This is the only game read `anon` has;
+`game_cards`, `games` and `rsvps` stay closed to it.
+
+`guest_games(p_university uuid)` → `GameRepository.fetchGuestGames(campus:)`, as `Game` with `host` set to
+`PersonSummary.hidden`. Callable by `anon` and `authenticated`.
+
+| Column | Type | Swift |
+| --- | --- | --- |
+| `id` | `uuid` | `id` |
+| `activity_slug` | `text` | `activity` |
+| `title` | `text` | `title` |
+| `starts_at`, `duration_minutes`, `ends_at` | `timestamptz`, `int`, `timestamptz` | `startsAt`, `durationMinutes`, `endsAt` |
+| `capacity`, `going_count`, `spots_left` | `int`, `int`, `int` | `capacity`, `goingCount`; `spots_left` as in `game_cards` |
+| `place_name`, `place_address`, `lat`, `lng` | `text`, `text`, `float8`, `float8` | `place` |
+| `reposted_at`, `created_at` | `timestamptz?`, `timestamptz` | `repostedAt`, `createdAt` |
+| `sort_at` | `timestamptz` | `coalesce(reposted_at, created_at)`; rows come newest first |
+
+Rows are the ones `fetchMapGames` reads for a student on that campus: not cancelled, not ended, not full,
+starting within 7 days. A campus that `university_lookup` doesn't list (the hidden demo campus) or that has
+`signup_enabled` off returns no rows, not an error. No `my_role`, `has_blocked_attendee` or `auto_repost`:
+nothing comes back per viewer.
+
 ## Views
 
 ### `game_cards` → `Game`

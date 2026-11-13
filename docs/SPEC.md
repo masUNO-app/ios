@@ -708,7 +708,7 @@ Defaults below apply unless signed off otherwise (§12, R7-4…R7-10, R7-15). Ar
 | R7-8 | Mic glyph in the search bar | No voice search (D1 removed it) | **No mic glyph.** |
 | R7-9 | `DESIGN.md`: Spanish is the primary market | "English first, strings externalized"; Spanish in 1.0 | **No change:** the app follows the phone's language from 1.0; development language stays English. |
 | R7-10 | Nunito everywhere | SF Pro in 0.5 | **SF Pro Rounded** in the app (`DESIGN.md` allows it; no bundled font); Nunito in Figma and on the website. |
-| R7-15 | Sign in to join opens over a game with **Not now**, so people browse signed out and sign in when they join | "Sign-in gates the app" (§1); signed-out game reads aren't in `docs/API.md` or B3 | **0.5 keeps the gate:** the sheet follows the Location primer with no game behind it. Browse-first is a separate 1.0 decision, because it needs a contract and RLS change. |
+| R7-15 | Sign in to join opens over a game with **Not now**, so people browse signed out and sign in when they join | "Sign-in gates the app" (§1); signed-out game reads aren't in `docs/API.md` or B3 | **0.5 keeps the gate:** the sheet follows the Location primer with no game behind it. **1.0 (decided by Ethan, Nov 13):** guests browse the map and game details without names; joining, saving, hosting and Who's going need an account. Reads go through `guest_games` (`docs/API.md`, Guests). |
 | — | Find your school lists Illinois Tech and UIC | Tec-only launch (N32) | **Concept only.** The list comes from `university_lookup`, so it shows Tec alone at launch. |
 | — | "Your spot is held while you sign in." and campus locations under school names | No hold in `join_game`; no column for a campus location | **Ethan removes both from the frames.** |
 | — | Placeholder content: San Francisco map and addresses, "[Padel venue near Tec]", a warm map overlay | Monterrey launch; standard Apple map style (§7.6.1) | Use Monterrey venues in frames, decks and screenshots; standard map style in the app. |
@@ -1001,7 +1001,7 @@ Alert in team chat → on-call person (Ricardo or Arianna) checks the report in 
 | R7-14 | K19 — what happens if only allowlisted accounts can sign in at the Sun Nov 8 go/no-go | ⚑ Ricardo signs off; Ethan agrees (Nov 6). Still submit Mon Nov 9, with manual release, so the review slot isn't lost; release and open the external beta only once a real Tec account signs in on prod. Otherwise N20's slip rule applies |
 | R7-16 | N35 — prod's Azure tenant stays `organizations`; the hook checks each campus's `tenant_id` (B22) | Decided (Ethan, Nov 10); ⚑ Emilio builds B22 |
 | R7-17 | N34 — 0.5 submits Thu Nov 12; 0.6 stays Mon Nov 16 | Program manager (Nov 10) |
-| R7-15 | Browse before sign-in (§7.7.6) | 0.5 keeps the gate (Ethan, Nov 6). ⚑ Team decides for 1.0 by Wed Nov 11 (D12); default is to keep the gate |
+| R7-15 | Browse before sign-in (§7.7.6) | 0.5 keeps the gate (Ethan, Nov 6). 1.0: guests browse the map and game details without names; joining, saving, hosting and Who's going need an account; reads go through `guest_games`. Decided (Ethan, Nov 13) |
 
 ### Rev. 6 (Nov 3)
 
