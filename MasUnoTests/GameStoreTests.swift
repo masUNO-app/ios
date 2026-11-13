@@ -175,6 +175,39 @@ struct GameStoreTests {
         try await eventually { store.mapGames().contains { $0.id == id } }
     }
 
+    @Test func someoneLeavingUpdatesTheFacesWithTheOpenSpot() async throws {
+        let id = MockFixtures.GameID.open
+        try await eventually { backend.gameChangeListenerCount > 0 }
+        await store.loadAttendees(id)
+        let before = try #require(store.game(id))
+        #expect(store.lineup(for: before).people.map(\.id) == [MockFixtures.alex.id, MockFixtures.ricardo.id])
+
+        backend.simulateDropOut(id: id)
+        backend.announceGameChange([id])
+        try await eventually {
+            guard let game = store.game(id) else { return false }
+            let lineup = store.lineup(for: game)
+            return lineup.people.map(\.id) == [MockFixtures.alex.id] && lineup.open == before.spotsLeft + 1
+        }
+    }
+
+    @Test func aBookmarkedFullGameOpensWithANotice() async throws {
+        let id = MockFixtures.GameID.open
+        try await eventually { backend.gameChangeListenerCount > 0 }
+        backend.fillGame(id: id)
+        await store.loadGame(id)
+        await store.refreshMap()
+        #expect(store.game(id)?.isFull == true)
+        #expect(!store.mapGames().contains { $0.id == id })
+
+        store.toggleSaved(id)
+        store.notice = nil
+        backend.simulateDropOut(id: id)
+        backend.announceGameChange([id])
+        try await eventually { store.notice == "A spot just opened in After-work hoops." }
+        #expect(store.mapGames().contains { $0.id == id })
+    }
+
     @Test func aHostCancellingFromTheirPhoneShowsInGoing() async throws {
         let id = MockFixtures.GameID.going
         try await eventually { backend.gameChangeListenerCount > 0 }

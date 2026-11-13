@@ -60,6 +60,9 @@ final class GameStore {
     @ObservationIgnored private var pendingChanges: GameChanges?
     /// One join writes a spot row and then the game row, so wait out a burst before re-reading.
     private static let refreshDebounce: Duration = .milliseconds(400)
+    /// Shorter wait when this phone is in the game or has it saved: those screens should move
+    /// with the other phone, not a second later.
+    private static let fastRefreshDebounce: Duration = .milliseconds(200)
     /// Every phone on a campus hears the same ping, so each waits up to this much longer, at
     /// random, and their re-reads don't all reach the server in the same instant.
     private static let refreshSpreadMilliseconds = 0...600
@@ -238,17 +241,29 @@ final class GameStore {
         default: .unlisted
         }
         pendingRefresh?.cancel()
+        let fast = wantsItFast(pendingChanges)
         pendingRefresh = Task { [weak self] in
-            let spread = Duration.milliseconds(Int.random(in: Self.refreshSpreadMilliseconds))
-            do { try await Task.sleep(for: Self.refreshDebounce + spread) } catch { return }
+            let spread = fast ? Duration.zero : Duration.milliseconds(Int.random(in: Self.refreshSpreadMilliseconds))
+            let debounce = fast ? Self.fastRefreshDebounce : Self.refreshDebounce
+            do { try await Task.sleep(for: debounce + spread) } catch { return }
             guard let self, let changes = pendingChanges else { return }
             pendingChanges = nil
             await refresh(after: changes)
         }
     }
 
+    /// A game you're in, or one you saved, should update on this phone ahead of the crowd.
+    /// - Parameter changes: The pings collected since the last re-read.
+    /// - Returns: Whether to skip the random delay.
+    private func wantsItFast(_ changes: GameChanges?) -> Bool {
+        guard case .games(let ids) = changes else { return false }
+        if !ids.isDisjoint(with: savedIDs) || !ids.isDisjoint(with: spotAlertIDs) { return true }
+        return cache.values.contains { ids.contains($0.id) && $0.myRole != nil }
+    }
+
     /// Re-reads only what a ping named: those games and their people, if this phone holds them,
-    /// and the map if a game it hasn't seen, or one with room again, might belong there.
+    /// and the map when a game it hasn't seen might belong there. A game that just got a spot
+    /// is put back on the map here, so a saved game doesn't wait on a second fetch.
     private func refresh(after changes: GameChanges) async {
         guard case .games(let ids) = changes else {
             async let lists: Void = refresh()
@@ -257,37 +272,44 @@ final class GameStore {
             return
         }
         let held = ids.filter { cache[$0] != nil }
-        let reopened = await refreshHeldGames(held)
-        if reopened || held.count < ids.count { await refreshMap() }
+        await refreshHeldGames(held)
+        if held.count < ids.count { await refreshMap() }
     }
 
-    /// Re-reads games this phone holds, and their people where Who's going was loaded. A game that
-    /// doesn't come back was deleted or is now hidden by a block, so it goes.
+    /// Re-reads games this phone holds, and their people where Who's going was loaded. The game
+    /// and its people land together, so a leave doesn't draw a dashed spot on the wrong face.
+    /// A game that doesn't come back was deleted or is now hidden by a block, so it goes.
     /// - Parameter ids: Games already in the cache.
-    /// - Returns: Whether one of them is open again but isn't on the map yet.
-    @discardableResult
-    private func refreshHeldGames(_ ids: Set<UUID>) async -> Bool {
-        guard !ids.isEmpty else { return false }
+    private func refreshHeldGames(_ ids: Set<UUID>) async {
+        guard !ids.isEmpty else { return }
         let fetched: [Game]
         do {
             fetched = try await games.fetchGames(ids: Array(ids))
         } catch {
             noteFailure(domainError(error))
-            return false
-        }
-        store(fetched)
-        for id in ids.subtracting(fetched.map(\.id)) {
-            cache[id] = nil
-            mapIDs.removeAll { $0 == id }
-            missingIDs.insert(id)
+            return
         }
 
-        let withPeople = ids.filter { attendeesByGame[$0] != nil && cache[$0] != nil }
-        await withTaskGroup(of: Void.self) { group in
-            for id in withPeople { group.addTask { await self.loadAttendees(id) } }
+        let fetchedIDs = Set(fetched.map(\.id))
+        // Fetched before anything is published, so the faces and the dashed spots change together.
+        var people: [UUID: [Attendee]] = [:]
+        for id in ids where attendeesByGame[id] != nil && fetchedIDs.contains(id) {
+            people[id] = try? await games.fetchAttendees(gameID: id)
         }
-        return fetched.contains { game in
-            !mapIDs.contains(game.id) && !game.isCancelled && !game.hasEnded() && !game.isFull
+
+        store(fetched)
+        for id in ids.subtracting(fetchedIDs) {
+            cache[id] = nil
+            mapIDs.removeAll { $0 == id }
+            attendeesByGame[id] = nil
+            missingIDs.insert(id)
+        }
+        for (id, list) in people {
+            attendeesByGame[id] = list
+            attendeeCounts[id] = cache[id]?.goingCount
+        }
+        for game in fetched where !mapIDs.contains(game.id) && !game.isCancelled && !game.hasEnded() && !game.isFull {
+            mapIDs.insert(game.id, at: 0)
         }
     }
 
@@ -411,25 +433,25 @@ final class GameStore {
     }
 
     private func store(_ fetched: [Game]) {
+        var openedTitle: String?
+        var alertsChanged = false
         for game in fetched {
+            let wasFull = cache[game.id]?.isFull == true
+            let watched = savedIDs.contains(game.id) || spotAlertIDs.contains(game.id)
+            if watched, wasFull, !game.isFull, !game.isCancelled, !game.hasEnded(), !game.isGoing {
+                openedTitle = game.title
+            }
+            if spotAlertIDs.contains(game.id), game.isCancelled || game.hasEnded() || game.isGoing || !game.isFull {
+                spotAlertIDs.remove(game.id)
+                alertsChanged = true
+            }
             cache[game.id] = game
             missingIDs.remove(game.id)
         }
-        announceOpenedSpots(in: fetched)
-    }
-
-    /// A full game you asked about has room again: say so once, and turn the alert off.
-    private func announceOpenedSpots(in fetched: [Game]) {
-        guard !spotAlertIDs.isEmpty else { return }
-        for game in fetched where spotAlertIDs.contains(game.id) {
-            if game.isCancelled || game.hasEnded() || game.isGoing {
-                spotAlertIDs.remove(game.id)
-            } else if !game.isFull {
-                spotAlertIDs.remove(game.id)
-                notice = String(localized: "A spot just opened in \(game.title).")
-            }
+        if alertsChanged { write(spotAlertIDs, forKey: spotAlertKey) }
+        if let openedTitle {
+            notice = String(localized: "A spot just opened in \(openedTitle).")
         }
-        write(spotAlertIDs, forKey: spotAlertKey)
     }
 
     // MARK: Join and leave

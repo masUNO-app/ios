@@ -110,6 +110,9 @@ struct OpenSpotToken: View {
                     .strokeBorder(Theme.ink, style: StrokeStyle(lineWidth: 1.5, dash: [3, 2.5]))
                     .rotationEffect(.degrees(isTurning ? 360 : 0))
                     .animation(isTurning ? .linear(duration: 16).repeatForever(autoreverses: false) : nil, value: isTurning)
+                    // The court springs when someone comes or goes. Without this, that spring
+                    // takes the ring and the dash freezes at a bad angle.
+                    .geometryGroup()
             }
             .frame(width: size, height: size)
             .accessibilityHidden(true)
@@ -151,16 +154,24 @@ struct Lineup: Equatable {
     var isHostedByMe: Bool
 
     /// `attendees` can be empty while Who's going loads: the host, and you if you're in, still show.
+    /// A count that arrives before the list is left alone: cutting the tail would erase the wrong
+    /// person and draw a dashed spot where they stood.
     init(game: Game, attendees: [Attendee], me: PersonSummary?) {
         var people = attendees.map(\.person)
         if people.isEmpty {
             people = [game.host]
             if let me, game.isGoing, me.id != game.host.id { people.append(me) }
+            people = Array(people.prefix(game.goingCount))
+            unlisted = max(game.goingCount - people.count, 0)
+            open = game.spotsLeft
+        } else if people.count > game.goingCount {
+            unlisted = 0
+            open = max(game.capacity - people.count, 0)
+        } else {
+            unlisted = max(game.goingCount - people.count, 0)
+            open = game.spotsLeft
         }
-        people = Array(people.prefix(game.goingCount))
         self.people = people
-        unlisted = max(game.goingCount - people.count, 0)
-        open = game.spotsLeft
         myID = me?.id
         isHostedByMe = game.isHostedByMe
     }

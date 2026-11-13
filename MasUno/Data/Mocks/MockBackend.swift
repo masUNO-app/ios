@@ -75,10 +75,15 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
     }
 
     /// Another player leaves, firing auto-repost if the game was full.
+    /// When the roster matches the count, that player comes off Who's going too.
     func simulateDropOut(id: UUID) {
         guard let index = games.firstIndex(where: { $0.id == id }) else { return }
         let game = games[index]
         guard game.goingCount > 1 else { return }
+        if attendees[id]?.count == game.goingCount,
+           let leaving = attendees[id]?.last(where: { $0.role != .host }) {
+            attendees[id]?.removeAll { $0.id == leaving.id }
+        }
         games[index].goingCount -= 1
         if game.isFull, game.autoRepost, !game.isCancelled { games[index].repostedAt = now }
     }

@@ -295,6 +295,8 @@ struct CourtHeader: View {
                 ForEach(places) { place in
                     let point = slots.points[place.slot]
                     token(place, slots: slots)
+                        // Keeps the bob and the dashed rings out of the spring that moves spots.
+                        .geometryGroup()
                         .position(x: inset + point.x * scale, y: point.y * scale + labelOffset(place, slots: slots))
                 }
             }
@@ -406,19 +408,38 @@ private struct Idle: ViewModifier {
     var slot: Int
     var scale: CGFloat
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var isMoving = false
 
     func body(content: Content) -> some View {
         let lag = Double(slot % 5) * 1.1
         content
-            .animation(beat(2.75, lag: lag)) { $0.offset(y: isMoving ? -5 * scale : 0) }
-            .animation(beat(3.9, lag: lag * 0.7)) { $0.offset(x: isMoving ? 1.5 * scale : 0) }
-            .onAppear { isMoving = !reduceMotion }
-            .onChange(of: reduceMotion) { isMoving = !reduceMotion }
+            .modifier(Drift(distance: -5 * scale, duration: 2.75, lag: lag, axis: .vertical, paused: reduceMotion))
+            .modifier(Drift(distance: 1.5 * scale, duration: 3.9, lag: lag * 0.7, axis: .horizontal, paused: reduceMotion))
+    }
+}
+
+/// One repeating shift. Its own state, so the bob and the sway don't share an animation and
+/// a lineup change can't replace the loop with the court's spring.
+private struct Drift: ViewModifier {
+    enum Axis { case horizontal, vertical }
+
+    var distance: CGFloat
+    var duration: TimeInterval
+    var lag: TimeInterval
+    var axis: Axis
+    var paused: Bool
+    @State private var isMoving = false
+
+    func body(content: Content) -> some View {
+        let shift = isMoving && !paused ? distance : 0
+        content
+            .offset(x: axis == .horizontal ? shift : 0, y: axis == .vertical ? shift : 0)
+            .animation(beat, value: isMoving)
+            .onAppear { isMoving = true }
+            .onChange(of: paused) { _, isPaused in isMoving = !isPaused }
     }
 
-    private func beat(_ duration: TimeInterval, lag: TimeInterval) -> Animation? {
-        isMoving ? .easeInOut(duration: duration).repeatForever(autoreverses: true).delay(lag) : nil
+    private var beat: Animation {
+        paused ? .easeOut(duration: 0.2) : .easeInOut(duration: duration).repeatForever(autoreverses: true).delay(lag)
     }
 }
 

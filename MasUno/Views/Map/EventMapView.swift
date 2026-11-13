@@ -605,8 +605,14 @@ struct EventMapView: View {
             appViewModel.path.append(.me())
         } label: {
             MeToken(name: store.profile?.fullName ?? "", size: 36, ring: 0)
+                .frame(width: 36, height: 36)
                 .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { avatarFrame = $0 }
         }
+        // A custom toolbar label otherwise gets a horizontal glass capsule, so the avatar
+        // sits in a pill. The circle follows the token.
+        .buttonStyle(.plain)
+        .buttonBorderShape(.circle)
+        .buttonSizing(.fitted)
         .accessibilityLabel("Me")
         #if DEBUG
         .contextMenu {

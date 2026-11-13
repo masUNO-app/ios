@@ -6,6 +6,8 @@ struct EventPopup: View {
     @Environment(AppViewModel.self) private var appViewModel
     var event: Game
     var viewModel: EventMapViewModel
+    /// Set when Leave is tapped, so the confirmation can name the game.
+    @State private var leaving: Game?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -15,8 +17,14 @@ struct EventPopup: View {
             ) {
                 BookmarkButton(event: event)
             } actions: {
-                Button("Details") { appViewModel.path.append(.game(event.id)) }
-                    .pill(.secondary, expands: false)
+                // Once you're in, Details and View game open the same screen.
+                if event.isGoing, !event.isHostedByMe {
+                    Button("Leave") { leaving = event }
+                        .pill(.secondary, expands: false)
+                } else {
+                    Button("Details") { appViewModel.path.append(.game(event.id)) }
+                        .pill(.secondary, expands: false)
+                }
                 primaryAction
                     .pill(.primary)
             }
@@ -29,6 +37,7 @@ struct EventPopup: View {
                 .padding(.top, -1)
         }
         .task(id: event.id) { await store.loadAttendees(event.id) }
+        .leaveGameDialog($leaving)
     }
 
     @ViewBuilder
