@@ -484,8 +484,8 @@ struct EventMapView: View {
         GeometryReader { geo in
             let container = geo.frame(in: .global)
             // Big portrait screens (iPad, iPhone Duo's inner display) raise the avatar past the
-            // default gap, so keep clear of its top: its glass adds about 6, plus 10 of space.
-            let clearsAvatar = avatarFrame == .zero ? 0 : container.maxY - avatarFrame.minY + 16
+            // default gap, so keep 10 pt clear of the top of its glass circle.
+            let clearsAvatar = avatarFrame == .zero ? 0 : container.maxY - avatarFrame.minY + 10
             Button {
                 viewModel.centerOnUserLocation()
             } label: {
@@ -550,7 +550,7 @@ struct EventMapView: View {
         ToolbarSpacer(.fixed, placement: .bottomBar)
 
         // The avatar is a custom view, which the system keeps horizontal by default.
-        ToolbarItem(placement: .bottomBar) { profileButton }
+        ToolbarItem(placement: .bottomBar) { profileButton(drawsGlass: false) }
             .axisBehavior(.verticalPreferred)
     }
     #endif
@@ -570,7 +570,8 @@ struct EventMapView: View {
 
         ToolbarSpacer(.flexible, placement: .bottomBar)
 
-        ToolbarItem(placement: .bottomBar) { profileButton }
+        ToolbarItem(placement: .bottomBar) { profileButton(drawsGlass: true) }
+            .sharedBackgroundVisibility(.hidden)
     }
 
     /// Opens Filter games. A sheet rather than a menu, so it's the same from the bottom bar
@@ -600,13 +601,23 @@ struct EventMapView: View {
         .tint(Theme.accent)
     }
 
-    private var profileButton: some View {
+    /// The avatar opens Me. In the bottom bar it draws its own glass circle, exactly the Filter
+    /// button's size; in a vertical bar the bar's own glass holds it.
+    private func profileButton(drawsGlass: Bool) -> some View {
         Button {
             appViewModel.path.append(.me())
         } label: {
-            MeToken(name: store.profile?.fullName ?? "", size: 36, ring: 0)
-                .frame(width: 36, height: 36)
-                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { avatarFrame = $0 }
+            if drawsGlass {
+                MeToken(name: store.profile?.fullName ?? "", size: Self.mapButtonSize - 8, ring: 0)
+                    .frame(width: Self.mapButtonSize, height: Self.mapButtonSize)
+                    .glassEffect(.regular.interactive(), in: .circle)
+                    .contentShape(.circle)
+                    .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { avatarFrame = $0 }
+            } else {
+                MeToken(name: store.profile?.fullName ?? "", size: 36, ring: 0)
+                    .frame(width: 36, height: 36)
+                    .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { avatarFrame = $0 }
+            }
         }
         // A custom toolbar label otherwise gets a horizontal glass capsule, so the avatar
         // sits in a pill. The circle follows the token.
