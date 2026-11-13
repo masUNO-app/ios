@@ -155,6 +155,22 @@ struct GameStoreTests {
 
     // MARK: Live refresh
 
+    @Test func anOfflineLaunchStartsListeningOnTheNextRefresh() async throws {
+        let backend = MockBackend()
+        let launched = GameStore(
+            games: backend, profiles: backend, safety: backend, chat: backend, catalog: backend,
+            defaults: UserDefaults(suiteName: "GameStoreTests.\(UUID().uuidString)")!
+        )
+        backend.nextError = .offline
+        await launched.load()
+        #expect(launched.profile == nil)
+        #expect(backend.gameChangeListenerCount == 0)
+
+        await launched.refresh()
+        #expect(launched.profile?.firstName == "Emilio")
+        try await eventually { backend.gameChangeListenerCount > 0 }
+    }
+
     @Test func aGameFillingOnAnotherPhoneLeavesTheMap() async throws {
         let id = MockFixtures.GameID.open
         try await eventually { backend.gameChangeListenerCount > 0 }

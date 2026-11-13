@@ -205,6 +205,9 @@ final class GameStore {
 
     /// On foreground and pull to refresh.
     func refresh() async {
+        // The launch was offline and never got your profile: do the whole load now, which also
+        // reads your saved games and starts listening for changes from other phones.
+        guard profile != nil else { return await load() }
         async let map: Void = refreshMap()
         async let mine: Void = refreshMyGames()
         async let saved: Void = refreshSaved()
