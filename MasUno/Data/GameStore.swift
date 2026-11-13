@@ -15,7 +15,11 @@ final class GameStore {
     private(set) var myGamesState = LoadState.idle
     private(set) var profile: Profile?
     /// Your campus. Kept from the last launch, so the map has somewhere to open while offline.
+    /// For a guest, the campus being browsed, which isn't kept.
     private(set) var campus: University?
+    /// Browsing signed out (SPEC R7-15): games come from `guest_games`, without names, and every
+    /// account action is a no-op. `load()` and `reset()` end it.
+    private(set) var isGuest = false
     private(set) var activities = Activity.builtIn
     /// People you blocked, newest first.
     private(set) var blockedPeople: [PersonSummary] = []
@@ -81,7 +85,7 @@ final class GameStore {
         self.safety = safety
         self.catalog = catalog
         self.defaults = defaults
-        campus = defaults.data(forKey: Self.campusKey).flatMap { try? JSONDecoder().decode(University.self, from: $0) }
+        campus = rememberedCampus
     }
 
     // MARK: Queries
@@ -187,8 +191,13 @@ final class GameStore {
 
     // MARK: Loading
 
-    /// Everything the signed-in app needs. Called on sign-in and launch.
+    /// Everything the signed-in app needs. Called on sign-in and launch. Coming from guest mode it
+    /// starts clean, so no nameless preview is left in a list.
     func load() async {
+        if isGuest {
+            clearSession()
+            campus = rememberedCampus
+        }
         await loadProfile()
         savedIDs = readSavedIDs()
         spotAlertIDs = readIDs(spotAlertKey).intersection(savedIDs)
@@ -203,8 +212,26 @@ final class GameStore {
         listenForGameChanges()
     }
 
+    /// Browsing signed out (SPEC R7-15): a campus's open games, without names, notes or meet-up
+    /// spots. Starts clean, like `reset()`, and loads no profile, saved games, blocks, Me or chat,
+    /// and opens no live listener: those all need an account. The campus stays in memory only;
+    /// the one kept on the phone is the signed-in account's, for opening the map offline.
+    /// - Parameter campus: The campus to browse, picked by the guest.
+    func loadGuest(campus: University) async {
+        clearSession()
+        isGuest = true
+        self.campus = campus
+        // The map first, so games show sooner; the built-in sports stand in until the list arrives.
+        await refreshGuestMap()
+        await loadActivities()
+    }
+
     /// On foreground and pull to refresh.
     func refresh() async {
+        if isGuest {
+            await refreshGuestMap()
+            return
+        }
         // The launch was offline and never got your profile: do the whole load now, which also
         // reads your saved games and starts listening for changes from other phones.
         guard profile != nil else { return await load() }
@@ -317,14 +344,21 @@ final class GameStore {
     }
 
     func refreshMap() async {
+        if isGuest {
+            await refreshGuestMap()
+            return
+        }
         if mapState != .loaded { mapState = .loading }
         do {
             let fetched = try await games.fetchMapGames()
+            // Signed out while this was in flight: the guest map is already loading.
+            guard !isGuest else { return }
             store(fetched)
             mapIDs = fetched.map(\.id)
             mapState = .loaded
             isOffline = false
         } catch {
+            guard !isGuest else { return }
             let error = domainError(error)
             noteFailure(error)
             // Keep showing what we have; only an empty map shows the retry card.
@@ -332,7 +366,33 @@ final class GameStore {
         }
     }
 
+    /// The guest map, with the same loading, failed and offline states as `refreshMap`. A result
+    /// that lands after sign-in, or after switching campus, is dropped so it can't mix nameless
+    /// games into the account's lists.
+    /// - Returns: The games now on the guest map, or nil if the fetch failed or was dropped.
+    @discardableResult
+    private func refreshGuestMap() async -> Set<UUID>? {
+        guard let browsing = campus else { return nil }
+        if mapState != .loaded { mapState = .loading }
+        do {
+            let fetched = try await games.fetchGuestGames(campus: browsing.id)
+            guard isGuest, campus?.id == browsing.id else { return nil }
+            store(fetched)
+            mapIDs = fetched.map(\.id)
+            mapState = .loaded
+            isOffline = false
+            return Set(mapIDs)
+        } catch {
+            guard isGuest, campus?.id == browsing.id else { return nil }
+            let error = domainError(error)
+            noteFailure(error)
+            mapState = mapIDs.isEmpty ? .failed(error) : .loaded
+            return nil
+        }
+    }
+
     func refreshMyGames() async {
+        guard !isGuest else { return }
         if myGamesState != .loaded { myGamesState = .loading }
         do {
             let fetched = try await games.fetchMyGames()
@@ -353,7 +413,7 @@ final class GameStore {
     }
 
     func refreshSaved() async {
-        guard !savedIDs.isEmpty else { return }
+        guard !isGuest, !savedIDs.isEmpty else { return }
         do {
             store(try await games.fetchGames(ids: Array(savedIDs)))
         } catch {
@@ -361,8 +421,15 @@ final class GameStore {
         }
     }
 
-    /// Event detail for a game that isn't cached yet, or a refresh of one that is.
+    /// Event detail for a game that isn't cached yet, or a refresh of one that is. A guest can't
+    /// read `game_cards`, so the guest map is re-read instead, and a game no longer on it is missing.
     func loadGame(_ id: UUID) async {
+        if isGuest {
+            guard let listed = await refreshGuestMap(), !listed.contains(id) else { return }
+            cache[id] = nil
+            missingIDs.insert(id)
+            return
+        }
         do {
             store([try await games.fetchGame(id: id)])
             missingIDs.remove(id)
@@ -379,7 +446,9 @@ final class GameStore {
         }
     }
 
+    /// Who's going. Names need an account, so a guest's call does nothing.
     func loadAttendees(_ id: UUID) async {
+        guard !isGuest else { return }
         do {
             attendeesByGame[id] = try await games.fetchAttendees(gameID: id)
             attendeeCounts[id] = cache[id]?.goingCount
@@ -391,6 +460,7 @@ final class GameStore {
     /// Who's going for the games a list is about to draw tokens for, skipping any that are loaded
     /// and still match the game's count. Quiet: a failure just leaves the host's token and a count.
     func loadMissingAttendees(for ids: [UUID]) async {
+        guard !isGuest else { return }
         for id in ids where attendeesByGame[id] == nil || attendeeCounts[id] != cache[id]?.goingCount {
             if Task.isCancelled { return }
             guard let fetched = try? await games.fetchAttendees(gameID: id) else { continue }
@@ -399,7 +469,9 @@ final class GameStore {
         }
     }
 
+    /// Group chat system rows. They name people, so a guest's call does nothing.
     func loadActivity(_ id: UUID) async {
+        guard !isGuest else { return }
         do {
             activityByGame[id] = try await games.fetchActivity(gameID: id)
         } catch {
@@ -409,7 +481,7 @@ final class GameStore {
 
     /// Counts are a nicety: a failure leaves the last ones in place.
     func refreshUnread() async {
-        guard isChatEnabled else { return }
+        guard isChatEnabled, !isGuest else { return }
         if let counts = try? await chat.fetchUnreadCounts() { unreadByGame = counts }
     }
 
@@ -461,7 +533,7 @@ final class GameStore {
 
     /// First come, first served: "You're in" shows immediately and rolls back if the server says no.
     func join(_ id: UUID) async {
-        guard let before = game(id), !before.isGoing else { return }
+        guard !isGuest, let before = game(id), !before.isGoing else { return }
         if before.hasBlockedAttendee { return fail(.blocked) }
         if before.isFull { return fail(.full) }
 
@@ -488,7 +560,7 @@ final class GameStore {
     }
 
     func leave(_ id: UUID) async {
-        guard let before = game(id), before.myRole == .player else { return }
+        guard !isGuest, let before = game(id), before.myRole == .player else { return }
 
         var optimistic = before
         optimistic.goingCount -= 1
@@ -511,6 +583,7 @@ final class GameStore {
 
     /// Throws so the form can show the error next to the fields.
     func createGame(_ draft: GameDraft) async throws {
+        try requireAccount()
         do {
             let game = try await games.createGame(draft)
             cache[game.id] = game
@@ -522,6 +595,7 @@ final class GameStore {
     }
 
     func updateGame(id: UUID, _ draft: GameDraft) async throws {
+        try requireAccount()
         do {
             cache[id] = try await games.updateGame(id: id, draft)
             activityByGame[id] = nil
@@ -532,6 +606,7 @@ final class GameStore {
 
     /// Host sets "where to meet" (group chat). Uses `update_game` with everything else unchanged.
     func updateMeetPoint(_ id: UUID, to spot: String?) async throws {
+        try requireAccount()
         guard let game = game(id) else { throw DomainError.notFound }
         var draft = GameDraft(game)
         draft.meetPoint = spot
@@ -541,6 +616,7 @@ final class GameStore {
 
     /// Soft cancel: the game stays visible to people going, marked cancelled.
     func cancelGame(_ id: UUID) async {
+        guard !isGuest else { return }
         do {
             cache[id] = try await games.cancelGame(id: id)
             notice = String(localized: "Game cancelled. We let everyone going know.")
@@ -553,6 +629,7 @@ final class GameStore {
 
     /// "Before you chat": I agree. Throws so the sheet can stay open.
     func acceptChatRules() async throws {
+        try requireAccount()
         do {
             try await chat.acceptChatRules()
             if profile?.chatRulesAcceptedAt == nil { profile?.chatRulesAcceptedAt = .now }
@@ -563,6 +640,7 @@ final class GameStore {
 
     /// Opening a chat, or reading a message as it arrives, clears its count.
     func markChatRead(_ id: UUID) async {
+        guard !isGuest else { return }
         unreadByGame[id] = nil
         try? await chat.markRead(gameID: id)
     }
@@ -570,6 +648,7 @@ final class GameStore {
     // MARK: Profile
 
     func updateProfile(_ input: ProfileInput) async throws {
+        try requireAccount()
         do {
             profile = try await profiles.updateProfile(input)
             if let university = profile?.university { remember(campus: university) }
@@ -582,6 +661,7 @@ final class GameStore {
 
     /// Throws so the sheet can stay open and offer a retry.
     func report(_ target: ReportTarget, reason: ReportReason, note: String?) async throws {
+        try requireAccount()
         do {
             try await safety.report(target, reason: reason, note: note)
         } catch {
@@ -591,7 +671,7 @@ final class GameStore {
 
     /// Hides them right away; puts them back if the server refuses.
     func block(_ person: PersonSummary) async {
-        guard person.id != profile?.id, !blockedIDs.contains(person.id) else { return }
+        guard !isGuest, person.id != profile?.id, !blockedIDs.contains(person.id) else { return }
         blockedPeople.insert(person, at: 0)
         let attendeesWithThem = attendeesByGame.filter { $0.value.contains { $0.id == person.id } }.keys
         for id in attendeesWithThem { cache[id]?.hasBlockedAttendee = true }
@@ -605,7 +685,7 @@ final class GameStore {
     }
 
     func unblock(_ person: PersonSummary) async {
-        guard let index = blockedPeople.firstIndex(of: person) else { return }
+        guard !isGuest, let index = blockedPeople.firstIndex(of: person) else { return }
         blockedPeople.remove(at: index)
         do {
             try await safety.unblock(userID: person.id)
@@ -619,6 +699,7 @@ final class GameStore {
     // MARK: Saved (on the phone, N15)
 
     func toggleSaved(_ id: UUID) {
+        guard !isGuest else { return }
         if savedIDs.contains(id) {
             savedIDs.remove(id)
             spotAlertIDs.remove(id)
@@ -633,6 +714,7 @@ final class GameStore {
     /// "Alert me if a spot opens" on a full game. Turning it on saves the game too, so it's in
     /// Saved games. The check runs on this phone whenever games load; there's no push yet.
     func toggleSpotAlert(_ id: UUID) {
+        guard !isGuest else { return }
         if spotAlertIDs.contains(id) {
             spotAlertIDs.remove(id)
         } else {
@@ -646,11 +728,18 @@ final class GameStore {
     /// "Remove" on a cancelled game in Going. The game is still cancelled on the server; this
     /// only stops listing it here.
     func dismissCancelled(_ id: UUID) {
+        guard !isGuest else { return }
         dismissedIDs.insert(id)
         write(dismissedIDs, forKey: dismissedKey)
     }
 
+    /// Only the signed-in account's campus is kept here; a guest's never is (`loadGuest`).
     private static let campusKey = "lastCampus"
+
+    /// The campus from the last signed-in launch, if any.
+    private var rememberedCampus: University? {
+        defaults.data(forKey: Self.campusKey).flatMap { try? JSONDecoder().decode(University.self, from: $0) }
+    }
 
     private func remember(campus: University) {
         self.campus = campus
@@ -676,8 +765,17 @@ final class GameStore {
 
     // MARK: Sign-out
 
-    /// Clears everything held for this account. Saved games stay on the phone, by account.
+    /// Clears everything held for this account, and ends guest mode. Saved games stay on the phone, by account.
     func reset() {
+        clearSession()
+        campus = nil
+        defaults.removeObject(forKey: Self.campusKey)
+    }
+
+    /// Drops every game, list and listener held in memory, so the next load starts clean. Leaves
+    /// the campus alone: `reset()`, `load()` and `loadGuest` each decide what it should be.
+    private func clearSession() {
+        isGuest = false
         changesTask?.cancel()
         changesTask = nil
         pendingRefresh?.cancel()
@@ -695,8 +793,6 @@ final class GameStore {
         unreadByGame = [:]
         blockedPeople = []
         profile = nil
-        campus = nil
-        defaults.removeObject(forKey: Self.campusKey)
         lastCreatedID = nil
         mapState = .idle
         myGamesState = .idle
@@ -716,10 +812,18 @@ final class GameStore {
         notice = error.message
     }
 
-    /// A failed load or action: track offline and session problems, without a toast.
+    /// A failed load or action: track offline and session problems, without a toast. A guest has
+    /// no session to lose, so their failures never send the app back to sign-in.
     func noteFailure(_ error: DomainError) {
         if error == .offline { isOffline = true }
-        if error == .suspended || error == .notAuthenticated { onSessionProblem?() }
+        if !isGuest, error == .suspended || error == .notAuthenticated { onSessionProblem?() }
+    }
+
+    /// Guests can't write: the screens ask them to sign in first, so this is only a backstop. It
+    /// isn't a session problem, so it isn't reported as one.
+    /// - Throws: `DomainError.notAuthenticated` in guest mode.
+    private func requireAccount() throws {
+        if isGuest { throw DomainError.notAuthenticated }
     }
 
     private func noteThrown(_ error: any Error) -> DomainError {

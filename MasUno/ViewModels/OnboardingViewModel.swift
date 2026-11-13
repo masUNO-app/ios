@@ -55,6 +55,9 @@ final class OnboardingViewModel {
     var profileError: String?
     var guidelinesError: String?
     private(set) var isWorking = false
+    /// Welcome → Browse as a guest couldn't pick an open campus.
+    var guestBrowseError: String?
+    private(set) var isStartingGuest = false
 
     @ObservationIgnored private let auth: any AuthService
     @ObservationIgnored private let catalog: any AppConfigRepository
@@ -164,6 +167,43 @@ final class OnboardingViewModel {
     func haveAnAccount() {
         isSignInSheetPresented = false
         path.append(.signIn)
+    }
+
+    /// After guest browse: jump straight to Create account or Sign in.
+    /// - Parameter resume: Which step to open.
+    func applyResume(_ resume: AppViewModel.OnboardingResume) {
+        switch resume {
+        case .signUp: path = [.signUp]
+        case .signIn: path = [.signIn]
+        }
+    }
+
+    /// Picks an open campus and asks the app to show the guest map (SPEC R7-15).
+    /// - Parameter app: Root presentation; starts guest browse.
+    /// - Parameter store: Loads nameless games for that campus.
+    func browseAsGuest(app: AppViewModel, store: GameStore) async {
+        guard !isStartingGuest else { return }
+        guestBrowseError = nil
+        isStartingGuest = true
+        defer { isStartingGuest = false }
+
+        if let campus {
+            await app.browseAsGuest(campus: campus, store: store)
+            return
+        }
+
+        do {
+            let open = try await catalog.fetchUniversities().filter(\.signupEnabled)
+            guard let campus = open.first, open.count == 1 else {
+                guestBrowseError = open.isEmpty
+                    ? String(localized: "Browsing isn't open on any campus yet. Create an account to join the wait.")
+                    : String(localized: "Create an account or sign in to pick your campus.")
+                return
+            }
+            await app.browseAsGuest(campus: campus, store: store)
+        } catch {
+            guestBrowseError = (error as? DomainError ?? .offline).message
+        }
     }
 
     /// Creates the account and lands on "We're checking your account"; an allowlisted address

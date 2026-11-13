@@ -232,10 +232,18 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
 
     func fetchMapGames() async throws -> [Game] {
         try await begin()
-        return visibleGames
-            .filter { !$0.isCancelled && !$0.hasEnded(now: now) && !$0.isFull }
-            .filter { $0.startsAt.timeIntervalSince(now) < GameDraft.postingWindow }
-            .sorted { ($0.repostedAt ?? $0.createdAt) > ($1.repostedAt ?? $1.createdAt) }
+        return onTheMap(visibleGames)
+    }
+
+    /// Like `guest_games`: the map for someone with no blocks, stripped of names, notes and the
+    /// meet-up spot. A read, so it works signed out. The mock has one campus, so any open campus in
+    /// `universities` gets its games; a closed one, an unlisted one or the demo campus gets none.
+    func fetchGuestGames(campus: UUID) async throws -> [Game] {
+        try await begin()
+        guard campus != MockFixtures.demoCampus.id,
+              universities.contains(where: { $0.id == campus && $0.signupEnabled })
+        else { return [] }
+        return onTheMap(games).map(Self.asGuest)
     }
 
     func fetchMyGames() async throws -> [Game] {
@@ -548,6 +556,32 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
 
     private func visibleGame(_ id: UUID) throws -> Game {
         guard let game = visibleGames.first(where: { $0.id == id }) else { throw DomainError.notFound }
+        return game
+    }
+
+    /// The map's rules: not cancelled, ended or full, starting within 7 days, newest bump first.
+    /// - Parameter candidates: The games this reader may see.
+    /// - Returns: The ones that belong on the map, in map order.
+    private func onTheMap(_ candidates: [Game]) -> [Game] {
+        candidates
+            .filter { !$0.isCancelled && !$0.hasEnded(now: now) && !$0.isFull }
+            .filter { $0.startsAt.timeIntervalSince(now) < GameDraft.postingWindow }
+            .sorted { ($0.repostedAt ?? $0.createdAt) > ($1.repostedAt ?? $1.createdAt) }
+    }
+
+    /// What a `guest_games` row carries: nothing that names anyone or depends on who's asking.
+    /// - Parameter game: The game as the mock stores it.
+    /// - Returns: The same game with the host hidden and the per-viewer fields cleared.
+    private static func asGuest(_ game: Game) -> Game {
+        var game = game
+        game.host = .hidden
+        game.notes = nil
+        game.meetPoint = nil
+        game.materialChangeAt = nil
+        game.autoRepost = false
+        game.myRole = nil
+        game.myJoinedAt = nil
+        game.hasBlockedAttendee = false
         return game
     }
 

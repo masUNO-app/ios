@@ -300,6 +300,68 @@ nonisolated struct GameCardRow: Decodable, Sendable {
     }
 }
 
+/// A row from `guest_games(p_university)`: a `game_cards` row without names, notes, the meet-up
+/// spot or anything per viewer, since a guest has no account.
+nonisolated struct GuestGameRow: Decodable, Sendable {
+    let id: UUID
+    let activitySlug: String
+    let title: String
+    let startsAt: Date
+    let durationMinutes: Int
+    let endsAt: Date
+    let capacity: Int
+    let goingCount: Int
+    let placeName: String
+    let placeAddress: String
+    let lat: Double
+    let lng: Double
+    let repostedAt: Date?
+    let createdAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id, title, capacity, lat, lng
+        case activitySlug = "activity_slug"
+        case startsAt = "starts_at"
+        case durationMinutes = "duration_minutes"
+        case endsAt = "ends_at"
+        case goingCount = "going_count"
+        case placeName = "place_name"
+        case placeAddress = "place_address"
+        case repostedAt = "reposted_at"
+        case createdAt = "created_at"
+    }
+
+    init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        activitySlug = try c.decode(String.self, forKey: .activitySlug)
+        title = try c.decode(String.self, forKey: .title)
+        startsAt = try c.decodeServerTime(forKey: .startsAt)
+        durationMinutes = try c.decode(Int.self, forKey: .durationMinutes)
+        endsAt = try c.decodeServerTime(forKey: .endsAt)
+        capacity = try c.decode(Int.self, forKey: .capacity)
+        goingCount = try c.decode(Int.self, forKey: .goingCount)
+        placeName = try c.decode(String.self, forKey: .placeName)
+        placeAddress = try c.decode(String.self, forKey: .placeAddress)
+        lat = try c.decode(Double.self, forKey: .lat)
+        lng = try c.decode(Double.self, forKey: .lng)
+        repostedAt = try c.decodeServerTimeIfPresent(forKey: .repostedAt)
+        createdAt = try c.decodeServerTime(forKey: .createdAt)
+    }
+
+    /// The host is `PersonSummary.hidden`, which is how screens know to leave people out.
+    func game(activity: (String) -> Activity) -> Game {
+        Game(
+            id: id, host: .hidden, activity: activity(activitySlug), title: title, startsAt: startsAt,
+            durationMinutes: durationMinutes, endsAt: endsAt, capacity: capacity, goingCount: goingCount,
+            notes: nil, place: Place(name: placeName, address: placeAddress, latitude: lat, longitude: lng),
+            meetPoint: nil, materialChangeAt: nil, cancelledAt: nil,
+            autoRepost: false, repostedAt: repostedAt, createdAt: createdAt,
+            myRole: nil, myJoinedAt: nil, hasBlockedAttendee: false
+        )
+    }
+}
+
 /// A row in `game_attendees`.
 nonisolated struct AttendeeRow: Decodable, Sendable {
     let userID: UUID
@@ -512,6 +574,12 @@ nonisolated struct GameDraftParams: Encodable, Sendable {
 nonisolated struct GameIDParams: Encodable, Sendable {
     let id: UUID
     enum CodingKeys: String, CodingKey { case id = "p_id" }
+}
+
+/// `p_university` for `guest_games`.
+nonisolated struct GuestGamesParams: Encodable, Sendable {
+    let campus: UUID
+    enum CodingKeys: String, CodingKey { case campus = "p_university" }
 }
 
 /// `p_user_id` for `block` and `unblock`.

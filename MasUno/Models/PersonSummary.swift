@@ -8,6 +8,12 @@ nonisolated struct PersonSummary: Identifiable, Hashable, Sendable {
     var lastInitial: String
     var gradYear: Int
 
+    /// Someone a guest isn't shown: names stay with verified students (SPEC §8.8, `guest_games`).
+    static let hidden = PersonSummary(id: UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)), firstName: "", lastInitial: "", gradYear: 0)
+
+    /// The placeholder above, not a real person.
+    var isHidden: Bool { id == Self.hidden.id }
+
     /// "Emilio G." (SPEC §7.2).
     var displayName: String { "\(firstName) \(lastInitial)." }
 

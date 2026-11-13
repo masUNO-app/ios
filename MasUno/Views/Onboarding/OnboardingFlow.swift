@@ -1,13 +1,15 @@
 import SwiftUI
 
-/// Onboarding (E5, SPEC §7.5) in the 1.0 look. Welcome → "Quick check before you join" →
-/// Create account (school email + password) → We're checking your account (the team approves by
-/// hand, N36) → You're verified → Make it yours → Before you play → map. Coming back: Sign in.
-/// `AuthService` moves the session along; when it reaches signed in, the root swaps to the map.
-/// The location primer is on the map now. `FindSchoolStep` (school SSO) is kept but nothing
-/// navigates to it.
+/// Onboarding (E5, SPEC §7.5) in the 1.0 look. Welcome → account or **Browse as a guest** (R7-15)
+/// → "Quick check before you join" → Create account (school email + password) → We're checking
+/// your account (the team approves by hand, N36) → You're verified → Make it yours → Before you
+/// play → map. Coming back: Sign in. Guests who hit join/save/host return here via Create account
+/// or Sign in. `AuthService` moves the session along; when it reaches signed in, the root swaps
+/// to the map. The location primer is on the map now. `FindSchoolStep` (school SSO) is kept but
+/// nothing navigates to it.
 struct OnboardingFlow: View {
     @Environment(AppViewModel.self) private var appViewModel
+    @Environment(GameStore.self) private var store
     @State private var viewModel: OnboardingViewModel
 
     init(auth: any AuthService, catalog: any AppConfigRepository, campus: University?) {
@@ -44,9 +46,17 @@ struct OnboardingFlow: View {
                 cancel: DialogAction("I already have an account") { viewModel.haveAnAccount() }
             )
         }
+        .onAppear(perform: consumeResume)
         #if DEBUG
         .onAppear(perform: openDebugStep)
         #endif
+    }
+
+    /// Create account / Sign in after a guest tapped an account-only action.
+    private func consumeResume() {
+        guard let resume = appViewModel.onboardingResume else { return }
+        appViewModel.clearOnboardingResume()
+        viewModel.applyResume(resume)
     }
 
     /// Figma "Welcome": a court with room on it, and "We're looking for you."
@@ -72,6 +82,17 @@ struct OnboardingFlow: View {
             VStack(spacing: 10) {
                 Button("Get started") { viewModel.getStarted() }
                     .pill(.primary)
+                Button("Browse as a guest") {
+                    Task { await viewModel.browseAsGuest(app: appViewModel, store: store) }
+                }
+                .pill(.secondary)
+                .disabled(viewModel.isStartingGuest)
+                if let guestBrowseError = viewModel.guestBrowseError {
+                    Text(verbatim: guestBrowseError)
+                        .font(.rounded(.footnote))
+                        .foregroundStyle(Theme.error)
+                        .multilineTextAlignment(.center)
+                }
                 Link("Privacy & Terms", destination: appViewModel.config.privacyURL)
                     .font(.rounded(.footnote))
                     .foregroundStyle(Theme.mutedLarge)

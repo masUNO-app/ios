@@ -48,6 +48,8 @@ nonisolated struct Game: Identifiable, Hashable, Sendable {
     var isHostedByMe: Bool { myRole == .host }
     var isGoing: Bool { myRole != nil }
     var coordinate: CLLocationCoordinate2D { place.coordinate }
+    /// A guest's preview of a game (`guest_games`): no host, attendees, note or meet-up spot.
+    var hidesPeople: Bool { host.isHidden }
 
     func hasEnded(now: Date = .now) -> Bool { endsAt <= now }
 

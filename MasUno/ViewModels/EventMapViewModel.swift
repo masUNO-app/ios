@@ -331,7 +331,7 @@ final class EventMapViewModel {
             return
         }
         let id: UUID? = switch UserDefaults.standard.string(forKey: "screen") {
-        case "popup": MockFixtures.GameID.open
+        case "popup", "guest-popup": MockFixtures.GameID.open
         case "popup-saved": MockFixtures.GameID.lastSpot
         default: nil
         }

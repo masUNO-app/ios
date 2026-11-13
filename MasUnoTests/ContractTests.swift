@@ -224,6 +224,16 @@ struct MockSafetyTests {
         #expect(try await backend.fetchMapGames().map(\.id).contains(MockFixtures.GameID.open))
     }
 
+    /// `guest_games` has no viewer, so a block doesn't change it, and it never names anyone.
+    @Test func guestGamesIgnoreBlocksAndHideNames() async throws {
+        try await backend.block(userID: MockFixtures.alex.id)
+        backend.endSession(expired: false)
+        let guest = try await backend.fetchGuestGames(campus: MockFixtures.tec.id)
+        #expect(guest.contains { $0.id == MockFixtures.GameID.open })
+        #expect(guest.allSatisfy { $0.host.isHidden && $0.notes == nil && $0.meetPoint == nil })
+        #expect(try await backend.fetchGuestGames(campus: MockFixtures.otherCampus.id).isEmpty)
+    }
+
     @Test func cannotBlockYourself() async throws {
         await #expect(throws: DomainError.invalidInput) { try await backend.block(userID: backend.me.id) }
     }
@@ -426,6 +436,119 @@ struct CampusTests {
         offline.reset()
         let afterSignOut = GameStore(games: backend, profiles: backend, safety: backend, chat: backend, catalog: backend, defaults: defaults)
         #expect(afterSignOut.campus == nil)
+    }
+}
+
+@MainActor
+struct GuestBrowsingTests {
+    /// The guest choice is kept in defaults, so each test gets its own.
+    private static func freshDefaults() -> UserDefaults {
+        UserDefaults(suiteName: "GuestBrowsingTests.app.\(UUID().uuidString)")!
+    }
+
+    private func store(_ backend: MockBackend) -> GameStore {
+        GameStore(games: backend, profiles: backend, safety: backend, chat: backend, catalog: backend,
+                  defaults: Self.freshDefaults())
+    }
+
+    @Test func aGuestWhoComesBackLandsOnTheMapAgain() async {
+        let auth = MockBackend(state: .signedOut(expired: false))
+        let defaults = Self.freshDefaults()
+        let first = AppViewModel(auth: auth, catalog: auth, defaults: defaults)
+        await first.browseAsGuest(campus: MockFixtures.tec, store: store(auth))
+
+        let relaunched = AppViewModel(auth: auth, catalog: auth, defaults: defaults)
+        let fresh = store(auth)
+        await relaunched.start()
+        #expect(relaunched.session == .guest)
+        await relaunched.resumeGuestBrowsing(store: fresh)
+        #expect(fresh.isGuest)
+        #expect(!fresh.mapGames().isEmpty)
+    }
+
+    @Test func goingToSignUpOrSigningInForgetsTheGuestChoice() async {
+        let auth = MockBackend(state: .signedOut(expired: false))
+        let defaults = Self.freshDefaults()
+        let app = AppViewModel(auth: auth, catalog: auth, defaults: defaults)
+        let games = store(auth)
+        await app.browseAsGuest(campus: MockFixtures.tec, store: games)
+        app.endGuestBrowsing(resume: .signUp, store: games)
+        #expect(AppViewModel(auth: auth, catalog: auth, defaults: defaults).session == .onboarding)
+
+        // A guest choice left behind never outranks an account.
+        await app.browseAsGuest(campus: MockFixtures.tec, store: games)
+        let signedIn = MockBackend()
+        let relaunched = AppViewModel(auth: signedIn, catalog: signedIn, defaults: defaults)
+        await relaunched.start()
+        #expect(relaunched.session == .signedIn)
+        #expect(!relaunched.isBrowsingAsGuest)
+    }
+
+    @Test func aGuestWhoseCampusClosedStartsAtWelcome() async {
+        let auth = MockBackend(state: .signedOut(expired: false))
+        let defaults = Self.freshDefaults()
+        await AppViewModel(auth: auth, catalog: auth, defaults: defaults).browseAsGuest(campus: MockFixtures.tec, store: store(auth))
+
+        var closed = MockFixtures.tec
+        closed.signupEnabled = false
+        auth.universities = [closed]
+        let relaunched = AppViewModel(auth: auth, catalog: auth, defaults: defaults)
+        await relaunched.start()
+        #expect(relaunched.session == .onboarding)
+    }
+
+    @Test func aGuestSeesBlankCirclesNotACount() {
+        let world = MockFixtures.world(now: .now)
+        var game = world.games[0]
+        game.host = .hidden
+        let lineup = Lineup(game: game, attendees: [], me: nil)
+        #expect(lineup.people.isEmpty)
+        #expect(lineup.unlisted == game.goingCount)
+        #expect(lineup.accessibilityLabel.contains("\(game.goingCount) going"))
+    }
+
+    @Test func browseAsGuestShowsTheMapSession() async {
+        let auth = MockBackend(state: .signedOut(expired: false))
+        let app = AppViewModel(auth: auth, catalog: auth, defaults: Self.freshDefaults())
+        let store = GameStore(games: auth, profiles: auth, safety: auth, chat: auth, catalog: auth,
+                              defaults: UserDefaults(suiteName: "GuestBrowsingTests.\(UUID().uuidString)")!)
+        #expect(app.session == .onboarding)
+        await app.browseAsGuest(campus: MockFixtures.tec, store: store)
+        #expect(app.session == .guest)
+        #expect(store.isGuest)
+        let games = store.mapGames()
+        #expect(!games.isEmpty)
+        #expect(games.allSatisfy { $0.hidesPeople })
+    }
+
+    @Test func endingGuestBrowseOpensSignUpOrSignIn() async {
+        let auth = MockBackend(state: .signedOut(expired: false))
+        let app = AppViewModel(auth: auth, catalog: auth, defaults: Self.freshDefaults())
+        let store = GameStore(games: auth, profiles: auth, safety: auth, chat: auth, catalog: auth,
+                              defaults: UserDefaults(suiteName: "GuestBrowsingEnd.\(UUID().uuidString)")!)
+        await app.browseAsGuest(campus: MockFixtures.tec, store: store)
+        app.requireAccount(.join)
+        #expect(app.accountPrompt == .join)
+        app.endGuestBrowsing(resume: .signUp, store: store)
+        #expect(app.session == .onboarding)
+        #expect(app.onboardingResume == .signUp)
+        #expect(!store.isGuest)
+        #expect(app.accountPrompt == nil)
+
+        let onboarding = OnboardingViewModel(auth: auth, catalog: auth, campus: MockFixtures.tec)
+        onboarding.applyResume(.signIn)
+        #expect(onboarding.path == [.signIn])
+    }
+
+    @Test func welcomeBrowseAsGuestUsesTheLaunchCampus() async {
+        let auth = MockBackend(state: .signedOut(expired: false))
+        let app = AppViewModel(auth: auth, catalog: auth, defaults: Self.freshDefaults())
+        let store = GameStore(games: auth, profiles: auth, safety: auth, chat: auth, catalog: auth,
+                              defaults: UserDefaults(suiteName: "GuestWelcome.\(UUID().uuidString)")!)
+        let onboarding = OnboardingViewModel(auth: auth, catalog: auth, campus: MockFixtures.tec)
+        await onboarding.browseAsGuest(app: app, store: store)
+        #expect(app.session == .guest)
+        #expect(onboarding.guestBrowseError == nil)
     }
 }
 
@@ -742,6 +865,34 @@ struct LiveGameContractTests {
     @Test func gameYouAreNotInHasNoRole() throws {
         let row: GameCardRow = try decode(card.replacingOccurrences(of: #""my_role":"player""#, with: #""my_role":null"#))
         #expect(row.game(activity: catalog.activity(slug:)).myRole == nil)
+    }
+
+    /// A `guest_games` row: no names, notes, meet-up spot or per-viewer columns to read.
+    @Test func guestGameRowBecomesANamelessGame() throws {
+        let row: GuestGameRow = try decode("""
+        {"id":"6f1c2a9e-2f7b-4a59-9d3e-1d2c3b4a5f60","activity_slug":"padel","title":"Padel doubles",
+         "starts_at":"2026-11-10T23:30:00.123456+00:00","duration_minutes":90,"ends_at":"2026-11-11T01:00:00.123456+00:00",
+         "capacity":4,"going_count":3,"spots_left":1,"place_name":"Canchas de pádel",
+         "place_address":"Av. Eugenio Garza Sada 2501","lat":25.6505,"lng":-100.2899,"reposted_at":null,
+         "created_at":"2026-11-09T06:15:00.5+00:00","sort_at":"2026-11-09T06:15:00.5+00:00"}
+        """)
+        let game = row.game(activity: catalog.activity(slug:))
+        #expect(game.hidesPeople)
+        #expect(game.host == .hidden)
+        #expect(game.activity.slug == "padel")
+        #expect(game.endsAt.timeIntervalSince(game.startsAt) == 90 * 60)
+        #expect(game.spotsLeft == 1)
+        #expect(game.place.longitude == -100.2899)
+        #expect(game.notes == nil && game.meetPoint == nil && game.myRole == nil)
+        #expect(game.repostedAt == nil)
+        #expect(game.createdAt == ServerTime.date(from: "2026-11-09T06:15:00.5Z"))
+        #expect(game.status(now: game.startsAt.addingTimeInterval(-60)) == .open)
+    }
+
+    @Test func guestGamesParamsNameTheCampus() throws {
+        let params = try encoded(GuestGamesParams(campus: MockFixtures.tec.id))
+        #expect(Set(params.keys) == ["p_university"])
+        #expect(params["p_university"] as? String == MockFixtures.tec.id.uuidString)
     }
 
     @Test func badTimestampFailsToDecode() {

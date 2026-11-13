@@ -50,14 +50,24 @@ struct PersonAvatar: View {
     }
 }
 
-/// Your own token from your full name (the Me card, the map, onboarding).
+/// Your own token from your full name (the Me card, the map, onboarding). With no name yet (a
+/// guest, or before the profile loads) it shows a plain person instead of an empty circle.
 struct MeToken: View {
     var name: String
     var size: CGFloat = 36
     var ring: CGFloat = 2
 
     var body: some View {
-        PersonToken(initials: PersonToken.initials(of: name), color: Theme.you, size: size, ring: ring)
+        let initials = PersonToken.initials(of: name)
+        PersonToken(initials: initials, color: Theme.you, size: size, ring: ring)
+            .overlay {
+                if initials.isEmpty {
+                    Image(systemName: "person.fill")
+                        .font(.system(size: size * 0.42, weight: .semibold))
+                        .foregroundStyle(Theme.ink)
+                        .accessibilityHidden(true)
+                }
+            }
     }
 }
 
@@ -158,10 +168,14 @@ struct Lineup: Equatable {
 
     /// `attendees` can be empty while Who's going loads: the host, and you if you're in, still show.
     /// A count that arrives before the list is left alone: cutting the tail would erase the wrong
-    /// person and draw a dashed spot where they stood.
+    /// person and draw a dashed spot where they stood. A guest sees no faces, only the count.
     init(game: Game, attendees: [Attendee], me: PersonSummary?) {
         var people = attendees.map(\.person)
-        if people.isEmpty {
+        if game.hidesPeople {
+            people = []
+            unlisted = game.goingCount
+            open = game.spotsLeft
+        } else if people.isEmpty {
             people = [game.host]
             if let me, game.isGoing, me.id != game.host.id { people.append(me) }
             people = Array(people.prefix(game.goingCount))
@@ -201,7 +215,10 @@ struct Lineup: Equatable {
     /// "Alex R., Ricardo T. and 4 open spots", for VoiceOver.
     var accessibilityLabel: String {
         var parts = people.map { $0.id == myID ? String(localized: "You") : $0.displayName }
-        if unlisted > 0 { parts.append(String(localized: "\(unlisted) more")) }
+        if unlisted > 0 {
+            // With nobody named (a guest's view), "2 more" has nothing to add to.
+            parts.append(people.isEmpty ? String(localized: "\(unlisted) going") : String(localized: "\(unlisted) more"))
+        }
         if open > 0 { parts.append(open == 1 ? String(localized: "1 open spot") : String(localized: "\(open) open spots")) }
         return parts.formatted(.list(type: .and))
     }
@@ -220,8 +237,11 @@ struct TokenRow: View {
 
     var body: some View {
         let shown = lineup.people.prefix(Self.maxPeople)
-        let overflow = lineup.unlisted + lineup.people.count - shown.count
-        let room = Self.maxTokens - shown.count - (overflow > 0 ? 1 : 0)
+        // People who are going but aren't shown (a guest sees no faces) stand as blank circles,
+        // as on the court: a "+2" bubble next to the dashed "+1"s would read as two more spots.
+        let blanks = min(lineup.unlisted, Self.maxPeople - shown.count)
+        let overflow = lineup.unlisted - blanks + lineup.people.count - shown.count
+        let room = Self.maxTokens - shown.count - blanks - (overflow > 0 ? 1 : 0)
         let openTokens = min(lineup.open, room)
 
         TokenRowLayout(spacing: 3) {
@@ -231,6 +251,9 @@ struct TokenRow: View {
                 } else {
                     PersonAvatar(person: person, size: size)
                 }
+            }
+            ForEach(0..<blanks, id: \.self) { _ in
+                PersonToken(initials: "", color: .white.opacity(0.6), size: size)
             }
             if overflow > 0 { CountToken(count: overflow, size: size) }
             ForEach(0..<openTokens, id: \.self) { index in

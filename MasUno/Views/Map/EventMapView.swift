@@ -295,9 +295,15 @@ struct EventMapView: View {
 
             // With a vertical bar, Saved games lives in the bar instead.
             if !usesVerticalBar {
-                Button("Saved games", systemImage: "bookmark") { showsSaved = true }
-                    .font(.title3.weight(.medium))
-                    .glassCircle()
+                Button("Saved games", systemImage: "bookmark") {
+                    if store.isGuest {
+                        appViewModel.requireAccount(.save)
+                    } else {
+                        showsSaved = true
+                    }
+                }
+                .font(.title3.weight(.medium))
+                .glassCircle()
             }
         }
         .foregroundStyle(Theme.ink)
@@ -397,10 +403,17 @@ struct EventMapView: View {
             case .loaded where store.mapGames().isEmpty:
                 EmptyCard(
                     title: "No games nearby yet",
-                    message: "Be the first to start one. Most games just need one more."
+                    message: store.isGuest
+                        ? "Check back soon, or create an account to host the first one."
+                        : "Be the first to start one. Most games just need one more."
                 ) {
-                    Button("Add a game") { appViewModel.presentGameForm() }
-                        .pill(.primary)
+                    if store.isGuest {
+                        Button("Create an account") { appViewModel.requireAccount(.host) }
+                            .pill(.primary)
+                    } else {
+                        Button("Add a game") { appViewModel.presentGameForm() }
+                            .pill(.primary)
+                    }
                     Button("Look farther away") { viewModel.lookFartherAway() }
                         .pill(.secondary)
                 }
@@ -525,8 +538,14 @@ struct EventMapView: View {
         }
 
         ToolbarItem(placement: .topBarTrailing) {
-            Button("Saved games", systemImage: "bookmark") { showsSaved = true }
-                .tint(Theme.ink)
+            Button("Saved games", systemImage: "bookmark") {
+                if store.isGuest {
+                    appViewModel.requireAccount(.save)
+                } else {
+                    showsSaved = true
+                }
+            }
+            .tint(Theme.ink)
         }
 
         ToolbarItem(placement: .bottomBar) { addGameButton }
@@ -588,6 +607,7 @@ struct EventMapView: View {
     private var addGameButton: some View {
         // Explicit HStack: toolbars render `Label`s icon-only, but this needs its title.
         Button {
+            // Guests hit the account card; `presentGameForm` also gates as a backstop.
             appViewModel.presentGameForm()
         } label: {
             HStack(spacing: 6) {
@@ -608,7 +628,11 @@ struct EventMapView: View {
     /// backdrop behind every item.)
     private func profileButton(matchesFilter: Bool) -> some View {
         Button {
-            appViewModel.path.append(.me())
+            if store.isGuest {
+                appViewModel.requireAccount(.me)
+            } else {
+                appViewModel.path.append(.me())
+            }
         } label: {
             if matchesFilter {
                 MeToken(name: store.profile?.fullName ?? "", size: Self.mapButtonSize - 8, ring: 0)
@@ -625,7 +649,7 @@ struct EventMapView: View {
         .buttonStyle(.plain)
         .buttonBorderShape(.circle)
         .buttonSizing(.fitted)
-        .accessibilityLabel("Me")
+        .accessibilityLabel(store.isGuest ? "Account" : "Me")
         #if DEBUG
         .contextMenu {
             Button(String("Component gallery"), systemImage: "swatchpalette") { appViewModel.path.append(.gallery) }

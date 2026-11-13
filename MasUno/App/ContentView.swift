@@ -23,8 +23,8 @@ struct ContentView: View {
             case .launching: Theme.background.ignoresSafeArea()
             case .updateRequired: UpdateRequiredView()
             case .onboarding: OnboardingFlow(auth: appViewModel.auth, catalog: services.catalog, campus: appViewModel.launchCampus)
+            case .guest, .signedIn: main
             case .suspended: SuspendedView()
-            case .signedIn: main
             }
         }
         // Over the bottom bar on the map, as in the Figma; at the top elsewhere, clear of the
@@ -46,15 +46,34 @@ struct ContentView: View {
         .task { await launch() }
         // Onboarding finished. `launch()` handles an already signed-in session.
         .onChange(of: appViewModel.session) { old, new in
-            if old == .onboarding, new == .signedIn { Task { await store.load() } }
+            if new == .signedIn, old == .onboarding || old == .guest {
+                appViewModel.clearGuestBrowsingFlag()
+                Task { await store.load() }
+            }
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active, appViewModel.session == .signedIn { Task { await store.refresh() } }
+            if phase == .active, appViewModel.session == .signedIn || appViewModel.session == .guest {
+                Task { await store.refresh() }
+            }
+        }
+        .dialog(item: Bindable(appViewModel).accountPrompt) { prompt in
+            DialogCard(
+                systemImage: "checkmark.shield",
+                title: Text(verbatim: prompt.title),
+                message: Text(verbatim: prompt.message),
+                confirm: DialogAction("Create account") {
+                    appViewModel.endGuestBrowsing(resume: .signUp, store: store)
+                },
+                cancel: DialogAction("I already have an account") {
+                    appViewModel.endGuestBrowsing(resume: .signIn, store: store)
+                }
+            )
         }
     }
 
     private var showsNoticeAtBottom: Bool {
-        appViewModel.session == .signedIn && appViewModel.path.isEmpty && appViewModel.sheet == nil
+        (appViewModel.session == .signedIn || appViewModel.session == .guest)
+            && appViewModel.path.isEmpty && appViewModel.sheet == nil
     }
 
     private func launch() async {
@@ -63,7 +82,13 @@ struct ContentView: View {
         store.isChatEnabled = appViewModel.config.chatEnabled
         #if DEBUG
         appViewModel.applyDebugSession(mock: services.mock)
+        if UserDefaults.standard.string(forKey: "screen")?.hasPrefix("guest") == true {
+            await appViewModel.openDebugScreen(store: store, mock: services.mock)
+            return
+        }
         #endif
+        // A guest from last time goes straight back to the map.
+        if appViewModel.session == .guest { return await appViewModel.resumeGuestBrowsing(store: store) }
         guard appViewModel.session == .signedIn else { return }
         await store.load()
         #if DEBUG

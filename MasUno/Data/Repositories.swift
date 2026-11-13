@@ -17,6 +17,10 @@ protocol GameRepository: AnyObject {
     /// Open games for the map: not cancelled, ended or full, starting within 7 days,
     /// newest bump first.
     func fetchMapGames() async throws -> [Game]
+    /// Open games on a campus as a guest sees them (`guest_games`): the map's rules, but no names,
+    /// notes or meet-up spot, and `host` is `PersonSummary.hidden`. Works signed out. Empty for the
+    /// demo campus or one closed to sign-ups.
+    func fetchGuestGames(campus: UUID) async throws -> [Game]
     /// Everything you host or joined that hasn't been over for more than 14 days.
     /// `GameStore` splits it into Going, Hosting and Past.
     func fetchMyGames() async throws -> [Game]
