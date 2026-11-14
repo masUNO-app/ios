@@ -1,50 +1,69 @@
 import SwiftUI
 
-/// Figma: "Who's going" (341:2309). Initials, "Alex R.", Host badge, "(you)", and a flag
-/// per row → Report / Block (SPEC §7.6.6). Blocked people vanish from the list immediately.
+/// Figma: "Who's going" (408:6285). Token, "Alex R." with a green HOST tag, class year, and
+/// ••• → Report / Block on everyone but you (SPEC §7.6.6). Then one row for the open spots and
+/// the safety note. Blocked people vanish from the list immediately.
 struct WhoIsGoingSheet: View {
     @Environment(GameStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
     var eventID: UUID
 
     @State private var reportTarget: ReportSubject?
     @State private var blockTarget: PersonSummary?
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                if store.game(eventID) != nil {
-                    let people = store.attendees(of: eventID)
-                    VStack(alignment: .leading, spacing: 10) {
-                        if people.isEmpty, store.isOffline {
-                            RetryCard(message: "Couldn't load who's going.") { await store.loadAttendees(eventID) }
-                        }
-                        VStack(spacing: 0) {
-                            ForEach(Array(people.enumerated()), id: \.element.id) { index, attendee in
-                                if index > 0 { Divider().overlay(Theme.hairline).padding(.leading, 64) }
-                                row(attendee)
-                            }
-                        }
-                        .cardSurface()
+        ScrollView {
+            if let event = store.game(eventID) {
+                let people = store.attendees(of: eventID)
 
-                        Text("Tap the flag next to someone to report or block them. Only the masUNO team sees reports.")
-                            .font(.footnote)
-                            .foregroundStyle(Theme.muted)
-                            .padding(.horizontal, 4)
+                VStack(alignment: .leading, spacing: 18) {
+                    SheetHeader(
+                        title: Text("Who's going"),
+                        subtitle: Text("\(event.goingCount) going"),
+                        isProminent: true
+                    ) { dismiss() }
+
+                    if people.isEmpty, store.isOffline {
+                        RetryCard(message: "Couldn't load who's going.") { await store.loadAttendees(eventID) }
                     }
-                    .padding(.horizontal, Theme.gutter)
-                    .animation(.default, value: people)
+
+                    VStack(spacing: 0) {
+                        ForEach(people) { attendee in
+                            row(attendee)
+                            Theme.separator.frame(height: 1)
+                        }
+                        if !event.isFull, !event.isCancelled, !event.hasEnded() {
+                            HStack(spacing: 12) {
+                                OpenSpotToken(size: 36, fill: .clear)
+                                Text(verbatim: event.roomLine)
+                                    .font(.rounded(.callout, .bold))
+                                    .foregroundStyle(Theme.ink)
+                                Spacer(minLength: 0)
+                            }
+                            .frame(minHeight: 66)
+                        }
+                    }
+
+                    SafetyNote(text: "Anything feel off? Tap ••• next to anyone to report or block them. Only the masUNO team sees reports.")
                 }
+                .padding(.horizontal, Theme.gutter)
+                .padding(.top, 26)
+                .padding(.bottom, 24)
+                .animation(.default, value: people)
             }
-            .background(Theme.background)
-            .task { await store.loadAttendees(eventID) }
-            .navigationTitle("Who's going")
-            .navigationBarTitleDisplayMode(.inline)
         }
-        .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
-        .presentationBackground(Theme.background)
+        .task { await store.loadAttendees(eventID) }
+        .sheetChrome(detents: [.fraction(0.82), .large], background: Theme.card)
         .sheet(item: $reportTarget) { ReportSheet(target: $0) }
-        .blockConfirmation(person: $blockTarget)
+        .blockDialog($blockTarget)
+        #if DEBUG
+        .onAppear {
+            // `-screen block`: the Block confirmation, over the list.
+            if UserDefaults.standard.string(forKey: "screen") == "block" {
+                blockTarget = store.attendees(of: eventID).last?.person
+            }
+        }
+        #endif
     }
 
     private func row(_ attendee: Attendee) -> some View {
@@ -52,56 +71,36 @@ struct WhoIsGoingSheet: View {
         let isMe = person.id == store.profile?.id
 
         return HStack(spacing: 12) {
-            Avatar(name: person.displayName, size: 36)
-            Text(isMe ? "\(store.profile?.fullName ?? person.displayName) (you)" : person.displayName)
-                .font(.body)
-                .foregroundStyle(Theme.ink)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            if attendee.role == .host {
-                StatusChip(String(localized: "Host"))
-            }
-            if !isMe {
-                Menu("Report or block \(person.displayName)", systemImage: "flag") {
-                    Button("Report", systemImage: "exclamationmark.bubble") { reportTarget = .person(person) }
-                    Button("Block", systemImage: "hand.raised", role: .destructive) { blockTarget = person }
+            PersonAvatar(person: person, size: 42, ring: 0)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(verbatim: isMe ? String(localized: "\(store.profile?.fullName ?? person.displayName) (you)") : person.displayName)
+                        .font(.rounded(.callout, .bold))
+                        .foregroundStyle(Theme.ink)
+                    if attendee.role == .host {
+                        Text("Host")
+                            .textCase(.uppercase)
+                            .font(.rounded(.caption2, .heavy))
+                            .tracking(0.4)
+                            .foregroundStyle(Theme.accent)
+                    }
                 }
-                .labelStyle(.iconOnly)
-                .buttonStyle(.glass)
-                .buttonBorderShape(.circle)
-                .tint(Theme.ink)
+                // Class year only: interests are private (SPEC §8.8, R7-4).
+                Text("Class of \(String(person.gradYear))")
+                    .font(.rounded(.footnote))
+                    .foregroundStyle(Theme.muted)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            if !isMe {
+                Menu("Report or block \(person.displayName)", systemImage: "ellipsis") {
+                    Button("Report \(person.firstName)", systemImage: "exclamationmark.bubble") { reportTarget = .person(person) }
+                    Button("Block \(person.firstName)", systemImage: "nosign", role: .destructive) { blockTarget = person }
+                }
+                .glassCircle()
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .frame(minHeight: 52)
-    }
-}
-
-extension View {
-    /// "Block Alex R.?" confirmation (SPEC §7.6.6). Blocking hides them right away.
-    func blockConfirmation(person: Binding<PersonSummary?>, onBlocked: (() -> Void)? = nil) -> some View {
-        modifier(BlockConfirmation(person: person, onBlocked: onBlocked))
-    }
-}
-
-private struct BlockConfirmation: ViewModifier {
-    @Environment(GameStore.self) private var store
-    @Binding var person: PersonSummary?
-    var onBlocked: (() -> Void)?
-
-    func body(content: Content) -> some View {
-        content.alert(
-            Text("Block \(person?.displayName ?? "")?"),
-            isPresented: Binding(get: { person != nil }, set: { if !$0 { person = nil } }),
-            presenting: person
-        ) { blocked in
-            Button("Block", role: .destructive) {
-                Task { await store.block(blocked) }
-                onBlocked?()
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: { _ in
-            Text("You won't see each other's games or names, and neither of you can join the other's games.")
-        }
+        .frame(minHeight: 66)
+        .accessibilityElement(children: .combine)
     }
 }

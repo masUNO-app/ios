@@ -27,10 +27,19 @@ struct ContentView: View {
             case .signedIn: main
             }
         }
-        .overlay(alignment: .top) { NoticeBanner() }
+        // Over the bottom bar on the map, as in the Figma; at the top elsewhere, clear of the
+        // action bars pinned to the bottom of other screens.
+        .overlay(alignment: showsNoticeAtBottom ? .bottom : .top) {
+            NoticeBanner()
+                .padding(.bottom, showsNoticeAtBottom ? 84 : 0)
+        }
+        .animation(.snappy, value: store.notice)
         .environment(store)
         .environment(appViewModel)
+        .environment(\.currentUserID, store.profile?.id)
         .tint(Theme.accent)
+        // SF Pro Rounded throughout (SPEC §7.7.2, R7-10).
+        .fontDesign(.rounded)
         // Light mode only (SPEC §7.1).
         .preferredColorScheme(.light)
         .onOpenURL { appViewModel.handle($0) }
@@ -42,6 +51,10 @@ struct ContentView: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .active, appViewModel.session == .signedIn { Task { await store.refresh() } }
         }
+    }
+
+    private var showsNoticeAtBottom: Bool {
+        appViewModel.session == .signedIn && appViewModel.path.isEmpty && appViewModel.sheet == nil
     }
 
     private func launch() async {
@@ -70,6 +83,7 @@ struct ContentView: View {
                     case .me(let tab, let editsProfile): MeView(tab: tab, editsProfile: editsProfile)
                     case .settings: SettingsView()
                     case .blockedPeople: BlockedPeopleView()
+                    case .guidelines: CommunityGuidelinesView()
                     #if DEBUG
                     case .gallery: ComponentGallery()
                     #endif
@@ -79,29 +93,32 @@ struct ContentView: View {
         .sheet(item: $appViewModel.sheet) { sheet in
             switch sheet {
             case .gameForm(let id): GameFormSheet(editing: id.flatMap { store.game($0) })
+            case .playAgain(let id): GameFormSheet(template: store.game(id))
             }
         }
     }
 }
 
-/// Short toast for failed actions and confirmations ("Someone just took the last spot.").
+/// Short toast for failed actions and confirmations ("Saved. Find it under bookmarks.").
 private struct NoticeBanner: View {
     @Environment(GameStore.self) private var store
 
     var body: some View {
         if let notice = store.notice {
-            Label(notice, systemImage: "info.circle.fill")
-                .font(.subheadline.weight(.medium))
+            Text(verbatim: notice)
+                .font(.rounded(.subheadline, .bold))
                 .foregroundStyle(Theme.ink)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 13)
                 .glassEffect(.regular, in: .capsule)
                 .padding(.horizontal, Theme.gutter)
-                .transition(.move(edge: .top).combined(with: .opacity))
+                .transition(.scale(scale: 0.9).combined(with: .opacity))
                 .onTapGesture { store.notice = nil }
+                .accessibilityAddTraits(.isStaticText)
                 .task(id: notice) {
                     try? await Task.sleep(for: .seconds(4))
-                    withAnimation { store.notice = nil }
+                    store.notice = nil
                 }
         }
     }

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Edit profile & interests (E21), reusing the onboarding "About you" + "Interests" fields.
+/// Figma "Edit profile" (E21): name, class year and the sports you play.
 struct EditProfileSheet: View {
     @Environment(GameStore.self) private var store
     @Environment(\.dismiss) private var dismiss
@@ -13,82 +13,84 @@ struct EditProfileSheet: View {
     var body: some View {
         @Bindable var viewModel = viewModel
 
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack(spacing: 10) {
-                        FieldBox("First name", error: viewModel.nameError(viewModel.firstName)) {
-                            TextField("First name", text: $viewModel.firstName)
-                                .textContentType(.givenName)
-                        }
-                        FieldBox("Last name", error: viewModel.nameError(viewModel.lastName)) {
-                            TextField("Last name", text: $viewModel.lastName)
-                                .textContentType(.familyName)
-                        }
-                    }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                SheetHeader(
+                    title: Text("Edit profile"),
+                    subtitle: Text("Others see \(viewModel.previewName) and your class year.")
+                ) { dismiss() }
+                    .padding(.bottom, 2)
 
-                    Menu {
-                        Picker("Class year", selection: $viewModel.classYear) {
-                            ForEach(viewModel.classYears, id: \.self) { Text(String($0)).tag($0) }
-                        }
-                    } label: {
-                        FieldBox("Class year", showsChevron: true) { Text(String(viewModel.classYear)) }
-                    }
+                ProfileFields(
+                    firstName: $viewModel.firstName, lastName: $viewModel.lastName, classYear: $viewModel.classYear,
+                    classYears: viewModel.classYears,
+                    firstNameError: viewModel.nameError(viewModel.firstName),
+                    lastNameError: viewModel.nameError(viewModel.lastName)
+                )
 
-                    // Preview, as on onboarding screen 4.
-                    HStack(spacing: 12) {
-                        Avatar(name: "\(viewModel.firstName) \(viewModel.lastName)", size: 40)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(viewModel.preview).font(.subheadline.weight(.semibold)).foregroundStyle(Theme.ink)
-                            Text("This is how others see you.").font(.footnote).foregroundStyle(Theme.muted)
-                        }
-                    }
-                    .padding(14)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .cardSurface()
-
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("What do you play?")
-                            .font(.headline)
-                            .foregroundStyle(Theme.ink)
-                            .padding(.top, 8)
-                        FlowLayout(spacing: 8) {
-                            ForEach(store.interestActivities) { sport in
-                                InterestToggle(sport: sport, isOn: viewModel.interests.contains(sport)) { viewModel.toggle(sport) }
-                            }
-                        }
-                        if let error = viewModel.interestsError ?? viewModel.saveError {
-                            Text(error).font(.caption).foregroundStyle(Theme.error)
-                        } else {
-                            Text("Only you see your interests.").font(.footnote).foregroundStyle(Theme.muted)
-                        }
+                Text("Plays")
+                    .font(.rounded(.footnote, .bold))
+                    .foregroundStyle(Theme.ink)
+                    .padding(.top, 4)
+                FlowLayout(spacing: 8) {
+                    ForEach(store.interestActivities) { sport in
+                        SportToggle(sport: sport, isOn: viewModel.interests.contains(sport)) { viewModel.toggle(sport) }
                     }
                 }
-                .padding(.horizontal, Theme.gutter)
-                .padding(.top, 8)
-            }
-            .background(Theme.background)
-            .safeAreaInset(edge: .bottom) {
+                if let error = viewModel.interestsError ?? viewModel.saveError {
+                    Text(verbatim: error).font(.rounded(.caption)).foregroundStyle(Theme.error)
+                } else {
+                    Text("Only you see what you play.").font(.rounded(.footnote)).foregroundStyle(Theme.muted)
+                }
+
                 Button("Save") {
                     Task { if await viewModel.save(in: store) { dismiss() } }
                 }
                 .disabled(viewModel.isSaving)
-                .buttonStyle(.glassProminent)
-                .controlSize(.large)
-                .buttonSizing(.flexible)
-                .fontWeight(.semibold)
-                .padding(.horizontal, Theme.gutter)
-                .padding(.bottom, 8)
+                .pill(.primary)
+                .padding(.top, 8)
             }
-            .navigationTitle("Edit profile")
-            .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(role: .close) { dismiss() }
-                        .tint(Theme.ink)
+            .padding(.horizontal, Theme.gutter)
+            .padding(.top, 22)
+            .padding(.bottom, 12)
+        }
+        .scrollDismissesKeyboard(.interactively)
+        .scrollBounceBehavior(.basedOnSize)
+        .sheetChrome(detents: [.height(500), .large])
+    }
+}
+
+/// First name, last name and class year as field cards: Make it yours and Edit profile.
+/// Two name fields rather than the Figma's one, because the server keeps them apart and
+/// "Emilio G." is built from the last name's initial.
+struct ProfileFields: View {
+    @Binding var firstName: String
+    @Binding var lastName: String
+    @Binding var classYear: Int
+    var classYears: [Int]
+    var firstNameError: String?
+    var lastNameError: String?
+
+    var body: some View {
+        VStack(spacing: 12) {
+            HStack(alignment: .top, spacing: 10) {
+                FieldBox("First name", error: firstNameError) {
+                    TextField("First name", text: $firstName)
+                        .textContentType(.givenName)
+                }
+                FieldBox("Last name", error: lastNameError) {
+                    TextField("Last name", text: $lastName)
+                        .textContentType(.familyName)
                 }
             }
+
+            Menu {
+                Picker("Class year", selection: $classYear) {
+                    ForEach(classYears, id: \.self) { Text(String($0)).tag($0) }
+                }
+            } label: {
+                FieldBox("Class year", showsChevron: true) { Text("Class of \(String(classYear))") }
+            }
         }
-        .presentationBackground(Theme.background)
     }
 }

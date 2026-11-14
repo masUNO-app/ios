@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import MasUno
+@testable import masUNO
 
 /// The E1 contract: error codes, model rules and the mock backend's RPC behavior.
 /// If a test here changes, `docs/API.md` probably should too.
@@ -436,21 +436,20 @@ struct OnboardingFlowTests {
         return (OnboardingViewModel(auth: auth, catalog: auth, campus: MockFixtures.tec), auth)
     }
 
-    @Test func newStudentGoesThroughPrimerSheetSchoolAndVerified() async {
+    @Test func newStudentGoesThroughQuickCheckSchoolAndVerified() async {
         let (model, auth) = model()
         #expect(model.path.isEmpty)
-        model.path.append(.locationPrimer)
-        model.continueFromPrimer()
+        model.getStarted()
         #expect(model.isSignInSheetPresented)
         model.findMySchool()
         #expect(!model.isSignInSheetPresented)
-        #expect(model.path == [.locationPrimer, .findSchool])
+        #expect(model.path == [.findSchool])
 
         await model.loadSchools()
         #expect(model.selectedSchool == MockFixtures.tec)
         await model.continueWithSchool()
         #expect(auth.state == .needsProfile)
-        #expect(model.path == [.locationPrimer, .findSchool, .verified])
+        #expect(model.path == [.findSchool, .verified])
         #expect(model.firstName == "Emilio")
         #expect(model.lastName == "Garza")
     }
@@ -480,11 +479,11 @@ struct OnboardingFlowTests {
 
     @Test func closingTheWebSheetStaysOnFindYourSchool() async {
         let (model, auth) = model()
-        model.path = [.locationPrimer, .findSchool]
+        model.path = [.findSchool]
         model.selectedSchool = MockFixtures.tec
         auth.cancelsNextSignIn = true
         await model.continueWithSchool()
-        #expect(model.path == [.locationPrimer, .findSchool])
+        #expect(model.path == [.findSchool])
         #expect(model.signInError == nil)
     }
 
@@ -524,11 +523,10 @@ struct OnboardingFlowTests {
     /// N36: Create account → We're checking your account → (approved) → You're in → profile.
     @Test func newStudentSignsUpWaitsAndGetsIn() async {
         let (model, auth) = model()
-        model.path.append(.locationPrimer)
-        model.continueFromPrimer()
+        model.getStarted()
         model.createAccount()
         #expect(!model.isSignInSheetPresented)
-        #expect(model.path == [.locationPrimer, .signUp])
+        #expect(model.path == [.signUp])
 
         model.email = " A0123@Tec.mx "
         model.password = "short"

@@ -30,6 +30,7 @@ final class UnavailableBackend: AuthService, GameRepository, ProfileRepository, 
     func cancelGame(id: UUID) async throws -> Game { throw DomainError.offline }
     func joinGame(id: UUID) async throws -> Game { throw DomainError.offline }
     func leaveGame(id: UUID) async throws -> Game { throw DomainError.offline }
+    func changes(campus: UUID) -> AsyncStream<GameChanges> { AsyncStream { $0.finish() } }
 
     func fetchMyProfile() async throws -> Profile? { throw DomainError.offline }
     func updateProfile(_ input: ProfileInput) async throws -> Profile { throw DomainError.offline }

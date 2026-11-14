@@ -3,13 +3,17 @@ import Observation
 import SwiftUI
 import UIKit
 
-/// Game detail (SPEC §7.6.4): which 0.5 state you're in, and the join/leave/cancel intents.
+/// Game details (SPEC §7.6.4, §7.7.4): which state you're in, the copy that goes with it, and
+/// the join/leave/cancel intents.
 @Observable
 final class EventDetailViewModel {
     let eventID: UUID
-    var confirmsLeave = false
-    var confirmsCancel = false
+    /// Game waiting on the Leave confirmation.
+    var leaving: Game?
+    /// Game waiting on the Cancel confirmation.
+    var cancelling: Game?
     var showsWhoIsGoing = false
+    var showsInvite = false
     var reportTarget: ReportSubject?
     var choosesMapsApp = false
     var addsToCalendar = false
@@ -20,31 +24,45 @@ final class EventDetailViewModel {
 
     // MARK: Presentation
 
-    func chipText(for event: Game) -> String {
+    /// The bold line under the host: "Room for 4 more", "You're in!", "Game's full · 6 of 6"…
+    func headline(for event: Game) -> String {
         switch event.status() {
-        case .open: event.openLine
-        case .going: String(localized: "You're in · \(event.statusLine)")
-        case .full: String(localized: "Full")
-        case .hosting: String(localized: "You're hosting · \(event.goingCount) going")
+        case .open: event.roomLine
+        case .going: String(localized: "You're in!")
+        case .full: event.fullLine
+        case .hosting: String(localized: "Your game is live!")
         case .ended: String(localized: "This game has ended")
-        case .cancelled: String(localized: "\(event.host.displayName) cancelled this game")
+        case .cancelled:
+            event.isHostedByMe
+                ? String(localized: "You cancelled this game")
+                : String(localized: "\(event.host.firstName) cancelled this game")
         }
     }
 
-    func chipIcon(for event: Game) -> String? {
-        event.status() == .going ? "checkmark.circle.fill" : nil
+    /// "You're in!" and "Your game is live!" are the green ones.
+    func isCelebrating(_ event: Game) -> Bool {
+        [.going, .hosting].contains(event.status())
     }
 
-    /// "Alex R. (host), Ricardo T., you" — without anyone you blocked.
-    func goingNames(for event: Game, in store: GameStore) -> String {
-        store.attendees(of: event.id).map { attendee in
-            let isMe = attendee.id == store.profile?.id
-            let isHost = attendee.role == .host
-            if isMe { return isHost ? String(localized: "you (host)") : String(localized: "you") }
-            let display = attendee.person.displayName
-            return isHost ? String(localized: "\(display) (host)") : display
+    /// The sentence under the headline, for the states that have one.
+    func detail(for event: Game, chatEnabled: Bool) -> String? {
+        switch event.status() {
+        case .going:
+            chatEnabled
+                ? String(localized: "\(event.host.firstName) knows you're coming. Say hi in the group chat, or just show up.")
+                // Read-only group chat (SPEC N14).
+                : String(localized: "\(event.host.firstName) knows you're coming. Check where to meet and who's going.")
+        case .hosting:
+            event.isFull
+                ? String(localized: "Every spot is taken. See you on the court.")
+                : String(localized: "It's on the map now with \(event.roomPhrase).")
+        default: nil
         }
-        .joined(separator: ", ")
+    }
+
+    /// "Alex says" over the host's note; "You said" on your own game.
+    func noteLabel(for event: Game) -> String {
+        event.isHostedByMe ? String(localized: "You said") : String(localized: "\(event.host.firstName) says")
     }
 
     // MARK: Intents
@@ -54,17 +72,9 @@ final class EventDetailViewModel {
         Task { await store.join(eventID) }
     }
 
-    func leave(in store: GameStore) {
-        Task { await store.leave(eventID) }
-    }
-
-    func cancel(in store: GameStore) {
-        Task { await store.cancelGame(eventID) }
-    }
-
-    /// "Join me for After-work hoops — Today · 7:35 PM at Estadio Borregos. 4 spots left on masUNO:"
-    func inviteMessage(for event: Game) -> String {
-        String(localized: "Join me for \(event.title) — \(EventFormat.dayAndTime(event.startsAt)) at \(event.place.name). \(event.spotsLine) on masUNO:")
+    /// "Join me for After-work hoops — Today · 7:35 PM at Estadio Borregos. Room for 4 more on masUNO:"
+    static func inviteMessage(for event: Game) -> String {
+        String(localized: "Join me for \(event.title) — \(EventFormat.dayAndTime(event.startsAt)) at \(event.place.name). \(event.roomLine) on masUNO:")
     }
 
     /// Walking directions. Offers Google Maps too when it's installed (E19).

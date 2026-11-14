@@ -38,6 +38,7 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
     private var messages: [UUID: [ChatMessage]]
     private var lastRead: [UUID: Date] = [:]
     private var listeners: [UUID: [UUID: AsyncStream<ChatUpdate>.Continuation]] = [:]
+    private var gameChangeListeners: [UUID: AsyncStream<GameChanges>.Continuation] = [:]
     private var isSuspended = false
     /// The campus the account signing in belongs to.
     private var signInCampus = MockFixtures.tec
@@ -74,12 +75,24 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
     }
 
     /// Another player leaves, firing auto-repost if the game was full.
+    /// When the roster matches the count, that player comes off Who's going too.
     func simulateDropOut(id: UUID) {
         guard let index = games.firstIndex(where: { $0.id == id }) else { return }
         let game = games[index]
         guard game.goingCount > 1 else { return }
+        if attendees[id]?.count == game.goingCount,
+           let leaving = attendees[id]?.last(where: { $0.role != .host }) {
+            attendees[id]?.removeAll { $0.id == leaving.id }
+        }
         games[index].goingCount -= 1
         if game.isFull, game.autoRepost, !game.isCancelled { games[index].repostedAt = now }
+    }
+
+    /// The host of a game you're in cancels it, from their own phone.
+    func cancelAsHost(id: UUID) {
+        guard let index = games.firstIndex(where: { $0.id == id }) else { return }
+        games[index].cancelledAt = now
+        log(.cancelled, id, actor: games[index].host)
     }
 
     /// Someone else in the game posts from their own phone, and the chat channel says so.
@@ -275,6 +288,7 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         games.append(game)
         attendees[game.id] = [Attendee(person: me, role: .host, joinedAt: now)]
         log(.created, game.id, actor: me)
+        announceGameChange([game.id])
         return game
     }
 
@@ -307,6 +321,7 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         if old.isFull, !new.isFull, new.autoRepost { new.repostedAt = now }
 
         games[index] = new
+        announceGameChange([new.id])
         if timeOrPlaceChanged { log(.timeOrPlaceChanged, id, actor: me) }
         if meetPointChanged { log(.meetPointUpdated, id, actor: me) }
         return new
@@ -320,6 +335,7 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         if games[index].hasEnded(now: now) { throw DomainError.ended }
         games[index].cancelledAt = now
         log(.cancelled, id, actor: me)
+        announceGameChange([id])
         return games[index]
     }
 
@@ -343,6 +359,7 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         games[index].myJoinedAt = now
         attendees[id, default: []].append(Attendee(person: me, role: .player, joinedAt: now))
         log(.joined, id, actor: me)
+        announceGameChange([id])
         return decorated(games[index])
     }
 
@@ -360,6 +377,7 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         attendees[id]?.removeAll { $0.id == me.id }
         if game.isFull, game.autoRepost, !game.isCancelled { games[index].repostedAt = now }
         log(.left, id, actor: me)
+        announceGameChange([id])
         return decorated(games[index])
     }
 
@@ -472,6 +490,28 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
                 Task { @MainActor in self?.listeners[gameID]?[listener] = nil }
             }
         }
+    }
+
+    /// One campus in the mock, so `campus` isn't checked.
+    func changes(campus: UUID) -> AsyncStream<GameChanges> {
+        AsyncStream { continuation in
+            let listener = UUID()
+            gameChangeListeners[listener] = continuation
+            continuation.onTermination = { [weak self] _ in
+                Task { @MainActor in self?.gameChangeListeners[listener] = nil }
+            }
+        }
+    }
+
+    var gameChangeListenerCount: Int { gameChangeListeners.count }
+
+    /// Pings like the server does. Tests call it to act as another phone changing a game.
+    func announceGameChange(_ ids: Set<UUID>) {
+        announce(.games(ids))
+    }
+
+    func announce(_ changes: GameChanges) {
+        for listener in gameChangeListeners.values { listener.yield(changes) }
     }
 
     // MARK: AppConfigRepository

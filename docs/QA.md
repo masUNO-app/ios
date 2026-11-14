@@ -8,8 +8,8 @@ Before you start: delete the app from both phones, turn location on, and note th
 
 ## 1. Sign-in and onboarding
 
-- [ ] Fresh install → Welcome → Location primer → Sign in to join → Create account → We're checking your account. Privacy & Terms opens the real page.
-- [ ] The Location primer doesn't trigger the iOS prompt; that waits for the map.
+- [ ] Fresh install → Welcome → **Get started** → Create account → We're checking your account. Privacy & Terms opens the real page. There's no Find your school.
+- [ ] The location primer is the first map open, not a Welcome step; it doesn't trigger the iOS prompt until you allow it on the map.
 - [ ] Create account with a school address posts "New sign-up waiting for approval" to the team Discord within a minute, with the approve and reject lines.
 - [ ] Create account with any other address (Gmail, another school, `@mail.tec.mx`) shows "masUNO is just for Tec students right now." (with the launch campus's name). A password under 8 characters and an address that already has an account each show their own message.
 - [ ] While waiting, **Check again** says "Not yet." Quit and reopen: still on We're checking your account. **Sign out** returns to Welcome, and signing back in returns to the waiting step.
@@ -31,6 +31,10 @@ Before you start: delete the app from both phones, turn location on, and note th
 - [ ] Pins show the sport emoji. A game starting within the hour says "Soon".
 - [ ] Search by title, sport, place and host first name. Filter by each of the 5 sports.
 - [ ] Tapping a pin opens the popup, panning off screen closes it, and the bookmark fills green.
+- [ ] **Count me in** opens details (you land on the court).
+- [ ] Joined (not host): popup **Leave** instead of Details. Host keeps Details + Edit game.
+- [ ] Two overlapping pins open a group sheet.
+- [ ] Phone B leave: Phone A court and popup update without a manual refresh. A bookmarked full game that opens shows "A spot just opened in …".
 - [ ] Tapping "N games nearby" refreshes the map.
 
 ## 3. Hosting (Phone A)

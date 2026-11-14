@@ -16,7 +16,7 @@ enum ReportSubject: Hashable, Identifiable {
         }
     }
 
-    /// Who "Block" is offered for once the report is sent.
+    /// Who "Block … too" is offered for once the report is sent.
     var person: PersonSummary? {
         switch self {
         case .person(let person): person
@@ -26,7 +26,8 @@ enum ReportSubject: Hashable, Identifiable {
     }
 }
 
-/// Report a person, a game or a chat message (SPEC §7.6.6). After sending, people can also be blocked.
+/// Figma "Report Ricardo": a person, a game or a chat message (SPEC §7.6.6). One reason, an
+/// optional note, **Send report**; then "Thanks for telling us", where people can also be blocked.
 struct ReportSheet: View {
     @Environment(GameStore.self) private var store
     @Environment(\.dismiss) private var dismiss
@@ -35,138 +36,138 @@ struct ReportSheet: View {
     @State private var reason: ReportReason?
     @State private var note = ""
     @State private var isSent = false
-    @State private var blockTarget: PersonSummary?
     @State private var isSending = false
     @State private var errorMessage: String?
+    @FocusState private var noteIsFocused: Bool
 
     private static let noteLimit = 280
 
     var body: some View {
-        NavigationStack {
-            Group {
-                if isSent { sentView } else { form }
-            }
-            .background(Theme.background)
-            .navigationTitle(title)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(role: .close) { dismiss() }
-                        .tint(Theme.ink)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 10) {
+                SheetHeader(title: Text(title), subtitle: Text("Only the masUNO team sees this.")) { dismiss() }
+                    .padding(.bottom, 4)
+
+                if case .message(let message) = target {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("\(message.sender.displayName) wrote")
+                            .font(.rounded(.caption))
+                            .foregroundStyle(Theme.muted)
+                        Text(verbatim: message.body)
+                            .font(.rounded(.subheadline))
+                            .foregroundStyle(Theme.ink)
+                            .lineLimit(4)
+                    }
+                    .padding(14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Theme.separator.opacity(0.6), in: .rect(cornerRadius: 16))
                 }
+
+                ForEach(ReportReason.listed) { option in
+                    OptionRow(title: option.title(for: target.target), isSelected: reason == option) {
+                        reason = option
+                    }
+                }
+
+                HStack {
+                    Text("Anything else we should know?")
+                        .font(.rounded(.footnote, .bold))
+                        .foregroundStyle(Theme.ink)
+                    Spacer()
+                    OptionalTag()
+                }
+                .padding(.top, 4)
+
+                TextField("Tell us what happened", text: $note, axis: .vertical)
+                    .lineLimit(1...4)
+                    .font(.rounded(.callout))
+                    .foregroundStyle(Theme.ink)
+                    .focused($noteIsFocused)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .cardSurface(radius: 16)
+                    .onChange(of: note) { if note.count > Self.noteLimit { note = String(note.prefix(Self.noteLimit)) } }
+
+                if let errorMessage {
+                    Text(verbatim: errorMessage)
+                        .font(.rounded(.caption))
+                        .foregroundStyle(Theme.error)
+                }
+
+                Button {
+                    Task { await send() }
+                } label: {
+                    if isSending { ProgressView().tint(Theme.onAccent) } else { Text("Send report") }
+                }
+                .pill(.primary)
+                .disabled(reason == nil || isSending)
+                .padding(.top, 8)
             }
+            .padding(.horizontal, Theme.gutter)
+            .padding(.top, 22)
+            .padding(.bottom, 12)
         }
-        .presentationDetents([.large])
-        .presentationBackground(Theme.background)
-        .blockConfirmation(person: $blockTarget) { dismiss() }
+        .scrollDismissesKeyboard(.interactively)
+        .scrollBounceBehavior(.basedOnSize)
+        .sheetChrome(detents: [.height(target.person == nil || isMessage ? 620 : 560), .large])
+        .dialog(isPresented: $isSent, isDismissable: false) { thanks }
+        #if DEBUG
+        .onAppear {
+            // `-screen report-sent`: straight to "Thanks for telling us".
+            if UserDefaults.standard.string(forKey: "screen") == "report-sent" { isSent = true }
+        }
+        #endif
+    }
+
+    private var isMessage: Bool {
+        if case .message = target { return true }
+        return false
     }
 
     private var title: LocalizedStringKey {
         switch target {
-        case .person(let person): "Report \(person.displayName)"
+        case .person(let person): "Report \(person.firstName)"
         case .game: "Report game"
         case .message: "Report message"
         }
     }
 
-    private var form: some View {
-        Form {
-            Section {
-                ForEach(ReportReason.allCases) { option in
-                    Button {
-                        reason = option
-                    } label: {
-                        HStack {
-                            Text(option.title).foregroundStyle(Theme.ink)
-                            Spacer()
-                            if reason == option {
-                                Image(systemName: "checkmark").foregroundStyle(Theme.accent).fontWeight(.semibold)
-                            }
-                        }
-                    }
-                    .accessibilityAddTraits(reason == option ? .isSelected : [])
-                }
-            } header: {
-                Text("What's wrong?")
-            }
+    /// Figma "Thanks for telling us": **Done**, or **Block Ricardo too** for a person.
+    private var thanks: some View {
+        let person = target.person
+        let message = person.map {
+            String(localized: "Only the masUNO team sees reports. We'll look into it within a day, and \($0.firstName) won't know it was you.")
+        } ?? String(localized: "Only the masUNO team sees reports. We'll look into it within a day.")
 
-            if case .message(let message) = target {
-                Section {
-                    Text(verbatim: message.body).foregroundStyle(Theme.ink)
-                } header: {
-                    Text("\(message.sender.displayName) wrote")
+        return DialogCard(
+            systemImage: "checkmark.shield",
+            title: Text("Thanks for telling us"),
+            message: Text(verbatim: message),
+            confirm: DialogAction("Done") { dismiss() },
+            cancel: person.map { person in
+                DialogAction("Block \(person.firstName) too") {
+                    Task { await store.block(person) }
+                    dismiss()
                 }
             }
-
-            Section {
-                TextField("Add details (optional)", text: $note, axis: .vertical)
-                    .lineLimit(3...6)
-                    .onChange(of: note) { if note.count > Self.noteLimit { note = String(note.prefix(Self.noteLimit)) } }
-            } footer: {
-                if let errorMessage {
-                    Text(errorMessage).foregroundStyle(Theme.error)
-                } else {
-                    Text("Only the masUNO team sees reports.")
-                }
-            }
-        }
-        .scrollContentBackground(.hidden)
-        .safeAreaInset(edge: .bottom) {
-            Button("Send report") {
-                Task { await send() }
-            }
-            .buttonStyle(.glassProminent)
-            .controlSize(.large)
-            .buttonSizing(.flexible)
-            .fontWeight(.semibold)
-            .disabled(reason == nil || isSending)
-            .padding(.horizontal, Theme.gutter)
-            .padding(.bottom, 8)
-        }
+        )
     }
 
     private func send() async {
         guard let reason else { return }
         isSending = true
         defer { isSending = false }
-        let trimmed = note.trimmingCharacters(in: .whitespacesAndNewlines)
+        let detail = [reason.noteLead(for: target.target), note.trimmingCharacters(in: .whitespacesAndNewlines)]
+            .compactMap { $0 }
+            .filter { !$0.isEmpty }
+            .joined(separator: ". ")
         do {
-            try await store.report(target.target, reason: reason, note: trimmed.isEmpty ? nil : trimmed)
+            try await store.report(target.target, reason: reason, note: detail.isEmpty ? nil : String(detail.prefix(Self.noteLimit)))
             errorMessage = nil
-            withAnimation { isSent = true }
+            noteIsFocused = false
+            isSent = true
         } catch {
             errorMessage = (error as? DomainError ?? .offline).message
         }
-    }
-
-    private var sentView: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 48))
-                .foregroundStyle(Theme.accent)
-            Text("Thanks — we'll review this within 24 hours.")
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(Theme.ink)
-                .multilineTextAlignment(.center)
-            Spacer()
-            if let person = target.person {
-                Button("Block \(person.displayName)", role: .destructive) { blockTarget = person }
-                    .buttonStyle(.glassProminent)
-                    .tint(Theme.destructive)
-                    .controlSize(.large)
-                    .buttonSizing(.flexible)
-                    .fontWeight(.semibold)
-            }
-            Button("Done") { dismiss() }
-                .buttonStyle(.glassProminent)
-                .tint(Theme.accentSoft)
-                .foregroundStyle(Theme.ink)
-                .controlSize(.large)
-                .buttonSizing(.flexible)
-                .fontWeight(.semibold)
-        }
-        .padding(.horizontal, Theme.gutter)
-        .padding(.top, 48)
-        .padding(.bottom, 8)
     }
 }

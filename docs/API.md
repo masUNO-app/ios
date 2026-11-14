@@ -232,6 +232,15 @@ the game can join the channel. The payload has no content on purpose: the app re
 `game_activity` when a ping arrives, so membership and blocks are checked in one place. The app also
 checks every 15 seconds while a chat is open, in case the channel is down.
 
+### Game changes
+
+Every statement that writes `games` or `rsvps` sends a Broadcast with event `changed` on the private channel
+`campus:<university_id>:games`, once per campus it touched, with `{"ids": [<game IDs>]}`. Over 50 games, the
+payload is `{}`: re-read everything on screen. Only that campus's signed-in, unbanned people can listen. The IDs
+say which games changed, not how, so the app re-reads those through the RLS views (and the map, if one it
+didn't hold might belong there). Bursts are debounced, each phone waits a random extra moment so a campus's
+re-reads don't arrive together, and the app also re-reads when it comes back to the foreground.
+
 ## Sign-in
 
 Email and password, with each new account approved by hand (SPEC N36). School SSO is below as "kept, unused".

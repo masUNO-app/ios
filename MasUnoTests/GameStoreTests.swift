@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import MasUno
+@testable import masUNO
 
 @MainActor
 struct GameStoreTests {
@@ -151,6 +151,93 @@ struct GameStoreTests {
         await store.join(MockFixtures.GameID.open)
         #expect(reported)
         #expect(store.game(MockFixtures.GameID.open)?.myRole == nil)
+    }
+
+    // MARK: Live refresh
+
+    @Test func anOfflineLaunchStartsListeningOnTheNextRefresh() async throws {
+        let backend = MockBackend()
+        let launched = GameStore(
+            games: backend, profiles: backend, safety: backend, chat: backend, catalog: backend,
+            defaults: UserDefaults(suiteName: "GameStoreTests.\(UUID().uuidString)")!
+        )
+        backend.nextError = .offline
+        await launched.load()
+        #expect(launched.profile == nil)
+        #expect(backend.gameChangeListenerCount == 0)
+
+        await launched.refresh()
+        #expect(launched.profile?.firstName == "Emilio")
+        try await eventually { backend.gameChangeListenerCount > 0 }
+    }
+
+    @Test func aGameFillingOnAnotherPhoneLeavesTheMap() async throws {
+        let id = MockFixtures.GameID.open
+        try await eventually { backend.gameChangeListenerCount > 0 }
+        backend.fillGame(id: id)
+        backend.announceGameChange([id])
+        try await eventually { !store.mapGames().contains { $0.id == id } }
+    }
+
+    @Test func aGameWithRoomAgainComesBackToTheMap() async throws {
+        let id = MockFixtures.GameID.open
+        try await eventually { backend.gameChangeListenerCount > 0 }
+        backend.fillGame(id: id)
+        await store.refreshMap()
+        #expect(!store.mapGames().contains { $0.id == id })
+
+        backend.simulateDropOut(id: id)
+        backend.announceGameChange([id])
+        try await eventually { store.mapGames().contains { $0.id == id } }
+    }
+
+    @Test func someoneLeavingUpdatesTheFacesWithTheOpenSpot() async throws {
+        let id = MockFixtures.GameID.open
+        try await eventually { backend.gameChangeListenerCount > 0 }
+        await store.loadAttendees(id)
+        let before = try #require(store.game(id))
+        #expect(store.lineup(for: before).people.map(\.id) == [MockFixtures.alex.id, MockFixtures.ricardo.id])
+
+        backend.simulateDropOut(id: id)
+        backend.announceGameChange([id])
+        try await eventually {
+            guard let game = store.game(id) else { return false }
+            let lineup = store.lineup(for: game)
+            return lineup.people.map(\.id) == [MockFixtures.alex.id] && lineup.open == before.spotsLeft + 1
+        }
+    }
+
+    @Test func aBookmarkedFullGameOpensWithANotice() async throws {
+        let id = MockFixtures.GameID.open
+        try await eventually { backend.gameChangeListenerCount > 0 }
+        backend.fillGame(id: id)
+        await store.loadGame(id)
+        await store.refreshMap()
+        #expect(store.game(id)?.isFull == true)
+        #expect(!store.mapGames().contains { $0.id == id })
+
+        store.toggleSaved(id)
+        store.notice = nil
+        backend.simulateDropOut(id: id)
+        backend.announceGameChange([id])
+        try await eventually { store.notice == "A spot just opened in After-work hoops." }
+        #expect(store.mapGames().contains { $0.id == id })
+    }
+
+    @Test func aHostCancellingFromTheirPhoneShowsInGoing() async throws {
+        let id = MockFixtures.GameID.going
+        try await eventually { backend.gameChangeListenerCount > 0 }
+        backend.cancelAsHost(id: id)
+        backend.announceGameChange([id])
+        try await eventually { store.game(id)?.isCancelled == true }
+    }
+
+    /// Polls briefly until `condition` holds; the store's listener and debounce run in the background.
+    private func eventually(_ condition: () -> Bool) async throws {
+        for _ in 0..<100 where !condition() {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        #expect(condition())
     }
 
     // MARK: Hosting

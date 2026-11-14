@@ -1,4 +1,4 @@
-name: MasUno
+name: masUNO
 options:
   bundleIdPrefix: com.masuno
   deploymentTarget:
@@ -17,13 +17,17 @@ settings:
     SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
     SWIFT_APPROACHABLE_CONCURRENCY: YES
 targets:
-  MasUno:
+  masUNO:
     type: application
     platform: iOS
     sources:
       - path: MasUno
         excludes:
           - "**/README.md"
+          - "AppIcon.icon"
+      # Icon Composer bundle: XcodeGen doesn't put it in a build phase by default, so add it by hand.
+      - path: MasUno/AppIcon.icon
+        buildPhase: resources
     info:
       path: MasUno/Info.plist
       properties:
@@ -70,13 +74,13 @@ targets:
         CODE_SIGN_STYLE: Automatic
         LOCALIZATION_PREFERS_STRING_CATALOGS: YES
         SWIFT_EMIT_LOC_STRINGS: YES
-  MasUnoTests:
+  masUNOTests:
     type: bundle.unit-test
     platform: iOS
     sources:
       - path: MasUnoTests
     dependencies:
-      - target: MasUno
+      - target: masUNO
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.masuno.app.tests
@@ -84,11 +88,11 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
         SUPPORTED_PLATFORMS: "iphoneos iphonesimulator"
 schemes:
-  MasUno:
+  masUNO:
     build:
       targets:
-        MasUno: all
-        MasUnoTests: [test]
+        masUNO: all
+        masUNOTests: [test]
     run:
       config: Debug
       # Debug runs against masuno-dev (Debug keys in Config.xcconfig). Untick it in the scheme to run
@@ -98,7 +102,7 @@ schemes:
     test:
       config: Debug
       targets:
-        - MasUnoTests
+        - masUNOTests
       # Unit tests stay on mocks: their host app never calls the backend.
       commandLineArguments:
         "-liveAuth NO": true

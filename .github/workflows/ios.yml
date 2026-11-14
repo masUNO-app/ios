@@ -1,4 +1,4 @@
-# App build and unit tests (B11, iOS half): generates the project, then runs MasUnoTests on the newest
+# App build and unit tests (B11, iOS half): generates the project, then runs masUNOTests on the newest
 # iPhone simulator. Debug runs on mocks with the template's placeholder keys, so it never calls
 # Supabase; LiveIntegrationTests skip themselves without MASUNO_LIVE_PASSWORD. Make "iOS / test" a
 # required check on main once it's green.
@@ -48,6 +48,6 @@ jobs:
       - name: Build and test
         run: |
           set -o pipefail
-          xcodebuild test -project MasUno.xcodeproj -scheme MasUno \
+          xcodebuild test -project masUNO.xcodeproj -scheme masUNO \
             -destination "id=$SIMULATOR" -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO | tail -n 80
