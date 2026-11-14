@@ -115,6 +115,10 @@ starting within 7 days. A campus that `university_lookup` doesn't list (the hidd
 `signup_enabled` off returns no rows, not an error. No `my_role`, `has_blocked_attendee` or `auto_repost`:
 nothing comes back per viewer.
 
+The app only ever calls `guest_games` with a campus from `university_lookup` where `signup_enabled`. With
+one such campus it opens the map on it (no picker); with several it shows **Which campus?** first. Guests
+do not listen on `campus:<id>:games`; they re-read `guest_games` on foreground and pull.
+
 ## Views
 
 ### `game_cards` → `Game`
