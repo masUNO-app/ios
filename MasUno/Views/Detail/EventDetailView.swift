@@ -8,12 +8,8 @@ struct EventDetailView: View {
     @Environment(GameStore.self) private var store
     @Environment(AppViewModel.self) private var appViewModel
     @State private var viewModel: EventDetailViewModel
-    @State private var size = CGSize(width: CourtArt.designWidth, height: 874)
     /// The sheet has scrolled far enough that its title is under the navigation bar.
     @State private var isTitleUnderBar = false
-
-    /// The court stops growing here, so the header doesn't swallow a big screen.
-    private static let maxCourtWidth: CGFloat = 480
 
     init(eventID: UUID) {
         _viewModel = State(initialValue: EventDetailViewModel(eventID: eventID))
@@ -55,52 +51,19 @@ struct EventDetailView: View {
     private func content(_ event: Game) -> some View {
         @Bindable var viewModel = viewModel
         let state = event.status()
-        let scale = min(size.width, Self.maxCourtWidth) / CourtArt.designWidth
-        // The sheet's rounded top rides up over the court.
-        let courtWindow = CourtHeader.designHeight * scale - Theme.Radius.sheet
-
         let isOver = event.isCancelled || event.hasEnded()
 
         // The court stays put and the sheet scrolls up over it.
-        return ScrollView {
-            VStack(spacing: 0) {
-                Color.clear
-                    .frame(height: courtWindow)
-                    .contentShape(.rect)
-                    .onTapGesture { viewModel.showsWhoIsGoing = true }
-                    .accessibilityHidden(true)
-
-                sheet(event, state: state)
-                    // Always reaches the bottom, so the court only ever shows above it.
-                    .frame(minHeight: size.height - courtWindow, alignment: .top)
-                    .background {
-                        // Carries on under the sheet when it bounces past the bottom.
-                        UnevenRoundedRectangle(topLeadingRadius: Theme.Radius.sheet, topTrailingRadius: Theme.Radius.sheet)
-                            .fill(Theme.background)
-                            .padding(.bottom, -size.height)
-                    }
-            }
+        return CourtScaffold(
+            activity: event.activity, lineup: store.lineup(for: event), capacity: event.capacity,
+            holdsYou: appViewModel.arrivingIn == event.id, showsOpenSpots: !isOver,
+            onTap: { viewModel.showsWhoIsGoing = true }
+        ) {
+            sheet(event, state: state)
         }
-        .ignoresSafeArea(edges: .top)
-        // The indicator would run down the court.
-        .scrollIndicators(.hidden)
-        .background(alignment: .top) {
-            CourtHeader(
-                activity: event.activity, lineup: store.lineup(for: event),
-                capacity: event.capacity, scale: scale,
-                holdsYou: appViewModel.arrivingIn == event.id, showsOpenSpots: !isOver
-            ) {
-                viewModel.showsWhoIsGoing = true
-            }
-            .frame(maxHeight: .infinity, alignment: .top)
-            // Sport color behind the court for the pull-down bounce.
-            .background(event.activity.color)
-            .ignoresSafeArea()
-        }
-        .onGeometryChange(for: CGSize.self) { $0.size } action: { size = $0 }
         .refreshable { await load() }
         .onScrollGeometryChange(for: Bool.self) { geometry in
-            geometry.contentOffset.y > courtWindow - 70
+            geometry.contentOffset.y > CourtHeader.sheetTop(forWidth: geometry.containerSize.width) - 70
         } action: { _, isUnder in
             withAnimation(.easeOut(duration: 0.2)) { isTitleUnderBar = isUnder }
         }
@@ -177,10 +140,6 @@ struct EventDetailView: View {
                 detailsCard(event, state: state)
             }
         }
-        .padding(.horizontal, Theme.gutter)
-        .padding(.top, 20)
-        .padding(.bottom, 24)
-        .readableColumn()
     }
 
     /// "Room for 4 more" · **Who's going ›**, and the line under it once you're in.

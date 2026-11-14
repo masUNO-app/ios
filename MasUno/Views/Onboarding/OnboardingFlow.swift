@@ -495,60 +495,29 @@ private struct OnboardingPage<Content: View, Footer: View>: View {
     }
 }
 
-/// A full-bleed court over a rounded content sheet, with a pinned bottom action: Welcome and
-/// You're verified.
-struct CourtPage<Content: View, Footer: View>: View {
-    var sport = Activity.builtIn[0]
+/// Welcome and You're verified: the top of a game's details, with the court as a picture (no
+/// taps, hidden from VoiceOver), the content as its sheet, and a pinned bottom action.
+private struct CourtPage<Content: View, Footer: View>: View {
     var lineup: Lineup
     @ViewBuilder var content: Content
     @ViewBuilder var footer: Footer
-    @State private var size = CGSize(width: CourtArt.designWidth, height: 874)
 
     var body: some View {
-        // The court takes at most 44% of the height, so the text below never runs out of room.
-        let scale = min(min(size.width, 480) / CourtArt.designWidth, size.height * 0.44 / CourtHeader.designHeight)
-
-        ScrollView {
-            VStack(spacing: 0) {
-                CourtHeader(activity: sport, lineup: lineup, capacity: 6, scale: scale)
-                    .allowsHitTesting(false)
-                    .accessibilityHidden(true)
-                content
-                    .frame(maxWidth: .infinity, alignment: .leading)
+        CourtScaffold(activity: Activity.builtIn[0], lineup: lineup, capacity: 6) { content }
+            .scrollBounceBehavior(.basedOnSize)
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                footer
                     .padding(.horizontal, Theme.gutter)
-                    .padding(.top, 20)
-                    .padding(.bottom, 16)
+                    .padding(.top, 10)
+                    .padding(.bottom, 8)
                     .readableColumn()
-                    .background(
-                        Theme.background,
-                        in: .rect(topLeadingRadius: Theme.Radius.sheet, topTrailingRadius: Theme.Radius.sheet)
-                    )
-                    .padding(.top, -Theme.Radius.sheet)
+                    .background(Theme.background)
             }
-        }
-        .scrollBounceBehavior(.basedOnSize)
-        .ignoresSafeArea(edges: .top)
-        .background {
-            VStack(spacing: 0) {
-                sport.color.frame(height: 320)
-                Theme.background
-            }
-            .ignoresSafeArea()
-        }
-        .onGeometryChange(for: CGSize.self) { $0.size } action: { size = $0 }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            footer
-                .padding(.horizontal, Theme.gutter)
-                .padding(.top, 10)
-                .padding(.bottom, 8)
-                .readableColumn()
-                .background(Theme.background)
-        }
     }
 }
 
 /// The green pill, with a spinner while a request is out.
-private struct WorkingButton: View {
+struct WorkingButton: View {
     var title: LocalizedStringKey
     var isWorking = false
     var action: () -> Void

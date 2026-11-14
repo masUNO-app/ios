@@ -108,8 +108,11 @@ struct OpenSpotToken: View {
             .overlay {
                 Circle()
                     .strokeBorder(Theme.ink, style: StrokeStyle(lineWidth: 1.5, dash: [3, 2.5]))
-                    .rotationEffect(.degrees(isTurning ? 360 : 0))
-                    .animation(isTurning ? .linear(duration: 16).repeatForever(autoreverses: false) : nil, value: isTurning)
+                    // Only the angle loops: the ring's size and place, which follow the court's
+                    // scale, change in the same update without being turned into a loop too.
+                    .animation(isTurning ? .linear(duration: 16).repeatForever(autoreverses: false) : nil) {
+                        $0.rotationEffect(.degrees(isTurning ? 360 : 0))
+                    }
                     // The court springs when someone comes or goes. Without this, that spring
                     // takes the ring and the dash freezes at a bad angle.
                     .geometryGroup()

@@ -404,6 +404,12 @@ struct CourtHeader: View {
 /// spot 1.1 s behind the one before, plus a faint sway on a longer beat so it doesn't look
 /// mechanical. Repeating animations rather than a per-frame timeline, so an idle court costs
 /// nothing to keep on screen.
+///
+/// A repeating animation replays whatever it picks up, forever, so these loops (here, `Ping`
+/// and the turning ring) each animate one unitless value (a 0…1 phase, a scale factor, an
+/// angle) inside the scoped `animation(_:body:)`. Nothing else is in scope: a new court scale,
+/// the token's frame, its position, the safe area or a push changes in the same update without
+/// joining the loop, where `.animation(_:value:)` would have taken all of it along.
 private struct Idle: ViewModifier {
     var slot: Int
     var scale: CGFloat
@@ -420,26 +426,42 @@ private struct Idle: ViewModifier {
 /// One repeating shift. Its own state, so the bob and the sway don't share an animation and
 /// a lineup change can't replace the loop with the court's spring.
 private struct Drift: ViewModifier {
-    enum Axis { case horizontal, vertical }
-
     var distance: CGFloat
     var duration: TimeInterval
     var lag: TimeInterval
-    var axis: Axis
+    var axis: Shift.Axis
     var paused: Bool
     @State private var isMoving = false
 
     func body(content: Content) -> some View {
-        let shift = isMoving && !paused ? distance : 0
         content
-            .offset(x: axis == .horizontal ? shift : 0, y: axis == .vertical ? shift : 0)
-            .animation(beat, value: isMoving)
-            .onAppear { isMoving = true }
+            .animation(beat) { $0.modifier(Shift(phase: isMoving ? 1 : 0, distance: distance, axis: axis)) }
+            .onAppear { isMoving = !paused }
             .onChange(of: paused) { _, isPaused in isMoving = !isPaused }
     }
 
     private var beat: Animation {
         paused ? .easeOut(duration: 0.2) : .easeInOut(duration: duration).repeatForever(autoreverses: true).delay(lag)
+    }
+}
+
+/// `phase` × `distance`. Only the phase animates, so a new scale changes how far the next swing
+/// goes instead of starting a loop between the old distance and the new one.
+private nonisolated struct Shift: ViewModifier, Animatable {
+    enum Axis { case horizontal, vertical }
+
+    var phase: CGFloat
+    var distance: CGFloat
+    var axis: Axis
+
+    var animatableData: CGFloat {
+        get { phase }
+        set { phase = newValue }
+    }
+
+    func body(content: Content) -> some View {
+        let shift = phase * distance
+        content.offset(x: axis == .horizontal ? shift : 0, y: axis == .vertical ? shift : 0)
     }
 }
 
@@ -500,12 +522,10 @@ private struct Ping: View {
     var body: some View {
         Circle()
             .fill(.white.opacity(0.5))
-            .scaleEffect(isOut ? 1.6 : 1)
-            .opacity(isOut ? 0 : 0.7)
-            .animation(
-                isOut ? .easeOut(duration: 2.6).repeatForever(autoreverses: false).delay(Double(slot % 4) * 0.45) : nil,
-                value: isOut
-            )
+            // Scoped (see `Idle`): the circle's size comes from the token and stays out of the loop.
+            .animation(isOut ? .easeOut(duration: 2.6).repeatForever(autoreverses: false).delay(Double(slot % 4) * 0.45) : nil) {
+                $0.scaleEffect(isOut ? 1.6 : 1).opacity(isOut ? 0 : 0.7)
+            }
             .onAppear { isOut = !reduceMotion }
             .onChange(of: reduceMotion) { isOut = !reduceMotion }
     }
