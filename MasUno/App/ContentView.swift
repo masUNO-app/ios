@@ -66,7 +66,12 @@ struct ContentView: View {
                 },
                 cancel: DialogAction("I already have an account") {
                     appViewModel.endGuestBrowsing(resume: .signIn, store: store)
-                }
+                },
+                tertiary: prompt == .me && appViewModel.canSwitchGuestCampus
+                    ? DialogAction("Browse another campus") {
+                        appViewModel.endGuestBrowsing(resume: .guestCampus, store: store)
+                    }
+                    : nil
             )
         }
     }

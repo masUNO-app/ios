@@ -28,6 +28,7 @@ struct OnboardingFlow: View {
                         case .signIn: SignInStep(viewModel: viewModel)
                         case .pending: PendingStep(viewModel: viewModel)
                         case .findSchool: FindSchoolStep(viewModel: viewModel)
+                        case .guestCampus: GuestCampusStep(viewModel: viewModel)
                         case .verified: VerifiedStep(viewModel: viewModel)
                         case .about: ProfileStep(viewModel: viewModel)
                         case .guidelines: GuidelinesStep(viewModel: viewModel)
@@ -102,7 +103,7 @@ struct OnboardingFlow: View {
     }
 
     #if DEBUG
-    /// `-screen onboarding-sheet|signup|signin|pending|school|verified|about|guidelines`
+    /// `-screen onboarding-sheet|signup|signin|pending|school|campus|verified|about|guidelines`
     /// opens a step with sample input.
     private func openDebugStep() {
         guard let step = UserDefaults.standard.string(forKey: "screen"), step.hasPrefix("onboarding-") else { return }
@@ -115,6 +116,7 @@ struct OnboardingFlow: View {
         case "signin", "review": viewModel.path = [.signIn]
         case "pending": viewModel.path = [.pending]
         case "school": viewModel.path = [.findSchool]
+        case "campus": viewModel.path = [.guestCampus]
         case "verified": viewModel.path = [.verified]
         case "about", "interests": viewModel.path = [.about]
         case "guidelines": viewModel.path = [.guidelines]
@@ -280,7 +282,7 @@ private struct FindSchoolStep: View {
     }
 }
 
-private struct SchoolRow: View {
+struct SchoolRow: View {
     var school: University
     var isSelected: Bool
     var onSelect: () -> Void
@@ -454,7 +456,7 @@ private struct GuidelinesStep: View {
 
 /// A big rounded title, an optional icon above it and message under it, content, and a pinned
 /// bottom action.
-private struct OnboardingPage<Content: View, Footer: View>: View {
+struct OnboardingPage<Content: View, Footer: View>: View {
     var systemImage: String?
     var title: LocalizedStringKey
     var message: LocalizedStringKey?

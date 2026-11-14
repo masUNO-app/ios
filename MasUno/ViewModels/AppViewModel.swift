@@ -71,6 +71,8 @@ final class AppViewModel {
     enum OnboardingResume: Equatable {
         case signUp
         case signIn
+        /// "Browse another campus": the campus step.
+        case guestCampus
     }
 
     var path: [Route] = []
@@ -82,6 +84,9 @@ final class AppViewModel {
     private(set) var isUpdateRequired = false
     /// The campus onboarding talks about, when exactly one is open. Otherwise the copy stays generic.
     private(set) var launchCampus: University?
+    /// How many campuses are open. A guest can switch campus only when there's more than one.
+    private(set) var openCampusCount = 0
+    var canSwitchGuestCampus: Bool { openCampusCount > 1 }
     /// The campus a guest is browsing (SPEC R7-15). Kept on the phone, so a guest who comes back
     /// lands on the map again instead of Welcome. Cleared when they go to create an account or
     /// sign in, and once an account is signed in.
@@ -126,6 +131,7 @@ final class AppViewModel {
         isUpdateRequired = !config.supports(version: AppConfig.currentVersion)
         if let campuses = try? await catalog.fetchUniversities() {
             let open = campuses.filter(\.signupEnabled)
+            openCampusCount = open.count
             if open.count == 1 { launchCampus = open[0] }
             // A returning guest's campus may have closed since; if so, they start at Welcome.
             if let browsing = guestCampus { guestCampus = open.first { $0.id == browsing.id } }
@@ -249,7 +255,8 @@ final class AppViewModel {
     }
 
     #if DEBUG
-    /// `-screen update|suspended|signed-out|session-expired|guest|onboarding-*`: set before the session is read.
+    /// `-screen update|suspended|signed-out|session-expired|guest|onboarding-*` (`onboarding-campus` opens the
+    /// guest campus step with two campuses open): set before the session is read.
     func applyDebugSession(mock: MockBackend) {
         let screen = UserDefaults.standard.string(forKey: "screen") ?? ""
         // A guest choice left over from an earlier run would open the map instead of the screen asked for.
@@ -259,6 +266,12 @@ final class AppViewModel {
         case "suspended": mock.suspend()
         case "signed-out": mock.endSession(expired: false)
         case "session-expired": mock.endSession(expired: true)
+        case "onboarding-campus":
+            // Two open campuses, so Browse as a guest asks which one.
+            mock.universities = [MockFixtures.tec, MockFixtures.otherCampus]
+            launchCampus = nil
+            openCampusCount = 2
+            mock.endSession(expired: false)
         case _ where screen.hasPrefix("guest") || screen.hasPrefix("onboarding-"): mock.endSession(expired: false)
         default: break
         }

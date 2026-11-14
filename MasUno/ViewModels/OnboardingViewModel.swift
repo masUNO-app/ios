@@ -12,12 +12,14 @@ final class OnboardingViewModel {
         case about
         /// School SSO. Unreachable while sign-in is email and password (N36).
         case findSchool
+        /// "Which campus?" for Browse as a guest when several are open.
+        case guestCampus
 
         /// Past sign-in there's nothing to go back to, and past the profile it's already saved.
         var hidesBackButton: Bool {
             switch self {
             case .pending, .verified, .about, .guidelines: true
-            case .signUp, .signIn, .findSchool: false
+            case .signUp, .signIn, .findSchool, .guestCampus: false
             }
         }
     }
@@ -30,6 +32,8 @@ final class OnboardingViewModel {
     private(set) var schoolsFailedToLoad = false
     var schoolSearch = ""
     var selectedSchool: University?
+    /// The campus picked on the guest step.
+    var guestCampusChoice: University?
 
     /// At least this many characters, checked before the server's own rule.
     static let minimumPasswordLength = 8
@@ -91,6 +95,15 @@ final class OnboardingViewModel {
         if let campus { return "Pickup games around \(campus.shortName) that are one or two players short. Grab the open spot and play today." }
         return "Pickup games on campus that are one or two players short. Grab the open spot and play today."
     }
+
+    /// The open campuses a guest can browse, narrowed by the search.
+    var filteredOpenCampuses: [University] {
+        let open = Set(schools.filter(\.signupEnabled).map(\.id))
+        return filteredSchools.filter { open.contains($0.id) }
+    }
+
+    /// Search only earns its place on a long list.
+    var guestCampusesNeedSearch: Bool { schools.filter(\.signupEnabled).count > 5 }
 
     /// Matches the name, short name or domain, ignoring case and accents.
     var filteredSchools: [University] {
@@ -175,6 +188,7 @@ final class OnboardingViewModel {
         switch resume {
         case .signUp: path = [.signUp]
         case .signIn: path = [.signIn]
+        case .guestCampus: path = [.guestCampus]
         }
     }
 
@@ -194,16 +208,24 @@ final class OnboardingViewModel {
 
         do {
             let open = try await catalog.fetchUniversities().filter(\.signupEnabled)
-            guard let campus = open.first, open.count == 1 else {
-                guestBrowseError = open.isEmpty
-                    ? String(localized: "Browsing isn't open on any campus yet. Create an account to join the wait.")
-                    : String(localized: "Create an account or sign in to pick your campus.")
-                return
+            if open.count > 1 {
+                path.append(.guestCampus)
+            } else if let campus = open.first {
+                await app.browseAsGuest(campus: campus, store: store)
+            } else {
+                guestBrowseError = String(localized: "Browsing isn't open on any campus yet. Create an account to join the wait.")
             }
-            await app.browseAsGuest(campus: campus, store: store)
         } catch {
             guestBrowseError = (error as? DomainError ?? .offline).message
         }
+    }
+
+    /// **Browse games** on the campus step.
+    func startGuestBrowsing(app: AppViewModel, store: GameStore) async {
+        guard let guestCampusChoice, !isStartingGuest else { return }
+        isStartingGuest = true
+        defer { isStartingGuest = false }
+        await app.browseAsGuest(campus: guestCampusChoice, store: store)
     }
 
     /// Creates the account and lands on "We're checking your account"; an allowlisted address

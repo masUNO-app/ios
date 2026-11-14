@@ -550,6 +550,74 @@ struct GuestBrowsingTests {
         #expect(app.session == .guest)
         #expect(onboarding.guestBrowseError == nil)
     }
+
+    @Test func severalOpenCampusesAskWhichOne() async {
+        let auth = MockBackend(state: .signedOut(expired: false))
+        auth.universities = [MockFixtures.tec, MockFixtures.otherCampus]
+        let app = AppViewModel(auth: auth, catalog: auth, defaults: Self.freshDefaults())
+        let games = store(auth)
+        let onboarding = OnboardingViewModel(auth: auth, catalog: auth)
+        await onboarding.browseAsGuest(app: app, store: games)
+        #expect(onboarding.path == [.guestCampus])
+        #expect(app.session == .onboarding)
+        #expect(onboarding.guestBrowseError == nil)
+
+        await onboarding.loadSchools()
+        onboarding.guestCampusChoice = MockFixtures.otherCampus
+        await onboarding.startGuestBrowsing(app: app, store: games)
+        #expect(app.session == .guest)
+        #expect(app.guestCampus?.id == MockFixtures.otherCampus.id)
+        #expect(games.campus?.id == MockFixtures.otherCampus.id)
+    }
+
+    @Test func oneOpenCampusGoesStraightIn() async {
+        let auth = MockBackend(state: .signedOut(expired: false))
+        let app = AppViewModel(auth: auth, catalog: auth, defaults: Self.freshDefaults())
+        let onboarding = OnboardingViewModel(auth: auth, catalog: auth)
+        await onboarding.browseAsGuest(app: app, store: store(auth))
+        #expect(onboarding.path.isEmpty)
+        #expect(app.guestCampus?.id == MockFixtures.tec.id)
+    }
+
+    @Test func browsingAnotherCampusEndsTheGuestSessionAndAsksAgain() async {
+        let auth = MockBackend(state: .signedOut(expired: false))
+        auth.universities = [MockFixtures.tec, MockFixtures.otherCampus]
+        let defaults = Self.freshDefaults()
+        let app = AppViewModel(auth: auth, catalog: auth, defaults: defaults)
+        let games = store(auth)
+        await app.start()
+        #expect(app.canSwitchGuestCampus)
+        await app.browseAsGuest(campus: MockFixtures.tec, store: games)
+
+        app.endGuestBrowsing(resume: .guestCampus, store: games)
+        #expect(app.session == .onboarding)
+        #expect(!games.isGuest)
+        #expect(app.onboardingResume == .guestCampus)
+
+        let onboarding = OnboardingViewModel(auth: auth, catalog: auth)
+        onboarding.applyResume(.guestCampus)
+        #expect(onboarding.path == [.guestCampus])
+    }
+
+    @Test func oneOpenCampusOffersNoSwitch() async {
+        let auth = MockBackend(state: .signedOut(expired: false))
+        let app = AppViewModel(auth: auth, catalog: auth, defaults: Self.freshDefaults())
+        await app.start()
+        #expect(!app.canSwitchGuestCampus)
+    }
+
+    @Test func aRelaunchRestoresTheChosenCampus() async {
+        let auth = MockBackend(state: .signedOut(expired: false))
+        auth.universities = [MockFixtures.tec, MockFixtures.otherCampus]
+        let defaults = Self.freshDefaults()
+        await AppViewModel(auth: auth, catalog: auth, defaults: defaults)
+            .browseAsGuest(campus: MockFixtures.otherCampus, store: store(auth))
+
+        let relaunched = AppViewModel(auth: auth, catalog: auth, defaults: defaults)
+        await relaunched.start()
+        #expect(relaunched.session == .guest)
+        #expect(relaunched.guestCampus?.id == MockFixtures.otherCampus.id)
+    }
 }
 
 @MainActor

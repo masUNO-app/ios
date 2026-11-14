@@ -44,6 +44,8 @@ struct DialogCard<Content: View>: View {
     var footnote: Text?
     var confirm: DialogAction
     var cancel: DialogAction?
+    /// A quiet third option under the two pills.
+    var tertiary: DialogAction?
     @ViewBuilder var content: Content
 
     var body: some View {
@@ -78,6 +80,10 @@ struct DialogCard<Content: View>: View {
                     Button(cancel.title) { closeDialog(cancel.perform) }
                         .pill(.secondary)
                 }
+                if let tertiary {
+                    Button(tertiary.title) { closeDialog(tertiary.perform) }
+                        .pill(.quiet)
+                }
             }
             .padding(.top, 4)
         }
@@ -103,11 +109,12 @@ struct DialogAction {
 extension DialogCard where Content == EmptyView {
     init(
         systemImage: String, tone: Tone = .friendly, title: Text, message: Text? = nil,
-        footnote: Text? = nil, confirm: DialogAction, cancel: DialogAction? = nil
+        footnote: Text? = nil, confirm: DialogAction, cancel: DialogAction? = nil,
+        tertiary: DialogAction? = nil
     ) {
         self.init(
             systemImage: systemImage, tone: tone, title: title, message: message,
-            footnote: footnote, confirm: confirm, cancel: cancel
+            footnote: footnote, confirm: confirm, cancel: cancel, tertiary: tertiary
         ) { EmptyView() }
     }
 }
