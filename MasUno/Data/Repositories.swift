@@ -44,12 +44,17 @@ protocol GameRepository: AnyObject {
     func changes(campus: UUID) -> AsyncStream<GameChanges>
 }
 
-/// Your own profile (`my_profile`, `complete_profile`).
+/// Your own profile (`my_profile`, `complete_profile`), your invite codes and the beta badge (N37).
 protocol ProfileRepository: AnyObject {
     /// Nil until onboarding has saved a profile.
     func fetchMyProfile() async throws -> Profile?
     /// Edit profile & interests.
     func updateProfile(_ input: ProfileInput) async throws -> Profile
+    /// Your invite codes, oldest first (`my_invites`). The server creates any you're still owed, so a
+    /// member always has their allowance, used or not.
+    func fetchInvites() async throws -> [Invite]
+    /// Stamps the beta tester badge (`mark_beta_tester`); calling it again keeps the first time.
+    func markBetaTester() async throws -> Profile
 }
 
 /// Reports (people, games and chat messages) and blocks. Instant local hiding after a block is `GameStore`'s job (B6).

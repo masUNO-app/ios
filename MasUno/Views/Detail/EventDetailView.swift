@@ -118,9 +118,9 @@ struct EventDetailView: View {
         .sensoryFeedback(.success, trigger: state == .going)
         #if DEBUG
         .onAppear {
-            // `-screen who|report|invite|calendar|leave`: open a sheet or dialog on this game.
+            // `-screen who|who-beta|report|invite|calendar|leave`: open a sheet or dialog on this game.
             switch UserDefaults.standard.string(forKey: "screen") {
-            case "who", "block": viewModel.showsWhoIsGoing = true
+            case "who", "who-beta", "block": viewModel.showsWhoIsGoing = true
             case "report", "report-sent": viewModel.reportTarget = .person(event.host)
             case "invite": viewModel.showsInvite = true
             case "calendar": viewModel.addsToCalendar = true

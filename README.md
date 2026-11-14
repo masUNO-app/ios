@@ -23,8 +23,8 @@ git-ignored too: Debug points at `masuno-dev`, Release at `masuno-prod`.
 
 Debug builds accept a `-screen` launch argument to jump straight to a screen for design review:
 `popup`, `popup-saved`, `saved`, `add`, `form-error`, `edit`, `picker`, `detail-open|in|full|hosting|ended|cancelled`
-(add `-raceJoin YES` to `detail-open` for the last-spot race; `-mockLocation YES` pins you at Tec), `who`, `report`, `blocked`, `me`,
-`me-hosting`, `profile`, `onboarding-primer|sheet|school|review|verified|about|interests|guidelines`, `calendar`, `chat`, `chat-host`, `meetup`, `repost`, `settings`, `update`, `signed-out`, `session-expired`, `suspended`, `gallery`.
+(add `-raceJoin YES` to `detail-open` for the last-spot race; `-mockLocation YES` pins you at Tec), `who`, `who-beta`, `report`, `blocked`, `me`,
+`me-hosting`, `invites`, `profile`, `onboarding-primer|sheet|signup|pending|pending-code|school|review|verified|about|interests|guidelines`, `calendar`, `chat`, `chat-host`, `meetup`, `repost`, `settings`, `update`, `signed-out`, `session-expired`, `suspended`, `gallery`.
 
 A Debug build puts sign-in, games and chat on `masuno-dev` when `Config.xcconfig` has real Debug keys, including when you open it from the home screen after disconnecting from Xcode (launch arguments only exist for Xcode launches, so this is the default, not the argument). It runs on in-memory mocks, where sign-in is faked and everything is forgotten on relaunch, when you pass `-liveAuth NO` or any `-screen` option, or when there are no real keys. Unit tests pass `-liveAuth NO`.
 
@@ -89,8 +89,8 @@ Placeholders that still need a real answer. Card IDs refer to SPEC §5.
 
 ### Waiting on backend
 - [x] Sign-in for real students: school email and password, approved by hand from the Discord alert (N36). On `masuno-dev`; `masuno-prod` needs the `20261111000000` migration. School SSO (B21, B22, K19) is kept in the code, unused, in case Tec IT approves the Entra app.
-- [ ] Group chat messaging (E26, B20) is built, and on `masuno-dev` with chat on. Run QA §6 there with two phones. Then
-      apply `20261110000000_group_chat` to prod, turn `chat_enabled` on there and run QA §6 again (`supabase/README.md`).
+- [ ] Group chat messaging (E26, B20) is built, and on `masuno-dev` with chat on. Run QA §8 there with two phones. Then
+      apply `20261110000000_group_chat` to prod, turn `chat_enabled` on there and run QA §8 again (`supabase/README.md`).
 
 ### Waiting on the team
 - [ ] Final app icon (D3): the one in the icon set is a temporary one from the designer; launch color uses `Background`

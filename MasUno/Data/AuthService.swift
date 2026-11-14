@@ -41,6 +41,13 @@ protocol AuthService: AnyObject {
     func signIn(email: String, password: String) async throws
     /// Asks the server where the account stands now: `.pendingApproval` moves on once approved.
     func refreshStatus() async throws
+    /// Lets a waiting account in with a member's invite code (`redeem_invite`, N37), then moves
+    /// `.pendingApproval` on as `refreshStatus()` does once approved. Spaces, dashes and case don't
+    /// matter. Throws `.invalidInvite` for a code that doesn't work and `.rateLimited` after 5 wrong
+    /// ones in an hour. An account that isn't waiting has nothing to redeem, so nothing changes.
+    func redeemInvite(_ code: String) async throws
+    /// Your place on the waitlist, 1 being next; nil when you aren't waiting.
+    func waitlistPosition() async throws -> Int?
 
     /// `complete_profile`, then moves `.needsProfile` → `.needsGuidelines`.
     func completeProfile(_ input: ProfileInput) async throws

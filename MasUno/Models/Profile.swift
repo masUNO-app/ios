@@ -10,12 +10,17 @@ nonisolated struct Profile: Identifiable, Hashable, Sendable {
     var interests: [Activity]
     /// When you agreed to "Before you chat". Nil until then; the server asks for it before your first message.
     var chatRulesAcceptedAt: Date?
+    /// The beta tester badge (N37): set once, the first time you open a TestFlight build signed in.
+    var isBetaTester = false
 
     var fullName: String { "\(firstName) \(lastName)" }
 
     /// How others see you.
     var summary: PersonSummary {
-        PersonSummary(id: id, firstName: firstName, lastInitial: String(lastName.prefix(1)).uppercased(), gradYear: gradYear)
+        PersonSummary(
+            id: id, firstName: firstName, lastInitial: String(lastName.prefix(1)).uppercased(), gradYear: gradYear,
+            isBetaTester: isBetaTester
+        )
     }
 }
 

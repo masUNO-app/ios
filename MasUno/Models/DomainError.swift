@@ -10,6 +10,8 @@ nonisolated enum DomainError: Error, Hashable, Sendable {
     case notAuthenticated, suspended, pendingApproval
     // Raised by the chat RPCs.
     case chatRulesRequired, chatDisabled, rateLimited
+    // Returned by `redeem_invite` (1.0, N37).
+    case invalidInvite
 
     // Raised by Supabase Auth or the auth hook; mapped in `AuthService` (B5).
     case emailNotAllowed, schoolApprovalNeeded, signInFailed, tooManyAttempts, invalidCredentials
@@ -39,6 +41,7 @@ nonisolated enum DomainError: Error, Hashable, Sendable {
         case "chat_rules_required": .chatRulesRequired
         case "chat_disabled": .chatDisabled
         case "rate_limited": .rateLimited
+        case "invalid_invite": .invalidInvite
         case "email_not_allowed": .emailNotAllowed
         default: .unknown(serverCode)
         }
@@ -64,6 +67,7 @@ nonisolated enum DomainError: Error, Hashable, Sendable {
         case .chatRulesRequired: String(localized: "Agree to the chat rules to send messages.")
         case .chatDisabled: String(localized: "Messages are off right now. Try again later.")
         case .rateLimited: String(localized: "You're sending messages too fast. Wait a minute.")
+        case .invalidInvite: String(localized: "That invite code doesn't work. Check it and try again.")
         case .emailNotAllowed: String(localized: "masUNO isn't open at your school yet.")
         case .schoolApprovalNeeded: String(localized: "Your school hasn't approved masUNO yet.")
         case .signInFailed: String(localized: "We couldn't sign you in. Try again.")

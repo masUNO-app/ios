@@ -1,8 +1,8 @@
 import SwiftUI
 
 /// Onboarding (E5, SPEC §7.5) in the 1.0 look. Welcome → account or **Browse as a guest** (R7-15)
-/// → "Quick check before you join" → Create account (school email + password) → We're checking
-/// your account (the team approves by hand, N36) → You're verified → Make it yours → Before you
+/// → "Quick check before you join" → Create account (school email, password, optional invite code)
+/// → You're on the waitlist (the team lets people in by hand, N36; an invite code skips it, N37) → You're verified → Make it yours → Before you
 /// play → map. Coming back: Sign in. Guests who hit join/save/host return here via Create account
 /// or Sign in. `AuthService` moves the session along; when it reaches signed in, the root swaps
 /// to the map. The location primer is on the map now. `FindSchoolStep` (school SSO) is kept but
@@ -42,7 +42,7 @@ struct OnboardingFlow: View {
             DialogCard(
                 systemImage: "checkmark.shield",
                 title: Text("Quick check before you join"),
-                message: Text("Create an account with your school email so other players know you're a real student. We approve each one by hand."),
+                message: Text("masUNO is invite-only for now. Create an account with your school email: with a friend's invite code you're in right away, and without one you join the waitlist."),
                 confirm: DialogAction("Create account") { viewModel.createAccount() },
                 cancel: DialogAction("I already have an account") { viewModel.haveAnAccount() }
             )
@@ -103,8 +103,9 @@ struct OnboardingFlow: View {
     }
 
     #if DEBUG
-    /// `-screen onboarding-sheet|signup|signin|pending|school|campus|verified|about|guidelines`
-    /// opens a step with sample input.
+    /// `-screen onboarding-sheet|signup|signin|pending|pending-code|school|campus|verified|about|guidelines`
+    /// opens a step with sample input. `pending` is the waitlist with its place in line;
+    /// `pending-code` is the same after a refused invite code.
     private func openDebugStep() {
         guard let step = UserDefaults.standard.string(forKey: "screen"), step.hasPrefix("onboarding-") else { return }
         viewModel.firstName = "Emilio"
@@ -114,7 +115,15 @@ struct OnboardingFlow: View {
         case "sheet": viewModel.getStarted()
         case "signup": viewModel.path = [.signUp]
         case "signin", "review": viewModel.path = [.signIn]
-        case "pending": viewModel.path = [.pending]
+        case "pending", "pending-code":
+            // Through sign-up, so the mock account is really waiting and its place in line loads.
+            let refused = step.hasSuffix("-code")
+            Task {
+                viewModel.email = "a0123@tec.mx"
+                viewModel.password = "long-enough"
+                viewModel.inviteCode = refused ? "WRONG-ONE" : ""
+                await viewModel.submitSignUp()
+            }
         case "school": viewModel.path = [.findSchool]
         case "campus": viewModel.path = [.guestCampus]
         case "verified": viewModel.path = [.verified]
@@ -149,6 +158,16 @@ private struct SignUpStep: View {
                     .focused($focus, equals: 1)
                     .onSubmit { Task { await viewModel.submitSignUp() } }
             }
+            FieldBox("Invite code (optional)", isFocused: focus == 2) {
+                TextField("ABCD-EFGH", text: $viewModel.inviteCode)
+                    .textInputAutocapitalization(.characters)
+                    .autocorrectionDisabled()
+                    .focused($focus, equals: 2)
+                    .onSubmit { Task { await viewModel.submitSignUp() } }
+            }
+            Text("Have a code from a friend? You'll skip the waitlist.")
+                .font(.rounded(.footnote))
+                .foregroundStyle(Theme.muted)
         } footer: {
             VStack(spacing: 10) {
                 WorkingButton("Create account", isWorking: viewModel.isWorking) { Task { await viewModel.submitSignUp() } }
@@ -199,18 +218,44 @@ private struct SignInStep: View {
     }
 }
 
-/// We're checking your account: the team approves each sign-up by hand (N36). Checks again
-/// whenever the app comes back to the front.
+/// The waitlist (N36, N37): the team lets people in as spots open, or a friend's invite code does
+/// it right away. Checks again whenever the app comes back to the front.
 private struct PendingStep: View {
     @Environment(\.scenePhase) private var scenePhase
-    var viewModel: OnboardingViewModel
+    @Bindable var viewModel: OnboardingViewModel
+    @FocusState private var isCodeFocused: Bool
 
     var body: some View {
         OnboardingPage(
-            systemImage: "hourglass",
-            title: "We're checking your account",
-            message: "We approve each account by hand, usually within a day. You don't need to do anything. Just come back later."
+            systemImage: "ticket",
+            title: "You're on the waitlist",
+            message: "masUNO is invite-only for now. We let people in as spots open, or right away with a friend's invite code."
         ) {
+            if let position = viewModel.waitlistPosition {
+                Label {
+                    Text("#\(position) in line")
+                } icon: {
+                    Image(systemName: "person.3.fill")
+                }
+                .labelStyle(IconRowLabelStyle(iconWidth: 24, spacing: 10))
+                .font(.rounded(.title3, .bold))
+                .foregroundStyle(Theme.ink)
+                .padding(.horizontal, 18)
+                .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
+                .background(Theme.accentSoft, in: .rect(cornerRadius: Theme.Radius.card))
+            }
+
+            FieldBox("Invite code", error: viewModel.inviteError, isFocused: isCodeFocused) {
+                TextField("ABCD-EFGH", text: $viewModel.inviteCode)
+                    .textInputAutocapitalization(.characters)
+                    .autocorrectionDisabled()
+                    .focused($isCodeFocused)
+                    .onSubmit { Task { await viewModel.redeemInviteWhileWaiting() } }
+            }
+            Button("Use invite code") { Task { await viewModel.redeemInviteWhileWaiting() } }
+                .pill(.secondary)
+                .disabled(Invite.normalized(viewModel.inviteCode).isEmpty || viewModel.isWorking)
+
             if let error = viewModel.pendingError {
                 Text(verbatim: error).font(.rounded(.caption)).foregroundStyle(Theme.error)
             } else if viewModel.isStillPending {
@@ -223,8 +268,13 @@ private struct PendingStep: View {
                     .pill(.quiet)
             }
         }
+        .task { await viewModel.loadWaitlistPosition() }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { Task { await viewModel.checkApproval(quietly: true) } }
+            guard phase == .active else { return }
+            Task {
+                await viewModel.checkApproval(quietly: true)
+                await viewModel.loadWaitlistPosition()
+            }
         }
     }
 }

@@ -48,7 +48,7 @@ struct ContentView: View {
         .onChange(of: appViewModel.session) { old, new in
             if new == .signedIn, old == .onboarding || old == .guest {
                 appViewModel.clearGuestBrowsingFlag()
-                Task { await store.load() }
+                Task { await loadSignedIn() }
             }
         }
         .onChange(of: scenePhase) { _, phase in
@@ -95,10 +95,16 @@ struct ContentView: View {
         // A guest from last time goes straight back to the map.
         if appViewModel.session == .guest { return await appViewModel.resumeGuestBrowsing(store: store) }
         guard appViewModel.session == .signedIn else { return }
-        await store.load()
+        await loadSignedIn()
         #if DEBUG
         await appViewModel.openDebugScreen(store: store, mock: services.mock)
         #endif
+    }
+
+    /// Loads a signed-in account, then tells the server if this is a TestFlight install (beta badge).
+    private func loadSignedIn() async {
+        await store.load()
+        await store.markBetaTesterIfNeeded(isTestFlight: await BuildChannel.isTestFlight)
     }
 
     private var main: some View {

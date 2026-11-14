@@ -1,7 +1,8 @@
 import Foundation
 import Supabase
 
-/// The live `ProfileRepository` (B7): your row in `my_profile`, edited through `complete_profile`.
+/// The live `ProfileRepository` (B7): your row in `my_profile`, edited through `complete_profile`, plus
+/// `my_invites` and `mark_beta_tester` (N37).
 final class LiveProfileRepository: ProfileRepository {
     private let client: SupabaseClient
     private let activities: ActivityCatalog
@@ -21,6 +22,21 @@ final class LiveProfileRepository: ProfileRepository {
     func updateProfile(_ input: ProfileInput) async throws -> Profile {
         let updated = try await profile {
             try await client.rpc("complete_profile", params: CompleteProfileParams(input)).execute().value
+        }
+        guard let updated else { throw DomainError.notAuthenticated }
+        return updated
+    }
+
+    func fetchInvites() async throws -> [Invite] {
+        try await liveRequest {
+            let rows: [InviteRow] = try await client.rpc("my_invites").execute().value
+            return rows.map(\.invite)
+        }
+    }
+
+    func markBetaTester() async throws -> Profile {
+        let updated = try await profile {
+            try await client.rpc("mark_beta_tester").execute().value
         }
         guard let updated else { throw DomainError.notAuthenticated }
         return updated

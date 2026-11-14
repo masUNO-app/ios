@@ -14,6 +14,8 @@ final class UnavailableBackend: AuthService, GameRepository, ProfileRepository, 
     func signUp(email: String, password: String) async throws { throw DomainError.offline }
     func signIn(email: String, password: String) async throws { throw DomainError.offline }
     func refreshStatus() async throws { throw DomainError.offline }
+    func redeemInvite(_ code: String) async throws { throw DomainError.offline }
+    func waitlistPosition() async throws -> Int? { throw DomainError.offline }
     func completeProfile(_ input: ProfileInput) async throws { throw DomainError.offline }
     func acceptGuidelines() async throws { throw DomainError.offline }
     func signOut() async throws { throw DomainError.offline }
@@ -35,6 +37,8 @@ final class UnavailableBackend: AuthService, GameRepository, ProfileRepository, 
 
     func fetchMyProfile() async throws -> Profile? { throw DomainError.offline }
     func updateProfile(_ input: ProfileInput) async throws -> Profile { throw DomainError.offline }
+    func fetchInvites() async throws -> [Invite] { throw DomainError.offline }
+    func markBetaTester() async throws -> Profile { throw DomainError.offline }
 
     func report(_ target: ReportTarget, reason: ReportReason, note: String?) async throws { throw DomainError.offline }
     func block(userID: UUID) async throws { throw DomainError.offline }

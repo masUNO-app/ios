@@ -23,6 +23,8 @@ final class GameStore {
     private(set) var activities = Activity.builtIn
     /// People you blocked, newest first.
     private(set) var blockedPeople: [PersonSummary] = []
+    /// Your invite codes, oldest first (N37). Empty for a guest, or until they load.
+    private(set) var invites: [Invite] = []
     /// The last load couldn't reach the server, so what's on screen may be old.
     private(set) var isOffline = false
     /// Set after creating a game so the map can jump to it.
@@ -62,6 +64,8 @@ final class GameStore {
     @ObservationIgnored private var pendingRefresh: Task<Void, Never>?
     /// What the pings since the last re-read named.
     @ObservationIgnored private var pendingChanges: GameChanges?
+    /// `markBetaTesterIfNeeded` already asked the server this session, whatever it answered.
+    @ObservationIgnored private var hasAskedForBetaBadge = false
     /// One join writes a spot row and then the game row, so wait out a burst before re-reading.
     private static let refreshDebounce: Duration = .milliseconds(400)
     /// Shorter wait when this phone is in the game or has it saved: those screens should move
@@ -208,7 +212,8 @@ final class GameStore {
         async let mine: Void = refreshMyGames()
         async let saved: Void = refreshSaved()
         async let unread: Void = refreshUnread()
-        _ = await (activities, blocked, map, mine, saved, unread)
+        async let invites: Void = loadInvites()
+        _ = await (activities, blocked, map, mine, saved, unread, invites)
         listenForGameChanges()
     }
 
@@ -483,6 +488,26 @@ final class GameStore {
     func refreshUnread() async {
         guard isChatEnabled, !isGuest else { return }
         if let counts = try? await chat.fetchUnreadCounts() { unreadByGame = counts }
+    }
+
+    /// Your invite codes. Quiet: a failure leaves the last ones in place. Codes need an account, so a
+    /// guest's call does nothing.
+    func loadInvites() async {
+        guard !isGuest else { return }
+        if let fetched = try? await profiles.fetchInvites() { invites = fetched }
+    }
+
+    /// The beta tester badge (N37): on a TestFlight build, tells the server once per session if the
+    /// profile isn't flagged yet. The app passes `await BuildChannel.isTestFlight` after `load()`,
+    /// for example from the signed-in root's `.task`:
+    /// `await store.markBetaTesterIfNeeded(isTestFlight: await BuildChannel.isTestFlight)`.
+    /// Quiet, and a failure isn't retried until the next sign-in or launch.
+    /// - Parameter isTestFlight: Whether this install came from TestFlight.
+    func markBetaTesterIfNeeded(isTestFlight: Bool) async {
+        guard isTestFlight, !isGuest, !hasAskedForBetaBadge, let current = profile, !current.isBetaTester else { return }
+        hasAskedForBetaBadge = true
+        guard let updated = try? await profiles.markBetaTester(), updated.id == profile?.id else { return }
+        profile = updated
     }
 
     private func loadProfile() async {
@@ -792,6 +817,8 @@ final class GameStore {
         dismissedIDs = []
         unreadByGame = [:]
         blockedPeople = []
+        invites = []
+        hasAskedForBetaBadge = false
         profile = nil
         lastCreatedID = nil
         mapState = .idle

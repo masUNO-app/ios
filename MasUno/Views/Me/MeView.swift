@@ -53,6 +53,7 @@ struct MeView: View {
         .sheet(isPresented: $viewModel.editsProfile) {
             if let profile = store.profile { EditProfileSheet(profile: profile) }
         }
+        .sheet(isPresented: $viewModel.showsInvites) { InvitesSheet() }
         .sheet(item: $viewModel.reportTarget) { ReportSheet(target: $0) }
         .leaveGameDialog($viewModel.leaving)
         #if DEBUG
@@ -61,6 +62,8 @@ struct MeView: View {
             // The Leave confirmation over the first game you're in.
             case "me-leave": viewModel.leaving = store.goingGames().first
             case "me-past": viewModel.showsEarlier = true
+            // The Invites sheet over Me.
+            case "invites": viewModel.showsInvites = true
             default: break
             }
         }
@@ -119,7 +122,10 @@ struct MeView: View {
                         .font(.rounded(.footnote))
                         .foregroundStyle(Theme.ink)
                     // O4: "Tec verified" if staff turn out to share the student domain.
-                    VerifiedBadge()
+                    FlowLayout(spacing: 6) {
+                        VerifiedBadge()
+                        if profile.isBetaTester { BetaBadge() }
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -137,6 +143,8 @@ struct MeView: View {
                 Button("Edit profile and sports") { viewModel.editsProfile = true }
                     .pill(.secondary)
                     .padding(.top, 4)
+                Button(viewModel.inviteTitle(for: store.invites)) { viewModel.showsInvites = true }
+                    .pill(.quiet)
             }
             .padding(18)
         }

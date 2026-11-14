@@ -484,3 +484,71 @@ struct OfflineStateTests {
         #expect(store.myGamesState == .loaded)
     }
 }
+
+/// Invite codes and the beta tester badge in the store (N37).
+@MainActor
+struct InviteAndBadgeStoreTests {
+    let backend = MockBackend()
+    let store: GameStore
+
+    init() async {
+        store = GameStore(
+            games: backend, profiles: backend, safety: backend, chat: backend, catalog: backend,
+            defaults: UserDefaults(suiteName: "InviteAndBadgeStoreTests.\(UUID().uuidString)")!
+        )
+        await store.load()
+    }
+
+    @Test func loadFillsThreeCodesAndMarksTheUsedOne() {
+        #expect(store.invites.count == 3)
+        let used = store.invites.filter(\.isUsed)
+        #expect(used.map(\.code) == [MockFixtures.usedInviteCode])
+        #expect(used.first?.redeemedBy == "Priya S.")
+        #expect(store.invites.contains { $0.code == MockFixtures.inviteCode && !$0.isUsed })
+    }
+
+    @Test func aFailedInviteLoadKeepsTheLastCodesAndSignOutClearsThem() async {
+        backend.nextError = .offline
+        await store.loadInvites()
+        #expect(store.invites.count == 3)
+        #expect(store.notice == nil)
+        store.reset()
+        #expect(store.invites.isEmpty)
+    }
+
+    @Test func aTestFlightBuildFlagsTheProfile() async {
+        #expect(store.profile?.isBetaTester == false)
+        await store.markBetaTesterIfNeeded(isTestFlight: true)
+        #expect(store.profile?.isBetaTester == true)
+        #expect(backend.profile?.isBetaTester == true)
+        #expect(store.profile?.summary.isBetaTester == true)
+    }
+
+    @Test func otherBuildsNeverFlagIt() async {
+        await store.markBetaTesterIfNeeded(isTestFlight: false)
+        #expect(store.profile?.isBetaTester == false)
+        #expect(backend.profile?.isBetaTester == false)
+    }
+
+    /// One try per session: a failure isn't retried in a loop, and it stays quiet.
+    @Test func itAsksOnceEvenWhenTheServerFails() async {
+        var reported = false
+        store.onSessionProblem = { reported = true }
+        backend.nextError = .notAuthenticated
+        await store.markBetaTesterIfNeeded(isTestFlight: true)
+        await store.markBetaTesterIfNeeded(isTestFlight: true)
+        #expect(backend.profile?.isBetaTester == false)
+        #expect(store.profile?.isBetaTester == false)
+        #expect(store.notice == nil)
+        #expect(!reported)
+    }
+
+    @Test func guestsGetNoCodesAndNoBadge() async {
+        await store.loadGuest(campus: MockFixtures.tec)
+        #expect(store.invites.isEmpty)
+        await store.loadInvites()
+        await store.markBetaTesterIfNeeded(isTestFlight: true)
+        #expect(store.invites.isEmpty)
+        #expect(backend.profile?.isBetaTester == false)
+    }
+}

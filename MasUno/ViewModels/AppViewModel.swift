@@ -256,7 +256,8 @@ final class AppViewModel {
 
     #if DEBUG
     /// `-screen update|suspended|signed-out|session-expired|guest|onboarding-*` (`onboarding-campus` opens the
-    /// guest campus step with two campuses open): set before the session is read.
+    /// guest campus step with two campuses open; `onboarding-pending` and `onboarding-pending-code` sign up a
+    /// mock account first, so it is really on the waitlist): set before the session is read.
     func applyDebugSession(mock: MockBackend) {
         let screen = UserDefaults.standard.string(forKey: "screen") ?? ""
         // A guest choice left over from an earlier run would open the map instead of the screen asked for.
@@ -278,9 +279,9 @@ final class AppViewModel {
     }
 
     /// Jump straight to a screen for design review, e.g. launch with `-screen me`. Options:
-    /// me, me-hosting, me-past, me-empty, me-cancelled, me-leave, repost, profile, settings, sign-out, delete-account,
+    /// me, invites (Me with the Invites sheet open), me-hosting, me-past, me-empty, me-cancelled, me-leave, repost, profile, settings, sign-out, delete-account,
     /// add, add-filled, form-error, edit, cancel-game, play-again, picker, gallery, detail-*,
-    /// join, spot-alert, who, block, report, report-sent, invite, leave, blocked, calendar, chat, chat-host, chat-rules,
+    /// join, spot-alert, who, who-beta (a game with two beta testers), block, report, report-sent, invite, leave, blocked, calendar, chat, chat-host, chat-rules,
     /// chat-new, chat-long, meetup, saved, filter, search, location, popup, popup-saved, guest, guest-popup,
     /// guest-detail, guest-prompt (popup, guest-popup, filter, search and location are handled by the map).
     func openDebugScreen(store: GameStore, mock: MockBackend) async {
@@ -291,7 +292,7 @@ final class AppViewModel {
             await browseAsGuest(campus: launchCampus ?? MockFixtures.tec, store: store)
             if screen == "guest-detail" { path = [.game(IDs.open)] }
             if screen == "guest-prompt" { requireAccount(.join) }
-        case "me": path = [.me()]
+        case "me", "invites": path = [.me()]
         case "me-hosting": path = [.me(.hosting)]
         case "repost":
             // A player just dropped out of a full hosted game and auto-repost fired.
@@ -324,6 +325,7 @@ final class AppViewModel {
             await store.refreshUnread()
             path = [.me()]
         case "chat-host", "meetup": path = [.chat(IDs.hosting)]
+        case "who-beta": path = [.game(IDs.lastSpot)]
         case "who", "report", "report-sent", "block", "invite": path = [.game(IDs.open)]
         case "leave": path = [.game(IDs.going)]
         case "me-leave", "me-past": path = [.me()]

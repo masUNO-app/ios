@@ -91,6 +91,20 @@ struct VerifiedBadge: View {
     }
 }
 
+/// "Beta tester" next to "Verified student" on the Me card, for people on TestFlight builds. Same
+/// capsule as `VerifiedBadge`; it grants nothing, it's a thank-you.
+struct BetaBadge: View {
+    var body: some View {
+        Label("Beta tester", systemImage: "testtube.2")
+            .labelStyle(BadgeLabelStyle())
+            .font(.rounded(.footnote, .bold))
+            .foregroundStyle(Theme.ink)
+            .padding(.horizontal, 9)
+            .frame(height: 24)
+            .background(.white.opacity(0.75), in: .capsule)
+    }
+}
+
 private struct BadgeLabelStyle: LabelStyle {
     func makeBody(configuration: Configuration) -> some View {
         HStack(spacing: 5) {
