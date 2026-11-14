@@ -103,6 +103,27 @@ final class LiveAuthService: AuthService {
         }
     }
 
+    /// `redeem_invite` answers with a status rather than raising (`docs/API.md`, Invites), then the
+    /// usual status check moves the account on.
+    func redeemInvite(_ code: String) async throws {
+        do {
+            let status: String = try await client.rpc("redeem_invite", params: RedeemInviteParams(code: code)).execute().value
+            try RedeemInviteResult.check(status)
+            try await refreshState()
+        } catch {
+            throw translate(error)
+        }
+    }
+
+    func waitlistPosition() async throws -> Int? {
+        do {
+            let position: Int? = try await client.rpc("waitlist_position").execute().value
+            return position
+        } catch {
+            throw translate(error)
+        }
+    }
+
     func completeProfile(_ input: ProfileInput) async throws {
         do {
             try await client.rpc("complete_profile", params: CompleteProfileParams(input)).execute()

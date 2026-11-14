@@ -52,6 +52,12 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
     private var deviceToken: String?
     private var prefs = NotificationPrefs.standard
     private var openedNotifications: Set<Int64> = []
+    /// The signed-in student's codes (`my_invites`). A waiting account redeems from the same list.
+    private(set) var invites: [Invite]
+    /// When each wrong code was typed, for the 5-an-hour limit on `redeem_invite`.
+    private var wrongInviteTries: [Date] = []
+    /// `waitlist_position()` while waiting.
+    var waitlistPlace = 3
 
     /// `state` defaults to signed in with the Monterrey fixtures. Pass `.signedOut(expired: false)`
     /// to preview onboarding: the new account then has no profile until `completeProfile`.
@@ -68,6 +74,7 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         })
         self.people = world.people
         self.messages = world.messages
+        self.invites = world.invites
         self.state = state ?? .signedIn(userID: world.me.id)
         self.profile = state == nil ? world.me : nil
     }
@@ -177,6 +184,31 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
     func refreshStatus() async throws {
         try await begin()
         if state == .pendingApproval, !isAwaitingApproval { state = .needsProfile }
+    }
+
+    /// Like `redeem_invite`: the limit comes first, so the sixth try in an hour waits even with a good
+    /// code. The waiting account and the inviter share this mock, so there's no own-code check.
+    func redeemInvite(_ code: String) async throws {
+        try await begin()
+        if case .signedOut = state { throw DomainError.notAuthenticated }
+        guard state == .pendingApproval, isAwaitingApproval else { return }
+        let hourAgo = now.addingTimeInterval(-3600)
+        guard wrongInviteTries.filter({ $0 > hourAgo }).count < 5 else { throw DomainError.rateLimited }
+        let typed = Invite.normalized(code)
+        guard let index = invites.firstIndex(where: { $0.code == typed && !$0.isUsed }) else {
+            wrongInviteTries.append(now)
+            throw DomainError.invalidInvite
+        }
+        invites[index].redeemedAt = now
+        wrongInviteTries = []
+        isAwaitingApproval = false
+        state = .needsProfile
+    }
+
+    func waitlistPosition() async throws -> Int? {
+        try await begin()
+        if case .signedOut = state { throw DomainError.notAuthenticated }
+        return state == .pendingApproval && isAwaitingApproval ? waitlistPlace : nil
     }
 
     func signIn(email: String, password: String) async throws {
@@ -506,6 +538,20 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         return updated
     }
 
+    /// Codes belong to members, so there are none until the profile is saved.
+    func fetchInvites() async throws -> [Invite] {
+        try await beginWrite()
+        return profile == nil ? [] : invites
+    }
+
+    func markBetaTester() async throws -> Profile {
+        try await beginWrite()
+        guard var updated = profile else { throw DomainError.notAuthenticated }
+        updated.isBetaTester = true
+        profile = updated
+        return updated
+    }
+
     // MARK: SafetyRepository
 
     func report(_ target: ReportTarget, reason: ReportReason, note: String?) async throws {
@@ -747,7 +793,7 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         return Profile(
             id: me.id, firstName: first, lastName: last, gradYear: input.gradYear,
             university: profile?.university ?? signInCampus, interests: input.interests,
-            chatRulesAcceptedAt: profile?.chatRulesAcceptedAt
+            chatRulesAcceptedAt: profile?.chatRulesAcceptedAt, isBetaTester: profile?.isBetaTester ?? false
         )
     }
 

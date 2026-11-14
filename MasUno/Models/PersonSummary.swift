@@ -7,6 +7,9 @@ nonisolated struct PersonSummary: Identifiable, Hashable, Sendable {
     var firstName: String
     var lastInitial: String
     var gradYear: Int
+    /// Opened a TestFlight build while signed in (`is_beta_tester`, N37). Only Who's going and your own
+    /// profile carry it; everywhere else it's false.
+    var isBetaTester = false
 
     /// Someone a guest isn't shown: names stay with verified students (SPEC §8.8, `guest_games`).
     static let hidden = PersonSummary(id: UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)), firstName: "", lastInitial: "", gradYear: 0)

@@ -73,8 +73,12 @@ final class EventDetailViewModel {
     }
 
     /// "Join me for After-work hoops — Today · 7:35 PM at Estadio Borregos. Room for 4 more on masUNO:"
-    static func inviteMessage(for event: Game) -> String {
-        String(localized: "Join me for \(event.title) — \(EventFormat.dayAndTime(event.startsAt)) at \(event.place.name). \(event.roomLine) on masUNO:")
+    /// With an unused invite code of yours, it adds "Use my invite code ABCD-EFGH to skip the waitlist."
+    /// so a friend still waiting can get in.
+    static func inviteMessage(for event: Game, invites: [Invite] = []) -> String {
+        let message = String(localized: "Join me for \(event.title) — \(EventFormat.dayAndTime(event.startsAt)) at \(event.place.name). \(event.roomLine) on masUNO:")
+        guard let code = invites.first(where: { !$0.isUsed }) else { return message }
+        return message + " " + String(localized: "Use my invite code \(code.displayCode) to skip the waitlist.")
     }
 
     /// Walking directions. Offers Google Maps too when it's installed (E19).

@@ -23,6 +23,10 @@ enum MockFixtures {
     )
     static let reviewEmail = "official.masuno.app+review1@gmail.com"
     static let reviewPassword = "review-password"
+    /// One of the signed-in student's unused codes: a waiting account that types it gets in (N37).
+    static let inviteCode = "PLAY4NWE"
+    /// Their code that Priya already used.
+    static let usedInviteCode = "KXPQ7M4D"
 
     /// Fixed so previews and tests can refer to a game by state.
     enum GameID {
@@ -55,6 +59,7 @@ enum MockFixtures {
         var attendees: [UUID: [Attendee]]
         var people: [UUID: PersonSummary]
         var messages: [UUID: [ChatMessage]]
+        var invites: [Invite]
     }
 
     static func person(_ number: Int, _ first: String, _ initial: String, _ year: Int) -> PersonSummary {
@@ -69,6 +74,9 @@ enum MockFixtures {
     static let maya = person(5, "Maya", "C", 2027)
     static let ricardo = person(6, "Ricardo", "T", 2027)
     static let nina = person(7, "Nina", "C", 2028)
+    /// Who's going shows the badge next to these two (N37). Game cards don't carry it, so their
+    /// hosted games don't either.
+    static let betaTesterIDs: Set<UUID> = [priya.id, sam.id]
 
     static func world(now: Date) -> World {
         let me = Profile(
@@ -102,7 +110,9 @@ enum MockFixtures {
                 myJoinedAt: myRole == nil ? nil : joined, hasBlockedAttendee: false
             ))
             attendees[id] = roster.enumerated().map { index, person in
-                Attendee(person: person, role: index == 0 ? .host : .player, joinedAt: joined.addingTimeInterval(Double(index) * 60))
+                var person = person
+                person.isBetaTester = betaTesterIDs.contains(person.id)
+                return Attendee(person: person, role: index == 0 ? .host : .player, joinedAt: joined.addingTimeInterval(Double(index) * 60))
             }
         }
 
@@ -138,8 +148,16 @@ enum MockFixtures {
         say(GameID.hosting, diego, "Should we bring bibs?", minutesAgo: 120)
         say(GameID.hosting, me.summary, "I have a set, don't worry.", minutesAgo: 110)
 
+        // Three codes, oldest first, like `my_invites`: one Priya used, two still open.
+        let invites = [
+            Invite(code: usedInviteCode, createdAt: now.addingTimeInterval(-9 * 24 * 3600),
+                   redeemedAt: now.addingTimeInterval(-2 * 24 * 3600), redeemedBy: priya.displayName),
+            Invite(code: inviteCode, createdAt: now.addingTimeInterval(-9 * 24 * 3600)),
+            Invite(code: "JUMP3ZRS", createdAt: now.addingTimeInterval(-9 * 24 * 3600)),
+        ]
+
         let people = Dictionary(uniqueKeysWithValues: all.map { ($0.id, $0) })
-        return World(me: me, games: games, attendees: attendees, people: people, messages: messages)
+        return World(me: me, games: games, attendees: attendees, people: people, messages: messages, invites: invites)
     }
 }
 #endif

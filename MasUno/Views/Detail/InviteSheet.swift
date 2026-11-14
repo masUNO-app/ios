@@ -38,7 +38,7 @@ struct InviteSheet: View {
                         ShareLink(
                             item: url,
                             subject: Text(event.title),
-                            message: Text(EventDetailViewModel.inviteMessage(for: event))
+                            message: Text(EventDetailViewModel.inviteMessage(for: event, invites: store.invites))
                         ) {
                             Text("Share link")
                         }
