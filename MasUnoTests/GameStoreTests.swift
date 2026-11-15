@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import MasUno
+@testable import masUNO
 
 @MainActor
 struct GameStoreTests {
@@ -153,6 +153,93 @@ struct GameStoreTests {
         #expect(store.game(MockFixtures.GameID.open)?.myRole == nil)
     }
 
+    // MARK: Live refresh
+
+    @Test func anOfflineLaunchStartsListeningOnTheNextRefresh() async throws {
+        let backend = MockBackend()
+        let launched = GameStore(
+            games: backend, profiles: backend, safety: backend, chat: backend, catalog: backend,
+            defaults: UserDefaults(suiteName: "GameStoreTests.\(UUID().uuidString)")!
+        )
+        backend.nextError = .offline
+        await launched.load()
+        #expect(launched.profile == nil)
+        #expect(backend.gameChangeListenerCount == 0)
+
+        await launched.refresh()
+        #expect(launched.profile?.firstName == "Emilio")
+        try await eventually { backend.gameChangeListenerCount > 0 }
+    }
+
+    @Test func aGameFillingOnAnotherPhoneLeavesTheMap() async throws {
+        let id = MockFixtures.GameID.open
+        try await eventually { backend.gameChangeListenerCount > 0 }
+        backend.fillGame(id: id)
+        backend.announceGameChange([id])
+        try await eventually { !store.mapGames().contains { $0.id == id } }
+    }
+
+    @Test func aGameWithRoomAgainComesBackToTheMap() async throws {
+        let id = MockFixtures.GameID.open
+        try await eventually { backend.gameChangeListenerCount > 0 }
+        backend.fillGame(id: id)
+        await store.refreshMap()
+        #expect(!store.mapGames().contains { $0.id == id })
+
+        backend.simulateDropOut(id: id)
+        backend.announceGameChange([id])
+        try await eventually { store.mapGames().contains { $0.id == id } }
+    }
+
+    @Test func someoneLeavingUpdatesTheFacesWithTheOpenSpot() async throws {
+        let id = MockFixtures.GameID.open
+        try await eventually { backend.gameChangeListenerCount > 0 }
+        await store.loadAttendees(id)
+        let before = try #require(store.game(id))
+        #expect(store.lineup(for: before).people.map(\.id) == [MockFixtures.alex.id, MockFixtures.ricardo.id])
+
+        backend.simulateDropOut(id: id)
+        backend.announceGameChange([id])
+        try await eventually {
+            guard let game = store.game(id) else { return false }
+            let lineup = store.lineup(for: game)
+            return lineup.people.map(\.id) == [MockFixtures.alex.id] && lineup.open == before.spotsLeft + 1
+        }
+    }
+
+    @Test func aBookmarkedFullGameOpensWithANotice() async throws {
+        let id = MockFixtures.GameID.open
+        try await eventually { backend.gameChangeListenerCount > 0 }
+        backend.fillGame(id: id)
+        await store.loadGame(id)
+        await store.refreshMap()
+        #expect(store.game(id)?.isFull == true)
+        #expect(!store.mapGames().contains { $0.id == id })
+
+        store.toggleSaved(id)
+        store.notice = nil
+        backend.simulateDropOut(id: id)
+        backend.announceGameChange([id])
+        try await eventually { store.notice == "A spot just opened in After-work hoops." }
+        #expect(store.mapGames().contains { $0.id == id })
+    }
+
+    @Test func aHostCancellingFromTheirPhoneShowsInGoing() async throws {
+        let id = MockFixtures.GameID.going
+        try await eventually { backend.gameChangeListenerCount > 0 }
+        backend.cancelAsHost(id: id)
+        backend.announceGameChange([id])
+        try await eventually { store.game(id)?.isCancelled == true }
+    }
+
+    /// Polls briefly until `condition` holds; the store's listener and debounce run in the background.
+    private func eventually(_ condition: () -> Bool) async throws {
+        for _ in 0..<100 where !condition() {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        #expect(condition())
+    }
+
     // MARK: Hosting
 
     @Test func createdGameIsOnTheMapAndInHosting() async throws {
@@ -279,5 +366,52 @@ struct OfflineStateTests {
         #expect(store.myGamesState == .failed(.offline))
         await store.refreshMyGames()
         #expect(store.myGamesState == .loaded)
+    }
+}
+
+/// The map popup's pan into the safe area and off the fold (iPhone Duo), and the token row's cap.
+@MainActor
+struct PopupPlacementTests {
+    let popup = CGSize(width: 370, height: 340)
+
+    @Test func aPhoneNeedsNoExtraPan() {
+        let shift = EventMapViewModel.popupShift(
+            pin: CGPoint(x: 201, y: 874 * 0.63), popup: popup,
+            within: CGRect(x: 0, y: 62, width: 402, height: 746)
+        )
+        #expect(shift == .zero)
+    }
+
+    @Test func foldedKeepsClearOfTheSideBar() {
+        let shift = EventMapViewModel.popupShift(
+            pin: CGPoint(x: 233, y: 678 * 0.63), popup: CGSize(width: 350, height: 340),
+            within: CGRect(x: 0, y: 0, width: 382, height: 600)
+        )
+        #expect(shift.dx == -42)
+        #expect(shift.dy == 0)
+    }
+
+    @Test func partiallyOpenLandsOnOneSideOfTheFold() {
+        let safe = CGRect(x: 0, y: 0, width: 867, height: 600)
+        let area = safe.pane(avoiding: CGRect(x: 470, y: 0, width: 11, height: 669))
+        let shift = EventMapViewModel.popupShift(pin: CGPoint(x: 475.5, y: 669 * 0.63), popup: popup, within: area)
+        #expect(475.5 + shift.dx + popup.width / 2 <= 470 - 16)
+        #expect(shift.dx == -206.5)
+    }
+
+    @Test func aPopupAboveTheSafeAreaMovesDown() {
+        let shift = EventMapViewModel.popupShift(
+            pin: CGPoint(x: 200, y: 300), popup: CGSize(width: 300, height: 340),
+            within: CGRect(x: 0, y: 20, width: 400, height: 600)
+        )
+        let top = 300 + shift.dy - (EventPin.selectedHeight + 6) - 340
+        #expect(abs(top - 28) < 0.001)
+    }
+
+    @Test func tokenRowKeepsTwelveOnAPhoneAndDropsOneFolded() {
+        // Me cards: a 402 pt iPhone leaves a 322 pt row; folded, 302 pt.
+        #expect(TokenRowLayout.capacity(width: 322, tokenWidth: 32) >= 12)
+        #expect(TokenRowLayout.capacity(width: 302, tokenWidth: 32) == 11)
+        #expect(TokenRowLayout.capacity(width: 20, tokenWidth: 32) == 1)
     }
 }

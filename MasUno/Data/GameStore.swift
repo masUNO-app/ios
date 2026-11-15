@@ -31,10 +31,16 @@ final class GameStore {
     private var cache: [UUID: Game] = [:]
     private var mapIDs: [UUID] = []
     private var attendeesByGame: [UUID: [Attendee]] = [:]
+    /// Each game's going count when its attendees were last fetched, to spot a stale list.
+    @ObservationIgnored private var attendeeCounts: [UUID: Int] = [:]
     private var activityByGame: [UUID: [GameActivityEntry]] = [:]
     /// Games whose fetch came back `not_found`, so Event detail can say so.
     private var missingIDs: Set<UUID> = []
     private var savedIDs: Set<UUID> = []
+    /// Saved full games you asked to hear about when a spot opens. On the phone, like Saved.
+    private var spotAlertIDs: Set<UUID> = []
+    /// Cancelled games you removed from Going.
+    private var dismissedIDs: Set<UUID> = []
     private var unreadByGame: [UUID: Int] = [:]
 
     /// `app_config.chat_enabled`, set at launch. Off, group chat is the read-only hub (SPEC N14).
@@ -47,6 +53,23 @@ final class GameStore {
     @ObservationIgnored private let safety: any SafetyRepository
     @ObservationIgnored private let catalog: any AppConfigRepository
     @ObservationIgnored private let defaults: UserDefaults
+    /// Listens for game changes made on other phones, and the re-read they schedule.
+    @ObservationIgnored private var changesTask: Task<Void, Never>?
+    @ObservationIgnored private var pendingRefresh: Task<Void, Never>?
+    /// What the pings since the last re-read named.
+    @ObservationIgnored private var pendingChanges: GameChanges?
+    /// One join writes a spot row and then the game row, so wait out a burst before re-reading.
+    private static let refreshDebounce: Duration = .milliseconds(400)
+    /// Shorter wait when this phone is in the game or has it saved: those screens should move
+    /// with the other phone, not a second later.
+    private static let fastRefreshDebounce: Duration = .milliseconds(200)
+    /// Every phone on a campus hears the same ping, so each waits up to this much longer, at
+    /// random, and their re-reads don't all reach the server in the same instant.
+    private static let refreshSpreadMilliseconds = 0...600
+    /// Waits before re-opening a games channel that dropped, longer each time it fails again.
+    private static let reconnectDelays: [Duration] = [.seconds(2), .seconds(5), .seconds(15), .seconds(30), .seconds(60)]
+    /// A channel that stayed open this long was connected, so pings may have been missed while it was down.
+    private static let connectedLongEnough: Duration = .seconds(10)
 
     init(
         games: any GameRepository, profiles: any ProfileRepository, safety: any SafetyRepository,
@@ -79,9 +102,11 @@ final class GameStore {
         }
     }
 
-    /// Upcoming games you joined, soonest first. Cancelled ones stay, with a chip.
+    /// Upcoming games you joined, soonest first. Cancelled ones stay until you remove them.
     func goingGames(now: Date = .now) -> [Game] {
-        visibleGames.filter { $0.myRole == .player && !$0.hasEnded(now: now) }.sorted { $0.startsAt < $1.startsAt }
+        visibleGames
+            .filter { $0.myRole == .player && !$0.hasEnded(now: now) && !($0.isCancelled && dismissedIDs.contains($0.id)) }
+            .sorted { $0.startsAt < $1.startsAt }
     }
 
     func hostedGames(now: Date = .now) -> [Game] {
@@ -107,6 +132,17 @@ final class GameStore {
 
     func isSaved(_ id: UUID) -> Bool {
         savedIDs.contains(id)
+    }
+
+    /// "Spot alert is on": you'll hear when this full game has room.
+    func hasSpotAlert(_ id: UUID) -> Bool {
+        spotAlertIDs.contains(id)
+    }
+
+    /// A game's people and open spots, for token rows and the court. Before Who's going has
+    /// loaded it's the host (and you, if you're in), with the rest as a count.
+    func lineup(for game: Game) -> Lineup {
+        Lineup(game: game, attendees: attendees(of: game.id), me: profile?.summary)
     }
 
     /// Who's going, minus anyone you just blocked. `goingCount` still includes them.
@@ -155,6 +191,8 @@ final class GameStore {
     func load() async {
         await loadProfile()
         savedIDs = readSavedIDs()
+        spotAlertIDs = readIDs(spotAlertKey).intersection(savedIDs)
+        dismissedIDs = readIDs(dismissedKey)
         async let activities: Void = loadActivities()
         async let blocked: Void = loadBlockedPeople()
         async let map: Void = refreshMap()
@@ -162,14 +200,120 @@ final class GameStore {
         async let saved: Void = refreshSaved()
         async let unread: Void = refreshUnread()
         _ = await (activities, blocked, map, mine, saved, unread)
+        listenForGameChanges()
     }
 
     /// On foreground and pull to refresh.
     func refresh() async {
+        // The launch was offline and never got your profile: do the whole load now, which also
+        // reads your saved games and starts listening for changes from other phones.
+        guard profile != nil else { return await load() }
         async let map: Void = refreshMap()
         async let mine: Void = refreshMyGames()
+        async let saved: Void = refreshSaved()
         async let unread: Void = refreshUnread()
-        _ = await (map, mine, unread)
+        _ = await (map, mine, saved, unread)
+    }
+
+    /// Re-reads when a game or spot on your campus changes on another phone. Opens once per
+    /// signed-in session; `reset()` closes it.
+    private func listenForGameChanges() {
+        guard changesTask == nil, let campus = profile?.university.id else { return }
+        changesTask = Task { [weak self] in
+            var failures = 0
+            while !Task.isCancelled {
+                guard let stream = self?.games.changes(campus: campus) else { return }
+                let opened = ContinuousClock.now
+                for await changes in stream { self?.note(changes) }
+
+                let wasConnected = ContinuousClock.now - opened >= Self.connectedLongEnough
+                failures = wasConnected ? 0 : failures + 1
+                let delay = Self.reconnectDelays[min(failures, Self.reconnectDelays.count - 1)]
+                do { try await Task.sleep(for: delay) } catch { return }
+                // Catch up on whatever changed while the channel was down.
+                if wasConnected { self?.note(.unlisted) }
+            }
+        }
+    }
+
+    /// Collects what the pings name, then re-reads once they've been quiet for a moment.
+    private func note(_ changes: GameChanges) {
+        pendingChanges = switch (pendingChanges, changes) {
+        case (nil, _): changes
+        case (.games(let held), .games(let new)): .games(held.union(new))
+        default: .unlisted
+        }
+        pendingRefresh?.cancel()
+        let fast = wantsItFast(pendingChanges)
+        pendingRefresh = Task { [weak self] in
+            let spread = fast ? Duration.zero : Duration.milliseconds(Int.random(in: Self.refreshSpreadMilliseconds))
+            let debounce = fast ? Self.fastRefreshDebounce : Self.refreshDebounce
+            do { try await Task.sleep(for: debounce + spread) } catch { return }
+            guard let self, let changes = pendingChanges else { return }
+            pendingChanges = nil
+            await refresh(after: changes)
+        }
+    }
+
+    /// A game you're in, or one you saved, should update on this phone ahead of the crowd.
+    /// - Parameter changes: The pings collected since the last re-read.
+    /// - Returns: Whether to skip the random delay.
+    private func wantsItFast(_ changes: GameChanges?) -> Bool {
+        guard case .games(let ids) = changes else { return false }
+        if !ids.isDisjoint(with: savedIDs) || !ids.isDisjoint(with: spotAlertIDs) { return true }
+        return cache.values.contains { ids.contains($0.id) && $0.myRole != nil }
+    }
+
+    /// Re-reads only what a ping named: those games and their people, if this phone holds them,
+    /// and the map when a game it hasn't seen might belong there. A game that just got a spot
+    /// is put back on the map here, so a saved game doesn't wait on a second fetch.
+    private func refresh(after changes: GameChanges) async {
+        guard case .games(let ids) = changes else {
+            async let lists: Void = refresh()
+            async let held = refreshHeldGames(Set(cache.keys))
+            _ = await (lists, held)
+            return
+        }
+        let held = ids.filter { cache[$0] != nil }
+        await refreshHeldGames(held)
+        if held.count < ids.count { await refreshMap() }
+    }
+
+    /// Re-reads games this phone holds, and their people where Who's going was loaded. The game
+    /// and its people land together, so a leave doesn't draw a dashed spot on the wrong face.
+    /// A game that doesn't come back was deleted or is now hidden by a block, so it goes.
+    /// - Parameter ids: Games already in the cache.
+    private func refreshHeldGames(_ ids: Set<UUID>) async {
+        guard !ids.isEmpty else { return }
+        let fetched: [Game]
+        do {
+            fetched = try await games.fetchGames(ids: Array(ids))
+        } catch {
+            noteFailure(domainError(error))
+            return
+        }
+
+        let fetchedIDs = Set(fetched.map(\.id))
+        // Fetched before anything is published, so the faces and the dashed spots change together.
+        var people: [UUID: [Attendee]] = [:]
+        for id in ids where attendeesByGame[id] != nil && fetchedIDs.contains(id) {
+            people[id] = try? await games.fetchAttendees(gameID: id)
+        }
+
+        store(fetched)
+        for id in ids.subtracting(fetchedIDs) {
+            cache[id] = nil
+            mapIDs.removeAll { $0 == id }
+            attendeesByGame[id] = nil
+            missingIDs.insert(id)
+        }
+        for (id, list) in people {
+            attendeesByGame[id] = list
+            attendeeCounts[id] = cache[id]?.goingCount
+        }
+        for game in fetched where !mapIDs.contains(game.id) && !game.isCancelled && !game.hasEnded() && !game.isFull {
+            mapIDs.insert(game.id, at: 0)
+        }
     }
 
     func refreshMap() async {
@@ -238,8 +382,20 @@ final class GameStore {
     func loadAttendees(_ id: UUID) async {
         do {
             attendeesByGame[id] = try await games.fetchAttendees(gameID: id)
+            attendeeCounts[id] = cache[id]?.goingCount
         } catch {
             noteFailure(domainError(error))
+        }
+    }
+
+    /// Who's going for the games a list is about to draw tokens for, skipping any that are loaded
+    /// and still match the game's count. Quiet: a failure just leaves the host's token and a count.
+    func loadMissingAttendees(for ids: [UUID]) async {
+        for id in ids where attendeesByGame[id] == nil || attendeeCounts[id] != cache[id]?.goingCount {
+            if Task.isCancelled { return }
+            guard let fetched = try? await games.fetchAttendees(gameID: id) else { continue }
+            attendeesByGame[id] = fetched
+            attendeeCounts[id] = cache[id]?.goingCount
         }
     }
 
@@ -280,9 +436,24 @@ final class GameStore {
     }
 
     private func store(_ fetched: [Game]) {
+        var openedTitle: String?
+        var alertsChanged = false
         for game in fetched {
+            let wasFull = cache[game.id]?.isFull == true
+            let watched = savedIDs.contains(game.id) || spotAlertIDs.contains(game.id)
+            if watched, wasFull, !game.isFull, !game.isCancelled, !game.hasEnded(), !game.isGoing {
+                openedTitle = game.title
+            }
+            if spotAlertIDs.contains(game.id), game.isCancelled || game.hasEnded() || game.isGoing || !game.isFull {
+                spotAlertIDs.remove(game.id)
+                alertsChanged = true
+            }
             cache[game.id] = game
             missingIDs.remove(game.id)
+        }
+        if alertsChanged { write(spotAlertIDs, forKey: spotAlertKey) }
+        if let openedTitle {
+            notice = String(localized: "A spot just opened in \(openedTitle).")
         }
     }
 
@@ -448,8 +619,35 @@ final class GameStore {
     // MARK: Saved (on the phone, N15)
 
     func toggleSaved(_ id: UUID) {
-        if savedIDs.contains(id) { savedIDs.remove(id) } else { savedIDs.insert(id) }
-        defaults.set(savedIDs.map(\.uuidString), forKey: savedKey)
+        if savedIDs.contains(id) {
+            savedIDs.remove(id)
+            spotAlertIDs.remove(id)
+            write(spotAlertIDs, forKey: spotAlertKey)
+        } else {
+            savedIDs.insert(id)
+            notice = String(localized: "Saved. Find it under bookmarks.")
+        }
+        write(savedIDs, forKey: savedKey)
+    }
+
+    /// "Alert me if a spot opens" on a full game. Turning it on saves the game too, so it's in
+    /// Saved games. The check runs on this phone whenever games load; there's no push yet.
+    func toggleSpotAlert(_ id: UUID) {
+        if spotAlertIDs.contains(id) {
+            spotAlertIDs.remove(id)
+        } else {
+            spotAlertIDs.insert(id)
+            savedIDs.insert(id)
+            write(savedIDs, forKey: savedKey)
+        }
+        write(spotAlertIDs, forKey: spotAlertKey)
+    }
+
+    /// "Remove" on a cancelled game in Going. The game is still cancelled on the server; this
+    /// only stops listing it here.
+    func dismissCancelled(_ id: UUID) {
+        dismissedIDs.insert(id)
+        write(dismissedIDs, forKey: dismissedKey)
     }
 
     private static let campusKey = "lastCampus"
@@ -459,24 +657,41 @@ final class GameStore {
         defaults.set(try? JSONEncoder().encode(campus), forKey: Self.campusKey)
     }
 
-    private var savedKey: String {
-        "savedGames.\(profile?.id.uuidString ?? "signedOut")"
-    }
+    private var accountKey: String { profile?.id.uuidString ?? "signedOut" }
+    private var savedKey: String { "savedGames.\(accountKey)" }
+    private var spotAlertKey: String { "spotAlerts.\(accountKey)" }
+    private var dismissedKey: String { "dismissedGames.\(accountKey)" }
 
     private func readSavedIDs() -> Set<UUID> {
-        Set((defaults.stringArray(forKey: savedKey) ?? []).compactMap(UUID.init(uuidString:)))
+        readIDs(savedKey)
+    }
+
+    private func readIDs(_ key: String) -> Set<UUID> {
+        Set((defaults.stringArray(forKey: key) ?? []).compactMap(UUID.init(uuidString:)))
+    }
+
+    private func write(_ ids: Set<UUID>, forKey key: String) {
+        defaults.set(ids.map(\.uuidString), forKey: key)
     }
 
     // MARK: Sign-out
 
     /// Clears everything held for this account. Saved games stay on the phone, by account.
     func reset() {
+        changesTask?.cancel()
+        changesTask = nil
+        pendingRefresh?.cancel()
+        pendingRefresh = nil
+        pendingChanges = nil
         cache = [:]
         mapIDs = []
         attendeesByGame = [:]
+        attendeeCounts = [:]
         activityByGame = [:]
         missingIDs = []
         savedIDs = []
+        spotAlertIDs = []
+        dismissedIDs = []
         unreadByGame = [:]
         blockedPeople = []
         profile = nil

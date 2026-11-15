@@ -16,7 +16,7 @@
 - **Sign-in changed on Nov 11 (N36):** school email and password with manual approval, on `masuno-dev`; prod needs the migration. The next line is history.
 - **School sign-in is configured but untested:** the Azure provider is on in both projects with tenant `organizations` (N35), but no one has signed in with a real Tec account yet (B21). Real students can't sign in until Tec IT approves the app, if it must (K19). Before they can, the hook needs a tenant check (B22).
 - **Still missing for submission (Nov 11):** real-phone and two-phone QA, and the listing (O7). The app icon (D3), the Support page (D4) and `AppConfig.appStoreID` (E15) are in, along with a privacy manifest (`PrivacyInfo.xcprivacy`).
-- **1.0 UI is designed:** the Figma file "masuno figma" has per-sport flows (basketball, tennis, soccer, volleyball, padel), group chat for each sport, Me and Settings, plus `DESIGN.md` v2.0 in the project. This is the 1.0 look (§7.7); what's built is the 0.5 look.
+- **1.0 UI is built (E27):** sport colors, court headers, sport-tinted pins/popups/Me/chat, rounded type, and the 1.0 copy ("Count me in", "We're looking for you."). Sign-in still gates the app (R7-15).
 - `com.masuno.app` registered on the Boys & Girls Clubs of Chicago developer team (Oct 28).
 
 > **How to read this.** §0–§6 are the plan: releases, scope, calendar, who does what, how we work. §7–§9 are the product and technical spec (§7.1–§7.6 = 0.5 UI, §7.7 = 1.0 UI). §10–§13 are release steps, risks, decisions and what comes after. Items marked **⚑** need sign-off (§12).
@@ -349,7 +349,7 @@ For 0.5, everything in Swift is Ethan's (screens and the data layer); everything
 | E21 | Me: Past games + Edit profile & interests. | 0.5 | 3 h | — | **Built** on the live `ProfileRepository` (#13) | Edited interests save and reload from the server. |
 | E17 | Saved: local list (0.5) **built**; sync + Notify me (1.0). | 0.5 / 1.0 | 1.5 h | Nov 29 | Local version **built** | Saved survives reinstall; Notify me works. |
 | | *0.5 remaining (Nov 10): B7 review fixes 0.5 h, E25 check 0.5 h, SSO spike 1 h, real-phone smoke test on prod 1 h, two-phone QA + RC 2 h, E15 2 h* | | *~7 h; E26 (4 h) in 0.6* | | *~75 h already built* | |
-| E27 | **1.0 UI pass** (§7.7, N23): 1.0 tokens + rounded type (2 h); sport colors on pins, popup with tail, "+1" tokens (2 h); court/field headers ×5 with the lineup and "Room for N more" (4 h); Me cards + profile band (1.5 h); chat sport band, bubbles, join pill (1.5 h); Who's going rows, Settings icon tiles, form suggestion chips, copy (1 h); restyle onboarding/safety/states from D2 frames. | 1.0 | 12 h | Tue Dec 1 (start Nov 10) | — | 1.0 beta matches the 1.0 frames (or differences noted by Arianna). |
+| E27 | **1.0 UI pass** (§7.7, N23): 1.0 tokens + rounded type (2 h); sport colors on pins, popup with tail, "+1" tokens (2 h); court/field headers ×5 with the lineup and "Room for N more" (4 h); Me cards + profile band (1.5 h); chat sport band, bubbles, join pill (1.5 h); Who's going rows, Settings icon tiles, form suggestion chips, copy (1 h); restyle onboarding/safety/states from D2 frames. | 1.0 | 12 h | Tue Dec 1 (start Nov 10) | **Built** (Nov 14): screens match §7.7; design QA (screenshots vs Figma) still open | 1.0 beta matches the 1.0 frames (or differences noted by Arianna). |
 | E16 | Notification screens. | 1.0 | 3.5 h | Nov 29 | — | Tapping each notification type opens the right game. |
 | E18 | Spanish. | 1.0 | 2 h | Dec 4 | — | Whole app readable in Spanish. |
 | E20 | Picker drag + "Happening now" + changed banner. | 1.0 | 3.5 h | Dec 5 | — | Drag sets a spot; banner shows after a host edit. |
@@ -484,11 +484,14 @@ Cards 16–20 pt radius with hairline border; pill buttons ~50 pt; boxed fields 
 
 ```
 Launch → version check → session?
-├─ None → Onboarding (§7.5)
+├─ None → Welcome (§7.5)
+│    └─ Get started → Create account / I already have an account
 ├─ Suspended → "Your account is suspended" + support email
 └─ Signed in → Map
      ├─ Search · Saved → Event detail
-     ├─ Pin → Popup (bookmark) → Details / Join game → Event detail
+     ├─ Pin → Popup → Details / Count me in → Event detail
+     │         going (not host): Leave instead of Details
+     │         host: Details + Edit game
      ├─ Filter · Recenter (above the avatar) · + Add game → Game form → Where's the game?
      └─ Avatar → Me
           ├─ Gear → Settings → Blocked people · Community guidelines · Privacy & Terms · Delete account
@@ -497,6 +500,7 @@ Launch → version check → session?
           └─ Hosting → Edit → Game form → Cancel · Group chat
 Event detail → Who's going (report/block) · Report game · Open in Maps (Apple/Google) · Add to calendar · Invite a friend · Group chat (going or hosting)
 Group chat → Who's going · Where to meet (host)
+Location primer: first map open (not in the Welcome stack)
 [1.0] Notification tap → Event detail
 ```
 
@@ -518,7 +522,7 @@ Frames: `https://www.figma.com/design/5eKA3f0I90VVABrAuNMFD2/masuno-figma?node-i
 | Group chat, Chat rules, Edit meet-up | 341:1791, 341:2420, 341:2507 (green version) | Read-only fallback unless B20 + E26 land |
 | Onboarding, safety sheets, states | Built from §7.5–§7.6 copy | No frames in 0.5 (N25) |
 
-**1.0 UI (Figma — built in E27)**
+**1.0 UI (built — E27; design QA still open)**
 
 | Row in Figma | Frames (node) | 1.0 task |
 | --- | --- | --- |
@@ -534,33 +538,27 @@ Frames: `https://www.figma.com/design/5eKA3f0I90VVABrAuNMFD2/masuno-figma?node-i
 
 ### 7.5 Onboarding & sign-in (E5 screens · B5 `AuthService` · 1.0 frames in D2)
 
-*Campus names below come from `university_lookup`: "Tec" at launch. If the list can't load or more than one campus is open, the copy says "campus" and "school account" instead (N32).*
+*Campus names below come from `university_lookup`: "Tec" at launch. If the list can't load or more than one campus is open, the copy says "campus" and "school account" instead (N32). Sign-in is a school email and a password, approved by hand (N36). School SSO (`FindSchoolStep`, Azure web sheet) is kept in the code but unused, as in `docs/API.md`.*
 
-1. **Welcome** — "Find your next game" / "Pickup games around Tec, one or two players short — and looking for you." **Continue**. Footer link: Privacy & Terms.
-2. **Location primer** — says the map uses your location to show nearby games, and that it never leaves your phone. **Continue**.
-3. **Sign in to join (sheet)** — "Quick check before you join" / "Sign in with your school account so other players know you're a verified student. Takes about 30 seconds." **Find my school** is the only way in; **Not now** closes the sheet. In 0.5 it follows the Location primer with no game behind it (R7-15).
-4. **Find your school** — "You'll sign in with the account your school gave you. masUNO never sees your password." Searchable list from `university_lookup` (badge, name, email domain), with a retry card if it can't load, and "Don't see your school? masUNO is just for these campuses right now." **Continue with school account** starts sign-in for the chosen school; the choice picks the provider and sign-in hint, but doesn't decide who gets in. Footer link, for App Review and demo days: **Use a review account** opens email + password, for sign-in only, with no way to create an account.
-5. **School sign-in (system web sheet)** — the school's own sign-in page, shown by iOS in `ASWebAuthenticationSession`. masUNO doesn't build, style or see any of it, including the password. Cancelling returns to Find your school. If the auth hook refuses the account: "masUNO is just for Tec students right now. Use your Tec school account." (with several campuses open: "masUNO isn't open at your school yet."). Once the tenant is locked, Microsoft's page refuses other schools' accounts itself, so this message is for accounts in Tec's tenant that the hook refuses. If the school requires admin approval, Microsoft usually shows its own page in the sheet; if it sends an error back, the app says "Your school hasn't approved masUNO yet."
-6. **You're verified** — "You're verified" with the school's name, then **Continue**. Shown once, when `my_profile` has no row yet.
-7. **Set up profile** — three steps:
-   - **About you:** first name, last name (filled in from the school sign-in, editable), class year; preview "Emilio G. · Class of 2029" with "This is how others see you."
-   - **Interests:** "What do you play?" Five sports, at least one.
-   - **Community guidelines:** four rules + "You can report or block anyone from the Who's going list." **I agree** (required).
-8. **(1.0) Notification primer** — shown after your first join or hosted game (C11), not during first-run onboarding.
+1. **Welcome** — masUNO / "We're looking for you." **Get started** opens "Quick check before you join": **Create account** or **I already have an account**. Footer: Privacy & Terms. Sign-in still gates the app (R7-15).
+2. **Create account** — school email + password (at least 8 characters). The hook refuses a non-school or closed-campus address ("masUNO is just for Tec students right now." / "masUNO isn't open at your school yet."). The sign-up posts to the team Discord; until someone runs `private.approve_signup`, the app shows **We're checking your account**. **Check again** / coming back to the app; **Sign out** returns to Welcome.
+3. **You're in** — after approval, once, when `my_profile` has no row yet. Then **Make it yours:** first name, last name, class year, at least one sport; preview "Emilio G. · Class of 2029". Then **Community guidelines** (**I agree**, required) → map.
+4. **(1.0) Notification primer** — after your first join or hosted game (C11), not during first-run onboarding.
 
-The iOS location prompt appears when the map first opens (C11); if denied, the map centers on campus with a banner linking to iOS Settings.
+The location primer is a card on the **first map open** (C11), not a Welcome step. If denied, the map centers on campus with a banner linking to iOS Settings.
 
-**Coming back:** after sign-in, `my_profile` decides the next step, so an unfinished account resumes where it stopped and a finished one goes to the map. An expired session reopens at Find your school; signing out or deleting the account starts at Welcome.
+**Coming back:** `my_profile` / `signup_status()` pick the next step, so an unfinished account resumes where it stopped and a finished one goes to the map. An expired session reopens at **Sign in**; signing out or deleting the account starts at Welcome.
 
 ### 7.6 Feature specs
 
 #### 7.6.1 Map (E4, E9)
 - Default view: your location if you're within ~15 km of your campus; otherwise your campus's center (from `my_profile`; Tec ≈ 25.6514, −100.2895, and the demo campus for review accounts). The "Turn on location" banner shows when location is denied (N31). The campus fallback is required: App Review is not in Monterrey. Recenter button sits right above the avatar. *(DEBUG builds can pin "you" at Tec with `-mockLocation YES`.)*
 - Shows games that aren't cancelled, ended or full, start within 7 days, and whose host isn't blocked either way.
-- Pins: blue with sport emoji; "Soon" if starting within 60 min (1.0 adds "Now"). Selected pin grows with a halo; others dim.
-- Popup: a map callout above the selected pin that grows out of it, moves with the map and closes when the pin scrolls off screen. Host initials, title, "Basketball · Hosted by Alex G.", spots left, time, address, attendee avatars, bookmark; **Details** + **Join game** / **View game** / **Edit game**.
+- Pins: sport-colored teardrop with emoji; "Soon" if starting within 60 min (1.0 adds "Now"). Overlapping pins open a group sheet.
+- Popup: a map callout above the selected pin that grows out of it, moves with the map and closes when the pin scrolls off screen. Sport line, title, room left, time, place; **Details** + **Count me in** / **View game** / **Edit game**. Once you're going and not the host, **Leave** replaces Details.
 - Bookmark button next to search opens **Saved** (N15).
 - Search (title, sport, place, host first name) and sport filter. Standard Apple map style.
+- Signed-in map listens on `campus:<id>:games` (`docs/API.md`, Game changes). A saved or spot-alert game that was full and now has room shows "A spot just opened in …".
 
 #### 7.6.2 Game form (E7)
 - Sport, Game name (1–40), Date (today to +6 days), Start time, Duration (30 min–3 h), Location (→ picker; required, no default: "Pick where the game is."), Meet-up spot (optional, ≤ 80), Players (2–22; editing can't go below the number going), Notes (optional, ≤ 280).
@@ -574,17 +572,17 @@ The iOS location prompt appears when the map first opens (C11); if denied, the m
 
 | State | Chip | Bottom bar |
 | --- | --- | --- |
-| Open | Open · N spots left | **Join game** |
+| Open | Open · N spots left | **Count me in** |
 | You're in | ✓ You're in · N going · N spots left | **Open group chat** · **Invite a friend** |
 | Full | Full | "Spots open up when someone leaves — check back." 1.0: **Notify me if a spot opens** |
 | Hosting | You're hosting · N going | **Open group chat** · **Edit game**; prompt to add a meet-up spot if empty |
 | Ended | This game has ended | none |
 | Cancelled | Alex cancelled this game | none |
 
-- Body: map header, title, sport and host, date/time ("Starts in 35 min · about 1 hour"), address, meet-up spot, **Open in Maps** (Apple or Google if installed), **Add to calendar** (going/hosting), notes, Who's going. Bookmark in the toolbar.
+- Body: court header, title, sport and host, date/time ("Starts in 35 min · about 1 hour"), address, meet-up spot, **Open in Maps** (Apple or Google if installed), **Add to calendar** (going/hosting), notes, Who's going. Bookmark in the toolbar.
 - Invite a friend: share sheet with "Join me for After-work hoops — Today · 7:35 PM at … N spots left on masUNO:" + the App Store link (no deep link to the game until after the program).
 - Menu: going → Leave game, Report game; not going → Report game; hosting → Cancel game.
-- Join shows "You're in" immediately and rolls back if the server says the game filled: "Someone just took the last spot." If someone you blocked is going: "Someone you blocked is going."
+- **Count me in** from the map opens the game with the arrive animation. Join shows "You're in" immediately and rolls back if the server says the game filled: "Someone just took the last spot." If someone you blocked is going: "Someone you blocked is going."
 
 #### 7.6.5 Me (E12, E21)
 Card: initials, your full name, "Class of 2029 · Tec de Monterrey", "Verified student" badge (if O4 confirms staff don't share the student domain; otherwise "Tec verified"), interests. Going and Hosting lists with **Group chat** (**· N new** once E26 ships); Past (last 14 days, collapsed) under Going; **Edit profile & interests** (first/last name ≤ 30, class year, ≥ 1 sport; preview "Emilio G. · Class of 2029"). Empty states "No games yet. Find one on the map." / "Host a game in under a minute."
@@ -655,7 +653,7 @@ Light mode only, as before. Contrast: ink on every sport color and `#74C0F5`; wh
 - **Avatar / person token:** initials on the person's pastel, 2 px white ring in stacks, "+N" bubble. Sizes 26 / 30 / 36–42 / 72.
 - **"+1" token:** 2 px dashed ink circle with "+1"; one per open spot; filled with the sport color in chat. Joining animates your avatar into the first open token, then "You're in!".
 - **Map pins:** teardrop in the sport color with the emoji; "Soon" tag; people tokens under the pin (no "+2 spots" text); selected pin ~1.3×, others 40%. Auto-repost bump keeps its "Spot open" tag and draws on top (E25).
-- **Popup / game card:** `surface` card with a tail from its bottom edge to the pin; order: sport line, title, people + "+1" tokens with "Room for N more", time, place, actions (**Details** · **Count me in**). The same card (minus tail) is the Me card: Going → **Leave** · **Group chat · N new**; Hosting → **Edit** · **Group chat · N new**.
+- **Popup / game card:** `surface` card with a tail from its bottom edge to the pin; order: sport line, title, people + "+1" tokens with "Room for N more", time, place, actions (**Details** · **Count me in**). Once you're in and not the host, the secondary action is **Leave**, not a second Details. The same card (minus tail) is the Me card: Going → **Leave** · **Group chat · N new**; Hosting → **Edit** · **Group chat · N new**.
 - **Full-bleed court header (Game details, You're in):** ~400 pt court/field art in the sport color with faint lines; attendees placed on the court as tokens, open spots as "+1"; a rounded content sheet overlaps it; glass back and `•••` buttons on top. Five drawings — basketball half court, tennis, soccer pitch with stripes, volleyball net, padel glass-wall court — built as SwiftUI `Shape`s, not images.
 - **Game details content:** title, "Basketball · Hosted by Alex R.", **"Room for N more"** + **Who's going ›**, host note card ("Alex says"), time/place/meet-up card with **Open in Maps** (or **Add to calendar** once you're in), then the action bar.
 - **Liquid Glass everywhere:** prominent green (the one primary action), mint (secondary), plain (navigation, quiet actions), sport-tinted (send button, chips).
@@ -731,6 +729,7 @@ Defaults below apply unless signed off otherwise (§12, R7-4…R7-10, R7-15). Ar
 - **Ethan:** design system (E2; 1.0 tokens in E27) · navigation + version gate (E3) · `LocationService` (E9) · calendar editor (E19) · all views and view models · for 0.5 also `AuthService` (B5), `GameStore` (B6) and live repositories (B7).
 - **Emilio:** reviews `MasUno/Data` · `NotificationService` (B16, 1.0).
 - **Shared:** protocols, domain models and mocks (E1: `MasUno/Models`, `MasUno/Data`, `MasUno/Data/Mocks`); `ActivityCatalog` (cached, with a built-in fallback of the 5 sports).
+- **Xcode:** project, scheme and product `masUNO`; source folders stay `MasUno/` and `MasUnoTests/`.
 
 ### 8.3 Schema
 

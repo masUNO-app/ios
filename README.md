@@ -13,11 +13,11 @@ Debug builds run on an in-memory mock backend; the Supabase backend is being bui
 brew install xcodegen                          # once
 git clone https://github.com/masUNO-app/ios.git && cd ios
 cp Config.xcconfig.template Config.xcconfig    # fill in keys from the password manager, or leave placeholders for mock data
-xcodegen generate                              # creates MasUno.xcodeproj from project.yml
-open MasUno.xcodeproj                          # run the MasUno scheme on a simulator
+xcodegen generate                              # creates masUNO.xcodeproj from project.yml
+open masUNO.xcodeproj                          # run the masUNO scheme on a simulator
 ```
 
-`MasUno.xcodeproj` is generated and git-ignored — change `project.yml` instead, and
+`masUNO.xcodeproj` is generated and git-ignored — change `project.yml` instead, and
 re-run `xcodegen generate` after pulling or adding files. `Config.xcconfig` is
 git-ignored too: Debug points at `masuno-dev`, Release at `masuno-prod`.
 
@@ -49,7 +49,7 @@ MasUno/
 ├── Views/         # SwiftUI screens: Map/, Detail/, GameForm/, Chat/, Me/, Settings/, Safety/, Launch/
 ├── DesignSystem/  # Theme (green tokens, SPEC §7.1) + components; DEBUG ComponentGallery
 └── Utilities/     # EventFormat, TextFilter
-MasUnoTests/       # Unit tests (Cmd-U, or the MasUno scheme's Test action)
+MasUnoTests/       # Unit tests (Cmd-U, or the masUNO scheme's Test action)
 supabase/          # Migrations, functions, seed (Emilio)
 docs/              # Spec, API contract, QA script
 ```

@@ -7,7 +7,9 @@ import SwiftUI
 @Observable
 final class OnboardingViewModel {
     enum Step: Hashable {
-        case locationPrimer, signUp, signIn, pending, verified, about, interests, guidelines
+        case signUp, signIn, pending, verified, guidelines
+        /// "Make it yours": name, class year and sports on one screen.
+        case about
         /// School SSO. Unreachable while sign-in is email and password (N36).
         case findSchool
 
@@ -15,7 +17,7 @@ final class OnboardingViewModel {
         var hidesBackButton: Bool {
             switch self {
             case .pending, .verified, .about, .guidelines: true
-            case .locationPrimer, .signUp, .signIn, .findSchool, .interests: false
+            case .signUp, .signIn, .findSchool: false
             }
         }
     }
@@ -83,8 +85,8 @@ final class OnboardingViewModel {
     // MARK: Presentation
 
     var welcomeMessage: LocalizedStringKey {
-        if let campus { return "Pickup games around \(campus.shortName), one or two players short — and looking for you." }
-        return "Pickup games around campus, one or two players short — and looking for you."
+        if let campus { return "Pickup games around \(campus.shortName) that are one or two players short. Grab the open spot and play today." }
+        return "Pickup games on campus that are one or two players short. Grab the open spot and play today."
     }
 
     /// Matches the name, short name or domain, ignoring case and accents.
@@ -98,9 +100,22 @@ final class OnboardingViewModel {
         }
     }
 
-    var verifiedMessage: LocalizedStringKey {
-        if let school = selectedSchool ?? campus { return "Your \(school.shortName) account is approved. Let's set up your profile." }
-        return "Your account is approved. Let's set up your profile."
+    /// "Welcome to masUNO, Emilio." when the school told us a name; otherwise just the welcome.
+    var verifiedWelcome: String {
+        let first = firstName.trimmingCharacters(in: .whitespaces)
+        return first.isEmpty ? String(localized: "Welcome to masUNO.") : String(localized: "Welcome to masUNO, \(first).")
+    }
+
+    /// "Tec de Monterrey · school account", under "Verified student".
+    var verifiedSchoolLine: String {
+        guard let school = selectedSchool ?? campus else { return String(localized: "School account") }
+        return String(localized: "\(school.name) · school account")
+    }
+
+    /// The name from the school's sign-in, if it gave one.
+    var verifiedName: String? {
+        let name = "\(firstName) \(lastName)".trimmingCharacters(in: .whitespaces)
+        return name.isEmpty ? nil : name
     }
 
     var signUpMessage: LocalizedStringKey {
@@ -127,18 +142,17 @@ final class OnboardingViewModel {
         return Array(year...(year + 6))
     }
 
-    /// "Emilio G. · Class of 2029"
-    var preview: String {
-        let first = firstName.trimmingCharacters(in: .whitespaces)
-        let last = lastName.trimmingCharacters(in: .whitespaces)
-        let name = first.isEmpty ? String(localized: "Your name") : ProfileInput.previewName(first: first, last: last)
-        return String(localized: "\(name) · Class of \(String(classYear))")
+    /// "Others see Emilio G. and your class year."
+    var previewLine: String {
+        let name = ProfileInput.previewName(first: firstName, last: lastName)
+        if name.isEmpty { return String(localized: "Others see your first name, last initial and class year.") }
+        return String(localized: "Others see \(name) and your class year.")
     }
 
     // MARK: Intents
 
-    /// The primer explains location; the iOS prompt itself waits for the map (C11).
-    func continueFromPrimer() {
+    /// **Get started** on Welcome: "Quick check before you join". Location is asked on the map (C11).
+    func getStarted() {
         isSignInSheetPresented = true
     }
 
@@ -247,27 +261,34 @@ final class OnboardingViewModel {
         } onError: { signInError = $0 }
     }
 
-    func submitAbout() {
+    /// Checks the name before anything goes to the server. Returns whether it's fine.
+    private func validateName() -> Bool {
         for name in [firstName, lastName] {
             if name.trimmingCharacters(in: .whitespaces).isEmpty {
                 aboutError = String(localized: "Add your first and last name.")
-                return
+                return false
             }
             if !TextFilter.isFriendly(name) {
                 aboutError = TextFilter.message
-                return
+                return false
             }
         }
         aboutError = nil
-        path.append(.interests)
+        return true
     }
 
     func toggle(_ sport: Activity) {
         if interests.contains(sport) { interests.remove(sport) } else { interests.insert(sport) }
     }
 
+    /// **Let's play** on Make it yours: name, class year and at least one sport.
     func submitProfile() async {
         profileError = nil
+        guard validateName() else { return }
+        guard !interests.isEmpty else {
+            profileError = String(localized: "Pick at least one sport.")
+            return
+        }
         let input = ProfileInput(
             firstName: firstName.trimmingCharacters(in: .whitespaces),
             lastName: lastName.trimmingCharacters(in: .whitespaces),

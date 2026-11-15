@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import MasUno
+@testable import masUNO
 
 /// The mock follows `send_message` and friends (`docs/API.md`, Group chat), so the screen behaves the
 /// same on `masuno-dev`.

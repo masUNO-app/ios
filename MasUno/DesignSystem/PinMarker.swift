@@ -1,41 +1,59 @@
 import SwiftUI
 
-/// One-piece map pin: a circle that tapers to a point, so it reads as a single shape
-/// (no seam under shadows or when dimmed).
+/// The 1.0 map pin: a teardrop, traced from the Figma marker (42 × 53).
 nonisolated struct PinShape: Shape {
     func path(in rect: CGRect) -> Path {
-        let radius = rect.width / 2
-        let center = CGPoint(x: rect.midX, y: rect.minY + radius)
-        let tip = CGPoint(x: rect.midX, y: rect.maxY)
-        // Where the straight sides meet the circle tangentially.
-        let distance = max(tip.y - center.y, radius + 0.01)
-        let alpha = acos(radius / distance)
+        let sx = rect.width / 42, sy = rect.height / 53
+        func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+            CGPoint(x: rect.minX + x * sx, y: rect.minY + y * sy)
+        }
 
         var path = Path()
-        path.move(to: tip)
-        path.addRelativeArc(
-            center: center, radius: radius,
-            startAngle: .radians(.pi / 2 + alpha),
-            delta: .radians(2 * .pi - 2 * alpha)
-        )
+        path.move(to: point(21, 53))
+        path.addCurve(to: point(0, 21), control1: point(17, 47), control2: point(0, 37))
+        path.addCurve(to: point(21, 0), control1: point(0, 9.4), control2: point(9.4, 0))
+        path.addCurve(to: point(42, 21), control1: point(32.6, 0), control2: point(42, 9.4))
+        path.addCurve(to: point(21, 53), control1: point(42, 37), control2: point(25, 47))
         path.closeSubpath()
         return path
     }
 }
 
-/// Blue pin with content (a sport emoji or symbol) centered in its round head.
+/// The place glyph on cards and details: the same teardrop as the map pins, in outline.
+/// (SF Symbols' map pins all stand on a stick or a base.)
+struct PlaceIcon: View {
+    var size: CGFloat = 18
+
+    var body: some View {
+        let line = max(size * 0.09, 1.3)
+        PinShape()
+            .stroke(style: StrokeStyle(lineWidth: line, lineJoin: .round))
+            .overlay(alignment: .top) {
+                Circle()
+                    .stroke(lineWidth: line)
+                    .frame(width: size * 0.26, height: size * 0.26)
+                    .padding(.top, size * 0.21)
+            }
+            .frame(width: size * 0.7, height: size * 0.88)
+            .frame(width: size, height: size)
+            .accessibilityHidden(true)
+    }
+}
+
+/// A teardrop pin in a sport's color with content (its emoji) centered in the round head.
 struct PinMarker<Content: View>: View {
-    /// Diameter of the round head; the point adds about a quarter of that below.
-    var size: CGFloat = 46
+    var color: Color
+    /// Width of the round head. The point makes it about a quarter taller.
+    var size: CGFloat = 42
     @ViewBuilder var content: Content
 
     var body: some View {
         PinShape()
-            .fill(Theme.pin)
-            .frame(width: size, height: size * 1.22)
+            .fill(color)
+            .frame(width: size, height: size * 53 / 42)
             .overlay(alignment: .top) {
                 content.frame(width: size, height: size)
             }
-            .shadow(color: Theme.shadow, radius: 3, y: 3)
+            .shadow(color: Theme.shadow, radius: 3, y: 2)
     }
 }

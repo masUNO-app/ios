@@ -1,36 +1,27 @@
 import SwiftUI
 
-/// Save / unsave a game (E17) — the one bookmark control used everywhere (popup, Saved
-/// list, game detail). Large glass circle; the icon fills and turns green when saved.
-/// In a toolbar, which adds its own glass, it's just the icon.
+/// Save / unsave a game (E17): a small glass circle on the popup's sport header. The icon fills
+/// and turns green when saved. (Game details has the same action in its ••• menu.)
 struct BookmarkButton: View {
     @Environment(GameStore.self) private var store
     var event: Game
-    var inToolbar = false
 
     var body: some View {
         let isSaved = store.isSaved(event.id)
-        let button = Button {
+
+        Button {
             withAnimation(.snappy) { store.toggleSaved(event.id) }
         } label: {
-            Label(
-                isSaved ? "Remove bookmark" : "Bookmark",
-                systemImage: isSaved ? "bookmark.fill" : "bookmark"
-            )
-            .foregroundStyle(isSaved ? Theme.accent : Theme.ink)
-            .contentTransition(.symbolEffect(.replace))
+            Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(isSaved ? Theme.accent : Theme.ink)
+                .contentTransition(.symbolEffect(.replace))
+                .frame(width: 36, height: 36)
+                .glassEffect(.regular.interactive(), in: .circle)
+                .contentShape(.circle)
         }
-        .labelStyle(.iconOnly)
+        .buttonStyle(.plain)
+        .accessibilityLabel(isSaved ? "Remove bookmark" : "Bookmark")
         .sensoryFeedback(.selection, trigger: isSaved)
-
-        if inToolbar {
-            button
-        } else {
-            button
-                .font(.title3.weight(.semibold))
-                .buttonStyle(.glass)
-                .buttonBorderShape(.circle)
-                .controlSize(.large)
-        }
     }
 }

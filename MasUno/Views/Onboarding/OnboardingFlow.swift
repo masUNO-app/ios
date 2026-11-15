@@ -1,11 +1,11 @@
 import SwiftUI
 
-/// Onboarding (E5, SPEC §7.5), built from the spec copy; 1.0 restyles it from Arianna's D2 frames.
-/// Welcome → Location primer → Sign in to join (sheet) → Create account (school email + password)
-/// → We're checking your account (the team approves by hand, N36) → You're in → about you →
-/// interests → community guidelines → map. Coming back: Sign in.
+/// Onboarding (E5, SPEC §7.5) in the 1.0 look. Welcome → "Quick check before you join" →
+/// Create account (school email + password) → We're checking your account (the team approves by
+/// hand, N36) → You're verified → Make it yours → Before you play → map. Coming back: Sign in.
 /// `AuthService` moves the session along; when it reaches signed in, the root swaps to the map.
-/// `FindSchoolStep` (school SSO) is kept but nothing navigates to it.
+/// The location primer is on the map now. `FindSchoolStep` (school SSO) is kept but nothing
+/// navigates to it.
 struct OnboardingFlow: View {
     @Environment(AppViewModel.self) private var appViewModel
     @State private var viewModel: OnboardingViewModel
@@ -22,14 +22,12 @@ struct OnboardingFlow: View {
                 .navigationDestination(for: OnboardingViewModel.Step.self) { step in
                     Group {
                         switch step {
-                        case .locationPrimer: LocationPrimerStep(viewModel: viewModel)
                         case .signUp: SignUpStep(viewModel: viewModel)
                         case .signIn: SignInStep(viewModel: viewModel)
                         case .pending: PendingStep(viewModel: viewModel)
                         case .findSchool: FindSchoolStep(viewModel: viewModel)
                         case .verified: VerifiedStep(viewModel: viewModel)
-                        case .about: AboutStep(viewModel: viewModel)
-                        case .interests: InterestsStep(viewModel: viewModel)
+                        case .about: ProfileStep(viewModel: viewModel)
                         case .guidelines: GuidelinesStep(viewModel: viewModel)
                         }
                     }
@@ -37,52 +35,67 @@ struct OnboardingFlow: View {
                     .navigationBarBackButtonHidden(step.hidesBackButton)
                 }
         }
-        .sheet(isPresented: $viewModel.isSignInSheetPresented) {
-            SignInSheet(viewModel: viewModel)
+        .dialog(isPresented: $viewModel.isSignInSheetPresented) {
+            DialogCard(
+                systemImage: "checkmark.shield",
+                title: Text("Quick check before you join"),
+                message: Text("Create an account with your school email so other players know you're a real student. We approve each one by hand."),
+                confirm: DialogAction("Create account") { viewModel.createAccount() },
+                cancel: DialogAction("I already have an account") { viewModel.haveAnAccount() }
+            )
         }
         #if DEBUG
         .onAppear(perform: openDebugStep)
         #endif
     }
 
+    /// Figma "Welcome": a court with room on it, and "We're looking for you."
     private var welcome: some View {
-        OnboardingPage(
-            systemImage: "sportscourt",
-            title: "Find your next game",
-            message: viewModel.welcomeMessage
-        ) {
-            EmptyView()
+        CourtPage(lineup: .welcome()) {
+            VStack(alignment: .leading, spacing: 10) {
+                Text(verbatim: "masUNO")
+                    .font(.system(size: 44, weight: .bold, design: .rounded))
+                    .foregroundStyle(Theme.ink)
+                    .accessibilityAddTraits(.isHeader)
+                Text("We're looking for you.")
+                    .font(.rounded(.title2))
+                    .foregroundStyle(Theme.ink)
+                Text(viewModel.welcomeMessage)
+                    .font(.rounded(.callout, .bold))
+                    .foregroundStyle(Theme.mutedLarge)
+                FlowLayout(spacing: 6) {
+                    ForEach(Activity.builtIn.sorted { $0.sortOrder < $1.sortOrder }) { SportChip(sport: $0) }
+                }
+                .padding(.top, 2)
+            }
         } footer: {
-            VStack(spacing: 12) {
-                PrimaryAction("Continue") { viewModel.path.append(.locationPrimer) }
+            VStack(spacing: 10) {
+                Button("Get started") { viewModel.getStarted() }
+                    .pill(.primary)
                 Link("Privacy & Terms", destination: appViewModel.config.privacyURL)
-                    .font(.footnote)
-                    .foregroundStyle(Theme.muted)
+                    .font(.rounded(.footnote))
+                    .foregroundStyle(Theme.mutedLarge)
             }
         }
         .toolbar(.hidden, for: .navigationBar)
     }
 
     #if DEBUG
-    /// `-screen onboarding-primer|sheet|signup|signin|pending|school|verified|about|interests|guidelines`
+    /// `-screen onboarding-sheet|signup|signin|pending|school|verified|about|guidelines`
     /// opens a step with sample input.
     private func openDebugStep() {
         guard let step = UserDefaults.standard.string(forKey: "screen"), step.hasPrefix("onboarding-") else { return }
         viewModel.firstName = "Emilio"
         viewModel.lastName = "Garza"
-        viewModel.interests = [Activity.builtIn[0], Activity.builtIn[2]]
+        viewModel.interests = [Activity.builtIn[0], Activity.builtIn[2], Activity.builtIn[1]]
         switch String(step.dropFirst("onboarding-".count)) {
-        case "primer": viewModel.path = [.locationPrimer]
-        case "sheet":
-            viewModel.path = [.locationPrimer]
-            viewModel.continueFromPrimer()
-        case "signup": viewModel.path = [.locationPrimer, .signUp]
-        case "signin", "review": viewModel.path = [.locationPrimer, .signIn]
+        case "sheet": viewModel.getStarted()
+        case "signup": viewModel.path = [.signUp]
+        case "signin", "review": viewModel.path = [.signIn]
         case "pending": viewModel.path = [.pending]
-        case "school": viewModel.path = [.locationPrimer, .findSchool]
+        case "school": viewModel.path = [.findSchool]
         case "verified": viewModel.path = [.verified]
-        case "about": viewModel.path = [.about]
-        case "interests": viewModel.path = [.about, .interests]
+        case "about", "interests": viewModel.path = [.about]
         case "guidelines": viewModel.path = [.guidelines]
         default: break
         }
@@ -92,81 +105,33 @@ struct OnboardingFlow: View {
 
 // MARK: - Steps
 
-private struct LocationPrimerStep: View {
-    var viewModel: OnboardingViewModel
-
-    var body: some View {
-        OnboardingPage(
-            systemImage: "location",
-            title: "See games near you",
-            message: "The map uses your location to show nearby games. It never leaves your phone."
-        ) {
-            EmptyView()
-        } footer: {
-            PrimaryAction("Continue") { viewModel.continueFromPrimer() }
-        }
-    }
-}
-
-/// Sign in to join.
-private struct SignInSheet: View {
-    var viewModel: OnboardingViewModel
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Image(systemName: "checkmark.shield")
-                .font(.title2.weight(.medium))
-                .foregroundStyle(Theme.accent)
-                .frame(width: 56, height: 56)
-                .background(Theme.accentSoft, in: .circle)
-            Text("Quick check before you join")
-                .font(.title2.bold())
-                .foregroundStyle(Theme.ink)
-            Text("Create an account with your school email so other players know you're a real student. We approve each one by hand.")
-                .foregroundStyle(Theme.muted)
-            Spacer(minLength: 8)
-            PrimaryAction("Create account") { viewModel.createAccount() }
-            Button("I already have an account") { viewModel.haveAnAccount() }
-                .buttonStyle(.glassProminent)
-                .tint(Theme.accentSoft)
-                .foregroundStyle(Theme.ink)
-                .controlSize(.large)
-                .buttonSizing(.flexible)
-                .fontWeight(.semibold)
-        }
-        .padding(Theme.gutter)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.background)
-        .presentationDetents([.height(390)])
-        .presentationDragIndicator(.visible)
-    }
-}
-
 /// Create account: school email and a password. The server decides which addresses may sign up.
 private struct SignUpStep: View {
     @Bindable var viewModel: OnboardingViewModel
+    @FocusState private var focus: Int?
 
     var body: some View {
         OnboardingPage(title: "Create your account", message: viewModel.signUpMessage) {
-            FieldBox("School email", error: viewModel.signUpError) {
+            FieldBox("School email", error: viewModel.signUpError, isFocused: focus == 0) {
                 TextField(viewModel.emailPlaceholder, text: $viewModel.email)
                     .keyboardType(.emailAddress)
                     .textContentType(.username)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
+                    .focused($focus, equals: 0)
             }
-            FieldBox("Password", error: viewModel.passwordError) {
+            FieldBox("Password", error: viewModel.passwordError, isFocused: focus == 1) {
                 SecureField("At least 8 characters", text: $viewModel.password)
                     .textContentType(.newPassword)
+                    .focused($focus, equals: 1)
                     .onSubmit { Task { await viewModel.submitSignUp() } }
             }
         } footer: {
-            VStack(spacing: 12) {
-                PrimaryAction("Create account", isWorking: viewModel.isWorking) { Task { await viewModel.submitSignUp() } }
+            VStack(spacing: 10) {
+                WorkingButton("Create account", isWorking: viewModel.isWorking) { Task { await viewModel.submitSignUp() } }
                     .disabled(viewModel.email.isEmpty || viewModel.password.isEmpty)
-                Button("I already have an account") { viewModel.path = [.locationPrimer, .signIn] }
-                    .font(.footnote)
-                    .tint(Theme.muted)
+                Button("I already have an account") { viewModel.path = [.signIn] }
+                    .pill(.quiet)
             }
         }
     }
@@ -176,34 +141,36 @@ private struct SignUpStep: View {
 private struct SignInStep: View {
     @Environment(AppViewModel.self) private var appViewModel
     @Bindable var viewModel: OnboardingViewModel
+    @FocusState private var focus: Int?
 
     var body: some View {
         OnboardingPage(title: "Sign in", message: "Welcome back. Use the email and password you signed up with.") {
-            FieldBox("Email") {
+            FieldBox("Email", isFocused: focus == 0) {
                 TextField(viewModel.emailPlaceholder, text: $viewModel.email)
                     .keyboardType(.emailAddress)
                     .textContentType(.username)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
+                    .focused($focus, equals: 0)
             }
-            FieldBox("Password", error: viewModel.signInError) {
+            FieldBox("Password", error: viewModel.signInError, isFocused: focus == 1) {
                 SecureField("Password", text: $viewModel.password)
                     .textContentType(.password)
+                    .focused($focus, equals: 1)
                     .onSubmit { Task { await viewModel.submitSignIn() } }
             }
             // No reset email yet: the team resets a password by hand.
             if let mail = appViewModel.config.supportMailURL {
                 Link("Forgot your password? Contact us", destination: mail)
-                    .font(.footnote)
-                    .tint(Theme.muted)
+                    .font(.rounded(.footnote))
+                    .foregroundStyle(Theme.mutedLarge)
             }
         } footer: {
-            VStack(spacing: 12) {
-                PrimaryAction("Sign in", isWorking: viewModel.isWorking) { Task { await viewModel.submitSignIn() } }
+            VStack(spacing: 10) {
+                WorkingButton("Sign in", isWorking: viewModel.isWorking) { Task { await viewModel.submitSignIn() } }
                     .disabled(viewModel.email.isEmpty || viewModel.password.isEmpty)
-                Button("Create an account") { viewModel.path = [.locationPrimer, .signUp] }
-                    .font(.footnote)
-                    .tint(Theme.muted)
+                Button("Create an account") { viewModel.path = [.signUp] }
+                    .pill(.quiet)
             }
         }
     }
@@ -219,19 +186,18 @@ private struct PendingStep: View {
         OnboardingPage(
             systemImage: "hourglass",
             title: "We're checking your account",
-            message: "We approve each account by hand, usually within a day. You don't need to do anything — just come back later."
+            message: "We approve each account by hand, usually within a day. You don't need to do anything. Just come back later."
         ) {
             if let error = viewModel.pendingError {
-                Text(error).font(.caption).foregroundStyle(Theme.error)
+                Text(verbatim: error).font(.rounded(.caption)).foregroundStyle(Theme.error)
             } else if viewModel.isStillPending {
-                Text("Not yet. We'll get to it soon.").font(.footnote).foregroundStyle(Theme.muted)
+                Text("Not yet. We'll get to it soon.").font(.rounded(.footnote)).foregroundStyle(Theme.muted)
             }
         } footer: {
-            VStack(spacing: 12) {
-                PrimaryAction("Check again", isWorking: viewModel.isWorking) { Task { await viewModel.checkApproval() } }
+            VStack(spacing: 10) {
+                WorkingButton("Check again", isWorking: viewModel.isWorking) { Task { await viewModel.checkApproval() } }
                 Button("Sign out") { Task { await viewModel.signOutWhilePending() } }
-                    .font(.footnote)
-                    .tint(Theme.muted)
+                    .pill(.quiet)
             }
         }
         .onChange(of: scenePhase) { _, phase in
@@ -240,7 +206,7 @@ private struct PendingStep: View {
     }
 }
 
-/// School SSO. Not shown while sign-in is email and password (N36).
+/// Figma "Find your school": school SSO. Not shown while sign-in is email and password (N36).
 private struct FindSchoolStep: View {
     @Bindable var viewModel: OnboardingViewModel
 
@@ -261,21 +227,20 @@ private struct FindSchoolStep: View {
                 }
                 schoolList
                 Text("Don't see your school? masUNO is just for these campuses right now.")
-                    .font(.footnote)
+                    .font(.rounded(.footnote))
                     .foregroundStyle(Theme.muted)
             }
             if let error = viewModel.signInError {
-                Text(error).font(.caption).foregroundStyle(Theme.error)
+                Text(verbatim: error).font(.rounded(.caption)).foregroundStyle(Theme.error)
             }
         } footer: {
-            VStack(spacing: 12) {
-                PrimaryAction("Continue with school account", isWorking: viewModel.isWorking) {
+            VStack(spacing: 10) {
+                WorkingButton("Continue with school account", isWorking: viewModel.isWorking) {
                     Task { await viewModel.continueWithSchool() }
                 }
                 .disabled(viewModel.selectedSchool == nil)
                 Button("Use email and password") { viewModel.path.append(.signIn) }
-                    .font(.footnote)
-                    .tint(Theme.muted)
+                    .pill(.quiet)
             }
         }
         .task { await viewModel.loadSchools() }
@@ -302,25 +267,26 @@ private struct SchoolRow: View {
     var body: some View {
         Button(action: onSelect) {
             HStack(spacing: 12) {
-                Text(school.shortName.uppercased())
-                    .font(.caption.weight(.semibold))
+                Text(verbatim: school.shortName.uppercased())
+                    .font(.rounded(.caption2, .heavy))
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
                     .foregroundStyle(Theme.ink)
-                    .frame(width: 44, height: 44)
-                    .background(Theme.accentSoft, in: .rect(cornerRadius: 12))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(school.name).font(.body).foregroundStyle(Theme.ink)
-                    Text(school.emailDomain).font(.footnote).foregroundStyle(Theme.muted)
+                    .frame(width: 40, height: 40)
+                    .background(Theme.accentSoft, in: .rect(cornerRadius: Theme.Radius.tile))
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(verbatim: school.name).font(.rounded(.body)).foregroundStyle(Theme.ink)
+                    Text(verbatim: school.emailDomain).font(.rounded(.footnote)).foregroundStyle(Theme.muted)
                 }
                 Spacer(minLength: 4)
                 Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.medium))
-                    .foregroundStyle(Theme.muted)
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(Theme.muted.opacity(0.6))
             }
-            .padding(12)
+            .padding(.horizontal, 14)
+            .frame(minHeight: 66)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(isSelected ? Theme.accentSoft.opacity(0.5) : .clear)
+            .background(isSelected ? Theme.accentSoft.opacity(0.6) : .clear)
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
@@ -328,131 +294,154 @@ private struct SchoolRow: View {
     }
 }
 
+/// Figma "You're verified!": you, on the court, and what happens next.
 private struct VerifiedStep: View {
     var viewModel: OnboardingViewModel
 
     var body: some View {
-        OnboardingPage(
-            systemImage: "checkmark.shield",
-            title: "You're in",
-            message: viewModel.verifiedMessage
-        ) {
-            EmptyView()
-        } footer: {
-            PrimaryAction("Continue") { viewModel.path.append(.about) }
-        }
-    }
-}
+        CourtPage(lineup: .welcome(includesYou: true)) {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("You're verified!")
+                    .font(.rounded(.largeTitle, .bold))
+                    .foregroundStyle(Theme.ink)
+                    .accessibilityAddTraits(.isHeader)
+                Text(verbatim: viewModel.verifiedWelcome)
+                    .font(.rounded(.title3))
+                    .foregroundStyle(Theme.mutedLarge)
+                Text("Next, tell us what you play so the right games show up first.")
+                    .font(.rounded(.subheadline, .bold))
+                    .foregroundStyle(Theme.mutedLarge)
 
-private struct AboutStep: View {
-    @Bindable var viewModel: OnboardingViewModel
-
-    var body: some View {
-        OnboardingPage(title: "About you", message: "Your first name and last initial show on games you join.") {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 10) {
-                    FieldBox("First name") {
-                        TextField("Emilio", text: $viewModel.firstName).textContentType(.givenName)
+                VStack(spacing: 0) {
+                    row(title: Text("Verified student"), subtitle: viewModel.verifiedSchoolLine) {
+                        Image(systemName: "checkmark")
+                            .font(.body.weight(.bold))
+                            .foregroundStyle(Theme.accent)
+                            .frame(width: 36, height: 36)
+                            .background(Theme.accentSoft, in: .rect(cornerRadius: Theme.Radius.tile))
                     }
-                    FieldBox("Last name") {
-                        TextField("Garza", text: $viewModel.lastName).textContentType(.familyName)
-                    }
-                }
-                Menu {
-                    Picker("Class year", selection: $viewModel.classYear) {
-                        ForEach(viewModel.classYears, id: \.self) { Text(String($0)).tag($0) }
-                    }
-                } label: {
-                    FieldBox("Class year", showsChevron: true) { Text(String(viewModel.classYear)) }
-                }
-                if let error = viewModel.aboutError {
-                    Text(error).font(.caption).foregroundStyle(Theme.error)
-                }
-                HStack(spacing: 12) {
-                    Avatar(name: "\(viewModel.firstName) \(viewModel.lastName)", size: 40)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(viewModel.preview).font(.subheadline.weight(.semibold)).foregroundStyle(Theme.ink)
-                        Text("This is how others see you.").font(.footnote).foregroundStyle(Theme.muted)
+                    if let name = viewModel.verifiedName {
+                        row(title: Text(verbatim: name), subtitle: String(localized: "Others only see your first name and last initial")) {
+                            Text(verbatim: PersonToken.initials(of: name))
+                                .font(.rounded(size: 13))
+                                .foregroundStyle(Theme.ink)
+                                .frame(width: 36, height: 36)
+                                .background(Theme.you, in: .rect(cornerRadius: Theme.Radius.tile))
+                        }
                     }
                 }
-                .padding(14)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 6)
                 .cardSurface()
+                .padding(.top, 4)
             }
         } footer: {
-            PrimaryAction("Continue") { viewModel.submitAbout() }
+            VStack(spacing: 8) {
+                Button("Set up my profile") { viewModel.path.append(.about) }
+                    .pill(.primary)
+                Text("Takes about 20 seconds.")
+                    .font(.rounded(.footnote))
+                    .foregroundStyle(Theme.mutedLarge)
+            }
         }
+        .toolbar(.hidden, for: .navigationBar)
+    }
+
+    private func row(title: Text, subtitle: String, @ViewBuilder tile: () -> some View) -> some View {
+        HStack(spacing: 14) {
+            tile()
+            VStack(alignment: .leading, spacing: 1) {
+                title.font(.rounded(.body)).foregroundStyle(Theme.ink)
+                Text(verbatim: subtitle).font(.rounded(.footnote)).foregroundStyle(Theme.muted)
+            }
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 14)
+        .frame(minHeight: 58)
+        .accessibilityElement(children: .combine)
     }
 }
 
-private struct InterestsStep: View {
+/// Figma "Make it yours": your token, name, class year and what you play, on one screen.
+private struct ProfileStep: View {
     @Bindable var viewModel: OnboardingViewModel
 
     var body: some View {
-        OnboardingPage(title: "What do you play?", message: "Pick at least one. Only you see your interests.") {
+        OnboardingPage(title: "Make it yours", message: nil) {
+            MeToken(name: "\(viewModel.firstName) \(viewModel.lastName)", size: 80, ring: 4)
+                .shadow(color: Theme.ink.opacity(0.08), radius: 6, y: 2)
+
+            Text(verbatim: viewModel.previewLine)
+                .font(.rounded(.subheadline))
+                .foregroundStyle(Theme.muted)
+
+            ProfileFields(
+                firstName: $viewModel.firstName, lastName: $viewModel.lastName, classYear: $viewModel.classYear,
+                classYears: viewModel.classYears
+            )
+            if let error = viewModel.aboutError {
+                Text(verbatim: error).font(.rounded(.caption)).foregroundStyle(Theme.error)
+            }
+
+            Text("What do you play?")
+                .font(.rounded(.callout, .bold))
+                .foregroundStyle(Theme.ink)
+                .padding(.top, 4)
             FlowLayout(spacing: 8) {
                 ForEach(Activity.builtIn.filter(\.interestSelectable)) { sport in
-                    InterestToggle(sport: sport, isOn: viewModel.interests.contains(sport)) { viewModel.toggle(sport) }
+                    SportToggle(sport: sport, isOn: viewModel.interests.contains(sport)) { viewModel.toggle(sport) }
                 }
             }
             if let error = viewModel.profileError {
-                Text(error).font(.caption).foregroundStyle(Theme.error)
+                Text(verbatim: error).font(.rounded(.caption)).foregroundStyle(Theme.error)
+            } else {
+                Text("Pick as many as you like. We'll show these first.")
+                    .font(.rounded(.footnote))
+                    .foregroundStyle(Theme.muted)
             }
         } footer: {
-            PrimaryAction("Continue", isWorking: viewModel.isWorking) { Task { await viewModel.submitProfile() } }
-                .disabled(viewModel.interests.isEmpty)
+            WorkingButton("Let's play", isWorking: viewModel.isWorking) { Task { await viewModel.submitProfile() } }
         }
     }
 }
 
+/// The community guidelines, agreed to once before the map (SPEC §7.5).
 private struct GuidelinesStep: View {
     @Bindable var viewModel: OnboardingViewModel
 
-    private let rules: [LocalizedStringKey] = [
-        "Be respectful. No harassment, hate or slurs.",
-        "Keep it about the game: plans, timing, where to meet.",
-        "Don't share anyone's personal info or photos without asking.",
-        "Meet in public places and look out for each other.",
-    ]
-
     var body: some View {
-        OnboardingPage(title: "Community guidelines", message: "masUNO works because people show up and play fair.") {
-            VStack(alignment: .leading, spacing: 14) {
-                ForEach(rules.indices, id: \.self) { index in
-                    Label {
-                        Text(rules[index]).foregroundStyle(Theme.ink)
-                    } icon: {
-                        Image(systemName: "checkmark").foregroundStyle(Theme.accent).fontWeight(.semibold)
-                    }
-                }
-                Text("You can report or block anyone from the Who's going list.")
-                    .font(.footnote)
-                    .foregroundStyle(Theme.muted)
-                    .padding(.top, 4)
-            }
-            .padding(16)
-            .cardSurface()
+        OnboardingPage(
+            systemImage: "checkmark.shield",
+            title: "Before you play",
+            message: "masUNO works because people show up and play fair."
+        ) {
+            CommunityRules()
+                .padding(18)
+                .cardSurface()
+            SafetyNote(text: "You can report or block anyone from a game's Who's going list.")
             if let error = viewModel.guidelinesError {
-                Text(error).font(.caption).foregroundStyle(Theme.error)
+                Text(verbatim: error).font(.rounded(.caption)).foregroundStyle(Theme.error)
             }
         } footer: {
-            PrimaryAction("I agree", isWorking: viewModel.isWorking) { Task { await viewModel.agreeToGuidelines() } }
+            WorkingButton("I agree", isWorking: viewModel.isWorking) { Task { await viewModel.agreeToGuidelines() } }
         }
     }
 }
 
 // MARK: - Layout
 
-/// Title + message at the top, content, and a pinned bottom action.
+/// A big rounded title, an optional icon above it and message under it, content, and a pinned
+/// bottom action.
 private struct OnboardingPage<Content: View, Footer: View>: View {
     var systemImage: String?
     var title: LocalizedStringKey
-    var message: LocalizedStringKey
+    var message: LocalizedStringKey?
     @ViewBuilder var content: Content
     @ViewBuilder var footer: Footer
 
     init(
-        systemImage: String? = nil, title: LocalizedStringKey, message: LocalizedStringKey,
+        systemImage: String? = nil, title: LocalizedStringKey, message: LocalizedStringKey?,
         @ViewBuilder content: () -> Content, @ViewBuilder footer: () -> Footer
     ) {
         self.systemImage = systemImage
@@ -464,43 +453,71 @@ private struct OnboardingPage<Content: View, Footer: View>: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: systemImage == nil ? .leading : .center, spacing: 20) {
+            VStack(alignment: .leading, spacing: 16) {
                 if let systemImage {
                     Image(systemName: systemImage)
-                        .font(.system(size: 44, weight: .medium))
+                        .font(.title.weight(.medium))
                         .foregroundStyle(Theme.accent)
-                        .frame(width: 96, height: 96)
+                        .frame(width: 64, height: 64)
                         .background(Theme.accentSoft, in: .circle)
-                        .padding(.top, 120)
+                        .padding(.top, 24)
+                        .accessibilityHidden(true)
                 }
-                VStack(alignment: systemImage == nil ? .leading : .center, spacing: 8) {
+                VStack(alignment: .leading, spacing: 8) {
                     Text(title)
-                        .font(.largeTitle.bold())
+                        .font(.rounded(.largeTitle, .bold))
                         .foregroundStyle(Theme.ink)
-                    Text(message)
-                        .font(.body)
-                        .foregroundStyle(Theme.muted)
+                        .accessibilityAddTraits(.isHeader)
+                    if let message {
+                        Text(message)
+                            .font(.rounded(.body))
+                            .foregroundStyle(Theme.muted)
+                    }
                 }
-                .multilineTextAlignment(systemImage == nil ? .leading : .center)
                 content
             }
-            .frame(maxWidth: .infinity, alignment: systemImage == nil ? .leading : .center)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, Theme.gutter)
-            .padding(.top, 8)
+            .padding(.top, 4)
+            .padding(.bottom, 16)
+            .readableColumn()
         }
         .scrollDismissesKeyboard(.interactively)
         .background(Theme.background)
-        .safeAreaInset(edge: .bottom) {
+        .safeAreaInset(edge: .bottom, spacing: 0) {
             footer
                 .padding(.horizontal, Theme.gutter)
-                .padding(.top, 12)
+                .padding(.top, 10)
                 .padding(.bottom, 8)
+                .readableColumn()
                 .background(Theme.background)
         }
     }
 }
 
-private struct PrimaryAction: View {
+/// Welcome and You're verified: the top of a game's details, with the court as a picture (no
+/// taps, hidden from VoiceOver), the content as its sheet, and a pinned bottom action.
+private struct CourtPage<Content: View, Footer: View>: View {
+    var lineup: Lineup
+    @ViewBuilder var content: Content
+    @ViewBuilder var footer: Footer
+
+    var body: some View {
+        CourtScaffold(activity: Activity.builtIn[0], lineup: lineup, capacity: 6) { content }
+            .scrollBounceBehavior(.basedOnSize)
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                footer
+                    .padding(.horizontal, Theme.gutter)
+                    .padding(.top, 10)
+                    .padding(.bottom, 8)
+                    .readableColumn()
+                    .background(Theme.background)
+            }
+    }
+}
+
+/// The green pill, with a spinner while a request is out.
+struct WorkingButton: View {
     var title: LocalizedStringKey
     var isWorking = false
     var action: () -> Void
@@ -515,12 +532,8 @@ private struct PrimaryAction: View {
         Button(action: action) {
             if isWorking { ProgressView().tint(Theme.onAccent) } else { Text(title) }
         }
-        .buttonStyle(.glassProminent)
-        // The steps are tinted ink for the back button; actions stay green.
-        .tint(Theme.accent)
-        .controlSize(.large)
-        .buttonSizing(.flexible)
-        .fontWeight(.semibold)
+        // The steps are tinted ink for the back button; this stays green.
+        .pill(.primary)
         .disabled(isWorking)
     }
 }

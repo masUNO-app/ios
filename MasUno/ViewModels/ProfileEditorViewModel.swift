@@ -28,10 +28,10 @@ final class ProfileEditorViewModel {
         return Array(year...(year + 6))
     }
 
-    /// "Emilio G. · Class of 2029" — how others see you.
-    var preview: String {
+    /// "Emilio G.": how others see you.
+    var previewName: String {
         let name = ProfileInput.previewName(first: firstName, last: lastName)
-        return String(localized: "\(name) · Class of \(String(classYear))")
+        return name.isEmpty ? String(localized: "your first name and last initial") : name
     }
 
     // MARK: Validation

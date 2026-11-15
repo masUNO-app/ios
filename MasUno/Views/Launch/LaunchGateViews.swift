@@ -8,26 +8,27 @@ private struct GateScreen<Actions: View>: View {
     @ViewBuilder var actions: Actions
 
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(alignment: .leading, spacing: 14) {
             Spacer()
             Image(systemName: systemImage)
-                .font(.system(size: 44, weight: .medium))
+                .font(.title.weight(.medium))
                 .foregroundStyle(Theme.accent)
-                .frame(width: 88, height: 88)
+                .frame(width: 64, height: 64)
                 .background(Theme.accentSoft, in: .circle)
+                .accessibilityHidden(true)
             Text(title)
-                .font(.largeTitle.bold())
+                .font(.rounded(.largeTitle, .bold))
                 .foregroundStyle(Theme.ink)
-                .multilineTextAlignment(.center)
             Text(message)
-                .font(.body)
+                .font(.rounded(.body))
                 .foregroundStyle(Theme.muted)
-                .multilineTextAlignment(.center)
+            Spacer()
             Spacer()
             actions
         }
         .padding(.horizontal, Theme.gutter)
         .padding(.bottom, 16)
+        .frame(maxWidth: Theme.columnWidth, alignment: .leading)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.background)
     }
@@ -44,10 +45,7 @@ struct UpdateRequiredView: View {
             message: "This version is no longer supported. Update to keep finding games."
         ) {
             Button("Update") { openURL(AppConfig.appStoreURL) }
-                .buttonStyle(.glassProminent)
-                .controlSize(.large)
-                .buttonSizing(.flexible)
-                .fontWeight(.semibold)
+                .pill(.primary)
         }
     }
 }
@@ -65,12 +63,7 @@ struct SuspendedView: View {
         ) {
             if let mail = appViewModel.config.supportMailURL {
                 Button("Contact support") { openURL(mail) }
-                    .buttonStyle(.glassProminent)
-                    .tint(Theme.accentSoft)
-                    .foregroundStyle(Theme.ink)
-                    .controlSize(.large)
-                    .buttonSizing(.flexible)
-                    .fontWeight(.semibold)
+                    .pill(.secondary)
             }
         }
     }

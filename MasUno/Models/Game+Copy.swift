@@ -1,6 +1,6 @@
 import Foundation
 
-/// Status and host lines (SPEC §7.2).
+/// Status and host lines in the 1.0 voice (SPEC §7.7.5): "Room for N more", not "N spots left".
 extension Game {
     /// "Basketball · Hosted by Alex R." / "Basketball · Hosted by you".
     var hostLine: String {
@@ -8,20 +8,50 @@ extension Game {
         return String(localized: "\(activity.name) · Hosted by \(host)")
     }
 
-    /// "4 spots left", "1 spot left", "Full".
-    var spotsLine: String {
+    /// "Room for 4 more", "Room for one more", "Full".
+    var roomLine: String {
         if isFull { return String(localized: "Full") }
-        return spotsLeft == 1 ? String(localized: "1 spot left") : String(localized: "\(spotsLeft) spots left")
+        return spotsLeft == 1 ? String(localized: "Room for one more") : String(localized: "Room for \(spotsLeft) more")
     }
 
-    /// "Open · 4 spots left" / "Full".
-    var openLine: String {
-        isFull ? spotsLine : String(localized: "Open · \(spotsLine)")
+    /// The same, for the middle of a line: "room for 4 more", "room for one more", "game is full".
+    var roomPhrase: String {
+        if isFull { return String(localized: "game is full") }
+        return spotsLeft == 1 ? String(localized: "room for one more") : String(localized: "room for \(spotsLeft) more")
     }
 
-    /// "3 going · 3 spots left", "3 going · 1 spot left", "Full".
-    var statusLine: String {
-        isFull ? spotsLine : String(localized: "\(goingCount) going · \(spotsLine)")
+    /// The popup and Saved: "Room for 4 more", or "A spot just opened · room for 1" after a repost.
+    func discoverLine(now: Date = .now) -> String {
+        guard isBumped(now: now), !isFull else { return roomLine }
+        return String(localized: "A spot just opened · room for \(spotsLeft)")
+    }
+
+    /// Me › Going: "You're in · room for 3 more".
+    var goingLine: String {
+        String(localized: "You're in · \(roomPhrase)")
+    }
+
+    /// Me › Hosting: "3 joined · room for 6 more". The host isn't counted as having joined.
+    var hostingLine: String {
+        String(localized: "\(joinedCount) joined · \(roomPhrase)")
+    }
+
+    /// Everyone going except the host.
+    var joinedCount: Int { max(goingCount - 1, 0) }
+
+    /// Me › Going, cancelled: "Cancelled by Alex".
+    var cancelledLine: String {
+        isHostedByMe ? String(localized: "You cancelled this game") : String(localized: "Cancelled by \(host.firstName)")
+    }
+
+    /// Me › Earlier: "You played · 10 showed up".
+    var playedLine: String {
+        String(localized: "You played · \(goingCount) showed up")
+    }
+
+    /// Game details, full: "Game's full · 6 of 6".
+    var fullLine: String {
+        String(localized: "Game's full · \(goingCount) of \(capacity)")
     }
 }
 
@@ -31,6 +61,11 @@ extension Place {
         String(address.split(separator: ",").first ?? Substring(address))
     }
 
+    /// "Tecnológico, Monterrey, N.L.", what follows the street. Empty when the address is one part.
+    var locality: String {
+        address.split(separator: ",").dropFirst().map { $0.trimmingCharacters(in: .whitespaces) }.joined(separator: ", ")
+    }
+
     /// "Estadio Borregos · Av. Luis Elizondo", or just the street when the place is an address.
     var titleLine: String {
         name == street ? street : "\(name) · \(street)"
@@ -38,7 +73,7 @@ extension Place {
 }
 
 extension ProfileInput {
-    /// "Emilio G.", for the "This is how others see you" preview.
+    /// "Emilio G.", for the "Others see…" line.
     static func previewName(first: String, last: String) -> String {
         let first = first.trimmingCharacters(in: .whitespaces)
         guard let initial = last.trimmingCharacters(in: .whitespaces).first else { return first }

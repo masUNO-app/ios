@@ -5,13 +5,13 @@ import SwiftUI
 /// `Map`, so there's no "Legal" label or gesture handling at thumbnail size.
 struct MapThumbnail: View {
     var coordinate: CLLocationCoordinate2D
-    var size: CGFloat = 56
+    var size: CGFloat = 48
 
     @State private var image: UIImage?
     @Environment(\.displayScale) private var displayScale
 
     var body: some View {
-        RoundedRectangle(cornerRadius: 12)
+        RoundedRectangle(cornerRadius: Theme.Radius.tile)
             .fill(Theme.accentSoft)
             .overlay {
                 if let image {
@@ -20,13 +20,13 @@ struct MapThumbnail: View {
             }
             .overlay {
                 Circle()
-                    .fill(Theme.pin)
+                    .fill(Theme.you)
                     .frame(width: 12, height: 12)
-                    .overlay(Circle().strokeBorder(Theme.card, lineWidth: 2))
+                    .overlay(Circle().strokeBorder(.white, lineWidth: 2))
             }
             .frame(width: size, height: size)
-            .clipShape(.rect(cornerRadius: 12))
-            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.hairline))
+            .clipShape(.rect(cornerRadius: Theme.Radius.tile))
+            .overlay(RoundedRectangle(cornerRadius: Theme.Radius.tile).strokeBorder(Theme.hairline))
             .accessibilityHidden(true)
             .task(id: "\(coordinate.latitude),\(coordinate.longitude)") { await render() }
     }

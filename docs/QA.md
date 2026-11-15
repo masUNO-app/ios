@@ -8,8 +8,8 @@ Before you start: delete the app from both phones, turn location on, and note th
 
 ## 1. Sign-in and onboarding
 
-- [ ] Fresh install → Welcome → Location primer → Sign in to join → Create account → We're checking your account. Privacy & Terms opens the real page.
-- [ ] The Location primer doesn't trigger the iOS prompt; that waits for the map.
+- [ ] Fresh install → Welcome → **Get started** → Create account → We're checking your account. Privacy & Terms opens the real page. There's no Find your school.
+- [ ] The location primer is the first map open, not a Welcome step; it doesn't trigger the iOS prompt until you allow it on the map.
 - [ ] Create account with a school address posts "New sign-up waiting for approval" to the team Discord within a minute, with the approve and reject lines.
 - [ ] Create account with any other address (Gmail, another school, `@mail.tec.mx`) shows "masUNO is just for Tec students right now." (with the launch campus's name). A password under 8 characters and an address that already has an account each show their own message.
 - [ ] While waiting, **Check again** says "Not yet." Quit and reopen: still on We're checking your account. **Sign out** returns to Welcome, and signing back in returns to the waiting step.
@@ -31,6 +31,10 @@ Before you start: delete the app from both phones, turn location on, and note th
 - [ ] Pins show the sport emoji. A game starting within the hour says "Soon".
 - [ ] Search by title, sport, place and host first name. Filter by each of the 5 sports.
 - [ ] Tapping a pin opens the popup, panning off screen closes it, and the bookmark fills green.
+- [ ] **Count me in** opens details (you land on the court).
+- [ ] Joined (not host): popup **Leave** instead of Details. Host keeps Details + Edit game.
+- [ ] Two overlapping pins open a group sheet.
+- [ ] Phone B leave: Phone A court and popup update without a manual refresh. A bookmarked full game that opens shows "A spot just opened in …".
 - [ ] Tapping "N games nearby" refreshes the map.
 
 ## 3. Hosting (Phone A)
@@ -109,3 +113,25 @@ With `chat_enabled` on (0.6, E26). Phone A hosts, Phone B joined:
 - [ ] The app icon shows on the home screen.
 - [ ] No "coming soon" text, sample data or debug menus anywhere. Long-pressing the avatar on the map does nothing.
 - [ ] The rest of the App Review checklist in SPEC §10.4 is green.
+
+## 11. iPhone Duo
+
+On the **iPhone Duo simulator** (newest iOS), with mocks: `-liveAuth NO -mockLocation YES -screen <name>`. Change pose from **Xcode ▸ Device Hub**, and use its rotate button for portrait on the open display.
+Xcode's screenshots only show the cover display; for the open one, use `xcrun simctl io <udid> screenshot --display=LCD-1 out.png`. The fold doesn't show in screenshots: open a system sheet (`filter`) and it moves to one side of it. Don't use `simctl io … screenConfig`: it crashes the simulator's home screen.
+
+The four poses: **folded** (466×678), **open landscape** (951×669), **open portrait** (669×951) and **partially open** (fold down the middle).
+
+- [ ] In each pose, open each screen: `popup`, `search`, `filter`, `saved`, `groups`, `location`, `detail-open`, `detail-in`, `detail-hosting`, `who`, `invite`, `report`, `chat`, `chat-long`, `meetup`, `me`, `profile`, `settings`, `blocked`, `add`, `add-filled`, `picker`, `onboarding-welcome`, `update`, `signed-out`. Nothing runs under the side bar or the status column, and no text or button is cut off.
+- [ ] Partially open: the app's own dialogs (`location`), the map popup and the chat column stay off the fold.
+- [ ] Detail, Welcome and signed-out: the court leaves room for the title, the main button and what's under it.
+- [ ] `saved` and `groups`, folded and open landscape: the first game's buttons show without dragging the sheet up.
+- [ ] **Fold with a sheet open:** open `filter`, then go folded → open → partially open → folded. The sheet stays usable, and once it's closed the map, its pins and a tapped popup are in the right place.
+- [ ] **Keyboard up:** turn on I/O ▸ Keyboard ▸ Toggle Software Keyboard, then type in `add`, `meetup`, `chat`, `report` and `search`, folded. The field and its button stay above the keyboard. In `picker`, the results scroll if they don't all fit.
+
+**The side bar.** To see the `BarLayout` log, run once from Xcode to install, then launch from Terminal: `xcrun simctl launch --console-pty <udid> com.masuno.app -liveAuth NO -mockLocation YES | grep BarLayout`. Relaunching from Xcode ends that log.
+
+- [ ] Launch in each pose: the side bar folded and in open landscape; horizontal bars in open portrait.
+- [ ] **Five quick fold/unfold cycles in a row** with the map up: the side bar every time, with the map's controls in it (no Saved beside the search field, no floating recenter button).
+- [ ] The same five cycles with Detail pushed, and again with the Filter sheet open.
+- [ ] Rotate the open display between portrait and landscape: the bars switch each time, and portrait never logs a `BarLayout nudge`.
+- [ ] A regular iPhone looks the same as before, with no `BarLayout nudge` in the log.

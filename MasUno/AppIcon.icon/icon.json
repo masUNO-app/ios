@@ -1,0 +1,49 @@
+{
+  "fill" : {
+    "automatic-gradient" : "extended-srgb:0.00000,0.53333,1.00000,1.00000"
+  },
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "image-name-specializations" : [
+            {
+              "value" : "+1 logomark white.png"
+            },
+            {
+              "appearance" : "dark",
+              "value" : "+1 gradient logomark.png"
+            }
+          ],
+          "name" : "+1 gradient logomark"
+        },
+        {
+          "fill-specializations" : [
+            {
+              "appearance" : "dark",
+              "value" : {
+                "solid" : "srgb:0.05882,0.10196,0.09020,1.00000"
+              }
+            }
+          ],
+          "image-name" : "gradient background.png",
+          "name" : "gradient background"
+        }
+      ],
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.3
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}

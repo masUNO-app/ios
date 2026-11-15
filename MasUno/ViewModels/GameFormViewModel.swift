@@ -31,19 +31,22 @@ final class GameFormViewModel {
     static let durations = GameDraft.durations
     static let playerRange = GameDraft.capacityRange
 
-    init(editing: Game? = nil) {
+    /// - Parameter template: "Play again": a new game that starts from an earlier one's sport,
+    ///   name, place and details. The day and time start fresh.
+    init(editing: Game? = nil, template: Game? = nil) {
         self.editing = editing
+        let source = editing ?? template
         let defaultStart = Calendar.current.date(bySettingHour: 17, minute: 30, second: 0, of: .now) ?? .now
-        sport = editing?.activity ?? Activity.builtIn[0]
-        name = editing?.title ?? ""
+        sport = source?.activity ?? Activity.builtIn[0]
+        name = source?.title ?? ""
         day = Calendar.current.startOfDay(for: editing?.startsAt ?? .now)
-        time = editing?.startsAt ?? defaultStart
-        duration = editing?.durationMinutes ?? 60
-        place = editing?.place
-        meetUpSpot = editing?.meetPoint ?? ""
-        players = editing?.capacity ?? 6
-        notes = editing?.notes ?? ""
-        autoRepost = editing?.autoRepost ?? true
+        time = source?.startsAt ?? defaultStart
+        duration = source?.durationMinutes ?? 60
+        place = source?.place
+        meetUpSpot = source?.meetPoint ?? ""
+        players = source?.capacity ?? 6
+        notes = source?.notes ?? ""
+        autoRepost = source?.autoRepost ?? true
     }
 
     // MARK: Presentation
@@ -64,10 +67,41 @@ final class GameFormViewModel {
         max(Self.playerRange.lowerBound, editing?.goingCount ?? 1)
     }
 
-    /// "6 players" or, when editing, "6 players · 3 going".
+    /// "6 players".
     var playersLabel: String {
-        guard let editing else { return String(localized: "\(players) players") }
-        return String(localized: "\(players) players · \(editing.goingCount) going")
+        String(localized: "\(players) players")
+    }
+
+    /// Under the count: "Including you", or "3 joined" once people have.
+    var playersHint: String {
+        guard let editing, editing.joinedCount > 0 else { return String(localized: "Including you") }
+        return String(localized: "\(editing.joinedCount) joined")
+    }
+
+    /// "5:30 PM", for the Start time field.
+    var timeLabel: String {
+        EventFormat.time(time)
+    }
+
+    /// One-tap answers to "What would help someone new say yes?" (SPEC §7.7.3).
+    var suggestions: [String] {
+        [
+            String(localized: "I have an extra ball"),
+            String(localized: "Coming alone is fine"),
+            String(localized: "Come for part of it"),
+        ]
+        .filter { !notes.localizedCaseInsensitiveContains($0) }
+    }
+
+    /// Adds a suggestion to the end of the note, as its own sentence.
+    func addSuggestion(_ text: String) {
+        let current = notes.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !current.isEmpty else {
+            notes = "\(text)."
+            return
+        }
+        let needsStop = !(current.hasSuffix(".") || current.hasSuffix("!") || current.hasSuffix("?"))
+        notes = "\(current)\(needsStop ? "." : "") \(text)."
     }
 
     func dayLabel(_ date: Date) -> String {

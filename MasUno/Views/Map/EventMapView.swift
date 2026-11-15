@@ -2,105 +2,213 @@ import CoreLocation
 import MapKit
 import SwiftUI
 
-/// Figma: "Sports event map" (341:1979) and "Popup" (341:2046). The popup is part of the
-/// selected pin's annotation, so MapKit moves it with the pin like any map callout.
+/// Figma: "Sports event map" (341:1979) and "Popup" (341:2046), plus search results, Filter
+/// games, the empty map and the location primer. The popup is part of the selected pin's
+/// annotation, so MapKit moves it with the pin like any map callout.
 struct EventMapView: View {
     @Environment(GameStore.self) private var store
     @Environment(AppViewModel.self) private var appViewModel
     @State private var viewModel = EventMapViewModel()
     @State private var screenSize: CGSize = .zero
     @State private var showsSaved = false
-    /// Keeps When-In-Use location authorized while the map is up (asks the first time).
+    @State private var showsFilters = false
+    /// The map's own frame, full screen, in global coordinates: its size tells how close pins
+    /// are on screen.
+    @State private var mapFrame: CGRect = .zero
+    /// The safe area in global coordinates, so the popup keeps clear of a vertical side bar.
+    @State private var safeFrame: CGRect = .zero
+    /// A partially open iPhone Duo's fold, in the map's own points; nil when the screen is flat.
+    @State private var fold: CGRect?
+    /// Keeps When-In-Use location authorized while the map is up.
     @State private var locationSession: CLServiceSession?
+    /// "See games near you", before the iOS prompt.
+    @State private var asksForLocation = false
+    @State private var declinedLocationPrimer = UserDefaults.standard.bool(forKey: EventMapView.declinedPrimerKey)
     /// The avatar's frame in the bottom bar, so the location button sits right above it.
     @State private var avatarFrame: CGRect = .zero
     @State private var locationButtonWidth: CGFloat = 0
-    /// Set when the system shows a vertical bar on one side (e.g. iPhone Duo).
-    @State private var verticalBarEdge: HorizontalEdge?
     /// With a vertical bar, the search field only shows after tapping Search in the bar.
     @State private var showsSearchField = false
     @FocusState private var isSearchFocused: Bool
-    @Namespace private var mapScope
+    /// Bottom bars, or the iPhone Duo's side bar. Read at the root, since a reader in here missed
+    /// the change after a fold.
+    @Environment(\.barLayout) private var barLayout
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.openURL) private var openURL
+
+    private static let declinedPrimerKey = "declinedLocationPrimer"
+    /// The bottom bar's round buttons (Filter).
+    private static let mapButtonSize: CGFloat = 48
+    /// Widest the search field gets: the open iPhone Duo's portrait width less the gutters
+    /// (669 − 40), so it fills that screen as it does a phone's.
+    private static let searchWidth: CGFloat = 630
+    /// What the open iPhone Duo's top row keeps besides the field: the 20 pt leading margin, and on
+    /// the right Saved games, the bar's spacing and the status area. Nothing reports where the
+    /// status area is, so this is measured: in portrait (669 pt) the bar fits a field ending at
+    /// 448 pt and folds both items into a "…" menu past that. 10 pt of margin on top. Fixed, so a
+    /// rotation needs no measuring.
+    private static let navigationRowReserve: CGFloat = 20 + 221 + 10
+    /// How far the avatar draws past the room its label claims in the bottom bar.
+    private static let avatarOverhang: CGFloat = 5
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 30)) { context in
             map(now: context.date)
         }
+        .overlay { if isSearching { searchScrim } }
         .overlay(alignment: .top) { topBackdrop }
+        .overlay { if !isSearching { emptyOrFailedCard } }
         .overlay(alignment: .top) {
             VStack(alignment: .leading, spacing: 12) {
-                if !usesVerticalBar || showsSearchField { searchRow }
-                nearbyChip
-                if store.isOffline, !store.mapGames().isEmpty { OfflineBanner() }
-                if viewModel.isLocationDenied { locationBanner }
-                emptyOrFailedCard
+                // The field and its results run the full width up to `searchWidth`: edge to edge
+                // on a phone and the open iPhone Duo in portrait, not across a landscape screen.
+                // The chip and banners keep a phone's column.
+                if showsSearchRow, !searchInNavigationBar { searchRow.frame(maxWidth: Self.searchWidth) }
+                if isSearching {
+                    searchResults.frame(maxWidth: Self.searchWidth)
+                } else {
+                    Group {
+                        // The popup opens right under the search bar, where the chip is.
+                        if viewModel.popupID == nil { nearbyChip }
+                        if store.isOffline, !store.mapGames().isEmpty { OfflineBanner() }
+                        if showsLocationBanner { locationBanner }
+                    }
+                    .frame(maxWidth: Theme.columnWidth, alignment: .leading)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 20)
+            .padding(.horizontal, Theme.gutter)
             .padding(.top, 8)
         }
         .overlay(alignment: .bottomLeading) {
-            if !usesVerticalBar { locationButton }
+            if !usesVerticalBar, !isSearching { locationButton }
         }
-        .mapScope(mapScope)
-        .toolbar {
-            // `usesVerticalBar` is only ever true from iOS 27.1.
-            #if compiler(>=6.4) // The vertical bar needs Xcode 27; see VerticalBarEdgeReader.
-            if #available(iOS 27.1, *), usesVerticalBar { verticalBarActions } else { bottomActions }
-            #else
-            bottomActions
-            #endif
-        }
-        .background { VerticalBarEdgeReader(edge: $verticalBarEdge) }
+        .toolbar { mapActions }
         .sheet(isPresented: $showsSaved) {
             SavedGamesSheet { appViewModel.path.append(.game($0)) }
         }
+        .sheet(isPresented: Binding(get: { !viewModel.groupedIDs.isEmpty }, set: { if !$0 { viewModel.groupedIDs = [] } })) {
+            PinGroupSheet(gameIDs: viewModel.groupedIDs, viewModel: viewModel) { appViewModel.path.append(.game($0)) }
+        }
+        .sheet(isPresented: $showsFilters) {
+            FilterSheet(viewModel: viewModel)
+        }
+        .dialog(isPresented: $asksForLocation, isDismissable: false) {
+            DialogCard(
+                systemImage: "mappin.and.ellipse", tone: .tinted(Color(.sportVolleyball)),
+                title: Text("See games near you"),
+                message: Text("We use your location only while the app is open, to show games within walking distance. Your exact spot is never shared."),
+                confirm: .init("Allow location") { allowLocation() },
+                cancel: .init("Not now") { declineLocation() }
+            )
+        }
         .onAppear {
             #if DEBUG
-            if UserDefaults.standard.string(forKey: "screen") == "saved" { showsSaved = true }
-            #endif
-            if locationSession == nil, LocationService.mockCoordinate == nil {
-                locationSession = CLServiceSession(authorization: .whenInUse)
+            switch UserDefaults.standard.string(forKey: "screen") {
+            case "saved": showsSaved = true
+            case "filter": showsFilters = true
+            case "search": viewModel.searchText = "hoops"
+            default: break
             }
+            #endif
+            startLocation()
         }
         .task(id: store.campus) { viewModel.setCampus(store.campus) }
         .task(id: scenePhase) {
-            if scenePhase == .active { await viewModel.locate() }
+            guard scenePhase == .active else { return }
+            // Location may have been turned on in Settings while the app was away.
+            startLocation()
+            if locationSession != nil { await viewModel.locate() }
+        }
+        // Tokens under the pins: who's going to each game on the map.
+        .task(id: store.mapGames().map(\.id)) {
+            await store.loadMissingAttendees(for: store.mapGames().map(\.id))
         }
         .toolbarBackgroundVisibility(.hidden, for: .bottomBar)
         .onGeometryChange(for: CGSize.self) { $0.size } action: { screenSize = $0 }
+        .onGeometryChange(for: CGRect.self) { proxy in
+            let frame = proxy.frame(in: .global), insets = proxy.safeAreaInsets
+            return CGRect(
+                x: frame.minX + insets.leading, y: frame.minY + insets.top,
+                width: frame.width - insets.leading - insets.trailing,
+                height: frame.height - insets.top - insets.bottom
+            )
+        } action: { safeFrame = $0 }
         // Never shown here, but names the back button on pushed screens.
         .navigationTitle("Map")
-        // The vertical bar hosts the navigation bar's items (search, saved games), so
-        // it stays visible there; elsewhere those controls float over the map instead.
-        .toolbar(usesVerticalBar ? .automatic : .hidden, for: .navigationBar)
+        // The vertical bar hosts the navigation bar's items (search, saved games), and so does
+        // the open iPhone Duo's top row beside the status area (`searchInNavigationBar`); on a
+        // phone those controls float over the map instead.
+        .toolbar(showsNavigationBar ? .automatic : .hidden, for: .navigationBar)
         // Without a title the navigation bar collapses, leaving the map full height.
-        .toolbar(removing: usesVerticalBar ? .title : nil)
-        .toolbarTitleDisplayMode(usesVerticalBar ? .inline : .automatic)
+        .toolbar(removing: showsNavigationBar ? .title : nil)
+        .toolbarTitleDisplayMode(showsNavigationBar ? .inline : .automatic)
         .animation(.spring(duration: 0.4, bounce: 0.22), value: viewModel.selectedID)
+        .animation(.snappy, value: isSearching)
         #if DEBUG
-        .onAppear { viewModel.openDebugPopup() }
+        .onAppear { viewModel.openDebugPopup(in: store) }
         #endif
         // Make room for the popup above a newly selected pin, like a map callout.
         .onChange(of: viewModel.selectedID) { _, id in
             viewModel.selectionChanged(to: id)
             guard let id, let event = store.game(id) else { return }
-            viewModel.reveal(event)
+            viewModel.reveal(event, mapSize: mapSize, area: popupArea, popupWidth: popupWidth)
         }
         .onChange(of: store.lastCreatedID) { _, id in
             guard let id, let event = store.game(id) else { return }
             viewModel.focus(on: event)
         }
+        .onChange(of: viewModel.mapEvents(in: store).map(\.id)) { _, ids in
+            if let id = viewModel.selectedID, !ids.contains(id) { viewModel.dropSelection() }
+        }
+        // A popup and the results list would cover each other.
+        .onChange(of: isSearching) { _, searching in
+            if searching { viewModel.selectedID = nil }
+        }
+        // Bottom bars always show the field, so a field opened from the side bar would come back
+        // already open after the next fold.
+        .onChange(of: barLayout) { _, layout in
+            if !layout.isVertical { showsSearchField = false }
+        }
+    }
+
+    // MARK: Map
+
+    @MapContentBuilder
+    private func eventPin(_ event: Game, now: Date) -> some MapContent {
+        let isSelected = viewModel.selectedID == event.id
+        Annotation(event.title, coordinate: event.coordinate, anchor: EventPin.anchor(for: event, now: now)) {
+            EventPin(
+                event: event,
+                people: Array(store.lineup(for: event).people.prefix(3)),
+                now: now,
+                isSelected: isSelected,
+                isDimmed: viewModel.selectedID != nil && !isSelected
+            )
+            // Annotation content doesn't inherit the environment.
+            .environment(\.currentUserID, store.profile?.id)
+            .fontDesign(.rounded)
+        }
+        .annotationTitles(.hidden)
+        .tag(event.id)
+    }
+
+    /// Not selectable: tapping lists its games instead of opening a popup.
+    private func groupPin(_ group: PinGroup) -> some MapContent {
+        Annotation(String(localized: "\(group.games.count) games here"), coordinate: group.coordinate, anchor: GroupPin.anchor) {
+            GroupPin(games: group.games, isDimmed: viewModel.selectedID != nil)
+                .fontDesign(.rounded)
+                .onTapGesture { viewModel.groupedIDs = group.games.map(\.id) }
+        }
+        .annotationTitles(.hidden)
     }
 
     private func map(now: Date) -> some View {
         @Bindable var viewModel = viewModel
 
         // Native selection: tap a pin to select, tap empty map to dismiss the popup.
-        return Map(position: $viewModel.position, selection: $viewModel.selectedID, scope: mapScope) {
+        return Map(position: $viewModel.position, selection: $viewModel.selectedID) {
             if let mock = LocationService.mockCoordinate {
                 Annotation("You", coordinate: mock, anchor: .center) {
                     UserPin(name: store.profile?.fullName ?? "")
@@ -112,17 +220,12 @@ struct EventMapView: View {
                 }
             }
 
-            ForEach(viewModel.pinOrder(in: store, now: now)) { event in
-                let isSelected = viewModel.selectedID == event.id
-                Annotation(event.title, coordinate: event.coordinate, anchor: .bottom) {
-                    EventPin(
-                        event: event, now: now,
-                        isSelected: isSelected,
-                        isDimmed: viewModel.selectedID != nil && !isSelected
-                    )
+            ForEach(viewModel.pinGroups(in: store, now: now, mapSize: mapSize)) { group in
+                if group.games.count == 1, let event = group.games.first {
+                    eventPin(event, now: now)
+                } else {
+                    groupPin(group)
                 }
-                .annotationTitles(.hidden)
-                .tag(event.id)
             }
 
             // The popup is its own annotation on the pin's coordinate, so MapKit moves it with
@@ -131,10 +234,12 @@ struct EventMapView: View {
             if let id = viewModel.popupID, let event = store.game(id) {
                 Annotation(event.title, coordinate: event.coordinate, anchor: viewModel.popupAnchor(for: event)) {
                     EventPopup(event: event, viewModel: viewModel)
-                        .frame(width: 320)
+                        .frame(width: popupWidth)
                         // Annotation content doesn't inherit the environment.
                         .environment(store)
                         .environment(appViewModel)
+                        .environment(\.currentUserID, store.profile?.id)
+                        .fontDesign(.rounded)
                         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { viewModel.popupHeight = $0 }
                         // Grows out of / shrinks into the pin. Annotation content is hosted outside
                         // this view's transactions, so the animation is declared in here.
@@ -152,224 +257,425 @@ struct EventMapView: View {
             let selected = viewModel.selectedID.flatMap { store.game($0) }
             viewModel.cameraChanged(to: context.region, selected: selected)
         }
+        .onMapCameraChange(frequency: .onEnd) { context in
+            viewModel.cameraSettled(on: context.region)
+        }
         .ignoresSafeArea()
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { mapFrame = $0 }
+        .onGeometryChange(for: CGRect?.self) { $0.activeFold } action: { fold = $0 }    }
+
+    private var mapSize: CGSize { mapFrame.size }
+
+    /// Where a popup has to fit, in the map's points: the safe area (clear of a vertical side
+    /// bar), below the search field when the bar has opened it, and on a partially open iPhone
+    /// Duo the larger side of the fold.
+    private var popupArea: CGRect {
+        guard !safeFrame.isEmpty else { return .null }
+        var area = safeFrame.offsetBy(dx: -mapFrame.minX, dy: -mapFrame.minY)
+        if usesVerticalBar, showsSearchField {
+            // The field's 8 pt top padding and 48 pt height (see `searchRow`).
+            area.origin.y += 56
+            area.size.height -= 56
+        }
+        if let fold { area = area.pane(avoiding: fold) }
+        return area
+    }
+
+    /// 16 pt from each edge of the space it opens in (the screen, on a phone), as in the Figma;
+    /// never wider than the Figma card.
+    private var popupWidth: CGFloat {
+        let area = popupArea
+        return min(max((area.isNull ? screenSize.width : area.width) - 32, 280), 370)
     }
 
     /// Soft fade behind the search bar ("Search backdrop" layer).
     private var topBackdrop: some View {
-        LinearGradient(
-            colors: [Theme.background.opacity(0.95), Theme.background.opacity(0)],
+        // Measured from the safe area's top, so it ends just under the field on any screen: a
+        // phone's 62 pt status area gives the Figma's 212 pt. Shorter under a popup, so the fade
+        // doesn't wash out the top of the card.
+        let topInset = safeFrame.isEmpty ? 0 : max(0, safeFrame.minY - mapFrame.minY)
+        return LinearGradient(
+            stops: [
+                .init(color: Theme.background.opacity(0.95), location: 0),
+                .init(color: Theme.background.opacity(0.8), location: 0.65),
+                .init(color: Theme.background.opacity(0), location: 1),
+            ],
             startPoint: .top, endPoint: .bottom
         )
-        .frame(height: 212)
+        .frame(height: topInset + (viewModel.popupID == nil ? 150 : 88))
         .ignoresSafeArea()
+        // With a side bar the field only shows after tapping Search; without it there's nothing
+        // to fade behind (the chip has its own glass), and the fade would only wash out the map.
+        // Animated by whatever changes it: Search, search focus, or the root's bar change.
+        .opacity(showsSearchRow ? 1 : 0)
         .allowsHitTesting(false)
     }
 
-    private var searchRow: some View {
-        @Bindable var viewModel = viewModel
+    // MARK: Search
 
-        return HStack(spacing: 12) {
-            HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass")
-                    .font(.title3)
-                    .foregroundStyle(Theme.muted)
-                TextField("Search games", text: $viewModel.searchText)
-                    .textInputAutocapitalization(.never)
-                    .submitLabel(.search)
-                    .focused($isSearchFocused)
-                    // Opened from the bar's Search button, so start typing right away.
-                    .onAppear { if usesVerticalBar { isSearchFocused = true } }
-            }
-            .padding(.horizontal, 14)
-            .frame(height: 48)
-            .glassEffect(.regular.interactive(), in: .capsule)
+    /// Also while searching, so results never show without a field to edit or clear.
+    private var showsSearchRow: Bool {
+        !usesVerticalBar || showsSearchField || isSearching
+    }
+
+    /// The open iPhone Duo in portrait (wide, no vertical bar) has a row beside the status area
+    /// that the navigation bar uses on every other screen. The field and Saved go there, so they
+    /// don't take a row of the map below it. The system keeps them clear of the status area;
+    /// nothing reports where it is, so it can't be done by hand.
+    private var searchInNavigationBar: Bool {
+        !usesVerticalBar && isWideLayout
+    }
+
+    private var showsNavigationBar: Bool {
+        usesVerticalBar || searchInNavigationBar
+    }
+
+    /// The field fills the navigation bar's row up to Saved games, which sits just before the
+    /// status area.
+    private var navigationFieldWidth: CGFloat {
+        max(200, min(Self.searchWidth, screenSize.width - Self.navigationRowReserve))
+    }
+
+    /// Typing, or left with a query in the field: the results list is over the map.
+    private var isSearching: Bool {
+        isSearchFocused || !viewModel.searchText.isEmpty
+    }
+
+    private var searchRow: some View {
+        HStack(spacing: 12) {
+            searchField
 
             // With a vertical bar, Saved games lives in the bar instead.
             if !usesVerticalBar {
                 Button("Saved games", systemImage: "bookmark") { showsSaved = true }
-                    .labelStyle(.iconOnly)
                     .font(.title3.weight(.medium))
-                    .buttonStyle(.glass)
-                    .buttonBorderShape(.circle)
-                    .controlSize(.large)
-                    .tint(Theme.ink)
+                    .glassCircle()
             }
         }
         .foregroundStyle(Theme.ink)
     }
 
-    /// Native `MapUserLocationButton` for the real location; a glass button with the same
-    /// look while the location is mocked (the native one can only follow real GPS).
-    @ViewBuilder
-    private var userLocationButton: some View {
-        if LocationService.mockCoordinate != nil {
-            Button("Show my location", systemImage: "location.fill") { viewModel.centerOnMockLocation() }
-                .labelStyle(.iconOnly)
-                .buttonStyle(.glass)
-        } else {
-            MapUserLocationButton(scope: mapScope)
+    private var searchField: some View {
+        @Bindable var viewModel = viewModel
+
+        return HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .font(.title3)
+                .foregroundStyle(Theme.muted)
+            TextField("Search games", text: $viewModel.searchText)
+                .font(.rounded(.body, isSearching ? .bold : .medium))
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .submitLabel(.search)
+                .focused($isSearchFocused)
+                // Opened from the bar's Search button, so start typing right away.
+                .onAppear { if usesVerticalBar { isSearchFocused = true } }
+            if isSearching {
+                Button("Clear search", systemImage: "xmark.circle.fill") { endSearch() }
+                    .labelStyle(.iconOnly)
+                    .foregroundStyle(Theme.muted.opacity(0.6))
+                    .buttonStyle(.plain)
+            }
         }
+        .padding(.horizontal, 14)
+        .frame(height: 48)
+        .glassEffect(.regular.interactive(), in: .capsule)
+        .foregroundStyle(Theme.ink)
     }
 
-    /// "Show my location" button, centered over the avatar in the bottom bar.
-    private var locationButton: some View {
-        GeometryReader { geo in
-            let container = geo.frame(in: .global)
-            // Big portrait screens (iPad, iPhone Duo's inner display) raise the avatar past the
-            // default gap, so keep clear of its top: its glass adds about 6, plus 10 of space.
-            let clearsAvatar = avatarFrame == .zero ? 0 : container.maxY - avatarFrame.minY + 16
-            userLocationButton
-                .buttonBorderShape(.circle)
-                .controlSize(.large)
-                .tint(Theme.ink)
-                .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { locationButtonWidth = $0 }
-                .offset(x: avatarFrame.midX - container.minX - locationButtonWidth / 2)
-                .frame(maxHeight: .infinity, alignment: .bottom)
-                .padding(.bottom, max(8, clearsAvatar))
-                .opacity(avatarFrame == .zero ? 0 : 1)
-        }
+    /// Fades the map out behind the results. Tapping it leaves search.
+    private var searchScrim: some View {
+        Theme.background.opacity(0.78)
+            .ignoresSafeArea()
+            .onTapGesture { endSearch() }
+            .accessibilityHidden(true)
+            .transition(.opacity)
     }
+
+    /// Figma "Search results": "Basketball near you" over a card of matching games.
+    private var searchResults: some View {
+        let results = viewModel.searchResults(in: store)
+
+        return VStack(alignment: .leading, spacing: 8) {
+            Text(verbatim: results.isEmpty ? String(localized: "No games match that search") : viewModel.resultsTitle(for: results))
+                .font(.rounded(.footnote, .bold))
+                .foregroundStyle(Theme.muted)
+                .padding(.leading, 4)
+
+            if !results.isEmpty {
+                ScrollView {
+                    VStack(spacing: 0) {
+                        ForEach(results) { event in
+                            Button {
+                                isSearchFocused = false
+                                appViewModel.path.append(.game(event.id))
+                            } label: {
+                                GameListRow(event: event, line: viewModel.resultLine(for: event))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+                .scrollBounceBehavior(.basedOnSize)
+                .frame(maxHeight: min(CGFloat(results.count) * 68, max(screenSize.height * 0.5, 204)))
+                .background(Theme.card, in: .rect(cornerRadius: Theme.Radius.card))
+                .shadow(color: Theme.ink.opacity(0.08), radius: 8, y: 3)
+            }
+        }
+        .transition(.opacity)
+    }
+
+    /// Clears the query and puts the keyboard away; with a vertical bar, hides the field too.
+    private func endSearch() {
+        isSearchFocused = false
+        viewModel.searchText = ""
+        if usesVerticalBar { withAnimation(.snappy) { showsSearchField = false } }
+    }
+
+    // MARK: Chips and cards
 
     /// Tapping refreshes: a map can't pull to refresh, because dragging pans it.
     private var nearbyChip: some View {
-        Button {
+        let games = viewModel.mapEvents(in: store)
+        // One dot per sport on the map, in the sports' usual order.
+        let sports = Array(Set(games.map(\.activity))).sorted { $0.sortOrder < $1.sortOrder }.prefix(4)
+
+        return Button {
             Task { await store.refreshMap() }
         } label: {
             HStack(spacing: 6) {
-                Circle().fill(Theme.ink).frame(width: 6, height: 6)
-                Text("\(viewModel.mapEvents(in: store).count) games nearby")
+                HStack(spacing: 2) {
+                    if sports.isEmpty {
+                        ForEach(store.postableActivities.prefix(4)) { Circle().fill($0.color).frame(width: 6, height: 6) }
+                    } else {
+                        ForEach(sports) { Circle().fill($0.color).frame(width: 6, height: 6) }
+                    }
+                }
+                if games.isEmpty {
+                    Text("Quiet around here")
+                } else {
+                    Text(games.count == 1 ? "1 game nearby" : "\(games.count) games nearby")
+                }
             }
-            .font(.footnote)
+            .font(.rounded(.footnote))
             .foregroundStyle(Theme.muted)
             .padding(.horizontal, 12)
-            .padding(.vertical, 7)
-            .glassEffect(.regular, in: .capsule)
+            .frame(height: 32)
+            .glassEffect(.regular.interactive(), in: .capsule)
         }
         .buttonStyle(.plain)
         .accessibilityHint("Refreshes the map")
     }
 
-    /// A failed first load, or a map with nothing on it. Not while searching or filtering:
-    /// the chip already says "0 games nearby" there.
+    /// A failed first load, a map with nothing on it, or filters that hide everything.
     @ViewBuilder
     private var emptyOrFailedCard: some View {
-        switch store.mapState {
-        case .failed:
-            RetryCard { await store.refreshMap() }
-        case .loaded where store.mapGames().isEmpty:
-            VStack(spacing: 12) {
-                Text("No open games right now. Start one?")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Theme.ink)
-                    .multilineTextAlignment(.center)
-                Button("Add game") { appViewModel.presentGameForm() }
-                    .buttonStyle(.glassProminent)
-                    .fontWeight(.semibold)
+        Group {
+            switch store.mapState {
+            case .failed:
+                RetryCard { await store.refreshMap() }
+            case .loaded where store.mapGames().isEmpty:
+                EmptyCard(
+                    title: "No games nearby yet",
+                    message: "Be the first to start one. Most games just need one more."
+                ) {
+                    Button("Add a game") { appViewModel.presentGameForm() }
+                        .pill(.primary)
+                    Button("Look farther away") { viewModel.lookFartherAway() }
+                        .pill(.secondary)
+                }
+            case .loaded where viewModel.mapEvents(in: store).isEmpty:
+                EmptyCard(title: "No games fit those filters", message: "Try another sport or a wider search.") {
+                    Button("Reset filters") { withAnimation(.snappy) { viewModel.resetFilters() } }
+                        .pill(.primary)
+                }
+            default:
+                EmptyView()
             }
-            .padding(16)
-            .frame(maxWidth: .infinity)
-            .cardSurface()
-        default:
-            EmptyView()
         }
+        .frame(maxWidth: 354)
+        .padding(.horizontal, 24)
+        .shadow(color: Theme.ink.opacity(0.1), radius: 16, y: 6)
+    }
+
+    // MARK: Location
+
+    /// Asks with our own card before the iOS prompt, the first time the map opens (C11).
+    /// Once the answer is known, keeps location on while the map is up.
+    private func startLocation() {
+        #if DEBUG
+        // `-screen location` shows the primer even with a mocked location or permission given.
+        if UserDefaults.standard.string(forKey: "screen") == "location" { return asksForLocation = true }
+        #endif
+        guard LocationService.mockCoordinate == nil, locationSession == nil else { return }
+        switch CLLocationManager().authorizationStatus {
+        case .notDetermined:
+            if !declinedLocationPrimer, !isDesignReview { asksForLocation = true }
+        default:
+            locationSession = CLServiceSession(authorization: .whenInUse)
+        }
+    }
+
+    /// The iOS prompt follows; the map then centers on you if you're near campus.
+    private func allowLocation() {
+        locationSession = CLServiceSession(authorization: .whenInUse)
+        Task { await viewModel.locate() }
+    }
+
+    private func declineLocation() {
+        declinedLocationPrimer = true
+        UserDefaults.standard.set(true, forKey: Self.declinedPrimerKey)
+    }
+
+    /// Design review (`-screen …`) skips the primer, except `-screen location`.
+    private var isDesignReview: Bool {
+        #if DEBUG
+        let screen = UserDefaults.standard.string(forKey: "screen")
+        return screen != nil && screen != "location"
+        #else
+        return false
+        #endif
+    }
+
+    private var showsLocationBanner: Bool {
+        viewModel.isLocationDenied || (declinedLocationPrimer && locationSession == nil && LocationService.mockCoordinate == nil)
     }
 
     /// Location off: the map stays on campus (SPEC §7.6.1).
     private var locationBanner: some View {
         Button {
-            if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
+            if CLLocationManager().authorizationStatus == .notDetermined {
+                asksForLocation = true
+            } else if let url = URL(string: UIApplication.openSettingsURLString) {
+                openURL(url)
+            }
         } label: {
             Label("Turn on location to see how far games are", systemImage: "location.slash")
-                .font(.footnote.weight(.medium))
+                .font(.rounded(.footnote, .bold))
                 .foregroundStyle(Theme.ink)
                 .padding(.horizontal, 12)
-                .padding(.vertical, 7)
-                .glassEffect(.regular, in: .capsule)
+                .frame(height: 32)
+                .glassEffect(.regular.interactive(), in: .capsule)
         }
         .buttonStyle(.plain)
     }
 
-    #if compiler(>=6.4) // The vertical bar needs Xcode 27; see VerticalBarEdgeReader.
-    /// With a vertical bar (iPhone Duo), search, saved games, recenter, filter and the avatar
-    /// move into the bar (bottom to top: avatar, then filter + recenter); only Add game stays in
-    /// the horizontal bottom bar. Floating over the map they would ignore the bar.
-    @available(iOS 27.1, *)
-    @ToolbarContentBuilder
-    private var verticalBarActions: some ToolbarContent {
-        ToolbarItem(placement: .topBarTrailing) {
-            Button("Search", systemImage: "magnifyingglass") { toggleSearchField() }
-                .tint(showsSearchField ? Theme.accent : Theme.ink)
+    /// "Show my location" button, centered over the avatar in the bottom bar. Interactive glass
+    /// the size of the bar's Filter button, rather than the larger native `MapUserLocationButton`.
+    private var locationButton: some View {
+        GeometryReader { geo in
+            let container = geo.frame(in: .global)
+            // Big portrait screens (iPad, iPhone Duo's inner display) raise the avatar past the
+            // default gap, so keep clear of its top: its glass adds about 9, plus 10 of space.
+            let clearsAvatar = avatarFrame == .zero ? 0 : container.maxY - avatarFrame.minY + 19
+            Button {
+                viewModel.centerOnUserLocation()
+            } label: {
+                // Filled while the map follows you, like the native button.
+                Image(systemName: viewModel.position.followsUserLocation ? "location.fill" : "location")
+                    .font(.system(size: 17, weight: .medium))
+                    .foregroundStyle(Theme.ink)
+                    .contentTransition(.symbolEffect(.replace))
+                    .frame(width: Self.mapButtonSize, height: Self.mapButtonSize)
+                    .glassEffect(.regular.interactive(), in: .circle)
+                    .contentShape(.circle)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Show my location")
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { locationButtonWidth = $0 }
+            .offset(x: avatarFrame.midX - container.minX - locationButtonWidth / 2)
+            .frame(maxHeight: .infinity, alignment: .bottom)
+            .padding(.bottom, max(8, clearsAvatar))
+            .opacity(avatarFrame == .zero ? 0 : 1)
         }
-
-        ToolbarItem(placement: .topBarTrailing) {
-            Button("Saved games", systemImage: "bookmark") { showsSaved = true }
-                .tint(Theme.ink)
-        }
-
-        ToolbarItem(placement: .bottomBar) { addGameButton }
-            .axisBehavior(.horizontalOnly)
-
-        // Alone in the bottom bar it would center, so on wide landscape screens this holds
-        // it left, as in `bottomActions`.
-        if isWideLayout && isLandscape {
-            ToolbarSpacer(.flexible, placement: .bottomBar)
-                .axisBehavior(.horizontalOnly)
-        }
-
-        // One glass group. Plain buttons: the bar draws the glass, so a glass button
-        // style (or the native `MapUserLocationButton`) would nest a pill inside it.
-        ToolbarItemGroup(placement: .bottomBar) {
-            Button("Show my location", systemImage: "location.fill") { viewModel.centerOnUserLocation() }
-                .tint(Theme.ink)
-            filterMenu
-        }
-        .axisBehavior(.verticalPreferred)
-
-        // Splits the avatar into its own glass container, apart from the map actions above.
-        ToolbarSpacer(.fixed, placement: .bottomBar)
-
-        // The avatar is a custom view, which the system keeps horizontal by default.
-        ToolbarItem(placement: .bottomBar) { profileButton }
-            .axisBehavior(.verticalPreferred)
     }
-    #endif
 
-    /// Bottom toolbar: sport filter · + Add game · avatar.
+    // MARK: Bars
+
+    /// Bottom bar: Filter · + Add game · avatar. With a vertical bar (iPhone Duo), search, saved
+    /// games, recenter, Filter and the avatar move into it (bottom to top: avatar, then Filter +
+    /// recenter); only Add game stays in a bottom bar. Floating over the map they would ignore
+    /// the bar.
+    ///
+    /// Every item says which bar it goes in, whatever `barLayout` says, so the system still
+    /// places it right while `barLayout` catches up with a fold. On a phone there's no vertical
+    /// bar and nothing moves.
     @ToolbarContentBuilder
-    private var bottomActions: some ToolbarContent {
-        ToolbarItem(placement: .bottomBar) { filterMenu }
+    private var mapActions: some ToolbarContent {
+        if usesVerticalBar {
+            // Without a vertical bar the navigation bar is hidden, and the field and Saved float
+            // over the map instead.
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Search", systemImage: "magnifyingglass") { toggleSearchField() }
+                    .tint(showsSearchField ? Theme.accent : Theme.ink)
+            }
+            .axis(.verticalPreferred)
+
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Saved games", systemImage: "bookmark") { showsSaved = true }
+                    .tint(Theme.ink)
+            }
+            .axis(.verticalPreferred)
+
+            // One glass group. Plain buttons: the bar draws the glass, so a glass button
+            // style (or the native `MapUserLocationButton`) would nest a pill inside it.
+            ToolbarItemGroup(placement: .bottomBar) {
+                Button("Show my location", systemImage: "location") { viewModel.centerOnUserLocation() }
+                    .tint(Theme.ink)
+                filterButton
+            }
+            .axis(.verticalPreferred)
+        } else {
+            if searchInNavigationBar {
+                // Its own glass capsule, so the bar doesn't draw one around it.
+                ToolbarItem(placement: .topBarLeading) {
+                    searchField.frame(width: navigationFieldWidth)
+                }
+                .sharedBackgroundVisibility(.hidden)
+
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Saved games", systemImage: "bookmark") { showsSaved = true }
+                        .tint(Theme.ink)
+                }
+            }
+
+            // Recenter floats over the map instead (`locationButton`).
+            ToolbarItem(placement: .bottomBar) { filterButton }
+                .axis(.verticalPreferred)
+        }
 
         // Narrow screens: centered and stretched. Wide screens (e.g. iPhone Duo's inner
-        // display): natural size, centered in portrait, left next to Filters in landscape.
+        // display): natural size, centered in portrait, held left in landscape.
         if !(isWideLayout && isLandscape) {
             ToolbarSpacer(.flexible, placement: .bottomBar)
+                .axis(.horizontalOnly)
         }
 
         ToolbarItem(placement: .bottomBar) { addGameButton }
+            .axis(.horizontalOnly)
 
         ToolbarSpacer(.flexible, placement: .bottomBar)
+            .axis(.horizontalOnly)
 
-        ToolbarItem(placement: .bottomBar) { profileButton }
+        // Splits the avatar into its own glass container, apart from the map actions above.
+        if usesVerticalBar {
+            ToolbarSpacer(.fixed, placement: .bottomBar)
+                .axis(.verticalPreferred)
+        }
+
+        // The avatar is a custom view, which the system keeps horizontal by default.
+        ToolbarItem(placement: .bottomBar) { profileButton(matchesFilter: !usesVerticalBar) }
+            .axis(.verticalPreferred)
     }
 
-    private var filterMenu: some View {
-        Menu {
-            Button("All sports") { viewModel.clearSportFilter() }
-            Divider()
-            ForEach(store.postableActivities) { sport in
-                Toggle("\(sport.emoji) \(sport.name)", isOn: Binding(
-                    get: { viewModel.sportFilter.contains(sport) },
-                    set: { _ in viewModel.toggleSport(sport) }
-                ))
-            }
-        } label: {
-            Label("Filter", systemImage: "line.3.horizontal.decrease")
-        }
-        // Count of active sport filters, since the icon button has no room for text.
-        .badge(viewModel.sportFilter.count)
-        .accessibilityLabel(viewModel.filterLabel)
-        .tint(Theme.ink)
+    /// Opens Filter games. A sheet rather than a menu, so it's the same from the bottom bar
+    /// and from a vertical bar.
+    private var filterButton: some View {
+        Button("Filter", systemImage: "line.3.horizontal.decrease") { showsFilters = true }
+            // Count of active filters, since the icon button has no room for text.
+            .badge(viewModel.activeFilterCount)
+            .accessibilityLabel(viewModel.filterLabel)
+            .tint(Theme.ink)
     }
 
     private var addGameButton: some View {
@@ -381,21 +687,39 @@ struct EventMapView: View {
                 Image(systemName: "plus")
                 Text("Add game")
             }
-            .font(.headline)
-            .modifier(BottomBarWidth(width: isWideLayout ? nil : addButtonWidth))
+            .font(.rounded(.headline, .bold))
+            // Toolbar items size to fit, so this fills a narrow bottom bar. Natural size on wide
+            // screens, and beside a vertical bar.
+            .frame(width: isWideLayout || usesVerticalBar ? nil : addButtonWidth)
         }
         .buttonStyle(.glassProminent)
         .controlSize(.large)
         .tint(Theme.accent)
     }
 
-    private var profileButton: some View {
+    /// The avatar opens Me. The bar draws the glass around it, as for Filter. In the bottom bar
+    /// the label claims less room than the token it draws, so that glass circle comes out the
+    /// Filter button's size. (Hiding the bar's glass to draw our own made the bar put a
+    /// backdrop behind every item.)
+    private func profileButton(matchesFilter: Bool) -> some View {
         Button {
             appViewModel.path.append(.me())
         } label: {
-            Avatar(name: store.profile?.fullName ?? "", size: 32)
-                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { avatarFrame = $0 }
+            if matchesFilter {
+                MeToken(name: store.profile?.fullName ?? "", size: Self.mapButtonSize - 8, ring: 0)
+                    .padding(-Self.avatarOverhang)
+                    .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { avatarFrame = $0 }
+            } else {
+                MeToken(name: store.profile?.fullName ?? "", size: 36, ring: 0)
+                    .frame(width: 36, height: 36)
+                    .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { avatarFrame = $0 }
+            }
         }
+        // A custom toolbar label otherwise gets a horizontal glass capsule, so the avatar
+        // sits in a pill. The circle follows the token.
+        .buttonStyle(.plain)
+        .buttonBorderShape(.circle)
+        .buttonSizing(.fitted)
         .accessibilityLabel("Me")
         #if DEBUG
         .contextMenu {
@@ -405,13 +729,16 @@ struct EventMapView: View {
     }
 
     private var usesVerticalBar: Bool {
-        verticalBarEdge != nil
+        barLayout.isVertical
     }
 
     /// Shows or hides the search field; hiding it clears the search so no filter lingers unseen.
     private func toggleSearchField() {
         withAnimation(.snappy) { showsSearchField.toggle() }
-        if !showsSearchField { viewModel.searchText = "" }
+        if !showsSearchField {
+            isSearchFocused = false
+            viewModel.searchText = ""
+        }
     }
 
     /// Screen width minus the toolbar margins and the two round side buttons.
@@ -431,66 +758,25 @@ struct EventMapView: View {
     }
 }
 
-/// Publishes `toolbarVerticalEdge`, which is only available from iOS 27.1, to a binding.
-/// `toolbarVerticalEdge` is in the iOS 27.1 SDK (Xcode 27). GitHub's runners still have Xcode 26,
-/// so CI builds without it and the toolbar never switches to the vertical bar there.
-private struct VerticalBarEdgeReader: View {
-    @Binding var edge: HorizontalEdge?
+/// Which bar a toolbar item goes in, for `axis(_:)`: `ToolbarItemAxisBehavior` itself only
+/// exists from iOS 27.1.
+private enum BarAxis {
+    case horizontalOnly, verticalPreferred
+}
 
-    var body: some View {
+private extension ToolbarContent {
+    /// `axisBehavior` is in the iOS 27.1 SDK (Xcode 27). GitHub's runners still have Xcode 26, so
+    /// CI builds without it; there's no vertical bar there to place items in.
+    @ToolbarContentBuilder
+    func axis(_ axis: BarAxis) -> some ToolbarContent {
         #if compiler(>=6.4)
         if #available(iOS 27.1, *) {
-            VerticalBarEdgeReader27(edge: $edge)
+            axisBehavior(axis == .horizontalOnly ? .horizontalOnly : .verticalPreferred)
         } else {
-            Color.clear
+            self
         }
         #else
-        Color.clear
+        self
         #endif
     }
 }
-
-#if compiler(>=6.4) // `toolbarVerticalEdge` needs Xcode 27; see VerticalBarEdgeReader.
-@available(iOS 27.1, *)
-private struct VerticalBarEdgeReader27: View {
-    @Binding var edge: HorizontalEdge?
-    @Environment(\.toolbarVerticalEdge) private var verticalEdge
-
-    var body: some View {
-        Color.clear
-            .onChange(of: verticalEdge, initial: true) { _, newValue in edge = newValue }
-    }
-}
-#endif
-
-/// Toolbar items size to fit, so this gives Add game an explicit width to fill a
-/// horizontal bottom bar. When the system moves the toolbar into a vertical bar on
-/// one side (e.g. iPhone Duo half-open), the button keeps its natural size instead.
-/// A `nil` width also means natural size.
-private struct BottomBarWidth: ViewModifier {
-    var width: CGFloat?
-
-    func body(content: Content) -> some View {
-        #if compiler(>=6.4) // `toolbarVerticalEdge` needs Xcode 27; see VerticalBarEdgeReader.
-        if #available(iOS 27.1, *) {
-            content.modifier(VerticalBarAwareWidth(width: width))
-        } else {
-            content.frame(width: width)
-        }
-        #else
-        content.frame(width: width)
-        #endif
-    }
-}
-
-#if compiler(>=6.4) // `toolbarVerticalEdge` needs Xcode 27; see VerticalBarEdgeReader.
-@available(iOS 27.1, *)
-private struct VerticalBarAwareWidth: ViewModifier {
-    var width: CGFloat?
-    @Environment(\.toolbarVerticalEdge) private var verticalEdge
-
-    func body(content: Content) -> some View {
-        content.frame(width: verticalEdge == nil ? width : nil)
-    }
-}
-#endif

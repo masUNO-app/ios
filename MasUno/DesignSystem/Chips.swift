@@ -1,33 +1,7 @@
 import SwiftUI
 
-/// Small soft-green capsule for a game's status: "Open · 4 spots left", "3 going · 3 spots left", "Full".
-struct StatusChip: View {
-    var text: String
-    var systemImage: String?
-
-    init(_ text: String, systemImage: String? = nil) {
-        self.text = text
-        self.systemImage = systemImage
-    }
-
-    var body: some View {
-        HStack(spacing: 4) {
-            if let systemImage {
-                Image(systemName: systemImage).foregroundStyle(Theme.accent)
-            }
-            Text(text)
-        }
-        .font(.footnote.weight(.medium))
-        // Ink, not accent: accent on accentSoft is only 4.1:1 at this size.
-        .foregroundStyle(Theme.ink)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 4)
-        .background(Theme.accentSoft, in: .capsule)
-    }
-}
-
-/// Interest on the Me card: "🏀 Basketball".
-struct InterestChip: View {
+/// A sport in its own color: "🏀 Basketball" (Me › Plays, Welcome).
+struct SportChip: View {
     var sport: Activity
 
     var body: some View {
@@ -35,52 +9,106 @@ struct InterestChip: View {
             Text(sport.emoji)
             Text(sport.name)
         }
-        .font(.footnote.weight(.medium))
+        .font(.rounded(.footnote, .bold))
         .foregroundStyle(Theme.ink)
         .padding(.horizontal, 10)
-        .padding(.vertical, 5)
-        .background(Theme.chipSport, in: .capsule)
+        .frame(height: 28)
+        .glassEffect(.regular.tint(sport.color), in: .capsule)
     }
 }
 
-/// Rounded-square tile with a game's sport emoji.
-struct ActivityTile: View {
-    var sport: Activity
-    var size: CGFloat = 44
-
-    var body: some View {
-        RoundedRectangle(cornerRadius: size * 0.27)
-            .fill(Theme.accentSoft)
-            .frame(width: size, height: size)
-            .overlay {
-                Text(sport.emoji)
-                    .font(.system(size: size * 0.55))
-            }
-            .accessibilityLabel(Text(sport.name))
-    }
-}
-
-/// Selectable sport chip (onboarding "What do you play?", Edit profile & interests).
-struct InterestToggle: View {
+/// Selectable sport chip (Make it yours, Edit profile, Filter games): the sport's color when
+/// it's on, plain white when it's off.
+struct SportToggle: View {
     var sport: Activity
     var isOn: Bool
     var action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 6) {
+            HStack(spacing: 4) {
                 Text(sport.emoji)
                 Text(sport.name)
-                if isOn { Image(systemName: "checkmark").fontWeight(.semibold) }
             }
-            .font(.subheadline.weight(.medium))
+            .font(.rounded(.footnote, .bold))
             .foregroundStyle(Theme.ink)
-            .padding(.horizontal, 14)
-            .frame(height: 40)
-            .background(isOn ? Theme.chipSport : Theme.card, in: .capsule)
-            .overlay(Capsule().strokeBorder(isOn ? Theme.pin.opacity(0.5) : Theme.hairline, lineWidth: isOn ? 1.5 : 1))
+            .padding(.horizontal, 12)
+            .frame(height: 32)
+            .glassEffect(isOn ? .regular.tint(sport.color).interactive() : .regular.interactive(), in: .capsule)
         }
         .buttonStyle(.plain)
+        .sensoryFeedback(.selection, trigger: isOn)
         .accessibilityAddTraits(isOn ? .isSelected : [])
+    }
+}
+
+/// Rounded-square tile in the sport's color with its emoji (search results).
+struct ActivityTile: View {
+    var sport: Activity
+    var size: CGFloat = 36
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: size * 0.3)
+            .fill(sport.color)
+            .frame(width: size, height: size)
+            .overlay {
+                Text(sport.emoji)
+                    .font(.system(size: size * 0.5))
+            }
+            .accessibilityLabel(Text(sport.name))
+    }
+}
+
+/// 36 pt colored tile with a symbol, leading a settings row.
+struct IconTile: View {
+    var systemImage: String
+    var color: Color
+    var size: CGFloat = 36
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: Theme.Radius.tile)
+            .fill(color)
+            .frame(width: size, height: size)
+            .overlay {
+                Image(systemName: systemImage)
+                    .font(.system(size: size * 0.44, weight: .medium))
+                    .foregroundStyle(Theme.ink)
+            }
+            .accessibilityHidden(true)
+    }
+}
+
+/// "Verified student" on the Me card: a green seal on a light capsule.
+struct VerifiedBadge: View {
+    var body: some View {
+        Label("Verified student", systemImage: "checkmark.seal.fill")
+            .labelStyle(BadgeLabelStyle())
+            .font(.rounded(.footnote, .bold))
+            .foregroundStyle(Theme.ink)
+            .padding(.horizontal, 9)
+            .frame(height: 24)
+            .background(.white.opacity(0.75), in: .capsule)
+    }
+}
+
+private struct BadgeLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 5) {
+            configuration.icon.foregroundStyle(Theme.accent)
+            configuration.title
+        }
+    }
+}
+
+/// Icon + text row on cards: the icon keeps a fixed width so rows line up.
+struct IconRowLabelStyle: LabelStyle {
+    var iconWidth: CGFloat = 18
+    var spacing: CGFloat = 10
+
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: spacing) {
+            configuration.icon.frame(width: iconWidth)
+            configuration.title
+        }
     }
 }

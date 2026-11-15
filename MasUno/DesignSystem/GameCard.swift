@@ -1,94 +1,129 @@
 import SwiftUI
 
-/// Game summary card from Me (Going / Hosting): tile, title, a compact trailing action,
-/// host line, date, place and status. An optional footer goes below a divider.
-struct GameCard<Accessory: View, Footer: View>: View {
+/// The 1.0 game card (SPEC §7.7.3): a header in the sport's color with the sport line, title,
+/// one status line and the people + "+1" tokens; then time and place; then up to two actions.
+/// The map popup, Me (Going / Hosting / Earlier), Saved games and Invite a friend all use it.
+struct GameCard<Accessory: View, Actions: View>: View {
     var event: Game
-    var showsHost = true
-    /// Overrides the status line (e.g. "3 going · 3 spots left" on Hosting).
-    var status: String?
-    /// Hosting cards: "Auto-repost on" / "Reposted 5 min ago".
-    var showsRepost = false
+    var lineup: Lineup
+    /// "Room for 4 more", "You're in · room for 3 more", "3 joined · room for 6 more"…
+    var status: String
+    /// "Today, 7:35 PM · starts in 35 min".
+    var time: String
+    /// Grey header instead of the sport's color: cancelled and past games.
+    var isMuted = false
+    /// Floating cards (the map popup, sheets) lift off what's behind them.
+    var isFloating = false
     @ViewBuilder var accessory: Accessory
-    @ViewBuilder var footer: Footer
+    @ViewBuilder var actions: Actions
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            header
+            details
+            if Actions.self != EmptyView.self {
+                Theme.separator.frame(height: 1)
+                HStack(spacing: 10) { actions }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 16)
+                    .padding(.bottom, 20)
+            }
+        }
+        .background(Theme.card)
+        .clipShape(.rect(cornerRadius: Theme.Radius.dialog))
+        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.dialog).strokeBorder(Theme.separator))
+        .shadow(color: Theme.ink.opacity(isFloating ? 0.22 : 0.08), radius: isFloating ? 14 : 5, y: isFloating ? 8 : 2)
+    }
+
+    private var header: some View {
         VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Text(event.activity.emoji)
+                    .font(.system(size: 18))
+                    .saturation(isMuted ? 0 : 1)
+                Text(verbatim: event.hostLine)
+                    .font(.rounded(.footnote))
+                    .lineLimit(1)
+            }
+
             HStack(alignment: .center, spacing: 12) {
-                ActivityTile(sport: event.activity)
-                Text(event.title)
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(Theme.ink)
-                    .multilineTextAlignment(.leading)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(verbatim: event.title)
+                        .font(.rounded(.title2, .bold))
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.8)
+                    Text(verbatim: status)
+                        .font(.rounded(.subheadline))
+                        .lineLimit(2)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 accessory
             }
 
-            if showsHost {
-                HStack(spacing: 8) {
-                    Avatar(name: event.host.displayName, size: 24)
-                    Text("Hosted by \(event.host.displayName)")
-                        .font(.subheadline)
-                        .foregroundStyle(Theme.muted)
-                }
-            }
+            TokenRow(lineup: lineup, size: 32, openFill: .white.opacity(isMuted ? 0.9 : 0.7))
+        }
+        .foregroundStyle(Theme.ink)
+        .padding(.horizontal, 20)
+        .padding(.top, 20)
+        .padding(.bottom, 16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(isMuted ? Theme.separator : event.activity.color)
+    }
 
-            VStack(alignment: .leading, spacing: 6) {
-                Label(EventFormat.dayAndTime(event.startsAt), systemImage: "calendar")
-                Label {
-                    Text(verbatim: event.place.titleLine)
-                } icon: {
-                    Image(systemName: "mappin")
-                }
-                if event.isCancelled {
-                    StatusChip(String(localized: "Cancelled"))
-                        .padding(.top, 2)
-                } else {
-                    Text(status ?? event.openLine)
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(Theme.ink)
-                        .padding(.top, 2)
-                }
-                if showsRepost, event.autoRepost, !event.isCancelled {
-                    Label(repostLine, systemImage: "arrow.trianglehead.2.clockwise")
-                        .font(.caption)
-                        .foregroundStyle(Theme.muted)
-                }
+    private var details: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label {
+                Text(verbatim: time)
+            } icon: {
+                Image(systemName: "clock")
             }
-            .font(.footnote)
-            .foregroundStyle(Theme.muted)
-            .labelStyle(MutedIconLabelStyle())
-
-            if Footer.self != EmptyView.self {
-                Divider().overlay(Theme.hairline)
-                footer
+            Label {
+                Text(verbatim: event.place.name)
+            } icon: {
+                PlaceIcon(size: 17)
             }
         }
-        .padding(16)
-        .cardSurface()
+        .font(.rounded(.subheadline))
+        .foregroundStyle(Theme.ink)
+        .labelStyle(IconRowLabelStyle())
+        .lineLimit(1)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 16)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
-extension GameCard {
-    private var repostLine: String {
-        guard let repostedAt = event.repostedAt else { return String(localized: "Auto-repost on") }
-        if Date.now.timeIntervalSince(repostedAt) < 60 { return String(localized: "Reposted just now") }
-        return String(localized: "Reposted \(repostedAt.formatted(.relative(presentation: .named)))")
+extension GameCard where Accessory == EmptyView {
+    init(
+        event: Game, lineup: Lineup, status: String, time: String, isMuted: Bool = false,
+        isFloating: Bool = false, @ViewBuilder actions: () -> Actions
+    ) {
+        self.init(
+            event: event, lineup: lineup, status: status, time: time, isMuted: isMuted,
+            isFloating: isFloating, accessory: { EmptyView() }, actions: actions
+        )
     }
 }
 
-extension GameCard where Footer == EmptyView {
-    init(event: Game, showsHost: Bool = true, status: String? = nil, @ViewBuilder accessory: () -> Accessory) {
-        self.init(event: event, showsHost: showsHost, status: status, accessory: accessory, footer: { EmptyView() })
+extension GameCard where Accessory == EmptyView, Actions == EmptyView {
+    init(event: Game, lineup: Lineup, status: String, time: String, isFloating: Bool = false) {
+        self.init(
+            event: event, lineup: lineup, status: status, time: time, isFloating: isFloating,
+            accessory: { EmptyView() }, actions: { EmptyView() }
+        )
     }
 }
 
-/// Label with a muted, fixed-width icon so rows line up.
-struct MutedIconLabelStyle: LabelStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            configuration.icon.foregroundStyle(Theme.muted).frame(width: 16)
-            configuration.title
-        }
+/// The popup's tail: a small rounded point from the card's bottom edge down to its pin.
+nonisolated struct CalloutTail: Shape {
+    func path(in rect: CGRect) -> Path {
+        let tip = CGPoint(x: rect.midX, y: rect.maxY)
+        var path = Path()
+        path.move(to: CGPoint(x: rect.minX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+        path.addLine(to: CGPoint(x: tip.x + 2.6, y: tip.y - 2.2))
+        path.addQuadCurve(to: CGPoint(x: tip.x - 2.6, y: tip.y - 2.2), control: tip)
+        path.closeSubpath()
+        return path
     }
 }

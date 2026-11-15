@@ -1,11 +1,11 @@
 import Foundation
 import Testing
-@testable import MasUno
+@testable import masUNO
 
 /// Every live repository against `masuno-dev`, signed in as the QA account (B7, E24). Skipped unless
 /// `MASUNO_LIVE_PASSWORD` is set, so CI and normal runs never touch the network:
 ///
-///     TEST_RUNNER_MASUNO_LIVE_PASSWORD=… xcodebuild test … -only-testing:MasUnoTests/LiveIntegrationTests
+///     TEST_RUNNER_MASUNO_LIVE_PASSWORD=… xcodebuild test … -only-testing:masUNOTests/LiveIntegrationTests
 ///
 /// It writes to dev: joins and leaves a demo game, posts and cancels a game, blocks and unblocks a
 /// demo host, files one report, and leaves one chat message in a demo game. The chat test needs
