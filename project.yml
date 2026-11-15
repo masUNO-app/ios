@@ -104,6 +104,10 @@ targets:
         CFBundleDisplayName: masUNO
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        # xcodegen rewrites this plist from these properties, so the extension point has to live here.
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.usernotifications.service
+          NSExtensionPrincipalClass: "$(PRODUCT_MODULE_NAME).NotificationService"
     dependencies:
       - sdk: UserNotifications.framework
       - sdk: Intents.framework
@@ -111,7 +115,6 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.masuno.app.NotificationService
         DEVELOPMENT_TEAM: PU87MU4QAR
-        # A generated plist drops NSExtension, and the simulator then refuses the appex.
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: MasUnoNotifications/Info.plist
         CODE_SIGN_ENTITLEMENTS: MasUnoNotifications/MasUnoNotifications.entitlements

@@ -78,6 +78,7 @@ create temp table game_ids on commit drop as
 select 'main'::text as name, id from public.create_game('basketball', 'Pickup game', now() + interval '1 day', 60, 4, null,
     'Arena Borregos', 'Av. Junco de la Vega', 25.65, -100.29, null, true);
 grant select, insert on game_ids to authenticated;
+grant select on game_ids to service_role;
 
 select pg_temp.act_as('d0000000-0000-4000-8000-00000000000d');
 select is((select is_bookmarked from public.set_bookmark((select id from game_ids where name = 'main'), true)), true,
