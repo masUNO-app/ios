@@ -99,15 +99,24 @@ select is((select is_bookmarked and spot_alert from public.game_cards where id =
     true, 'the uploaded game is saved with the alert');
 
 -- Interest match: Bruno plays basketball. Alice, the host, does not get one. Carla plays tennis.
+-- Seeded Tec hosts also play basketball, so the check is about these accounts, not the whole campus.
 reset role;
+select ok(exists (
+    select 1 from private.notification_outbox
+    where event_id = (select id from game_ids where name = 'main') and kind = 'interest_match' and dropped is null
+      and user_id = 'b0000000-0000-4000-8000-00000000000b'
+), 'a new game tells campus members who play it');
 select is((select count(*)::int from private.notification_outbox
-    where event_id = (select id from game_ids where name = 'main') and kind = 'interest_match' and dropped is null),
-    1, 'a new game tells campus members who play it');
-select is((select user_id from private.notification_outbox
-    where event_id = (select id from game_ids where name = 'main') and kind = 'interest_match'),
-    'b0000000-0000-4000-8000-00000000000b'::uuid, 'and not the host');
+    where event_id = (select id from game_ids where name = 'main') and kind = 'interest_match'
+      and user_id in (
+          'a0000000-0000-4000-8000-00000000000a',
+          'c0000000-0000-4000-8000-00000000000c',
+          'd0000000-0000-4000-8000-00000000000d'
+      )),
+    0, 'and not the host or people who play something else');
 select ok((select not_before > now() + interval '2 minutes' from private.notification_outbox
-    where event_id = (select id from game_ids where name = 'main') and kind = 'interest_match'),
+    where event_id = (select id from game_ids where name = 'main') and kind = 'interest_match'
+      and user_id = 'b0000000-0000-4000-8000-00000000000b'),
     'it waits a few minutes in case the game changes');
 
 -- Host updates, then a game that fills.

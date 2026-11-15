@@ -13,10 +13,15 @@ nonisolated final class NotificationService: UNNotificationServiceExtension {
         let pending = pending
         pending.handler = contentHandler
         pending.fallback = request.content
-        // The delivered content stays with this callback. The task only sees a Sendable box.
-        let delivered = DeliveredContent(request.content)
+        // A copy, so the timeout path and the rewrite task don't share one object.
+        let content = (request.content.mutableCopy() as? UNNotificationContent) ?? request.content
+        Self.scheduleRewrite(of: content, pending: pending)
+    }
+
+    /// Starts the rewrite without capturing the alert in this function. The region checker can send that argument.
+    private static func scheduleRewrite(of content: UNNotificationContent, pending: PendingDelivery) {
         Task {
-            let updated = await Self.communicationContent(from: delivered.content)
+            let updated = await communicationContent(from: content)
             pending.finish(updated)
         }
     }
@@ -90,12 +95,6 @@ nonisolated final class NotificationService: UNNotificationServiceExtension {
     private static func initials(of name: String) -> String {
         name.split(separator: " ").prefix(2).compactMap(\.first).map(String.init).joined().uppercased()
     }
-}
-
-/// Carries the delivered alert into the rewrite task. The content object is only read there.
-nonisolated private final class DeliveredContent: @unchecked Sendable {
-    let content: UNNotificationContent
-    init(_ content: UNNotificationContent) { self.content = content }
 }
 
 /// Holds the completion handler so the time-limit callback can still answer.
