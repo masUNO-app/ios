@@ -50,12 +50,15 @@ struct GroupChatView: View {
             }
             .padding(.horizontal, 19)
             .padding(.vertical, 12)
-            .readableColumn()
+            .foldColumn()
         }
         .scrollPosition($position)
         .defaultScrollAnchor(.bottom)
         .scrollDismissesKeyboard(.interactively)
-        .safeAreaInset(edge: .top, spacing: 0) { pinnedCard(event) }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            pinnedCard(event)
+                .background(alignment: .top) { bandCover(event) }
+        }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if store.isChatEnabled { bottomBar(event) }
         }
@@ -140,20 +143,37 @@ struct GroupChatView: View {
     /// The sport's color across the top, with the top of its court drawn faintly, over the page.
     private func band(_ event: Game) -> some View {
         VStack(spacing: 0) {
-            event.activity.color
-                .overlay(alignment: .top) {
-                    GeometryReader { geo in
-                        CourtArt(kind: event.activity.court, scale: geo.size.width / CourtArt.designWidth * 1.05)
-                            .frame(height: 400)
-                            .offset(y: -44)
-                            .opacity(0.45)
-                    }
-                }
-                .frame(height: Self.bandHeight)
-                .clipped()
+            bandArt(event)
             Theme.surface2
         }
         .ignoresSafeArea()
+    }
+
+    /// The band again, in front of the messages, from the top edge to the bottom of the pinned
+    /// card. With the navigation bar in the side bar, nothing else covers the strip above the
+    /// card, so messages scrolled up would show through it. Drawn in the same space as `band`, so
+    /// the two line up exactly.
+    private func bandCover(_ event: Game) -> some View {
+        bandArt(event)
+            .frame(maxHeight: .infinity, alignment: .top)
+            .clipped()
+            .ignoresSafeArea()
+    }
+
+    private func bandArt(_ event: Game) -> some View {
+        event.activity.color
+            .overlay(alignment: .top) {
+                GeometryReader { geo in
+                    // Stops growing at the court headers' width, so a wide screen doesn't blow
+                    // the net line up across the band. The art centers itself in the width.
+                    CourtArt(kind: event.activity.court, scale: min(geo.size.width, CourtHeader.maxWidth) / CourtArt.designWidth * 1.05)
+                        .frame(height: 400)
+                        .offset(y: -44)
+                        .opacity(0.45)
+                }
+            }
+            .frame(height: Self.bandHeight)
+            .clipped()
     }
 
     private func pinnedCard(_ event: Game) -> some View {
@@ -190,7 +210,7 @@ struct GroupChatView: View {
         .padding(.horizontal, 15)
         .padding(.top, 4)
         .padding(.bottom, 8)
-        .readableColumn()
+        .foldColumn()
     }
 
     // MARK: Timeline
@@ -415,6 +435,7 @@ struct GroupChatView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.horizontal, Theme.gutter)
                 .padding(.vertical, 12)
+                .foldColumn(maxWidth: .infinity)
         }
     }
 
@@ -459,8 +480,37 @@ struct GroupChatView: View {
         .padding(.horizontal, 15)
         .padding(.top, 8)
         .padding(.bottom, 8)
-        .readableColumn()
+        .foldColumn()
         // Solid, so messages don't show through under the field.
         .background(Theme.surface2)
+    }
+}
+
+private extension View {
+    /// `readableColumn()`, moved to one side when the Duo is partially open, so no bubble, card
+    /// or field runs through the crease. Flat screens get exactly `readableColumn()`.
+    func foldColumn(maxWidth: CGFloat = Theme.columnWidth) -> some View {
+        modifier(FoldColumn(maxWidth: maxWidth))
+    }
+}
+
+private struct FoldColumn: ViewModifier {
+    var maxWidth: CGFloat
+    /// The larger side of the fold, across this view's own width. Nil when the screen is flat.
+    @State private var pane: ClosedRange<CGFloat>?
+
+    func body(content: Content) -> some View {
+        // The same chain either way, so a fold coming or going doesn't reset the composer's focus.
+        content
+            .frame(maxWidth: maxWidth)
+            .frame(width: pane.map { $0.upperBound - $0.lowerBound })
+            .padding(.leading, pane?.lowerBound ?? 0)
+            .frame(maxWidth: .infinity, alignment: pane == nil ? .center : .leading)
+            .onGeometryChange(for: ClosedRange<CGFloat>?.self) { proxy in
+                guard let fold = proxy.activeFold else { return nil }
+                let side = CGRect(origin: .zero, size: proxy.size).pane(avoiding: fold)
+                // A crease running side to side leaves the full width: nothing to move.
+                return side.width < proxy.size.width ? side.minX...side.maxX : nil
+            } action: { pane = $0 }
     }
 }
