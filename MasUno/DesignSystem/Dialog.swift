@@ -160,19 +160,28 @@ private struct DialogPresenter<Item: Identifiable, Card: View>: ViewModifier {
     func body(content: Content) -> some View {
         content
             .fullScreenCover(item: $presented) { item in
-                ZStack {
-                    Theme.scrim
-                        .ignoresSafeArea()
-                        .opacity(isShown ? 1 : 0)
-                        .onTapGesture { if isDismissable { close {} } }
-                        .accessibilityHidden(true)
+                // Read in the same pass as the card is placed, so it never shows on the fold first.
+                GeometryReader { proxy in
+                    ZStack {
+                        Theme.scrim
+                            .ignoresSafeArea()
+                            .opacity(isShown ? 1 : 0)
+                            .onTapGesture { if isDismissable { close {} } }
+                            .accessibilityHidden(true)
 
-                    card(item)
-                        .environment(\.closeDialog) { close($0) }
-                        .padding(.horizontal, 24)
-                        .scaleEffect(isShown ? 1 : 0.92)
-                        .opacity(isShown ? 1 : 0)
-                        .accessibilityAddTraits(.isModal)
+                        card(item)
+                            .environment(\.closeDialog) { close($0) }
+                            .padding(.horizontal, 24)
+                            .scaleEffect(isShown ? 1 : 0.92)
+                            .opacity(isShown ? 1 : 0)
+                            // One modal container. The trait on the card alone lands on each of
+                            // its elements, and each modal element hides the others from
+                            // VoiceOver, so only the last button ("Not now") could be reached.
+                            .accessibilityElement(children: .contain)
+                            .accessibilityAddTraits(.isModal)
+                            .padding(Self.insets(avoiding: proxy.activeFold, in: proxy.size))
+                    }
+                    .frame(width: proxy.size.width, height: proxy.size.height)
                 }
                 .presentationBackground(.clear)
                 .onAppear { withAnimation(.spring(duration: 0.3, bounce: 0.2)) { isShown = true } }
@@ -194,6 +203,18 @@ private struct DialogPresenter<Item: Identifiable, Card: View>: ViewModifier {
             item = nil
             then()
         }
+    }
+
+    /// Keeps the card to one side of an active fold, centered in the larger half, the way system
+    /// sheets move off it. No insets when the screen is flat.
+    private static func insets(avoiding fold: CGRect?, in size: CGSize) -> EdgeInsets {
+        guard let fold else { return EdgeInsets() }
+        let bounds = CGRect(origin: .zero, size: size)
+        let pane = bounds.pane(avoiding: fold)
+        return EdgeInsets(
+            top: pane.minY, leading: pane.minX,
+            bottom: bounds.maxY - pane.maxY, trailing: bounds.maxX - pane.maxX
+        )
     }
 
     private func withoutCoverAnimation(_ body: () -> Void) {
