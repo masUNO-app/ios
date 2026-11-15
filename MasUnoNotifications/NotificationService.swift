@@ -13,9 +13,10 @@ nonisolated final class NotificationService: UNNotificationServiceExtension {
         let pending = pending
         pending.handler = contentHandler
         pending.fallback = request.content
-        let content = request.content
+        // The delivered content stays with this callback. The task only sees a Sendable box.
+        let delivered = DeliveredContent(request.content)
         Task {
-            let updated = await Self.communicationContent(from: content)
+            let updated = await Self.communicationContent(from: delivered.content)
             pending.finish(updated)
         }
     }
@@ -89,6 +90,12 @@ nonisolated final class NotificationService: UNNotificationServiceExtension {
     private static func initials(of name: String) -> String {
         name.split(separator: " ").prefix(2).compactMap(\.first).map(String.init).joined().uppercased()
     }
+}
+
+/// Carries the delivered alert into the rewrite task. The content object is only read there.
+nonisolated private final class DeliveredContent: @unchecked Sendable {
+    let content: UNNotificationContent
+    init(_ content: UNNotificationContent) { self.content = content }
 }
 
 /// Holds the completion handler so the time-limit callback can still answer.

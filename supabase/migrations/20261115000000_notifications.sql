@@ -89,7 +89,8 @@ create policy "read own notification prefs" on public.notification_prefs
 create policy "read own bookmarks" on public.bookmarks
     for select to authenticated using (user_id = (select auth.uid()));
 
--- game_cards grows is_bookmarked, spot_alert and my_chat_muted. Same rows as before.
+-- game_cards grows is_bookmarked, spot_alert and my_chat_muted. New columns go at the end:
+-- CREATE OR REPLACE VIEW cannot rename or reorder the columns already shipped.
 create or replace view public.game_cards
 with (security_invoker = true) as
 select g.id, g.host_id, host.first_name as host_first_name, host.last_initial as host_last_initial,
@@ -98,7 +99,10 @@ select g.id, g.host_id, host.first_name as host_first_name, host.last_initial as
        g.place_address, g.lat, g.lng, g.meet_point, g.material_change_at, g.cancelled_at, g.auto_repost,
        g.reposted_at, g.created_at, coalesce(g.reposted_at, g.created_at) as sort_at,
        mine.role as my_role, mine.joined_at as my_joined_at,
-       coalesce(mine.chat_muted, false) as my_chat_muted,
+       exists (
+           select 1 from public.rsvps other
+           where other.event_id = g.id and private.blocked_pair((select auth.uid()), other.user_id)
+       ) as has_blocked_attendee,
        exists (
            select 1 from public.bookmarks b
            where b.event_id = g.id and b.user_id = (select auth.uid())
@@ -107,10 +111,7 @@ select g.id, g.host_id, host.first_name as host_first_name, host.last_initial as
            select b.notify from public.bookmarks b
            where b.event_id = g.id and b.user_id = (select auth.uid())
        ), false) as spot_alert,
-       exists (
-           select 1 from public.rsvps other
-           where other.event_id = g.id and private.blocked_pair((select auth.uid()), other.user_id)
-       ) as has_blocked_attendee
+       coalesce(mine.chat_muted, false) as my_chat_muted
 from public.games g
 join public.profiles host on host.id = g.host_id
 left join public.rsvps mine on mine.event_id = g.id and mine.user_id = (select auth.uid());
