@@ -43,7 +43,7 @@ final class GameStore {
     private var spotAlertIDs: Set<UUID> = []
     /// Alerts this phone already announced. Ignored until the server clears "Notify me".
     private var spentSpotAlerts: Set<UUID> = []
-    /// The latest Save tap for a game. An older reply must not put the bookmark back.
+    /// The latest save or spot-alert write for a game. An older reply is ignored.
     private var savedGeneration: [UUID: Int] = [:]
     /// Cancelled games you removed from Going.
     private var dismissedIDs: Set<UUID> = []
@@ -363,9 +363,14 @@ final class GameStore {
     }
 
     func refreshSaved() async {
-        guard !savedIDs.isEmpty else { return }
         do {
-            store(try await games.fetchGames(ids: Array(savedIDs)))
+            // The map skips full games, so a reinstall would otherwise never see "Notify me".
+            let bookmarked = try await games.fetchBookmarkedGames()
+            store(bookmarked)
+            let onlyLocal = savedIDs.subtracting(bookmarked.map(\.id))
+            if !onlyLocal.isEmpty {
+                store(try await games.fetchGames(ids: Array(onlyLocal)))
+            }
         } catch {
             noteFailure(domainError(error))
         }
@@ -664,6 +669,7 @@ final class GameStore {
 
     func toggleSaved(_ id: UUID) {
         let saved = !savedIDs.contains(id)
+        let hadAlert = spotAlertIDs.contains(id)
         savedGeneration[id, default: 0] += 1
         let generation = savedGeneration[id] ?? 0
         if saved {
@@ -675,13 +681,16 @@ final class GameStore {
             write(spotAlertIDs, forKey: spotAlertKey)
         }
         write(savedIDs, forKey: savedKey)
-        Task { await syncSaved(id, saved: saved, generation: generation) }
+        Task { await syncSaved(id, saved: saved, generation: generation, restoreAlert: hadAlert) }
     }
 
     /// "Alert me if a spot opens" on a full game. Turning it on saves the game too, so it's in
     /// Saved games. The server sends the push. This phone keeps a copy so it works offline.
     func toggleSpotAlert(_ id: UUID) {
         let on = !spotAlertIDs.contains(id)
+        let wasSaved = savedIDs.contains(id)
+        savedGeneration[id, default: 0] += 1
+        let generation = savedGeneration[id] ?? 0
         if on {
             spotAlertIDs.insert(id)
             savedIDs.insert(id)
@@ -690,7 +699,7 @@ final class GameStore {
             spotAlertIDs.remove(id)
         }
         write(spotAlertIDs, forKey: spotAlertKey)
-        Task { await syncSpotAlert(id, on: on) }
+        Task { await syncSpotAlert(id, on: on, generation: generation, wasSaved: wasSaved) }
     }
 
     /// "Remove" on a cancelled game in Going. The game is still cancelled on the server; this
@@ -737,21 +746,42 @@ final class GameStore {
         }
     }
 
-    private func syncSaved(_ id: UUID, saved: Bool, generation: Int) async {
+    private func syncSaved(_ id: UUID, saved: Bool, generation: Int, restoreAlert: Bool) async {
         do {
             let game = try await games.setBookmark(id: id, on: saved)
             guard savedGeneration[id] == generation else { return }
             applyBookmark(game)
         } catch {
             guard savedGeneration[id] == generation else { return }
+            if saved {
+                savedIDs.remove(id)
+                spotAlertIDs.remove(id)
+            } else {
+                savedIDs.insert(id)
+                if restoreAlert { spotAlertIDs.insert(id) }
+            }
+            write(savedIDs, forKey: savedKey)
+            write(spotAlertIDs, forKey: spotAlertKey)
             fail(domainError(error))
         }
     }
 
-    private func syncSpotAlert(_ id: UUID, on: Bool) async {
+    private func syncSpotAlert(_ id: UUID, on: Bool, generation: Int, wasSaved: Bool) async {
         do {
-            applyBookmark(try await games.setSpotAlert(id: id, on: on))
+            let game = try await games.setSpotAlert(id: id, on: on)
+            guard savedGeneration[id] == generation else { return }
+            applyBookmark(game)
         } catch {
+            guard savedGeneration[id] == generation else { return }
+            if on {
+                spotAlertIDs.remove(id)
+                if !wasSaved { savedIDs.remove(id) }
+            } else {
+                spotAlertIDs.insert(id)
+                savedIDs.insert(id)
+            }
+            write(savedIDs, forKey: savedKey)
+            write(spotAlertIDs, forKey: spotAlertKey)
             fail(domainError(error))
         }
     }

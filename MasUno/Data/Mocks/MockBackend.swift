@@ -260,6 +260,11 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         return visibleGames.filter { ids.contains($0.id) }
     }
 
+    func fetchBookmarkedGames() async throws -> [Game] {
+        try await begin()
+        return visibleGames.filter { bookmarked.contains($0.id) }
+    }
+
     func fetchAttendees(gameID: UUID) async throws -> [Attendee] {
         try await begin()
         _ = try visibleGame(gameID)

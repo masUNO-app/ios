@@ -95,10 +95,12 @@ final class PushNotificationService {
         await upload(token)
     }
 
-    /// The system handed us a token. Uploads it even when we already had one, because it can change.
+    /// The system handed us a token. A token we already uploaded this hour is left alone.
     func didRegister(token: String) async {
+        let changed = self.token != token
         self.token = token
         defaults.set(token, forKey: Self.tokenKey)
+        if !changed, let lastUploaded, Date().timeIntervalSince(lastUploaded) < 3600 { return }
         await upload(token)
     }
 
@@ -119,6 +121,7 @@ final class PushNotificationService {
             try await repository.unregisterDevice(token: token)
         } catch {
             logger.error("Couldn't unregister the device token: \(error.localizedDescription, privacy: .public)")
+            return
         }
         self.token = nil
         defaults.removeObject(forKey: Self.tokenKey)

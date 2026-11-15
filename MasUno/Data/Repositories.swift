@@ -24,6 +24,8 @@ protocol GameRepository: AnyObject {
     func fetchGame(id: UUID) async throws -> Game
     /// The games behind the phone's Saved list. Missing IDs are left out, not errors.
     func fetchGames(ids: [UUID]) async throws -> [Game]
+    /// Saved games from the server, including full ones the map leaves out.
+    func fetchBookmarkedGames() async throws -> [Game]
     /// Who's going, host first, without anyone you blocked.
     func fetchAttendees(gameID: UUID) async throws -> [Attendee]
     /// Group chat system rows, oldest first.

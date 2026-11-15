@@ -53,6 +53,15 @@ final class LiveGameRepository: GameRepository {
         }
     }
 
+    func fetchBookmarkedGames() async throws -> [Game] {
+        try await games {
+            try await client.from("game_cards").select()
+                .eq("is_bookmarked", value: true)
+                .order("starts_at")
+                .execute().value
+        }
+    }
+
     func fetchAttendees(gameID: UUID) async throws -> [Attendee] {
         try await liveRequest {
             let rows: [AttendeeRow] = try await client.from("game_attendees").select()
