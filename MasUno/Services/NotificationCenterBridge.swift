@@ -3,7 +3,7 @@ import UserNotifications
 
 /// Receives the APNs token and notification taps. SwiftUI owns this object through
 /// `@UIApplicationDelegateAdaptor`. `PushNotificationService` does the work on the main actor.
-nonisolated final class NotificationCenterBridge: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+nonisolated final class NotificationCenterBridge: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate, @unchecked Sendable {
     private let serviceBox = ServiceBox()
 
     /// The delegate has to exist before `didFinishLaunching` returns. A cold-launch tap can arrive
@@ -25,7 +25,7 @@ nonisolated final class NotificationCenterBridge: NSObject, UIApplicationDelegat
         UNUserNotificationCenter.current().delegate = self
         service.registerCategories()
         for tap in waiting {
-            await service.handle(action: tap.action, userInfo: tap.userInfo, reply: tap.reply)
+            await service.handle(action: tap.action, payload: tap.payload, reply: tap.reply)
         }
     }
 
@@ -54,10 +54,10 @@ nonisolated final class NotificationCenterBridge: NSObject, UIApplicationDelegat
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
-        let userInfo = notification.request.content.userInfo
+        let payload = NotificationPayload(userInfo: notification.request.content.userInfo)
         let service = serviceBox.current()
         return await MainActor.run {
-            service?.presentationOptions(for: userInfo) ?? [.banner, .sound, .list]
+            service?.presentationOptions(for: payload) ?? [.banner, .sound, .list]
         }
     }
 
@@ -66,25 +66,20 @@ nonisolated final class NotificationCenterBridge: NSObject, UIApplicationDelegat
         didReceive response: UNNotificationResponse
     ) async {
         let action = response.actionIdentifier
-        let userInfo = response.notification.request.content.userInfo
+        let payload = NotificationPayload(userInfo: response.notification.request.content.userInfo)
         let reply = (response as? UNTextInputNotificationResponse)?.userText
-        let tap = PendingTap(action: action, userInfo: userInfo, reply: reply)
+        let tap = PendingTap(action: action, payload: payload, reply: reply)
         if let service = serviceBox.service(for: tap) {
-            await service.handle(action: action, userInfo: userInfo, reply: reply)
+            await service.handle(action: action, payload: payload, reply: reply)
         }
     }
 }
 
-/// A tap that arrived before the service existed. The dictionary stays inside this box.
-nonisolated private final class PendingTap: @unchecked Sendable {
+/// A tap that arrived before the service existed. Only the decoded, sendable payload is kept.
+nonisolated private struct PendingTap: Sendable {
     let action: String
-    let userInfo: [AnyHashable: Any]
+    let payload: NotificationPayload?
     let reply: String?
-    init(action: String, userInfo: [AnyHashable: Any], reply: String?) {
-        self.action = action
-        self.userInfo = userInfo
-        self.reply = reply
-    }
 }
 
 /// Lets the nonisolated delegate callbacks reach the main-actor service.

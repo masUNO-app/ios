@@ -140,8 +140,8 @@ final class PushNotificationService {
 
     /// Hide a banner for the chat or game already on screen. Everything else shows.
     /// The open game is refreshed first, including when the banner itself is hidden.
-    func presentationOptions(for userInfo: [AnyHashable: Any]) -> UNNotificationPresentationOptions {
-        guard let payload = NotificationPayload(userInfo: userInfo) else { return [.banner, .sound, .list] }
+    func presentationOptions(for payload: NotificationPayload?) -> UNNotificationPresentationOptions {
+        guard let payload else { return [.banner, .sound, .list] }
         if let gameID = payload.gameID { onRefreshGame?(gameID) }
         if payload.kind == "chat_message", payload.gameID?.uuidString == AppGroupStore.openChatID {
             return []
@@ -153,8 +153,8 @@ final class PushNotificationService {
     }
 
     /// A tap or a long-press action. Runs with the stored session.
-    func handle(action: String, userInfo: [AnyHashable: Any], reply: String?) async {
-        guard let payload = NotificationPayload(userInfo: userInfo) else { return }
+    func handle(action: String, payload: NotificationPayload?, reply: String?) async {
+        guard let payload else { return }
         if let outboxID = payload.outboxID {
             do {
                 try await repository.markOpened(outboxID)
