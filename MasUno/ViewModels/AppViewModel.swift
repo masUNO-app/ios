@@ -36,6 +36,11 @@ final class AppViewModel {
     var focusMapOnMySports = false
     /// A link that arrived before the session was signed in.
     private(set) var pendingLink: URL?
+    /// Sign-out hid the account, but the device token is still on the server. The saved session
+    /// stays until the next launch or foreground can remove it.
+    private(set) var signOutPendingUserID: UUID? {
+        didSet { Self.storePendingSignOut(signOutPendingUserID) }
+    }
 
     @ObservationIgnored let auth: any AuthService
     @ObservationIgnored let push: PushNotificationService?
@@ -45,10 +50,21 @@ final class AppViewModel {
         self.auth = auth
         self.catalog = catalog
         self.push = push
+        if let raw = UserDefaults.standard.string(forKey: Self.signOutPendingKey) {
+            signOutPendingUserID = UUID(uuidString: raw)
+        }
     }
 
     var session: Session {
         if isUpdateRequired { return .updateRequired }
+        if let pending = signOutPendingUserID {
+            switch auth.state {
+            case .loading: return .launching
+            case .suspended: return .suspended
+            case .signedIn(let current) where current != pending: break
+            default: return .onboarding
+            }
+        }
         switch auth.state {
         case .loading: return .launching
         case .signedOut, .pendingApproval, .needsProfile, .needsGuidelines: return .onboarding
@@ -68,6 +84,7 @@ final class AppViewModel {
             if open.count == 1 { launchCampus = open[0] }
         }
         await auth.restoreSession()
+        await finishPendingSignOutIfNeeded()
     }
 
     func presentGameForm(editing id: UUID? = nil) {
@@ -116,16 +133,35 @@ final class AppViewModel {
     }
 
     func signOut(store: GameStore) async {
-        // Stay signed in when the token is still on the server, or this phone keeps getting the old account's alerts.
+        let userID: UUID? = if case .signedIn(let id) = auth.state { id } else { nil }
         if let push, await push.unregister() == false {
-            store.notice = DomainError.offline.message
+            // The account leaves the screen now. The session stays so a later launch can drop the token.
+            signOutPendingUserID = userID
+            leaveAccount(store: store)
             return
         }
+        signOutPendingUserID = nil
         do {
             try await auth.signOut()
             leaveAccount(store: store)
         } catch {
             store.notice = (error as? DomainError ?? .offline).message
+        }
+    }
+
+    /// Removes a device token that sign-out could not, then ends the saved session.
+    func finishPendingSignOutIfNeeded() async {
+        guard let pending = signOutPendingUserID else { return }
+        if case .signedIn(let current) = auth.state, current != pending {
+            signOutPendingUserID = nil
+            return
+        }
+        guard await push?.unregister() != false else { return }
+        do {
+            try await auth.signOut()
+            signOutPendingUserID = nil
+        } catch {
+            // The token is gone. The session is retried the next time the app opens.
         }
     }
 
@@ -153,6 +189,16 @@ final class AppViewModel {
             path = [.game(id), .chat(id)]
         } else {
             path = [.game(id)]
+        }
+    }
+
+    private static let signOutPendingKey = "signOutPendingUser"
+
+    private static func storePendingSignOut(_ id: UUID?) {
+        if let id {
+            UserDefaults.standard.set(id.uuidString, forKey: signOutPendingKey)
+        } else {
+            UserDefaults.standard.removeObject(forKey: signOutPendingKey)
         }
     }
 

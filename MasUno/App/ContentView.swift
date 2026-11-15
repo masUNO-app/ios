@@ -61,8 +61,10 @@ struct ContentView: View {
             }
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active, appViewModel.session == .signedIn {
+            if phase == .active {
                 Task {
+                    await appViewModel.finishPendingSignOutIfNeeded()
+                    guard appViewModel.session == .signedIn else { return }
                     await store.refresh()
                     await appViewModel.push?.refreshRegistration(force: false)
                 }
