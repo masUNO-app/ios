@@ -86,14 +86,16 @@ final class EventDetailViewModel {
         }
     }
 
+    /// SwiftUI has no `canOpenURL`, so this one still asks `UIApplication` (the scheme is in
+    /// `LSApplicationQueriesSchemes`).
     static var hasGoogleMaps: Bool {
         URL(string: "comgooglemaps://").map(UIApplication.shared.canOpenURL) ?? false
     }
 
-    func openInGoogleMaps(_ event: Game) {
+    /// Walking directions in Google Maps. The view opens it with its `openURL` action.
+    static func googleMapsURL(for event: Game) -> URL? {
         let destination = "\(event.place.latitude),\(event.place.longitude)"
-        guard let url = URL(string: "comgooglemaps://?daddr=\(destination)&directionsmode=walking") else { return }
-        UIApplication.shared.open(url)
+        return URL(string: "comgooglemaps://?daddr=\(destination)&directionsmode=walking")
     }
 
     func openInAppleMaps(_ event: Game) {

@@ -7,6 +7,7 @@ import SwiftUI
 struct EventDetailView: View {
     @Environment(GameStore.self) private var store
     @Environment(AppViewModel.self) private var appViewModel
+    @Environment(\.openURL) private var openURL
     @State private var viewModel: EventDetailViewModel
     /// The sheet has scrolled far enough that its title is under the navigation bar.
     @State private var isTitleUnderBar = false
@@ -57,16 +58,14 @@ struct EventDetailView: View {
         return CourtScaffold(
             activity: event.activity, lineup: store.lineup(for: event), capacity: event.capacity,
             holdsYou: appViewModel.arrivingIn == event.id, showsOpenSpots: !isOver,
-            onTap: { viewModel.showsWhoIsGoing = true }
+            onTap: { viewModel.showsWhoIsGoing = true },
+            onSheetUnderBar: { isUnder in
+                withAnimation(.easeOut(duration: 0.2)) { isTitleUnderBar = isUnder }
+            }
         ) {
             sheet(event, state: state)
         }
         .refreshable { await load() }
-        .onScrollGeometryChange(for: Bool.self) { geometry in
-            geometry.contentOffset.y > CourtHeader.sheetTop(forWidth: geometry.containerSize.width) - 70
-        } action: { _, isUnder in
-            withAnimation(.easeOut(duration: 0.2)) { isTitleUnderBar = isUnder }
-        }
         // Nothing dims the court behind the bar's two buttons; the bar only steps in once the
         // sheet's own title has scrolled up under it.
         .scrollEdgeEffectHidden(!isTitleUnderBar, for: .top)
@@ -99,7 +98,9 @@ struct EventDetailView: View {
         }
         .confirmationDialog("Open in", isPresented: $viewModel.choosesMapsApp) {
             Button("Apple Maps") { viewModel.openInAppleMaps(event) }
-            Button("Google Maps") { viewModel.openInGoogleMaps(event) }
+            Button("Google Maps") {
+                if let url = EventDetailViewModel.googleMapsURL(for: event) { openURL(url) }
+            }
         }
         .leaveGameDialog($viewModel.leaving)
         .cancelGameDialog($viewModel.cancelling)
@@ -316,7 +317,7 @@ struct EventDetailView: View {
                         .pill(.primary)
                 }
             case .going:
-                HStack(spacing: 10) {
+                buttonPair {
                     Button("Open group chat") { appViewModel.path.append(.chat(event.id)) }
                         .pill(.primary)
                     // Hidden until `AppConfig.appStoreID` is set (N27).
@@ -326,7 +327,7 @@ struct EventDetailView: View {
                     }
                 }
             case .hosting:
-                HStack(spacing: 10) {
+                buttonPair {
                     if canInvite {
                         Button("Share game") { viewModel.showsInvite = true }
                             .pill(.primary)
@@ -360,6 +361,15 @@ struct EventDetailView: View {
         .animation(.snappy, value: state)
     }
 
+    /// Side by side, or stacked when a label would wrap (the folded iPhone Duo, large text).
+    private func buttonPair(@ViewBuilder buttons: () -> some View) -> some View {
+        let buttons = buttons()
+        return ViewThatFits(in: .horizontal) {
+            EqualWidthRow(spacing: 10) { buttons }
+            VStack(spacing: 10) { buttons }
+        }
+    }
+
     private func barColumn(caption: LocalizedStringKey, @ViewBuilder button: () -> some View) -> some View {
         VStack(spacing: 8) {
             button()
@@ -367,6 +377,38 @@ struct EventDetailView: View {
                 .font(.rounded(.footnote))
                 .foregroundStyle(Theme.mutedLarge)
                 .multilineTextAlignment(.center)
+        }
+    }
+}
+
+/// Buttons side by side in equal widths, like an `HStack` of flexible pills. Its ideal width is
+/// the widest label's times the count, so `ViewThatFits` only picks it when no label would wrap:
+/// an `HStack` fits on the sum of its labels, then splits the space evenly and wraps the longer one.
+private struct EqualWidthRow: Layout {
+    var spacing: CGFloat
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        guard !subviews.isEmpty else { return .zero }
+        let gaps = spacing * CGFloat(subviews.count - 1)
+        let width: CGFloat
+        if let proposed = proposal.width, proposed.isFinite {
+            width = proposed
+        } else {
+            let widest = subviews.map { $0.sizeThatFits(.unspecified).width }.max() ?? 0
+            width = widest * CGFloat(subviews.count) + gaps
+        }
+        let column = ProposedViewSize(width: (width - gaps) / CGFloat(subviews.count), height: proposal.height)
+        let height = subviews.map { $0.sizeThatFits(column).height }.max() ?? 0
+        return CGSize(width: width, height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let gaps = spacing * CGFloat(subviews.count - 1)
+        let column = (bounds.width - gaps) / CGFloat(subviews.count)
+        var x = bounds.minX
+        for subview in subviews {
+            subview.place(at: CGPoint(x: x, y: bounds.midY), anchor: .leading, proposal: ProposedViewSize(width: column, height: bounds.height))
+            x += column + spacing
         }
     }
 }
