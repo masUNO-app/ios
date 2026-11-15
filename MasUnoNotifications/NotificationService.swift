@@ -29,7 +29,7 @@ nonisolated final class NotificationService: UNNotificationServiceExtension {
     /// Builds the intent iOS uses for the Messages-style banner.
     /// - Parameter content: The alert APNs delivered.
     /// - Returns: The rewritten content, or the original when this isn't a chat we can draw.
-    private static func communicationContent(from content: UNNotificationContent) async -> UNNotificationContent {
+    fileprivate static func communicationContent(from content: UNNotificationContent) async -> UNNotificationContent {
         guard let payload = NotificationPayload(userInfo: content.userInfo),
               payload.kind == "chat_message",
               let sender = payload.sender,

@@ -662,6 +662,8 @@ declare
     v_tokens jsonb;
     v_context jsonb;
 begin
+    -- The result columns are named id and kind, same as the outbox. In SQL statements the column wins.
+    #variable_conflict use_column
     if coalesce((select value from public.app_config where key = 'push_enabled'), 'false'::jsonb) <> 'true'::jsonb then
         return;
     end if;
