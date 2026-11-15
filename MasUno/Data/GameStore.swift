@@ -27,6 +27,8 @@ final class GameStore {
     var notice: String?
     /// The primer may show after the first game you join or host. The view checks iOS hasn't been asked.
     var asksForNotificationPrimer = false
+    /// Turn on was tapped, so closing the sheet is not another "Not now".
+    var notificationPrimerAccepted = false
     /// A call found the session gone or the account banned; the app re-checks `AuthService`.
     @ObservationIgnored var onSessionProblem: (() -> Void)?
 
@@ -833,6 +835,7 @@ final class GameStore {
         defaults.removeObject(forKey: Self.campusKey)
         lastCreatedID = nil
         asksForNotificationPrimer = false
+        notificationPrimerAccepted = false
         mapState = .idle
         myGamesState = .idle
         isOffline = false

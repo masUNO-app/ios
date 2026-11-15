@@ -13,6 +13,10 @@ nonisolated final class NotificationCenterBridge: NSObject, UIApplicationDelegat
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         MainActor.assumeIsolated {
+            // Before the delegate is set, so a background action has a service without a scene.
+            let push = AppLaunch.services.push
+            _ = serviceBox.install(push)
+            push.registerCategories()
             UNUserNotificationCenter.current().delegate = self
         }
         return true
@@ -69,8 +73,15 @@ nonisolated final class NotificationCenterBridge: NSObject, UIApplicationDelegat
         let payload = NotificationPayload(userInfo: response.notification.request.content.userInfo)
         let reply = (response as? UNTextInputNotificationResponse)?.userText
         let tap = PendingTap(action: action, payload: payload, reply: reply)
+        await perform(tap)
+    }
+
+    /// A reply or "Count me in" needs the saved session, which a background launch has not restored yet.
+    @MainActor
+    private func perform(_ tap: PendingTap) async {
+        await AppLaunch.services.auth.restoreSession()
         if let service = serviceBox.service(for: tap) {
-            await service.handle(action: action, payload: payload, reply: reply)
+            await service.handle(action: tap.action, payload: tap.payload, reply: tap.reply)
         }
     }
 }

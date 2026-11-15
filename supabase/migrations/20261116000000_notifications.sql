@@ -57,9 +57,10 @@ create table private.notification_outbox (
     attempts integer not null default 0,
     error text
 );
+-- A leased row is left out, so a message that arrives mid-send can insert its own row.
 create unique index notification_outbox_pending_merge_idx
     on private.notification_outbox (merge_key)
-    where sent_at is null and dropped is null and merge_key is not null;
+    where sent_at is null and dropped is null and merge_key is not null and locked_at is null;
 create index notification_outbox_due_idx
     on private.notification_outbox (not_before)
     where sent_at is null and dropped is null;
@@ -242,6 +243,7 @@ begin
             end,
             expires_at = p_expires_at
         where merge_key = p_merge_key and sent_at is null and dropped is null
+          and (locked_at is null or locked_at < now() - interval '10 minutes')
         returning id into v_id;
         if v_id is not null then return; end if;
         if p_once and exists (
@@ -272,7 +274,8 @@ begin
                 else notification_outbox.not_before
             end,
             expires_at = p_expires_at
-        where merge_key = p_merge_key and sent_at is null and dropped is null;
+        where merge_key = p_merge_key and sent_at is null and dropped is null
+          and (locked_at is null or locked_at < now() - interval '10 minutes');
     end;
 end $$;
 
@@ -671,7 +674,7 @@ begin
     for v_row in
         select * from private.notification_outbox
         where sent_at is null and dropped is null and not_before <= now()
-          and (locked_at is null or locked_at < now() - interval '2 minutes')
+          and (locked_at is null or locked_at < now() - interval '10 minutes')
         order by not_before, id
         limit v_limit
         for update skip locked
@@ -994,7 +997,7 @@ begin
     if not exists (
         select 1 from private.notification_outbox
         where sent_at is null and dropped is null and not_before <= now()
-          and (locked_at is null or locked_at < now() - interval '2 minutes')
+          and (locked_at is null or locked_at < now() - interval '10 minutes')
     ) then
         return;
     end if;

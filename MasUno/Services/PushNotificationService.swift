@@ -114,18 +114,24 @@ final class PushNotificationService {
     }
 
     /// Drops this phone's token while the session is still valid.
-    func unregister() async {
-        AppGroupStore.clearAccount()
-        guard let token else { return }
+    /// - Returns: False when the server still has the token. The local copy is kept so sign-out can try again.
+    @discardableResult
+    func unregister() async -> Bool {
+        guard let token else {
+            AppGroupStore.clearAccount()
+            return true
+        }
         do {
             try await repository.unregisterDevice(token: token)
         } catch {
             logger.error("Couldn't unregister the device token: \(error.localizedDescription, privacy: .public)")
-            return
+            return false
         }
+        AppGroupStore.clearAccount()
         self.token = nil
         defaults.removeObject(forKey: Self.tokenKey)
         lastUploaded = nil
+        return true
     }
 
     func fetchPrefs() async throws -> NotificationPrefs {

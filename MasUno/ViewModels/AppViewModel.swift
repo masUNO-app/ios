@@ -116,7 +116,11 @@ final class AppViewModel {
     }
 
     func signOut(store: GameStore) async {
-        await push?.unregister()
+        // Stay signed in when the token is still on the server, or this phone keeps getting the old account's alerts.
+        if let push, await push.unregister() == false {
+            store.notice = DomainError.offline.message
+            return
+        }
         do {
             try await auth.signOut()
             leaveAccount(store: store)

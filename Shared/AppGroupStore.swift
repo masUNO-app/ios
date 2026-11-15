@@ -17,16 +17,11 @@ nonisolated enum AppGroupStore {
     }
 
     /// The chat currently on screen. A banner for this chat is hidden.
-    static var openChatID: String? {
-        get { defaults.string(forKey: "openChatID") }
-        set { defaults.set(newValue, forKey: "openChatID") }
-    }
+    /// Memory only: a killed app must not keep hiding that chat's banners.
+    nonisolated(unsafe) static var openChatID: String?
 
     /// The game currently on screen. A banner for this game is hidden.
-    static var openGameID: String? {
-        get { defaults.string(forKey: "openGameID") }
-        set { defaults.set(newValue, forKey: "openGameID") }
-    }
+    nonisolated(unsafe) static var openGameID: String?
 
     /// Sign-out. The extension stops treating anyone as "me".
     static func clearAccount() {

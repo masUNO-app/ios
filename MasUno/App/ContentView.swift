@@ -10,7 +10,7 @@ struct ContentView: View {
     private let notifications: NotificationCenterBridge
 
     init(notifications: NotificationCenterBridge = NotificationCenterBridge()) {
-        let services = AppServices.make()
+        let services = AppLaunch.services
         self.notifications = notifications
         self.services = services
         _store = State(initialValue: GameStore(
@@ -55,6 +55,7 @@ struct ContentView: View {
                     await store.load()
                     appViewModel.push?.noteAccount(store.profile?.id)
                     await appViewModel.push?.refreshRegistration(force: true)
+                    if let url = appViewModel.push?.consumePendingRoute() { appViewModel.handle(url) }
                     appViewModel.openPendingLink()
                 }
             }
@@ -71,7 +72,15 @@ struct ContentView: View {
             get: {
                 store.asksForNotificationPrimer && appViewModel.push?.shouldOfferPrimer(accountID: store.profile?.id) == true
             },
-            set: { if !$0 { store.asksForNotificationPrimer = false } }
+            set: { presented in
+                guard !presented else { return }
+                // A drag-away is the same as Not now. Turn on sets the accepted flag first.
+                if !store.notificationPrimerAccepted, let id = store.profile?.id {
+                    appViewModel.push?.recordPrimerDecline(accountID: id)
+                }
+                store.notificationPrimerAccepted = false
+                store.asksForNotificationPrimer = false
+            }
         )) {
             NotificationPrimerSheet()
         }
@@ -82,17 +91,18 @@ struct ContentView: View {
     }
 
     private func launch() async {
-        if let push = appViewModel.push { await notifications.connect(push) }
         store.onSessionProblem = { [auth = appViewModel.auth] in Task { await auth.restoreSession() } }
+        appViewModel.push?.onOpen = { url in
+            if let url { appViewModel.handle(url) }
+        }
+        appViewModel.push?.onRefreshGame = { id in Task { await store.loadGame(id) } }
         await appViewModel.start()
         store.isChatEnabled = appViewModel.config.chatEnabled
         #if DEBUG
         appViewModel.applyDebugSession(mock: services.mock)
         #endif
-        appViewModel.push?.onOpen = { url in
-            if let url { appViewModel.handle(url) }
-        }
-        appViewModel.push?.onRefreshGame = { id in Task { await store.loadGame(id) } }
+        // After the session exists, so a tap that arrived first can send and route.
+        if let push = appViewModel.push { await notifications.connect(push) }
         guard appViewModel.session == .signedIn else { return }
         await store.load()
         appViewModel.push?.noteAccount(store.profile?.id)

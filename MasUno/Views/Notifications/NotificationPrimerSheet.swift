@@ -53,14 +53,12 @@ struct NotificationPrimerSheet: View {
             store.notice = (error as? DomainError)?.message ?? DomainError.offline.message
         }
         push.recordPrimerAccepted(accountID: accountID)
+        store.notificationPrimerAccepted = true
         store.asksForNotificationPrimer = false
         dismiss()
     }
 
     private func decline() {
-        if let accountID = store.profile?.id {
-            push.recordPrimerDecline(accountID: accountID)
-        }
         store.asksForNotificationPrimer = false
         dismiss()
     }

@@ -49,6 +49,11 @@ struct AppServices {
     }
 }
 
+/// One set of services for the process, including a background launch that never opens a scene.
+enum AppLaunch {
+    static let services = AppServices.make()
+}
+
 private extension AppServices {
     #if DEBUG
     init(_ live: LiveBackend, mock: MockBackend) {

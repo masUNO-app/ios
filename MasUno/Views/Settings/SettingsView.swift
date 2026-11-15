@@ -9,6 +9,9 @@ struct SettingsView: View {
     @Environment(GameStore.self) private var store
     @Environment(PushNotificationService.self) private var push
     @State private var prefs = NotificationPrefs.standard
+    /// The last row the server accepted. A failed toggle puts only its own switch back.
+    @State private var serverPrefs = NotificationPrefs.standard
+    @State private var prefsChain: Task<Void, Never>?
     @State private var prefsLoaded = false
     @State private var prefsFailed = false
     @State private var confirmsSignOut = false
@@ -165,6 +168,7 @@ struct SettingsView: View {
         prefsFailed = false
         do {
             prefs = try await push.fetchPrefs()
+            serverPrefs = prefs
             prefsLoaded = true
         } catch {
             prefsLoaded = false
@@ -212,13 +216,20 @@ struct SettingsView: View {
         Toggle(isOn: Binding(
             get: { prefs[keyPath: key] },
             set: { newValue in
-                let previous = prefs
                 prefs[keyPath: key] = newValue
-                Task {
+                let changed = key
+                let written = newValue
+                let prior = prefsChain
+                prefsChain = Task {
+                    await prior?.value
+                    let snapshot = prefs
                     do {
-                        try await push.setPrefs(prefs)
+                        try await push.setPrefs(snapshot)
+                        serverPrefs = snapshot
                     } catch {
-                        prefs = previous
+                        if prefs[keyPath: changed] == written {
+                            prefs[keyPath: changed] = serverPrefs[keyPath: changed]
+                        }
                         store.notice = (error as? DomainError)?.message ?? DomainError.offline.message
                     }
                 }

@@ -1,7 +1,7 @@
 -- Push notifications: producers, the send-time rules, and the client RPCs (NOTIF.md §2 and §5).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(63);
+select plan(65);
 
 create function pg_temp.act_as(p_user uuid) returns void language plpgsql as $$
 begin
@@ -236,6 +236,21 @@ select is((select (payload->>'count')::int from private.notification_outbox
     where event_id = (select id from game_ids where name = 'chat') and kind = 'chat_message'
       and user_id = 'b0000000-0000-4000-8000-00000000000b' and dropped is null),
     2, 'two messages a moment apart merge');
+update private.notification_outbox set locked_at = now()
+where event_id = (select id from game_ids where name = 'chat') and kind = 'chat_message'
+  and user_id = 'b0000000-0000-4000-8000-00000000000b' and dropped is null;
+set local role authenticated;
+select pg_temp.act_as('a0000000-0000-4000-8000-00000000000a');
+select public.send_message((select id from game_ids where name = 'chat'), 'One more', '33333333-3333-4333-8333-333333333333');
+reset role;
+select is((select count(*)::int from private.notification_outbox
+    where event_id = (select id from game_ids where name = 'chat') and kind = 'chat_message'
+      and user_id = 'b0000000-0000-4000-8000-00000000000b' and sent_at is null and dropped is null),
+    2, 'a message that arrives during a send starts its own row');
+select is((select (payload->>'count')::int from private.notification_outbox
+    where event_id = (select id from game_ids where name = 'chat') and kind = 'chat_message'
+      and user_id = 'b0000000-0000-4000-8000-00000000000b' and locked_at is not null),
+    2, 'the leased row keeps the messages it already had');
 select is((select count(*)::int from private.notification_outbox
     where event_id = (select id from game_ids where name = 'chat') and kind = 'chat_message'
       and user_id = 'c0000000-0000-4000-8000-00000000000c'),

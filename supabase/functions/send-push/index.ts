@@ -44,10 +44,7 @@ Deno.serve(async (request) => {
         return new Response("APNs auth failed", { status: 500 });
     }
 
-    const results = [];
-    for (const row of rows) {
-        results.push(await deliver(row, jwt));
-    }
+    const results = await deliverAll(rows, jwt);
     const { error: completeError } = await admin.rpc("complete_notifications", { p_results: results });
     if (completeError) {
         console.error("complete_notifications failed", completeError.message);
@@ -83,6 +80,21 @@ interface DeliveryResult {
     outcome: "sent" | "retry" | "drop";
     error?: string;
     drop_tokens?: string[];
+}
+
+/// A few posts at a time. One hundred rows, one after another, outlives the claim lease.
+async function deliverAll(rows: ClaimedNotification[], jwt: string): Promise<DeliveryResult[]> {
+    const results: DeliveryResult[] = new Array(rows.length);
+    let next = 0;
+    const workers = Math.min(8, rows.length);
+    await Promise.all(Array.from({ length: workers }, async () => {
+        while (next < rows.length) {
+            const index = next;
+            next += 1;
+            results[index] = await deliver(rows[index], jwt);
+        }
+    }));
+    return results;
 }
 
 async function deliver(row: ClaimedNotification, jwt: string): Promise<DeliveryResult> {
