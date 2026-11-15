@@ -390,8 +390,10 @@ insert into private.notification_outbox (user_id, kind, event_id, payload, not_b
 select 'b0000000-0000-4000-8000-00000000000b', 'interest_match', id, '{}'::jsonb, now(), now() + interval '1 day'
 from game_ids where name = 'soon';
 insert into private.notification_outbox (user_id, kind, event_id, payload, not_before, expires_at, sent_at)
-select 'a0000000-0000-4000-8000-00000000000a', 'game_changed', id, '{}'::jsonb, now(), now() + interval '1 day', now()
-from game_ids where name = 'soon', generate_series(1, 6);
+select 'a0000000-0000-4000-8000-00000000000a', 'game_changed', game_ids.id, '{}'::jsonb, now(), now() + interval '1 day', now()
+from game_ids
+cross join generate_series(1, 6)
+where game_ids.name = 'soon';
 insert into private.notification_outbox (user_id, kind, event_id, payload, not_before, expires_at)
 select 'a0000000-0000-4000-8000-00000000000a', 'game_changed', id, '{}'::jsonb, now(), now() + interval '1 day'
 from game_ids where name = 'soon';
