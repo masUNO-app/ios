@@ -34,7 +34,7 @@ final class LiveNotificationRepository: NotificationRepository {
     func setPrefs(_ prefs: NotificationPrefs) async throws {
         _ = try await liveRequest {
             let rows: [NotificationPrefs] = try await client.rpc(
-                "set_notification_prefs", params: PrefsParams(prefs)
+                "set_notification_prefs", params: PrefsParams(prefs: prefs)
             ).execute().value
             return rows.first ?? prefs
         }
