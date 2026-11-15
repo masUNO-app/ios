@@ -110,11 +110,25 @@ struct LocationPickerView: View {
         }
         .padding(.horizontal, Theme.gutter)
         .padding(.top, 8)
+        .padding(.bottom, 12)
         .frame(maxWidth: Theme.columnWidth)
         .animation(.snappy, value: isSearchFocused)
     }
 
     private var suggestionList: some View {
+        // Scrolls only when the rows don't fit above the bar and the keyboard, as on the
+        // iPhone Duo's folded display; otherwise the card is as tall as its rows.
+        ViewThatFits(in: .vertical) {
+            suggestionRows
+            ScrollView { suggestionRows }
+        }
+        .background(Theme.card, in: .rect(cornerRadius: Theme.Radius.card))
+        .clipShape(.rect(cornerRadius: Theme.Radius.card))
+        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card).strokeBorder(Theme.hairline))
+        .shadow(color: Theme.ink.opacity(0.1), radius: 10, y: 4)
+    }
+
+    private var suggestionRows: some View {
         VStack(spacing: 0) {
             row(title: Text("Use my current location"), subtitle: nil, systemImage: "location") {
                 Task { await viewModel.useCurrentLocation() }
@@ -126,10 +140,6 @@ struct LocationPickerView: View {
                 }
             }
         }
-        .background(Theme.card, in: .rect(cornerRadius: Theme.Radius.card))
-        .clipShape(.rect(cornerRadius: Theme.Radius.card))
-        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card).strokeBorder(Theme.hairline))
-        .shadow(color: Theme.ink.opacity(0.1), radius: 10, y: 4)
     }
 
     private func row(

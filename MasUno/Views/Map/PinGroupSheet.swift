@@ -36,7 +36,7 @@ struct PinGroupSheet: View {
         }
         .padding(.horizontal, Theme.gutter)
         .padding(.top, 22)
-        .sheetChrome(detents: [.medium, .large])
+        .sheetChrome(detents: [.oneCard, .large])
     }
 }
 

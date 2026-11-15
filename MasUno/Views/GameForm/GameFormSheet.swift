@@ -228,7 +228,8 @@ struct GameFormSheet: View {
                     }
                 }
             }
-            .lineLimit(1)
+            // Two lines, so a long name or address still reads next to Change on a narrow screen.
+            .lineLimit(2)
             .frame(maxWidth: .infinity, alignment: .leading)
 
             Button(viewModel.place == nil ? "Choose" : "Change") {

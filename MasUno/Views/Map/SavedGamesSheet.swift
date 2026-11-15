@@ -41,7 +41,7 @@ struct SavedGamesSheet: View {
             .animation(.snappy, value: games.map(\.id))
         }
         .task(id: games.map(\.id)) { await store.loadMissingAttendees(for: games.map(\.id)) }
-        .sheetChrome(detents: [.medium, .large])
+        .sheetChrome(detents: [.oneCard, .large])
     }
 
     private func card(_ event: Game) -> some View {

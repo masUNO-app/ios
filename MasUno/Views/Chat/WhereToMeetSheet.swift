@@ -19,40 +19,40 @@ struct WhereToMeetSheet: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Where to meet")
-                    .font(.rounded(.title2, .bold))
-                    .foregroundStyle(Theme.ink)
-                Text("Pinned at the top of the chat so nobody has to ask.")
-                    .font(.rounded(.subheadline))
-                    .foregroundStyle(Theme.muted)
-            }
+        // Scrolls only when the keyboard leaves less than the sheet's height (short windows).
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                SheetHeader(
+                    title: Text("Where to meet"),
+                    subtitle: Text("Pinned at the top of the chat so nobody has to ask.")
+                ) { dismiss() }
 
-            FieldBox("Meet-up spot", error: errorMessage, isFocused: isFocused) {
-                TextField("e.g. By the north court bleachers", text: $spot)
-                    .focused($isFocused)
-                    .submitLabel(.done)
-                    .onChange(of: spot) { if spot.count > Self.limit { spot = String(spot.prefix(Self.limit)) } }
-            }
-
-            Text("To change the date, time or location, edit the game from Me › Hosting.")
-                .font(.rounded(.footnote))
-                .foregroundStyle(Theme.muted)
-
-            Button("Save") {
-                guard TextFilter.isFriendly(spot) else {
-                    errorMessage = TextFilter.message
-                    return
+                FieldBox("Meet-up spot", error: errorMessage, isFocused: isFocused) {
+                    TextField("e.g. By the north court bleachers", text: $spot)
+                        .focused($isFocused)
+                        .submitLabel(.done)
+                        .onChange(of: spot) { if spot.count > Self.limit { spot = String(spot.prefix(Self.limit)) } }
                 }
-                Task { await save() }
+
+                Text("To change the date, time or location, edit the game from Me › Hosting.")
+                    .font(.rounded(.footnote))
+                    .foregroundStyle(Theme.muted)
+
+                Button("Save") {
+                    guard TextFilter.isFriendly(spot) else {
+                        errorMessage = TextFilter.message
+                        return
+                    }
+                    Task { await save() }
+                }
+                .disabled(isSaving)
+                .pill(.primary)
             }
-            .disabled(isSaving)
-            .pill(.primary)
+            .padding(.horizontal, Theme.gutter)
+            .padding(.top, 22)
+            .padding(.bottom, 12)
         }
-        .padding(.horizontal, Theme.gutter)
-        .padding(.top, 30)
-        .frame(maxHeight: .infinity, alignment: .top)
+        .scrollBounceBehavior(.basedOnSize)
         .sheetChrome(detents: [.height(330)])
         .onAppear { isFocused = true }
     }

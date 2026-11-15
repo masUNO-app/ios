@@ -36,3 +36,18 @@ extension View {
             .presentationBackground(background)
     }
 }
+
+extension PresentationDetent {
+    /// Half height, but never shorter than one whole game card with its buttons: on short
+    /// windows (iPhone Duo folded, or open in landscape) `.medium` cuts the buttons off.
+    static let oneCard = Self.custom(OneCardDetent.self)
+}
+
+private struct OneCardDetent: CustomPresentationDetent {
+    /// Sheet header plus one `GameCard`, with room for a two-line title.
+    private static let cardHeight: CGFloat = 440
+
+    static func height(in context: Context) -> CGFloat? {
+        min(max(context.maxDetentValue / 2, cardHeight), context.maxDetentValue)
+    }
+}
