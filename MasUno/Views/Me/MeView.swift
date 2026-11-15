@@ -28,13 +28,15 @@ struct MeView: View {
                     Text("Hosting").tag(MeViewModel.Tab.hosting)
                 }
                 .pickerStyle(.segmented)
+                // About one card wide: full width on every phone, not stretched across two columns.
+                .frame(maxWidth: 400)
                 .padding(.top, 8)
 
                 list
             }
             .padding(.horizontal, Theme.gutter)
             .padding(.bottom, 24)
-            .readableColumn()
+            .wideColumn()
             .animation(.snappy, value: store.goingGames().map(\.id))
         }
         .background(Theme.background)
@@ -107,42 +109,64 @@ struct MeView: View {
         if let profile = store.profile { profileCard(profile) }
     }
 
+    /// Side by side when both halves get a card's width (open landscape), stacked otherwise.
+    /// The ideal widths are what `ViewThatFits` measures: without them the chips' one-row
+    /// width decides, and the wide card would come and go with your sports.
     private func profileCard(_ profile: Profile) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 14) {
-                MeToken(name: profile.fullName, size: 72, ring: 4)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(verbatim: profile.fullName)
-                        .font(.rounded(.title2, .bold))
-                        .foregroundStyle(Theme.ink)
-                    Text(verbatim: viewModel.classLine(for: profile))
-                        .font(.rounded(.footnote))
-                        .foregroundStyle(Theme.ink)
-                    // O4: "Tec verified" if staff turn out to share the student domain.
-                    VerifiedBadge()
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 0) {
+                profileHeader(profile)
+                    .frame(minWidth: Theme.cardMinWidth, idealWidth: Theme.cardMinWidth, maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                    .background(Theme.you)
+                profilePlays(profile)
+                    .frame(minWidth: Theme.cardMinWidth, idealWidth: Theme.cardMinWidth, maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
             }
-            .padding(18)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Theme.you)
+            // Both halves as tall as the taller one, so the blue reaches the bottom.
+            .fixedSize(horizontal: false, vertical: true)
 
-            VStack(alignment: .leading, spacing: 10) {
-                Text("Plays")
-                    .font(.rounded(.footnote))
-                    .foregroundStyle(Theme.muted)
-                FlowLayout(spacing: 6) {
-                    ForEach(profile.interests) { SportChip(sport: $0) }
-                }
-                Button("Edit profile and sports") { viewModel.editsProfile = true }
-                    .pill(.secondary)
-                    .padding(.top, 4)
+            VStack(alignment: .leading, spacing: 0) {
+                profileHeader(profile)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Theme.you)
+                profilePlays(profile)
             }
-            .padding(18)
         }
         .background(Theme.card)
         .clipShape(.rect(cornerRadius: Theme.Radius.dialog))
         .overlay(RoundedRectangle(cornerRadius: Theme.Radius.dialog).strokeBorder(Theme.separator))
+    }
+
+    private func profileHeader(_ profile: Profile) -> some View {
+        HStack(spacing: 14) {
+            MeToken(name: profile.fullName, size: 72, ring: 4)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(verbatim: profile.fullName)
+                    .font(.rounded(.title2, .bold))
+                    .foregroundStyle(Theme.ink)
+                Text(verbatim: viewModel.classLine(for: profile))
+                    .font(.rounded(.footnote))
+                    .foregroundStyle(Theme.ink)
+                // O4: "Tec verified" if staff turn out to share the student domain.
+                VerifiedBadge()
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(18)
+    }
+
+    private func profilePlays(_ profile: Profile) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Plays")
+                .font(.rounded(.footnote))
+                .foregroundStyle(Theme.muted)
+            FlowLayout(spacing: 6) {
+                ForEach(profile.interests) { SportChip(sport: $0) }
+            }
+            Button("Edit profile and sports") { viewModel.editsProfile = true }
+                .pill(.secondary)
+                .padding(.top, 4)
+        }
+        .padding(18)
     }
 
     // MARK: Lists
@@ -158,11 +182,16 @@ struct MeView: View {
                     .pill(.secondary)
             }
         }
-        ForEach(events) { event in
-            NavigationLink(value: Route.game(event.id)) {
-                if event.isCancelled { cancelledCard(event) } else { goingCard(event) }
+        // Only when there are cards: an empty grid would still take the stack's spacing.
+        if !events.isEmpty {
+            CardGrid {
+                ForEach(events) { event in
+                    NavigationLink(value: Route.game(event.id)) {
+                        if event.isCancelled { cancelledCard(event) } else { goingCard(event) }
+                    }
+                    .buttonStyle(.plain)
+                }
             }
-            .buttonStyle(.plain)
         }
         earlierSection
     }
@@ -196,7 +225,7 @@ struct MeView: View {
         let events = store.pastGames()
         if !events.isEmpty {
             DisclosureGroup(isExpanded: $viewModel.showsEarlier) {
-                VStack(spacing: 16) {
+                CardGrid {
                     ForEach(events) { event in
                         NavigationLink(value: Route.game(event.id)) {
                             GameCard(
@@ -230,15 +259,19 @@ struct MeView: View {
                     .pill(.primary)
             }
         }
-        ForEach(events) { event in
-            NavigationLink(value: Route.game(event.id)) {
-                GameCard(event: event, lineup: store.lineup(for: event), status: hostingStatus(event), time: EventFormat.cardTime(event)) {
-                    Button("Edit") { appViewModel.presentGameForm(editing: event.id) }
-                        .pill(.secondary, expands: false)
-                    chatButton(event)
+        if !events.isEmpty {
+            CardGrid {
+                ForEach(events) { event in
+                    NavigationLink(value: Route.game(event.id)) {
+                        GameCard(event: event, lineup: store.lineup(for: event), status: hostingStatus(event), time: EventFormat.cardTime(event)) {
+                            Button("Edit") { appViewModel.presentGameForm(editing: event.id) }
+                                .pill(.secondary, expands: false)
+                            chatButton(event)
+                        }
+                    }
+                    .buttonStyle(.plain)
                 }
             }
-            .buttonStyle(.plain)
         }
     }
 

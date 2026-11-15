@@ -41,7 +41,7 @@ struct BlockedPeopleView: View {
             }
             .padding(.horizontal, Theme.gutter)
             .padding(.top, 8)
-            .readableColumn()
+            .readableColumn(alignment: .leading)
             .animation(.default, value: store.blockedPeople)
         }
         .background(Theme.background)

@@ -15,7 +15,8 @@ struct SettingsView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 10) {
+            // Side by side in open landscape, stacked otherwise. Spacing 10 keeps phones as they were.
+            CardGrid(spacing: 10) {
                 section("Privacy & safety") {
                     // iOS owns the setting, so the row goes straight to it.
                     Button {
@@ -48,6 +49,8 @@ struct SettingsView: View {
                     row("Version", subtitle: Text(verbatim: "\(AppConfig.currentVersion) (\(buildNumber))"), systemImage: "info", color: Theme.separator, trailing: nil)
                 }
 
+                // The third grid item, so it's one column wide and lands under Privacy & safety
+                // when there are two.
                 VStack(spacing: 14) {
                     Button("Sign out") { confirmsSignOut = true }
                         .pill(.quietDestructive)
@@ -58,7 +61,7 @@ struct SettingsView: View {
             }
             .padding(.horizontal, Theme.gutter)
             .padding(.bottom, 24)
-            .readableColumn()
+            .wideColumn()
         }
         .background(Theme.background)
         .navigationTitle("Settings")
@@ -173,7 +176,7 @@ struct CommunityGuidelinesView: View {
             }
             .padding(.horizontal, Theme.gutter)
             .padding(.top, 4)
-            .readableColumn()
+            .readableColumn(alignment: .leading)
         }
         .background(Theme.background)
         .navigationTitle("Community guidelines")

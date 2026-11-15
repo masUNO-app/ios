@@ -69,6 +69,10 @@ enum Theme {
     static let gutter: CGFloat = 20
     /// Widest a phone-sized column gets on big screens (iPad, iPhone Duo unfolded).
     static let columnWidth: CGFloat = 560
+    /// Widest a screen of cards gets (`wideColumn()`): two `CardGrid` columns at most.
+    static let wideColumnWidth: CGFloat = 1000
+    /// Narrowest a `CardGrid` column gets: a folded iPhone Duo's column, so phones get one.
+    static let cardMinWidth: CGFloat = 340
 
     // MARK: UIKit appearance
 
@@ -117,9 +121,16 @@ extension View {
             .overlay(RoundedRectangle(cornerRadius: radius).strokeBorder(Theme.hairline))
     }
 
-    /// Keeps a phone-width column centered on big screens.
-    func readableColumn() -> some View {
-        frame(maxWidth: Theme.columnWidth).frame(maxWidth: .infinity)
+    /// Keeps a phone-width column on big screens: centered, or `.leading` under a large title for
+    /// a screen that's one list or one text.
+    func readableColumn(alignment: Alignment = .center) -> some View {
+        frame(maxWidth: Theme.columnWidth).frame(maxWidth: .infinity, alignment: alignment)
+    }
+
+    /// For screens made of cards: fills the width up to `wideColumnWidth`, so a `CardGrid` can
+    /// put cards side by side, and the content starts under the large title.
+    func wideColumn() -> some View {
+        frame(maxWidth: Theme.wideColumnWidth).frame(maxWidth: .infinity)
     }
 }
 
