@@ -90,6 +90,7 @@ struct ContentView: View {
                     }
                 }
         }
+        .readsBarLayout()
         .sheet(item: $appViewModel.sheet) { sheet in
             switch sheet {
             case .gameForm(let id): GameFormSheet(editing: id.flatMap { store.game($0) })

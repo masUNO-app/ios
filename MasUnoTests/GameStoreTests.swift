@@ -368,3 +368,50 @@ struct OfflineStateTests {
         #expect(store.myGamesState == .loaded)
     }
 }
+
+/// The map popup's pan into the safe area and off the fold (iPhone Duo), and the token row's cap.
+@MainActor
+struct PopupPlacementTests {
+    let popup = CGSize(width: 370, height: 340)
+
+    @Test func aPhoneNeedsNoExtraPan() {
+        let shift = EventMapViewModel.popupShift(
+            pin: CGPoint(x: 201, y: 874 * 0.63), popup: popup,
+            within: CGRect(x: 0, y: 62, width: 402, height: 746)
+        )
+        #expect(shift == .zero)
+    }
+
+    @Test func foldedKeepsClearOfTheSideBar() {
+        let shift = EventMapViewModel.popupShift(
+            pin: CGPoint(x: 233, y: 678 * 0.63), popup: CGSize(width: 350, height: 340),
+            within: CGRect(x: 0, y: 0, width: 382, height: 600)
+        )
+        #expect(shift.dx == -42)
+        #expect(shift.dy == 0)
+    }
+
+    @Test func partiallyOpenLandsOnOneSideOfTheFold() {
+        let safe = CGRect(x: 0, y: 0, width: 867, height: 600)
+        let area = safe.pane(avoiding: CGRect(x: 470, y: 0, width: 11, height: 669))
+        let shift = EventMapViewModel.popupShift(pin: CGPoint(x: 475.5, y: 669 * 0.63), popup: popup, within: area)
+        #expect(475.5 + shift.dx + popup.width / 2 <= 470 - 16)
+        #expect(shift.dx == -206.5)
+    }
+
+    @Test func aPopupAboveTheSafeAreaMovesDown() {
+        let shift = EventMapViewModel.popupShift(
+            pin: CGPoint(x: 200, y: 300), popup: CGSize(width: 300, height: 340),
+            within: CGRect(x: 0, y: 20, width: 400, height: 600)
+        )
+        let top = 300 + shift.dy - (EventPin.selectedHeight + 6) - 340
+        #expect(abs(top - 28) < 0.001)
+    }
+
+    @Test func tokenRowKeepsTwelveOnAPhoneAndDropsOneFolded() {
+        // Me cards: a 402 pt iPhone leaves a 322 pt row; folded, 302 pt.
+        #expect(TokenRowLayout.capacity(width: 322, tokenWidth: 32) >= 12)
+        #expect(TokenRowLayout.capacity(width: 302, tokenWidth: 32) == 11)
+        #expect(TokenRowLayout.capacity(width: 20, tokenWidth: 32) == 1)
+    }
+}

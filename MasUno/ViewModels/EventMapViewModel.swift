@@ -191,20 +191,44 @@ final class EventMapViewModel {
     /// Anchors the popup annotation so its tail ends just above the selected pin's head.
     /// Same coordinate as the pin, so MapKit moves them together.
     func popupAnchor(for event: Game) -> UnitPoint {
-        UnitPoint(x: 0.5, y: 1 + (EventPin.selectedHeight + 6) / max(popupHeight, 1))
+        UnitPoint(x: 0.5, y: 1 + Self.popupLift / max(popupHeight, 1))
     }
+
+    /// From the popup's bottom edge down to its pin's coordinate.
+    private static let popupLift = EventPin.selectedHeight + 6
 
     /// Last visible region, so selecting a pin can keep the current zoom.
     private var visibleRegion: MKCoordinateRegion?
 
-    /// Pans so the selected pin sits low and centered, leaving room for its popup above.
-    func reveal(_ event: Game) {
+    /// Pans so the selected pin sits low and centered, leaving room for its popup above. Then,
+    /// if that would leave part of the popup outside `area` (in the map's points: the safe area,
+    /// and one side of the fold on a partially open iPhone Duo), pans a little more to bring it in.
+    func reveal(_ event: Game, mapSize: CGSize = .zero, area: CGRect = .null, popupWidth: CGFloat = 0) {
         let span = visibleRegion?.span ?? University.mapSpan
-        let center = CLLocationCoordinate2D(
+        var center = CLLocationCoordinate2D(
             latitude: event.coordinate.latitude + span.latitudeDelta * 0.13,
             longitude: event.coordinate.longitude
         )
+        if mapSize.width > 0, mapSize.height > 0, !area.isEmpty {
+            // Where that puts the pin: across the middle, 13% of the map below it.
+            let pin = CGPoint(x: mapSize.width / 2, y: mapSize.height * 0.63)
+            let shift = Self.popupShift(pin: pin, popup: CGSize(width: popupWidth, height: popupHeight), within: area)
+            // Moving the pin right or down on screen moves the map's center west or north.
+            center.longitude -= shift.dx * span.longitudeDelta / mapSize.width
+            center.latitude += shift.dy * span.latitudeDelta / mapSize.height
+        }
         withAnimation(.smooth) { position = .region(MKCoordinateRegion(center: center, span: span)) }
+    }
+
+    /// How far to move a pin at `pin` so its popup, centered above it, lands inside `area`:
+    /// 16 pt in from the sides (as on a phone) and 8 pt below the top. Zero when it's already in.
+    /// A popup wider than the area goes in its middle; one too tall keeps its top in view.
+    static func popupShift(pin: CGPoint, popup: CGSize, within area: CGRect) -> CGVector {
+        let lowest = area.minX + 16 + popup.width / 2
+        let highest = area.maxX - 16 - popup.width / 2
+        let x = lowest <= highest ? min(max(pin.x, lowest), highest) : area.midX
+        let top = pin.y - popupLift - popup.height
+        return CGVector(dx: x - pin.x, dy: max(0, area.minY + 8 - top))
     }
 
     /// The games behind the group pin you tapped, listed in a sheet.
