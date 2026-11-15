@@ -92,7 +92,8 @@ nonisolated final class NotificationService: UNNotificationServiceExtension {
 }
 
 /// Holds the completion handler so the time-limit callback can still answer.
-private final class PendingDelivery: @unchecked Sendable {
+/// Nonisolated on purpose: the service extension is not on the main actor, and this box is only a lock.
+nonisolated private final class PendingDelivery: @unchecked Sendable {
     var handler: ((UNNotificationContent) -> Void)?
     var fallback: UNNotificationContent?
     private let lock = NSLock()

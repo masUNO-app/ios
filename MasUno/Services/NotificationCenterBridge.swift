@@ -60,6 +60,7 @@ nonisolated final class NotificationCenterBridge: NSObject, UIApplicationDelegat
 
 /// Lets the nonisolated delegate callbacks reach the main-actor service.
 /// The service is only swapped once, at launch, before any callback.
-private final class ServiceBox: @unchecked Sendable {
+/// Nonisolated so the bridge can create it outside the main actor.
+nonisolated private final class ServiceBox: @unchecked Sendable {
     nonisolated(unsafe) var service: PushNotificationService?
 }
