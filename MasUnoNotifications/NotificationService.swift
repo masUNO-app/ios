@@ -13,17 +13,13 @@ nonisolated final class NotificationService: UNNotificationServiceExtension {
         let pending = pending
         pending.handler = contentHandler
         pending.fallback = request.content
-        // A copy, so the timeout path and the rewrite task don't share one object.
-        let content = (request.content.mutableCopy() as? UNNotificationContent) ?? request.content
-        Self.scheduleRewrite(of: content, pending: pending)
-    }
-
-    /// Starts the rewrite without capturing the alert in this function. The region checker can send that argument.
-    private static func scheduleRewrite(of content: UNNotificationContent, pending: PendingDelivery) {
-        Task {
-            let updated = await communicationContent(from: content)
-            pending.finish(updated)
-        }
+        // A copy, so the timeout path and the rewrite don't share one object.
+        // The task only captures the job, which is sendable. The alert stays inside it.
+        let job = RewriteJob(
+            content: (request.content.mutableCopy() as? UNNotificationContent) ?? request.content,
+            pending: pending
+        )
+        Task { await job.run() }
     }
 
     nonisolated override func serviceExtensionTimeWillExpire() {
@@ -94,6 +90,22 @@ nonisolated final class NotificationService: UNNotificationServiceExtension {
 
     private static func initials(of name: String) -> String {
         name.split(separator: " ").prefix(2).compactMap(\.first).map(String.init).joined().uppercased()
+    }
+}
+
+/// Owns the alert for the rewrite task. The task captures this box, not the notification content.
+nonisolated private final class RewriteJob: @unchecked Sendable {
+    private let content: UNNotificationContent
+    private let pending: PendingDelivery
+
+    init(content: UNNotificationContent, pending: PendingDelivery) {
+        self.content = content
+        self.pending = pending
+    }
+
+    func run() async {
+        let updated = await NotificationService.communicationContent(from: content)
+        pending.finish(updated)
     }
 }
 

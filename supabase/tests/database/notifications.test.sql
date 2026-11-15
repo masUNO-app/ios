@@ -164,9 +164,10 @@ select is((select count(*)::int from private.notification_outbox
       and user_id = 'b0000000-0000-4000-8000-00000000000b'),
     0, 'the person who left is not told');
 
--- The same alert when the host turned the pin bump off.
+-- The same alert when the host turned the pin bump off. Carla hosts it: Alice is already at the
+-- three upcoming games the server allows.
 set local role authenticated;
-select pg_temp.act_as('a0000000-0000-4000-8000-00000000000a');
+select pg_temp.act_as('c0000000-0000-4000-8000-00000000000c');
 insert into game_ids
 select 'norepost', id from public.create_game('basketball', 'No repost', now() + interval '1 day', 60, 2, null,
     'Arena', 'Tec', 25.65, -100.29, null, false);
