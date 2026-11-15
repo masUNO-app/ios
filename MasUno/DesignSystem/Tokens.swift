@@ -208,21 +208,31 @@ struct Lineup: Equatable {
 }
 
 /// A game's people and open spots in one row: tokens, a "+N" bubble for the people who don't fit,
-/// then a dashed "+1" per open spot. Squeezes together when it runs out of width.
+/// then a dashed "+1" per open spot. Squeezes together when it runs out of width, and past
+/// `TokenRowLayout.maxOverlap` shows fewer tokens: fewer spots (the last one counts the rest),
+/// then fewer people (the "+N" bubble counts them).
 struct TokenRow: View {
     var lineup: Lineup
     var size: CGFloat = 32
     /// Fill behind the "+1" tokens.
     var openFill: Color = .white.opacity(0.7)
+    /// The row's width, once measured.
+    @State private var width: CGFloat?
 
     private static let maxPeople = 7
     private static let maxTokens = 12
 
     var body: some View {
-        let shown = lineup.people.prefix(Self.maxPeople)
+        let limit = min(Self.maxTokens, width.map { TokenRowLayout.capacity(width: $0, tokenWidth: size) } ?? Self.maxTokens)
+        let showsOpen = lineup.open > 0 ? 1 : 0
+        // Keeps room for at least one "+1", and for the "+N" bubble once anyone's left out.
+        let shownCount = (0...min(lineup.people.count, Self.maxPeople)).last { count in
+            count + (lineup.unlisted + lineup.people.count > count ? 1 : 0) + showsOpen <= limit
+        } ?? 0
+        let shown = lineup.people.prefix(shownCount)
         let overflow = lineup.unlisted + lineup.people.count - shown.count
-        let room = Self.maxTokens - shown.count - (overflow > 0 ? 1 : 0)
-        let openTokens = min(lineup.open, room)
+        let room = limit - shown.count - (overflow > 0 ? 1 : 0)
+        let openTokens = max(0, min(lineup.open, room))
 
         TokenRowLayout(spacing: 3) {
             ForEach(shown) { person in
@@ -239,6 +249,9 @@ struct TokenRow: View {
                 OpenSpotToken(size: size, count: isLast ? lineup.open - openTokens + 1 : 1, fill: openFill)
             }
         }
+        // Takes the width it's offered, so what fits doesn't depend on what it shows.
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
         .accessibilityElement()
         .accessibilityLabel(Text(verbatim: lineup.accessibilityLabel))
     }
@@ -247,6 +260,16 @@ struct TokenRow: View {
 /// Lays tokens out left to right, 3 pt apart, and overlaps them evenly when the row is too narrow.
 struct TokenRowLayout: Layout {
     var spacing: CGFloat = 3
+
+    /// The most a token may cover the one before it, as a share of its width: about 6 pt at
+    /// 32 pt, as on a 402 pt wide iPhone's Me cards. Any more and it covers the "+1" and the initials.
+    static let maxOverlap: CGFloat = 0.18
+
+    /// How many tokens `tokenWidth` wide fit in `width` without overlapping past `maxOverlap`.
+    static func capacity(width: CGFloat, tokenWidth: CGFloat) -> Int {
+        guard tokenWidth > 0, width > tokenWidth else { return 1 }
+        return 1 + Int((width - tokenWidth) / (tokenWidth * (1 - maxOverlap)))
+    }
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         let sizes = subviews.map { $0.sizeThatFits(.unspecified) }
