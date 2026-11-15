@@ -446,15 +446,10 @@ final class GameStore {
     }
 
     private func store(_ fetched: [Game]) {
-        var openedTitle: String?
         var alertsChanged = false
         var savedChanged = false
         for game in fetched {
-            let wasFull = cache[game.id]?.isFull == true
-            let watched = savedIDs.contains(game.id) || spotAlertIDs.contains(game.id)
-            if watched, wasFull, !game.isFull, !game.isCancelled, !game.hasEnded(), !game.isGoing {
-                openedTitle = game.title
-            }
+            noteSpotOpened(replacing: cache[game.id], with: game)
             let spent = spotAlertIDs.contains(game.id)
                 && !game.isFull && !game.isCancelled && !game.hasEnded() && !game.isGoing
             if spotAlertIDs.contains(game.id), game.isCancelled || game.hasEnded() || game.isGoing || !game.isFull {
@@ -476,9 +471,15 @@ final class GameStore {
         }
         if alertsChanged { write(spotAlertIDs, forKey: spotAlertKey) }
         if savedChanged { write(savedIDs, forKey: savedKey) }
-        if let openedTitle {
-            notice = String(localized: "A spot just opened in \(openedTitle).")
-        }
+    }
+
+    /// A saved game, or one with "Notify me", going from full to open. The bookmark reply can
+    /// land this row before the change ping does, so both writes check the transition.
+    private func noteSpotOpened(replacing previous: Game?, with game: Game) {
+        let watched = savedIDs.contains(game.id) || spotAlertIDs.contains(game.id)
+        guard let previous, previous.isFull, watched, !game.isFull, !game.isCancelled, !game.hasEnded(), !game.isGoing else { return }
+        notice = String(localized: "A spot just opened in \(game.title).")
+        if !mapIDs.contains(game.id) { mapIDs.insert(game.id, at: 0) }
     }
 
     // MARK: Join and leave
@@ -769,6 +770,7 @@ final class GameStore {
         } else {
             spotAlertIDs.remove(game.id)
         }
+        noteSpotOpened(replacing: cache[game.id], with: game)
         cache[game.id] = game
         write(savedIDs, forKey: savedKey)
         write(spotAlertIDs, forKey: spotAlertKey)

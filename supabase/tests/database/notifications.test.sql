@@ -485,13 +485,16 @@ from game_ids where name = 'saved';
 update public.bookmarks set notify = true
 where user_id = 'b0000000-0000-4000-8000-00000000000b'
   and event_id = (select id from game_ids where name = 'saved');
+create temp table spot_send on commit drop as
+select id from private.notification_outbox
+where user_id = 'b0000000-0000-4000-8000-00000000000b' and kind = 'spot_open'
+  and event_id = (select id from game_ids where name = 'saved')
+order by id desc limit 1;
+grant select on spot_send to service_role;
 select set_config('request.jwt.claim.role', 'service_role', true);
 set local role service_role;
 select public.complete_notifications(jsonb_build_array(jsonb_build_object(
-    'id', (select id from private.notification_outbox
-           where user_id = 'b0000000-0000-4000-8000-00000000000b' and kind = 'spot_open'
-             and event_id = (select id from game_ids where name = 'saved')
-           order by id desc limit 1),
+    'id', (select id from spot_send),
     'outcome', 'sent'
 )));
 reset role;
