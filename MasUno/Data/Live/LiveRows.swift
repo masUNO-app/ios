@@ -524,10 +524,14 @@ nonisolated struct GameIDParams: Encodable, Sendable {
     enum CodingKeys: String, CodingKey { case id = "p_id" }
 }
 
-/// `p_game_id` for `toggle_bookmark`.
-nonisolated struct GameKeyParams: Encodable, Sendable {
+/// `set_bookmark(p_game_id, p_on)`.
+nonisolated struct BookmarkParams: Encodable, Sendable {
     let id: UUID
-    enum CodingKeys: String, CodingKey { case id = "p_game_id" }
+    let on: Bool
+    enum CodingKeys: String, CodingKey {
+        case id = "p_game_id"
+        case on = "p_on"
+    }
 }
 
 /// `set_spot_alert(p_game_id, p_on)`.

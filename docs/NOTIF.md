@@ -50,7 +50,7 @@ copy and the Spanish.
 | 3 | `reminder` | **Starts in 30 min** · Volleyball at the arena · Meet by the north bleachers | Everyone going, host too | 25–35 min before start | Cron, every 5 min | Game reminders | Time Sensitive |
 | 4 | `host_update` | **Ricardo G. joined** · Sunday pickup soccer · 2 spots left | Host | Join or leave | Merged per game for 5 min ("Ricardo G. and Maya C. joined") | Updates on games you host | Active |
 | 5 | `game_full` | **Your game is full** · 10 of 10 going for Sunday pickup soccer | Host | Last spot taken | Replaces 4 for that game | Updates on games you host | Active |
-| 6 | `spot_open` | **A spot opened** · After-work hoops · Today 7:30 PM | People who saved it with "Notify me" | A full game frees a spot (`reposted_at` set) | Right away | A spot opens up | Time Sensitive |
+| 6 | `spot_open` | **A spot opened** · After-work hoops · Today 7:30 PM | People who saved it with "Notify me" | A full game frees a spot, with or without auto-repost | Right away | A spot opens up | Time Sensitive |
 | 7 | `interest_match` | **New basketball game at Tec** · After-work hoops · Today 7:30 PM · room for 4 | People on that campus with that sport in their interests | Game created | 3 min after creation; at most 2 a day | Games that match your sports | Passive |
 | 8 | `chat_message` | *(Messages style)* **Sunday pickup soccer** · Maya C.: I'll bring the ball | Everyone going, except the sender | New message | Right away, then at most 1 per game every 2 min ("3 new messages") | Group chat messages | Active |
 | 9 | `signup_approved` | **You're in** · Set up your profile and find a game. | The person waiting | `approve_signup` | Right away | Always on (asked for while waiting) | Active |
@@ -191,7 +191,7 @@ a group. `shared.myID` comes from the App Group (§6.2).
  ─────────────────────────────────────────────            ──────────────────────────────
  game_activity insert  → cancelled / changed / host /      every 5 min  → reminder, saved_soon
                           full / interest_match            daily 17:00  → winback
- games.reposted_at set → spot_open                         daily        → purge old rows
+ games update, seat opens → spot_open                    daily        → purge old rows
  chat_messages insert  → chat_message
  approve_signup        → signup_approved
             │
@@ -296,7 +296,7 @@ create index on private.notification_outbox (user_id, kind, sent_at);   -- caps
 | `register_device(p_token, p_environment, p_locale, p_app_version)` | Upsert the token for `auth.uid()`; set `profiles.last_seen_at`. Allowed while waiting for approval. Called on every launch and foreground, at most once an hour |
 | `unregister_device(p_token)` | Sign out: delete the row, so the next person on this phone doesn't get your pushes |
 | `set_notification_prefs(...)` | Settings switches. Returns the row |
-| `toggle_bookmark(p_game_id)` / `set_spot_alert(p_game_id, p_on)` | Synced Saved and "Notify me" (B15). Both return the `game_cards` row, with `is_bookmarked` and `spot_alert` added to the view |
+| `set_bookmark(p_game_id, p_on)` / `set_spot_alert(p_game_id, p_on)` | Synced Saved and "Notify me" (B15). Both return the `game_cards` row, with `is_bookmarked` and `spot_alert` added to the view. `set_winback` changes only the tips flag |
 | `import_bookmarks(p_ids uuid[], p_alert_ids uuid[])` | One-time upload of the 0.x local Saved list on the first 1.0 launch |
 | `set_chat_muted(p_game_id, p_muted)` | "Mute notifications" in a chat |
 | `notification_opened(p_outbox_id)` | Tap tracking for the demo-day numbers (B17): opened rate per kind. No content |
@@ -313,7 +313,7 @@ into a pending row with the same `merge_key` (adding a name, bumping a count) or
 | `game_activity` insert, `time_or_place_changed` / `meet_point_updated` | `game_changed` | `not_before = now() + 2 min`, merge key `changed:<game>:<user>`: several edits make one push with the final values, read at send time |
 | `game_activity` insert, `joined` / `left` | `host_update` | Merge key `host:<game>`, 5 min. If the join filled the game: `game_full` instead |
 | `game_activity` insert, `created` | `interest_match` | Campus members with the sport in `interests`, minus the host and blocked pairs. `not_before = now() + 3 min`, so a game cancelled or edited right away doesn't go out. The cap is checked at send time |
-| `games` update where `reposted_at` changed | `spot_open` | `bookmarks.notify` holders who aren't going. Clears their `notify` once sent: one alert per "Notify me" |
+| `games` update where a full game gains a free seat | `spot_open` | `bookmarks.notify` holders who aren't going, whether or not auto-repost bumps the pin. Clears their `notify` once sent: one alert per "Notify me" |
 | `chat_messages` insert | `chat_message` | Members except the sender, not muted, not blocked. Merge key `chat:<game>:<user>`, `not_before` now for the first, +2 min after that (§3.4) |
 | `private.approve_signup` | `signup_approved` | To every token of that auth user |
 | cron, every 5 min | `reminder`, `saved_soon` | Games starting in 25–35 min (2 h for saved). Dedupe key includes `starts_at`, so a moved game reminds again at its new time |
@@ -427,7 +427,7 @@ An `@Observable` service in `MasUno/Services`, created in `AppServices`, with a 
 
 Next to the other protocols in `Repositories.swift`, with Live and Mock versions:
 `registerDevice`, `unregisterDevice`, `fetchPrefs`, `setPrefs`, `setChatMuted`, `markOpened`.
-Synced Saved goes on `GameRepository`: `toggleBookmark`, `setSpotAlert`, `importBookmarks`.
+Synced Saved goes on `GameRepository`: `setBookmark`, `setSpotAlert`, `importBookmarks`.
 `GameStore` keeps its local `savedIDs` / `spotAlertIDs` as a cache and reads `is_bookmarked` /
 `spot_alert` from `game_cards`.
 

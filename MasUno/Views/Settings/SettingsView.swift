@@ -10,6 +10,7 @@ struct SettingsView: View {
     @Environment(PushNotificationService.self) private var push
     @State private var prefs = NotificationPrefs.standard
     @State private var prefsLoaded = false
+    @State private var prefsFailed = false
     @State private var confirmsSignOut = false
     @State private var confirmsDelete = false
     @State private var locationStatus = CLLocationManager().authorizationStatus
@@ -48,6 +49,19 @@ struct SettingsView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.horizontal, 14)
                             .padding(.bottom, 8)
+                    } else if prefsFailed {
+                        Button {
+                            Task { await loadPrefs() }
+                        } label: {
+                            row(
+                                "Couldn't load notification settings",
+                                subtitle: Text("Try again"),
+                                systemImage: "arrow.clockwise",
+                                color: Theme.separator,
+                                trailing: nil
+                            )
+                        }
+                        .buttonStyle(.plain)
                     } else {
                         ProgressView().frame(maxWidth: .infinity).padding(.vertical, 12)
                     }
@@ -104,10 +118,7 @@ struct SettingsView: View {
         .navigationBarTitleDisplayMode(.large)
         .task {
             await push.refreshAuthorization()
-            if let fetched = try? await push.fetchPrefs() {
-                prefs = fetched
-                prefsLoaded = true
-            }
+            await loadPrefs()
         }
         .onAppear {
             locationStatus = CLLocationManager().authorizationStatus
@@ -122,7 +133,12 @@ struct SettingsView: View {
         // Back from iPhone Settings: show the new answer.
         .onChange(of: scenePhase) {
             locationStatus = CLLocationManager().authorizationStatus
-            if scenePhase == .active { Task { await push.refreshAuthorization() } }
+            if scenePhase == .active {
+                Task {
+                    await push.refreshAuthorization()
+                    if prefsFailed { await loadPrefs() }
+                }
+            }
         }
         .dialog(isPresented: $confirmsSignOut) {
             DialogCard(
@@ -142,6 +158,17 @@ struct SettingsView: View {
                 confirm: DialogAction("Delete account") { Task { await appViewModel.deleteAccount(store: store) } },
                 cancel: DialogAction("Keep my account")
             )
+        }
+    }
+
+    private func loadPrefs() async {
+        prefsFailed = false
+        do {
+            prefs = try await push.fetchPrefs()
+            prefsLoaded = true
+        } catch {
+            prefsLoaded = false
+            prefsFailed = true
         }
     }
 

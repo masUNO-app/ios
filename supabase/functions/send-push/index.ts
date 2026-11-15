@@ -2,7 +2,7 @@
 // Secrets, never in the repo: APNS_KEY_P8, APNS_KEY_ID, APNS_TEAM_ID.
 
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { buildPush, hostFor, type ClaimedNotification, type DeviceToken } from "./payload.ts";
+import { buildPush, classifyApnsStatus, hostFor, type ClaimedNotification, type DeviceToken } from "./payload.ts";
 import { importApnsKey, signApnsJwt } from "./jwt.ts";
 
 const TOPIC = "com.masuno.app";
@@ -94,16 +94,18 @@ async function deliver(row: ClaimedNotification, jwt: string): Promise<DeliveryR
         const outcome = await post(row, device, jwt);
         if (outcome.status === "sent") sent += 1;
         else if (outcome.status === "dead") dead.push(device.token);
-        else {
+        else if (outcome.status === "retry") {
             retry = true;
             lastError = outcome.error ?? "apns";
+        } else {
+            lastError = outcome.error ?? "rejected";
         }
     }
     const result: DeliveryResult = sent > 0
         ? { id: row.id, outcome: "sent" }
         : retry
         ? { id: row.id, outcome: "retry", error: lastError }
-        : { id: row.id, outcome: "drop", error: dead.length ? "bad_token" : "no_token" };
+        : { id: row.id, outcome: "drop", error: lastError || (dead.length ? "bad_token" : "no_token") };
     if (dead.length) result.drop_tokens = dead;
     return result;
 }
@@ -112,20 +114,27 @@ async function post(
     row: ClaimedNotification,
     device: DeviceToken,
     jwt: string,
-): Promise<{ status: "sent" | "dead" | "retry"; error?: string }> {
+): Promise<{ status: "sent" | "dead" | "retry" | "drop"; error?: string }> {
     const message = buildPush(row, device);
-    const response = await fetch(`${hostFor(device.environment)}/3/device/${device.token}`, {
-        method: "POST",
-        headers: { authorization: `bearer ${jwt}`, ...message.headers },
-        body: JSON.stringify(message.body),
-    });
-    if (response.status === 200) return { status: "sent" };
-    const reason = await response.text();
-    if (response.status === 410 || reason.includes("BadDeviceToken") || reason.includes("Unregistered")) {
-        return { status: "dead", error: reason.slice(0, 200) };
+    let response: Response;
+    try {
+        response = await fetch(`${hostFor(device.environment)}/3/device/${device.token}`, {
+            method: "POST",
+            headers: { authorization: `bearer ${jwt}`, ...message.headers },
+            body: JSON.stringify(message.body),
+        });
+    } catch (cause) {
+        const error = cause instanceof Error ? cause.message : "network";
+        return { status: "retry", error: error.slice(0, 200) };
     }
-    if (response.status === 429 || response.status >= 500) return { status: "retry", error: reason.slice(0, 200) };
-    return { status: "retry", error: `${response.status} ${reason}`.slice(0, 200) };
+    let reason = "";
+    try {
+        reason = await response.text();
+    } catch (cause) {
+        const error = cause instanceof Error ? cause.message : "unread";
+        return { status: "retry", error: error.slice(0, 200) };
+    }
+    return classifyApnsStatus(response.status, reason);
 }
 
 async function complete(admin: SupabaseClient, results: { id: number; outcome: string }[]) {

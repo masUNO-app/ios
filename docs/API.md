@@ -176,10 +176,12 @@ Rules the signatures don't show:
 - **`update_game`** checks the time window only when `p_starts_at` changes, so a host can still fix
   the meet-up spot once a game has started. It sets `material_change_at` when the time, place or
   meet-up spot changes. If a full game gains a spot and `auto_repost` is on, it sets `reposted_at`.
+  Either way, people who asked to be told get `spot_open`.
 - **`join_game`** locks the row, and is idempotent: if you're already in, including as host, it
   returns the row unchanged.
 - **`leave_game`** locks the row, and returns the row unchanged if you aren't in the game. If the game
-  was full, isn't cancelled and has `auto_repost` on, it sets `reposted_at`.
+  was full, isn't cancelled and has `auto_repost` on, it sets `reposted_at`. A freed seat notifies
+  people who asked, including when auto-repost is off.
 - **`cancel_game`** is a soft cancel. Calling it on a game that's already cancelled returns the row.
 - **`report`** takes exactly one of `p_user_id` and `p_game_id`. `p_reason` is one of `harassment`,
   `inappropriate`, `spam`, `unsafe`, `other`.
@@ -298,7 +300,8 @@ ship off, the same way chat does.
 | `register_device(p_token text, p_environment text, p_locale text, p_app_version text)` | `void` | `invalid_input`, `not_authenticated` |
 | `unregister_device(p_token text)` | `void` | `not_authenticated` |
 | `set_notification_prefs(p_interest_match bool, p_spot_open bool, p_reminders bool, p_hosting bool, p_chat bool, p_winback bool)` | `notification_prefs` | `invalid_input`, `pending_approval`, `not_authenticated` |
-| `toggle_bookmark(p_game_id uuid)` | `game_cards` | `not_found`, `pending_approval` |
+| `set_winback(p_on bool)` | `notification_prefs` | `invalid_input`, `pending_approval`, `not_authenticated` |
+| `set_bookmark(p_game_id uuid, p_on bool)` | `game_cards` | `invalid_input`, `not_found`, `pending_approval` |
 | `set_spot_alert(p_game_id uuid, p_on bool)` | `game_cards` | `invalid_input`, `not_found`, `pending_approval` |
 | `import_bookmarks(p_ids uuid[], p_alert_ids uuid[])` | `void` | `pending_approval` |
 | `set_chat_muted(p_game_id uuid, p_muted bool)` | `void` | `invalid_input`, `not_allowed` |

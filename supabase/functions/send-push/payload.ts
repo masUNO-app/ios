@@ -110,7 +110,65 @@ export function buildPush(
         "apns-expiration": String(expiration(row.expires_at)),
     };
     if (row.collapse_id) headers["apns-collapse-id"] = row.collapse_id;
-    return { headers, body };
+    return { headers, body: fitPushBody(body) };
+}
+
+/** APNs refuses a body over 4 KB. Chat repeats the text in the alert and in `body`, so shrink both. */
+export function fitPushBody(body: Record<string, unknown>, limit = 4096): Record<string, unknown> {
+    let guard = 0;
+    while (utf8Length(JSON.stringify(body)) > limit && guard < 200) {
+        if (!shrinkLongestText(body)) break;
+        guard += 1;
+    }
+    return body;
+}
+
+/**
+ * What one APNs response means. 400 and 413 will not succeed on a retry.
+ * A dead token is separate from a payload we should stop sending.
+ */
+export function classifyApnsStatus(
+    status: number,
+    reason: string,
+): { status: "sent" | "dead" | "retry" | "drop"; error?: string } {
+    if (status === 200) return { status: "sent" };
+    const error = `${status} ${reason}`.trim().slice(0, 200);
+    if (status === 410 || reason.includes("BadDeviceToken") || reason.includes("Unregistered")) {
+        return { status: "dead", error };
+    }
+    if (status === 400 || status === 413) return { status: "drop", error };
+    return { status: "retry", error };
+}
+
+function shrinkLongestText(body: Record<string, unknown>): boolean {
+    const aps = body.aps as { alert?: { title?: string; body?: string } } | undefined;
+    const message = typeof body.body === "string" ? body.body : "";
+    const alertBody = aps?.alert?.body ?? "";
+    if (utf8Length(message) >= utf8Length(alertBody) && message.length > 0) {
+        body.body = truncateUTF8(message, Math.max(0, utf8Length(message) - 48));
+        return body.body !== message;
+    }
+    if (aps?.alert && alertBody.length > 0) {
+        const shorter = truncateUTF8(alertBody, Math.max(0, utf8Length(alertBody) - 48));
+        if (shorter === alertBody) return false;
+        aps.alert = { ...aps.alert, body: shorter };
+        return true;
+    }
+    return false;
+}
+
+function utf8Length(value: string): number {
+    return new TextEncoder().encode(value).length;
+}
+
+function truncateUTF8(value: string, maxBytes: number): string {
+    const encoded = new TextEncoder().encode(value);
+    if (encoded.byteLength <= maxBytes) return value;
+    const ellipsis = new TextEncoder().encode("…");
+    let budget = Math.max(0, maxBytes - ellipsis.byteLength);
+    while (budget > 0 && (encoded[budget] & 0xc0) === 0x80) budget -= 1;
+    const text = new TextDecoder().decode(encoded.subarray(0, budget));
+    return maxBytes >= ellipsis.byteLength ? text + "…" : text;
 }
 
 function expiration(iso: string): number {

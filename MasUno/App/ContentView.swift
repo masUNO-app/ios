@@ -82,7 +82,7 @@ struct ContentView: View {
     }
 
     private func launch() async {
-        if let push = appViewModel.push { notifications.connect(push) }
+        if let push = appViewModel.push { await notifications.connect(push) }
         store.onSessionProblem = { [auth = appViewModel.auth] in Task { await auth.restoreSession() } }
         await appViewModel.start()
         store.isChatEnabled = appViewModel.config.chatEnabled

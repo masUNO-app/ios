@@ -369,14 +369,14 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         return decorated(games[index])
     }
 
-    func toggleBookmark(id: UUID) async throws -> Game {
+    func setBookmark(id: UUID, on: Bool) async throws -> Game {
         try await beginWrite()
         _ = try writableIndex(id)
-        if bookmarked.contains(id) {
+        if on {
+            bookmarked.insert(id)
+        } else {
             bookmarked.remove(id)
             spotAlerts.remove(id)
-        } else {
-            bookmarked.insert(id)
         }
         return try visibleGame(id)
     }
@@ -427,6 +427,11 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
     func setPrefs(_ prefs: NotificationPrefs) async throws {
         try await beginWrite()
         self.prefs = prefs
+    }
+
+    func setWinback(_ on: Bool) async throws {
+        try await beginWrite()
+        prefs.winback = on
     }
 
     func setChatMuted(gameID: UUID, muted: Bool) async throws {

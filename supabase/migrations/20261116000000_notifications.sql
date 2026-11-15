@@ -390,13 +390,17 @@ create trigger game_activity_notify
 after insert on private.game_activity
 for each row execute function private.notify_on_activity();
 
+-- A full game gained a free seat. Auto-repost only bumps the pin; the alert fires either way.
 create or replace function private.notify_on_repost()
 returns trigger language plpgsql security definer set search_path = ''
 as $$
 declare
     v_member record;
 begin
-    if new.reposted_at is null or new.reposted_at is not distinct from old.reposted_at then
+    if new.cancelled_at is not null or new.ends_at <= now() then
+        return new;
+    end if;
+    if old.going_count < old.capacity or new.going_count >= new.capacity then
         return new;
     end if;
     for v_member in
@@ -1096,17 +1100,33 @@ begin
     return query select * from public.notification_prefs where user_id = v_id;
 end $$;
 
-create or replace function public.toggle_bookmark(p_game_id uuid)
+-- The primer's tips switch. Leaves every other flag alone, including ones set on another phone.
+create or replace function public.set_winback(p_on boolean)
+returns setof public.notification_prefs language plpgsql security definer set search_path = ''
+as $$
+declare
+    v_id uuid := private.require_active();
+begin
+    if p_on is null then raise exception 'invalid_input'; end if;
+    insert into public.notification_prefs (user_id, winback) values (v_id, p_on)
+    on conflict (user_id) do update set winback = excluded.winback, updated_at = now();
+    return query select * from public.notification_prefs where user_id = v_id;
+end $$;
+
+-- Idempotent, so two taps can't interleave into the opposite of what the phone shows.
+create or replace function public.set_bookmark(p_game_id uuid, p_on boolean)
 returns setof public.game_cards language plpgsql security definer set search_path = ''
 as $$
 declare
     v_id uuid := private.require_active();
 begin
+    if p_on is null then raise exception 'invalid_input'; end if;
     perform private.lock_visible_game(p_game_id, v_id);
-    if exists (select 1 from public.bookmarks where event_id = p_game_id and user_id = v_id) then
-        delete from public.bookmarks where event_id = p_game_id and user_id = v_id;
+    if p_on then
+        insert into public.bookmarks (event_id, user_id) values (p_game_id, v_id)
+        on conflict (event_id, user_id) do nothing;
     else
-        insert into public.bookmarks (event_id, user_id) values (p_game_id, v_id);
+        delete from public.bookmarks where event_id = p_game_id and user_id = v_id;
     end if;
     return query select * from public.game_cards where id = p_game_id;
 end $$;
@@ -1188,7 +1208,8 @@ grant execute on function
     public.register_device(text, text, text, text),
     public.unregister_device(text),
     public.set_notification_prefs(boolean, boolean, boolean, boolean, boolean, boolean),
-    public.toggle_bookmark(uuid),
+    public.set_winback(boolean),
+    public.set_bookmark(uuid, boolean),
     public.set_spot_alert(uuid, boolean),
     public.import_bookmarks(uuid[], uuid[]),
     public.set_chat_muted(uuid, boolean),

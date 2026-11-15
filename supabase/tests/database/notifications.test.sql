@@ -1,7 +1,7 @@
 -- Push notifications: producers, the send-time rules, and the client RPCs (NOTIF.md §2 and §5).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(60);
+select plan(63);
 
 create function pg_temp.act_as(p_user uuid) returns void language plpgsql as $$
 begin
@@ -64,8 +64,11 @@ update public.profiles set interests = array['basketball'] where id = 'b0000000-
 
 set local role authenticated;
 select pg_temp.act_as('a0000000-0000-4000-8000-00000000000a');
-select is((select winback from public.set_notification_prefs(true, true, true, true, true, true)), true,
+select is((select winback from public.set_notification_prefs(true, true, true, true, false, false)), false,
     'preferences save and come back');
+select is((select chat = false and winback from public.set_winback(true)), true,
+    'tips only turns win-back on');
+select public.set_notification_prefs(true, true, true, true, true, true);
 select pg_temp.act_as('b0000000-0000-4000-8000-00000000000b');
 select is_empty($$ select 1 from public.notification_prefs where user_id = 'a0000000-0000-4000-8000-00000000000a' $$,
     'someone else can''t read them');
@@ -77,10 +80,12 @@ select 'main'::text as name, id from public.create_game('basketball', 'Pickup ga
 grant select, insert on game_ids to authenticated;
 
 select pg_temp.act_as('d0000000-0000-4000-8000-00000000000d');
-select is((select is_bookmarked from public.toggle_bookmark((select id from game_ids where name = 'main'))), true,
+select is((select is_bookmarked from public.set_bookmark((select id from game_ids where name = 'main'), true)), true,
     'bookmarking a game marks the card');
-select is((select is_bookmarked from public.toggle_bookmark((select id from game_ids where name = 'main'))), false,
-    'bookmarking again removes it');
+select is((select is_bookmarked from public.set_bookmark((select id from game_ids where name = 'main'), true)), true,
+    'saving again stays saved');
+select is((select is_bookmarked from public.set_bookmark((select id from game_ids where name = 'main'), false)), false,
+    'clearing the bookmark removes it');
 select is((select spot_alert from public.set_spot_alert((select id from game_ids where name = 'main'), true)), true,
     'notify me saves the game and turns the alert on');
 
@@ -149,6 +154,23 @@ select is((select count(*)::int from private.notification_outbox
     where event_id = (select id from game_ids where name = 'full') and kind = 'spot_open'
       and user_id = 'b0000000-0000-4000-8000-00000000000b'),
     0, 'the person who left is not told');
+
+-- The same alert when the host turned the pin bump off.
+set local role authenticated;
+select pg_temp.act_as('a0000000-0000-4000-8000-00000000000a');
+insert into game_ids
+select 'norepost', id from public.create_game('basketball', 'No repost', now() + interval '1 day', 60, 2, null,
+    'Arena', 'Tec', 25.65, -100.29, null, false);
+select pg_temp.act_as('b0000000-0000-4000-8000-00000000000b');
+select public.join_game((select id from game_ids where name = 'norepost'));
+select pg_temp.act_as('d0000000-0000-4000-8000-00000000000d');
+select public.set_spot_alert((select id from game_ids where name = 'norepost'), true);
+select pg_temp.act_as('b0000000-0000-4000-8000-00000000000b');
+select public.leave_game((select id from game_ids where name = 'norepost'));
+reset role;
+select is((select count(*)::int from private.notification_outbox
+    where event_id = (select id from game_ids where name = 'norepost') and kind = 'spot_open' and dropped is null),
+    1, 'a freed spot tells them even when the host turned auto-repost off');
 
 -- Two edits merge. Cancelling drops that pending row and tells everyone going except the host.
 set local role authenticated;
@@ -239,7 +261,7 @@ insert into game_ids
 select 'saved', id from public.create_game('padel', 'Saved soon', now() + interval '2 hours', 60, 4, null,
     'Courts', 'Tec', 25.65, -100.29, null, true);
 select pg_temp.act_as('b0000000-0000-4000-8000-00000000000b');
-select public.toggle_bookmark((select id from game_ids where name = 'saved'));
+select public.set_bookmark((select id from game_ids where name = 'saved'), true);
 reset role;
 select lives_ok($$ select private.enqueue_scheduled_notifications() $$, 'the reminder job runs');
 select ok(exists (select 1 from private.notification_outbox

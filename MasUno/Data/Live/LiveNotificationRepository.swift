@@ -40,6 +40,12 @@ final class LiveNotificationRepository: NotificationRepository {
         }
     }
 
+    func setWinback(_ on: Bool) async throws {
+        _ = try await liveRequest {
+            try await client.rpc("set_winback", params: WinbackParams(on: on)).execute()
+        }
+    }
+
     func setChatMuted(gameID: UUID, muted: Bool) async throws {
         try await liveRequest {
             try await client.rpc(
@@ -72,6 +78,11 @@ nonisolated private struct RegisterDeviceParams: Encodable, Sendable {
 nonisolated private struct UnregisterDeviceParams: Encodable, Sendable {
     let token: String
     enum CodingKeys: String, CodingKey { case token = "p_token" }
+}
+
+nonisolated private struct WinbackParams: Encodable, Sendable {
+    let on: Bool
+    enum CodingKeys: String, CodingKey { case on = "p_on" }
 }
 
 nonisolated private struct ChatMutedParams: Encodable, Sendable {

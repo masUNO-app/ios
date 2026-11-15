@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildPush } from "./payload.ts";
+import { buildPush, classifyApnsStatus } from "./payload.ts";
 import { languageOf, renderAlert } from "./templates.ts";
 import { importApnsKey, signApnsJwt } from "./jwt.ts";
 
@@ -126,6 +126,39 @@ test("chat asks the extension to redraw it and a passive kind is quiet", () => {
     assert.equal(winback.headers["apns-priority"], "5");
     assert.equal((winback.body.aps as { "interruption-level": string })["interruption-level"], "passive");
     assert.equal((winback.body.aps as { alert: { title: string } }).alert.title, "4 games at Tec this week");
+});
+
+test("a long chat stays under the APNs limit", () => {
+    const long = "🙂".repeat(1000);
+    const chat = buildPush({
+        id: 9,
+        user_id: "user",
+        kind: "chat_message",
+        event_id: "game-1",
+        payload: {
+            sender_id: "a21b",
+            sender_name: "Maya C.",
+            sender_initials: "MC",
+            names: ["Maya C."],
+            body: long,
+            count: 1,
+        },
+        collapse_id: "chat:game-1",
+        expires_at: "2026-11-16T19:30:00-06:00",
+        tokens: [],
+        context: game,
+    }, { token: "abc", environment: "production", locale: "en-US" });
+    const bytes = Buffer.byteLength(JSON.stringify(chat.body));
+    assert.ok(bytes <= 4096, `payload is ${bytes} bytes`);
+    assert.ok(String(chat.body.body).length < long.length);
+});
+
+test("a bad payload is permanent and a network status is not", () => {
+    assert.equal(classifyApnsStatus(413, "PayloadTooLarge").status, "drop");
+    assert.equal(classifyApnsStatus(400, "BadCollapseId").status, "drop");
+    assert.equal(classifyApnsStatus(410, "Unregistered").status, "dead");
+    assert.equal(classifyApnsStatus(429, "TooManyRequests").status, "retry");
+    assert.equal(classifyApnsStatus(500, "Internal").status, "retry");
 });
 
 test("an ES256 provider token verifies", async () => {

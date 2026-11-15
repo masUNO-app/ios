@@ -379,7 +379,7 @@ For 0.5, everything in Swift is Ethan's (screens and the data layer); everything
 | B11 | **CI** (GitHub Actions): iOS build + unit tests, plus the database tests. | 0.5 | 1.5 h | Thu Nov 12 | E0 | **Built**: `database.yml` (#12) and `ios.yml` (#13, green). `main` requires a review but no status checks yet, so Ethan still has to add both as required checks | Ethan adds it as a required check on `main`. |
 | B13 | Notification backend: device tokens, preferences, outbox, 1-min drain job, 5-min reminder job, interest matches (max 2/day), changed/cancelled, host updates. | 1.0 | 8 h | Nov 28 | — | — | Each row of §8.7 produced by the right trigger. |
 | B14 | `send-push` Edge Function (APNs token auth, collapse per game, invalid-token cleanup). | 1.0 | 4 h | Nov 29 | APNs key | — | Test push reaches a TestFlight build from prod. |
-| B15 | Saved backend: `bookmarks`, `toggle_bookmark`, spot-opened fan-out, repository calls. | 1.0 | 1 h | Nov 28 | B13 | — | Leaving a full game queues a notification for everyone who saved it. |
+| B15 | Saved backend: `bookmarks`, `set_bookmark`, spot-opened fan-out, repository calls. | 1.0 | 1 h | Nov 28 | B13 | — | Leaving a full game queues a notification for everyone who saved it. |
 | B16 | `NotificationService` (Swift): token registration, preferences repository. | 1.0 | 1.5 h | Nov 28 | B13 | — | Token appears in `device_tokens` after permission. |
 | B17 | Metrics view + moderation SQL snippets. | 1.0 | 2 h | Dec 2 | — | — | "How many sign-ups yesterday?" is one query. |
 | B18 | Spanish on the server. | 1.0 | 1.5 h | Dec 4 | O12 | — | Spanish phones get Spanish notifications. |
@@ -836,7 +836,7 @@ notification_outbox (id bigserial pk, user_id uuid, kind text, event_id uuid, pa
 | `report(user?, game?, reason, note?)` | Insert report → alert | `invalid_input` |
 | `block(user_id)` / `unblock(user_id)` | Own blocks | `invalid_input` |
 | `my_blocks()` | Names for Blocked people, which RLS otherwise hides | — |
-| *1.0:* `register_device`, `toggle_bookmark`, `set_notification_prefs` | | — |
+| *1.0:* `register_device`, `set_bookmark`, `set_notification_prefs` | | — |
 
 ### 8.6 Jobs & functions (Emilio)
 - `delete-account` (B9): cancels upcoming hosted games, leaves joined games under lock, keeps reports with the reporter removed, deletes the auth user.

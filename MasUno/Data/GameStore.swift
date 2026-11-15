@@ -41,6 +41,10 @@ final class GameStore {
     private var savedIDs: Set<UUID> = []
     /// Saved full games you asked to hear about when a spot opens. Cached on the phone and synced.
     private var spotAlertIDs: Set<UUID> = []
+    /// Alerts this phone already announced. Ignored until the server clears "Notify me".
+    private var spentSpotAlerts: Set<UUID> = []
+    /// The latest Save tap for a game. An older reply must not put the bookmark back.
+    private var savedGeneration: [UUID: Int] = [:]
     /// Cancelled games you removed from Going.
     private var dismissedIDs: Set<UUID> = []
     private var unreadByGame: [UUID: Int] = [:]
@@ -451,14 +455,19 @@ final class GameStore {
             if watched, wasFull, !game.isFull, !game.isCancelled, !game.hasEnded(), !game.isGoing {
                 openedTitle = game.title
             }
+            let spent = spotAlertIDs.contains(game.id)
+                && !game.isFull && !game.isCancelled && !game.hasEnded() && !game.isGoing
             if spotAlertIDs.contains(game.id), game.isCancelled || game.hasEnded() || game.isGoing || !game.isFull {
                 spotAlertIDs.remove(game.id)
                 alertsChanged = true
+                if spent { spentSpotAlerts.insert(game.id) }
             }
+            if !game.spotAlert { spentSpotAlerts.remove(game.id) }
             // A server bookmark is added to the phone cache. A missing flag doesn't remove one:
             // the local list is what a relaunch reads before the network answers.
             if game.isBookmarked, savedIDs.insert(game.id).inserted { savedChanged = true }
-            if game.spotAlert {
+            let stillWaiting = game.isFull && !game.isCancelled && !game.hasEnded() && !game.isGoing
+            if game.spotAlert, stillWaiting, !spentSpotAlerts.contains(game.id) {
                 if spotAlertIDs.insert(game.id).inserted { alertsChanged = true }
                 if savedIDs.insert(game.id).inserted { savedChanged = true }
             }
@@ -654,6 +663,8 @@ final class GameStore {
 
     func toggleSaved(_ id: UUID) {
         let saved = !savedIDs.contains(id)
+        savedGeneration[id, default: 0] += 1
+        let generation = savedGeneration[id] ?? 0
         if saved {
             savedIDs.insert(id)
             notice = String(localized: "Saved. Find it under bookmarks.")
@@ -663,7 +674,7 @@ final class GameStore {
             write(spotAlertIDs, forKey: spotAlertKey)
         }
         write(savedIDs, forKey: savedKey)
-        Task { await syncSaved(id, saved: saved) }
+        Task { await syncSaved(id, saved: saved, generation: generation) }
     }
 
     /// "Alert me if a spot opens" on a full game. Turning it on saves the game too, so it's in
@@ -725,14 +736,13 @@ final class GameStore {
         }
     }
 
-    private func syncSaved(_ id: UUID, saved: Bool) async {
+    private func syncSaved(_ id: UUID, saved: Bool, generation: Int) async {
         do {
-            var game = try await games.toggleBookmark(id: id)
-            if game.isBookmarked != saved {
-                game = try await games.toggleBookmark(id: id)
-            }
+            let game = try await games.setBookmark(id: id, on: saved)
+            guard savedGeneration[id] == generation else { return }
             applyBookmark(game)
         } catch {
+            guard savedGeneration[id] == generation else { return }
             fail(domainError(error))
         }
     }
@@ -781,6 +791,8 @@ final class GameStore {
         missingIDs = []
         savedIDs = []
         spotAlertIDs = []
+        spentSpotAlerts = []
+        savedGeneration = [:]
         dismissedIDs = []
         unreadByGame = [:]
         blockedPeople = []

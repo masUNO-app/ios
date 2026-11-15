@@ -6,12 +6,27 @@ import UserNotifications
 nonisolated final class NotificationCenterBridge: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
     private let serviceBox = ServiceBox()
 
-    /// Called once the app has built its services. Registers the categories and becomes the notification delegate.
+    /// The delegate has to exist before `didFinishLaunching` returns. A cold-launch tap can arrive
+    /// before the SwiftUI task connects the service, so that tap is kept and replayed.
+    nonisolated func application(
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
+    ) -> Bool {
+        MainActor.assumeIsolated {
+            UNUserNotificationCenter.current().delegate = self
+        }
+        return true
+    }
+
+    /// Called once the app has built its services. Registers the categories and delivers any tap that arrived first.
     @MainActor
-    func connect(_ service: PushNotificationService) {
-        serviceBox.service = service
+    func connect(_ service: PushNotificationService) async {
+        let waiting = serviceBox.install(service)
         UNUserNotificationCenter.current().delegate = self
         service.registerCategories()
+        for tap in waiting {
+            await service.handle(action: tap.action, userInfo: tap.userInfo, reply: tap.reply)
+        }
     }
 
     nonisolated func application(
@@ -19,7 +34,7 @@ nonisolated final class NotificationCenterBridge: NSObject, UIApplicationDelegat
         didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
     ) {
         let token = deviceToken.map { String(format: "%02x", $0) }.joined()
-        let service = serviceBox.service
+        let service = serviceBox.current()
         Task { @MainActor in
             await service?.didRegister(token: token)
         }
@@ -29,7 +44,7 @@ nonisolated final class NotificationCenterBridge: NSObject, UIApplicationDelegat
         _ application: UIApplication,
         didFailToRegisterForRemoteNotificationsWithError error: any Error
     ) {
-        let service = serviceBox.service
+        let service = serviceBox.current()
         Task { @MainActor in
             service?.didFailToRegister(error)
         }
@@ -40,7 +55,7 @@ nonisolated final class NotificationCenterBridge: NSObject, UIApplicationDelegat
         willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
         let userInfo = notification.request.content.userInfo
-        let service = serviceBox.service
+        let service = serviceBox.current()
         return await MainActor.run {
             service?.presentationOptions(for: userInfo) ?? [.banner, .sound, .list]
         }
@@ -53,14 +68,55 @@ nonisolated final class NotificationCenterBridge: NSObject, UIApplicationDelegat
         let action = response.actionIdentifier
         let userInfo = response.notification.request.content.userInfo
         let reply = (response as? UNTextInputNotificationResponse)?.userText
-        let service = serviceBox.service
-        await service?.handle(action: action, userInfo: userInfo, reply: reply)
+        let tap = PendingTap(action: action, userInfo: userInfo, reply: reply)
+        if let service = serviceBox.service(for: tap) {
+            await service.handle(action: action, userInfo: userInfo, reply: reply)
+        }
+    }
+}
+
+/// A tap that arrived before the service existed. The dictionary stays inside this box.
+nonisolated private final class PendingTap: @unchecked Sendable {
+    let action: String
+    let userInfo: [AnyHashable: Any]
+    let reply: String?
+    init(action: String, userInfo: [AnyHashable: Any], reply: String?) {
+        self.action = action
+        self.userInfo = userInfo
+        self.reply = reply
     }
 }
 
 /// Lets the nonisolated delegate callbacks reach the main-actor service.
-/// The service is only swapped once, at launch, before any callback.
+/// The service is only swapped once, at launch. Taps that arrive earlier wait here.
 /// Nonisolated so the bridge can create it outside the main actor.
 nonisolated private final class ServiceBox: @unchecked Sendable {
-    nonisolated(unsafe) var service: PushNotificationService?
+    nonisolated(unsafe) private var service: PushNotificationService?
+    private var pending: [PendingTap] = []
+    private let lock = NSLock()
+
+    /// Stores the service and returns taps that arrived before it.
+    func install(_ service: PushNotificationService) -> [PendingTap] {
+        lock.lock()
+        defer { lock.unlock() }
+        self.service = service
+        let waiting = pending
+        pending = []
+        return waiting
+    }
+
+    func current() -> PushNotificationService? {
+        lock.lock()
+        defer { lock.unlock() }
+        return service
+    }
+
+    /// The service, when it exists. Otherwise keeps the tap for `install`.
+    func service(for tap: PendingTap) -> PushNotificationService? {
+        lock.lock()
+        defer { lock.unlock() }
+        if let service { return service }
+        pending.append(tap)
+        return nil
+    }
 }

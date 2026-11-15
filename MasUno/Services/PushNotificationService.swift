@@ -133,16 +133,22 @@ final class PushNotificationService {
         try await repository.setPrefs(prefs)
     }
 
+    /// The primer's tips switch. Does not rewrite the other flags.
+    func setWinback(_ on: Bool) async throws {
+        try await repository.setWinback(on)
+    }
+
     /// Hide a banner for the chat or game already on screen. Everything else shows.
+    /// The open game is refreshed first, including when the banner itself is hidden.
     func presentationOptions(for userInfo: [AnyHashable: Any]) -> UNNotificationPresentationOptions {
         guard let payload = NotificationPayload(userInfo: userInfo) else { return [.banner, .sound, .list] }
+        if let gameID = payload.gameID { onRefreshGame?(gameID) }
         if payload.kind == "chat_message", payload.gameID?.uuidString == AppGroupStore.openChatID {
             return []
         }
         if payload.kind != "chat_message", payload.gameID?.uuidString == AppGroupStore.openGameID {
             return []
         }
-        if let gameID = payload.gameID { onRefreshGame?(gameID) }
         return [.banner, .sound, .list]
     }
 

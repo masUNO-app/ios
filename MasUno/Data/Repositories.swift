@@ -39,10 +39,12 @@ protocol GameRepository: AnyObject {
     /// can't be made or drops.
     func changes(campus: UUID) -> AsyncStream<GameChanges>
 
-    /// Adds or removes a Saved game. Returns the game as it is now.
-    /// - Parameter id: The game.
+    /// Saves or unsaves a game. Saying the same thing twice leaves it that way.
+    /// - Parameters:
+    ///   - id: The game.
+    ///   - on: Whether it should be saved.
     /// - Returns: The updated `game_cards` row.
-    func toggleBookmark(id: UUID) async throws -> Game
+    func setBookmark(id: UUID, on: Bool) async throws -> Game
     /// "Notify me if a spot opens." Saving is implied when turning it on.
     /// - Parameters:
     ///   - id: The game.
@@ -74,6 +76,9 @@ protocol NotificationRepository: AnyObject {
     /// Replaces the preference row.
     /// - Parameter prefs: Every flag, including win-back.
     func setPrefs(_ prefs: NotificationPrefs) async throws
+    /// Turns tips on or off without changing the other flags.
+    /// - Parameter on: Whether win-back alerts are on.
+    func setWinback(_ on: Bool) async throws
     /// Stops or resumes chat alerts for one game the person is in.
     /// - Parameters:
     ///   - gameID: The game.

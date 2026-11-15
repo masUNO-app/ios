@@ -41,10 +41,14 @@ struct NotificationPrimerSheet: View {
         isWorking = true
         defer { isWorking = false }
         _ = await push.requestPermission()
-        var prefs = (try? await push.fetchPrefs()) ?? .standard
-        prefs.winback = wantsTips
         do {
-            try await push.setPrefs(prefs)
+            if let fetched = try? await push.fetchPrefs() {
+                var prefs = fetched
+                prefs.winback = wantsTips
+                try await push.setPrefs(prefs)
+            } else if wantsTips {
+                try await push.setWinback(true)
+            }
         } catch {
             store.notice = (error as? DomainError)?.message ?? DomainError.offline.message
         }

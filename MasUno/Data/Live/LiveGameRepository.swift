@@ -95,8 +95,8 @@ final class LiveGameRepository: GameRepository {
         try await write("leave_game", GameIDParams(id: id))
     }
 
-    func toggleBookmark(id: UUID) async throws -> Game {
-        try await write("toggle_bookmark", GameKeyParams(id: id))
+    func setBookmark(id: UUID, on: Bool) async throws -> Game {
+        try await write("set_bookmark", BookmarkParams(id: id, on: on))
     }
 
     func setSpotAlert(id: UUID, on: Bool) async throws -> Game {
