@@ -32,13 +32,19 @@ final class AppViewModel {
     private(set) var isUpdateRequired = false
     /// The campus onboarding talks about, when exactly one is open. Otherwise the copy stays generic.
     private(set) var launchCampus: University?
+    /// A notification opened the map and it should start on your sports.
+    var focusMapOnMySports = false
+    /// A link that arrived before the session was signed in.
+    private(set) var pendingLink: URL?
 
     @ObservationIgnored let auth: any AuthService
+    @ObservationIgnored let push: PushNotificationService?
     @ObservationIgnored private let catalog: any AppConfigRepository
 
-    init(auth: any AuthService, catalog: any AppConfigRepository) {
+    init(auth: any AuthService, catalog: any AppConfigRepository, push: PushNotificationService? = nil) {
         self.auth = auth
         self.catalog = catalog
+        self.push = push
     }
 
     var session: Session {
@@ -91,15 +97,26 @@ final class AppViewModel {
         path = []
     }
 
-    /// `masuno://game/<id>` → Event detail (1.0 notifications use this).
+    /// `masuno://game/<id>`, `masuno://game/<id>/chat` and `masuno://map`.
+    /// A tap before sign-in waits until the session is ready.
     func handle(_ url: URL) {
-        guard url.scheme == "masuno", url.host() == "game",
-              let id = UUID(uuidString: url.lastPathComponent) else { return }
-        sheet = nil
-        path = [.game(id)]
+        guard url.scheme == "masuno" else { return }
+        guard session == .signedIn else {
+            pendingLink = url
+            return
+        }
+        open(url)
+    }
+
+    /// Opens a link that arrived while the app was still launching or onboarding.
+    func openPendingLink() {
+        guard session == .signedIn, let url = pendingLink else { return }
+        pendingLink = nil
+        open(url)
     }
 
     func signOut(store: GameStore) async {
+        await push?.unregister()
         do {
             try await auth.signOut()
             leaveAccount(store: store)
@@ -109,11 +126,29 @@ final class AppViewModel {
     }
 
     func deleteAccount(store: GameStore) async {
+        await push?.unregister()
         do {
             try await auth.deleteAccount()
             leaveAccount(store: store)
         } catch {
             store.notice = (error as? DomainError ?? .offline).message
+        }
+    }
+
+    private func open(_ url: URL) {
+        sheet = nil
+        if url.host() == "map" {
+            path = []
+            focusMapOnMySports = true
+            return
+        }
+        guard url.host() == "game" else { return }
+        let parts = url.pathComponents.filter { $0 != "/" }
+        guard let id = parts.compactMap(UUID.init(uuidString:)).first ?? UUID(uuidString: url.lastPathComponent) else { return }
+        if parts.contains("chat") {
+            path = [.game(id), .chat(id)]
+        } else {
+            path = [.game(id)]
         }
     }
 

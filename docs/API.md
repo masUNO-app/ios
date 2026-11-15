@@ -115,6 +115,9 @@ them and game RPCs return them. RLS hides games whose host is in a blocked pair 
 | `my_role` | `text?` (`host`, `player`) | `myRole` |
 | `my_joined_at` | `timestamptz?` | `myJoinedAt` |
 | `has_blocked_attendee` | `bool` | `hasBlockedAttendee` |
+| `my_chat_muted` | `bool` | `chatMuted` |
+| `is_bookmarked` | `bool` | `isBookmarked` |
+| `spot_alert` | `bool` | `spotAlert` |
 
 How `GameRepository` reads it:
 
@@ -283,8 +286,33 @@ the SSO branch of the hook.
    isn't trusted: the auth hook checks the provider and the email on the server (SPEC §8.4). An SSO account
    needs no approval.
 
+## Notifications
+
+Device tokens and the outbox stay in `private`. Preferences and bookmarks are readable for your own
+rows and written only through these RPCs. `register_device` works while an account is waiting for
+approval. The others need an active account. `push_enabled` and `push_kinds_off` in `app_config`
+ship off, the same way chat does.
+
+| RPC | Returns | Errors |
+| --- | --- | --- |
+| `register_device(p_token text, p_environment text, p_locale text, p_app_version text)` | `void` | `invalid_input`, `not_authenticated` |
+| `unregister_device(p_token text)` | `void` | `not_authenticated` |
+| `set_notification_prefs(p_interest_match bool, p_spot_open bool, p_reminders bool, p_hosting bool, p_chat bool, p_winback bool)` | `notification_prefs` | `invalid_input`, `pending_approval`, `not_authenticated` |
+| `toggle_bookmark(p_game_id uuid)` | `game_cards` | `not_found`, `pending_approval` |
+| `set_spot_alert(p_game_id uuid, p_on bool)` | `game_cards` | `invalid_input`, `not_found`, `pending_approval` |
+| `import_bookmarks(p_ids uuid[], p_alert_ids uuid[])` | `void` | `pending_approval` |
+| `set_chat_muted(p_game_id uuid, p_muted bool)` | `void` | `invalid_input`, `not_allowed` |
+| `notification_opened(p_outbox_id bigint)` | `void` | `not_authenticated` |
+
+`notification_prefs` columns are the flags above, all defaulting on except `winback`. Cancellations,
+changes and approval are not preferences: they always send. `bookmarks.notify` is the spot alert.
+
 ## Edge Functions
 
 `delete-account`: `POST` with the user's JWT and no body. `204` on success, after which the app signs
 out. Leaves joined games (freeing the spots), deletes the auth user along with the games they host,
 and keeps reports without the reporter.
+
+`send-push`: `POST` with the service-role key and no body. The cron job calls it. `204` when nothing
+is due, otherwise it claims a batch and delivers it to APNs. `401` for any other role. `500` when
+APNs isn't configured, and those rows are released so the attempt isn't burned.

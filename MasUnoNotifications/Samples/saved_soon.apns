@@ -1,0 +1,17 @@
+{
+  "Simulator Target Bundle": "com.masuno.app",
+  "aps": {
+    "alert": {
+      "title": "Still room in Sunday pickup soccer",
+      "body": "Starts in 2 h \u00b7 room for 4"
+    },
+    "sound": "default",
+    "thread-id": "game:6f1c0000-0000-4000-8000-000000000001",
+    "target-content-id": "game:6f1c0000-0000-4000-8000-000000000001",
+    "category": "SAVED_SOON",
+    "interruption-level": "passive"
+  },
+  "kind": "saved_soon",
+  "game_id": "6f1c0000-0000-4000-8000-000000000001",
+  "outbox_id": 11
+}

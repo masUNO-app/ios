@@ -1,7 +1,7 @@
 -- Server-only functions, report alerts and account deletion (B8, B9, B10).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(13);
+select plan(17);
 
 create function pg_temp.act_as(p_user uuid) returns void language sql as $$
     select set_config('request.jwt.claim.sub', coalesce(p_user::text, ''), true)
@@ -48,12 +48,26 @@ select public.report(null, (select id from game_ids where name = 'hosted'), 'uns
 reset role;
 select is((select count(*)::int from public.reports), 2, 'reports save, with or without the alert webhook set');
 
+-- Deleting Alice also drops her notification token, preferences, bookmarks and outbox rows.
+reset role;
+insert into private.device_tokens (token, user_id, environment, locale, app_version)
+values ('alice-token-delete', 'a0000000-0000-4000-8000-00000000000a', 'sandbox', 'en', '1.0');
+insert into public.notification_prefs (user_id) values ('a0000000-0000-4000-8000-00000000000a');
+insert into public.bookmarks (event_id, user_id)
+values ((select id from game_ids where name = 'joined'), 'a0000000-0000-4000-8000-00000000000a');
+insert into private.notification_outbox (user_id, kind, event_id, expires_at)
+values ('a0000000-0000-4000-8000-00000000000a', 'reminder', (select id from game_ids where name = 'joined'), now() + interval '1 day');
+
 -- Deleting Alice: a host who was reported, and whose game was reported.
 set local role service_role;
 select lives_ok($$ select public.delete_my_account_data('a0000000-0000-4000-8000-00000000000a') $$, 'cleanup runs for a host');
 reset role;
 select lives_ok($$ delete from auth.users where id = 'a0000000-0000-4000-8000-00000000000a' $$, 'the Auth user deletes');
 select is_empty($$ select 1 from public.games where host_id = 'a0000000-0000-4000-8000-00000000000a' $$, 'their hosted games go too');
+select is_empty($$ select 1 from private.device_tokens where user_id = 'a0000000-0000-4000-8000-00000000000a' $$, 'their notification token goes too');
+select is_empty($$ select 1 from public.notification_prefs where user_id = 'a0000000-0000-4000-8000-00000000000a' $$, 'their notification preferences go too');
+select is_empty($$ select 1 from public.bookmarks where user_id = 'a0000000-0000-4000-8000-00000000000a' $$, 'their bookmarks go too');
+select is_empty($$ select 1 from private.notification_outbox where user_id = 'a0000000-0000-4000-8000-00000000000a' $$, 'their outbox rows go too');
 select is((select count(*)::int from public.reports), 2, 'reports about them are kept');
 
 -- Deleting Bruno: a reporter with a joined game.

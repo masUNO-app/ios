@@ -6,7 +6,7 @@ import Observation
 /// same rules and raises the same codes as the RPCs in `docs/API.md`, so code written
 /// against it behaves the same on `masuno-dev`. Compiled out of Release (N27).
 @Observable
-final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyRepository, ChatRepository, AppConfigRepository {
+final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyRepository, ChatRepository, AppConfigRepository, NotificationRepository {
     private(set) var state: AuthState
     private(set) var games: [Game]
     private(set) var reports: [(target: ReportTarget, reason: ReportReason, note: String?)] = []
@@ -46,6 +46,12 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
     private var passwords: [String: String] = [:]
     /// Signed up and nobody has run `approveSignUp()` yet.
     private var isAwaitingApproval = false
+    private var bookmarked: Set<UUID> = []
+    private var spotAlerts: Set<UUID> = []
+    private var mutedChats: Set<UUID> = []
+    private var deviceToken: String?
+    private var prefs = NotificationPrefs.standard
+    private var openedNotifications: Set<Int64> = []
 
     /// `state` defaults to signed in with the Monterrey fixtures. Pass `.signedOut(expired: false)`
     /// to preview onboarding: the new account then has no profile until `completeProfile`.
@@ -363,6 +369,78 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         return decorated(games[index])
     }
 
+    func toggleBookmark(id: UUID) async throws -> Game {
+        try await beginWrite()
+        _ = try writableIndex(id)
+        if bookmarked.contains(id) {
+            bookmarked.remove(id)
+            spotAlerts.remove(id)
+        } else {
+            bookmarked.insert(id)
+        }
+        return try visibleGame(id)
+    }
+
+    func setSpotAlert(id: UUID, on: Bool) async throws -> Game {
+        try await beginWrite()
+        _ = try writableIndex(id)
+        if on {
+            bookmarked.insert(id)
+            spotAlerts.insert(id)
+        } else {
+            spotAlerts.remove(id)
+        }
+        return try visibleGame(id)
+    }
+
+    func importBookmarks(ids: [UUID], alertIDs: [UUID]) async throws {
+        try await beginWrite()
+        let alertSet = Set(alertIDs)
+        for id in Set(ids).union(alertSet) {
+            guard games.contains(where: { $0.id == id }) else { continue }
+            bookmarked.insert(id)
+            if alertSet.contains(id) { spotAlerts.insert(id) }
+        }
+    }
+
+    func registerDevice(token: String, environment: String, locale: String, appVersion: String) async throws {
+        try await begin()
+        if case .signedOut = state { throw DomainError.notAuthenticated }
+        guard environment == "sandbox" || environment == "production",
+              (16...400).contains(token.count), !locale.isEmpty, !appVersion.isEmpty
+        else { throw DomainError.invalidInput }
+        deviceToken = token
+    }
+
+    func unregisterDevice(token: String) async throws {
+        try await begin()
+        if case .signedOut = state { throw DomainError.notAuthenticated }
+        if deviceToken == token { deviceToken = nil }
+    }
+
+    func fetchPrefs() async throws -> NotificationPrefs {
+        try await begin()
+        if case .signedOut = state { throw DomainError.notAuthenticated }
+        return prefs
+    }
+
+    func setPrefs(_ prefs: NotificationPrefs) async throws {
+        try await beginWrite()
+        self.prefs = prefs
+    }
+
+    func setChatMuted(gameID: UUID, muted: Bool) async throws {
+        try await beginWrite()
+        guard isMember(of: gameID) else { throw DomainError.notAllowed }
+        if muted { mutedChats.insert(gameID) } else { mutedChats.remove(gameID) }
+    }
+
+    func markOpened(_ outboxID: Int64) async throws {
+        try await begin()
+        if case .signedOut = state { throw DomainError.notAuthenticated }
+        openedNotifications.insert(outboxID)
+    }
+
     func leaveGame(id: UUID) async throws -> Game {
         try await beginWrite()
         let index = try writableIndex(id)
@@ -555,6 +633,9 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
     private func decorated(_ game: Game) -> Game {
         var game = game
         game.hasBlockedAttendee = (attendees[game.id] ?? []).contains { blockedIDs.contains($0.id) }
+        game.isBookmarked = bookmarked.contains(game.id)
+        game.spotAlert = spotAlerts.contains(game.id)
+        game.chatMuted = mutedChats.contains(game.id)
         return game
     }
 

@@ -159,6 +159,9 @@ struct EventMapView: View {
             guard let id, let event = store.game(id) else { return }
             viewModel.focus(on: event)
         }
+        .onAppear { focusOnMySportsIfAsked() }
+        .onChange(of: appViewModel.focusMapOnMySports) { _, _ in focusOnMySportsIfAsked() }
+        .onChange(of: store.profile?.id) { _, _ in focusOnMySportsIfAsked() }
         .onChange(of: viewModel.mapEvents(in: store).map(\.id)) { _, ids in
             if let id = viewModel.selectedID, !ids.contains(id) { viewModel.dropSelection() }
         }
@@ -171,6 +174,13 @@ struct EventMapView: View {
         .onChange(of: barLayout) { _, layout in
             if !layout.isVertical { showsSearchField = false }
         }
+    }
+
+    /// A win-back tap opens the map already filtered to the sports on your profile.
+    private func focusOnMySportsIfAsked() {
+        guard appViewModel.focusMapOnMySports, let profile = store.profile else { return }
+        viewModel.sportFilter = Set(profile.interests)
+        appViewModel.focusMapOnMySports = false
     }
 
     // MARK: Map

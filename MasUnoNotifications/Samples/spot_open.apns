@@ -1,0 +1,22 @@
+{
+  "Simulator Target Bundle": "com.masuno.app",
+  "aps": {
+    "alert": {
+      "title": "A spot opened",
+      "body": "Sunday pickup soccer \u00b7 Today 7:30 PM"
+    },
+    "sound": "default",
+    "thread-id": "game:6f1c0000-0000-4000-8000-000000000001",
+    "target-content-id": "game:6f1c0000-0000-4000-8000-000000000001",
+    "category": "SPOT_OPEN",
+    "interruption-level": "time-sensitive"
+  },
+  "kind": "spot_open",
+  "game_id": "6f1c0000-0000-4000-8000-000000000001",
+  "outbox_id": 6,
+  "place": {
+    "name": "Estadio Borregos",
+    "lat": 25.65,
+    "lng": -100.29
+  }
+}

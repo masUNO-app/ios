@@ -5,7 +5,7 @@ import Observation
 /// What Release builds run on without real keys in `Config.xcconfig`. Every call fails as offline, so a
 /// Release build can't ever show mock data as real (N27, §10.4).
 @Observable
-final class UnavailableBackend: AuthService, GameRepository, ProfileRepository, SafetyRepository, ChatRepository, AppConfigRepository {
+final class UnavailableBackend: AuthService, GameRepository, ProfileRepository, SafetyRepository, ChatRepository, AppConfigRepository, NotificationRepository {
     private(set) var state = AuthState.signedOut(expired: false)
     let suggestedName: SuggestedName? = nil
 
@@ -31,6 +31,16 @@ final class UnavailableBackend: AuthService, GameRepository, ProfileRepository, 
     func joinGame(id: UUID) async throws -> Game { throw DomainError.offline }
     func leaveGame(id: UUID) async throws -> Game { throw DomainError.offline }
     func changes(campus: UUID) -> AsyncStream<GameChanges> { AsyncStream { $0.finish() } }
+    func toggleBookmark(id: UUID) async throws -> Game { throw DomainError.offline }
+    func setSpotAlert(id: UUID, on: Bool) async throws -> Game { throw DomainError.offline }
+    func importBookmarks(ids: [UUID], alertIDs: [UUID]) async throws { throw DomainError.offline }
+
+    func registerDevice(token: String, environment: String, locale: String, appVersion: String) async throws { throw DomainError.offline }
+    func unregisterDevice(token: String) async throws { throw DomainError.offline }
+    func fetchPrefs() async throws -> NotificationPrefs { throw DomainError.offline }
+    func setPrefs(_ prefs: NotificationPrefs) async throws { throw DomainError.offline }
+    func setChatMuted(gameID: UUID, muted: Bool) async throws { throw DomainError.offline }
+    func markOpened(_ outboxID: Int64) async throws { throw DomainError.offline }
 
     func fetchMyProfile() async throws -> Profile? { throw DomainError.offline }
     func updateProfile(_ input: ProfileInput) async throws -> Profile { throw DomainError.offline }

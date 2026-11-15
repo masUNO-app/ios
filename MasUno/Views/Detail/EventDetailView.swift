@@ -36,6 +36,13 @@ struct EventDetailView: View {
             }
         }
         .task(id: viewModel.eventID) { await load() }
+        .onAppear {
+            AppGroupStore.openGameID = viewModel.eventID.uuidString
+            PushNotificationService.clearDelivered(thread: "game:\(viewModel.eventID.uuidString)")
+        }
+        .onDisappear {
+            if AppGroupStore.openGameID == viewModel.eventID.uuidString { AppGroupStore.openGameID = nil }
+        }
         .task(id: viewModel.eventID) {
             // You joined from the map: once the push has settled, land on the court.
             guard appViewModel.arrivingIn == viewModel.eventID else { return }

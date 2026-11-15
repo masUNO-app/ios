@@ -37,14 +37,9 @@ extension PersonSummary {
     /// One pastel per person, picked from the ID so it's the same on every screen and every phone.
     /// The signed-in person is `Theme.you` instead (see `PersonAvatar`).
     var color: Color {
-        let sum = withUnsafeBytes(of: id.uuid) { $0.reduce(0) { $0 + Int($1) } }
-        return Self.palette[sum % Self.palette.count]
+        let rgb = AvatarPalette.person(id)
+        return Color(red: rgb.red, green: rgb.green, blue: rgb.blue)
     }
-
-    private static let palette: [Color] = [
-        Color(.person5), Color(.person1), Color(.person3), Color(.person4),
-        Color(.person7), Color(.person6), Color(.person2),
-    ]
 }
 
 extension EnvironmentValues {

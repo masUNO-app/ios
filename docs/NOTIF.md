@@ -4,8 +4,9 @@ How masUNO sends push notifications: what we send, how group chat gets the Messa
 and what the backend and app need. It builds on SPEC §8.6–8.7 and the 1.0 items B13–B16 and E16.
 Where it differs, this doc is the proposal; fold the agreed parts back into SPEC.
 
-**Status (Nov 15):** a plan. Nothing here is built. The app has no notification code yet. The
-"Notify me if a spot opens" choice is kept on the phone only (`GameStore.spotAlertIDs`).
+**Status (Nov 15):** built on `feature/notif-service`, and still switched off. `app_config.push_enabled`
+ships false, the same way chat does. Saved games and spot alerts sync through `bookmarks`, and the
+phone keeps a local copy so a relaunch works before the network answers.
 
 **Owners (SPEC N21):** Emilio owns the backend and `NotificationService`. Ethan owns the screens
 and the notification extension. Arianna draws the primer and Settings rows. Ricardo checks the

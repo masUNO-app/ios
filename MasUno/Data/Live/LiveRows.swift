@@ -230,6 +230,9 @@ nonisolated struct GameCardRow: Decodable, Sendable {
     let myRole: String?
     let myJoinedAt: Date?
     let hasBlockedAttendee: Bool
+    let isBookmarked: Bool
+    let spotAlert: Bool
+    let chatMuted: Bool
 
     enum CodingKeys: String, CodingKey {
         case id, title, capacity, notes, lat, lng
@@ -253,6 +256,9 @@ nonisolated struct GameCardRow: Decodable, Sendable {
         case myRole = "my_role"
         case myJoinedAt = "my_joined_at"
         case hasBlockedAttendee = "has_blocked_attendee"
+        case isBookmarked = "is_bookmarked"
+        case spotAlert = "spot_alert"
+        case chatMuted = "my_chat_muted"
     }
 
     init(from decoder: any Decoder) throws {
@@ -283,6 +289,9 @@ nonisolated struct GameCardRow: Decodable, Sendable {
         myRole = try c.decodeIfPresent(String.self, forKey: .myRole)
         myJoinedAt = try c.decodeServerTimeIfPresent(forKey: .myJoinedAt)
         hasBlockedAttendee = try c.decodeIfPresent(Bool.self, forKey: .hasBlockedAttendee) ?? false
+        isBookmarked = try c.decodeIfPresent(Bool.self, forKey: .isBookmarked) ?? false
+        spotAlert = try c.decodeIfPresent(Bool.self, forKey: .spotAlert) ?? false
+        chatMuted = try c.decodeIfPresent(Bool.self, forKey: .chatMuted) ?? false
     }
 
     func game(activity: (String) -> Activity) -> Game {
@@ -295,7 +304,8 @@ nonisolated struct GameCardRow: Decodable, Sendable {
             meetPoint: meetPoint, materialChangeAt: materialChangeAt, cancelledAt: cancelledAt,
             autoRepost: autoRepost, repostedAt: repostedAt, createdAt: createdAt,
             myRole: myRole.flatMap(GameRole.init(rawValue:)), myJoinedAt: myJoinedAt,
-            hasBlockedAttendee: hasBlockedAttendee
+            hasBlockedAttendee: hasBlockedAttendee, isBookmarked: isBookmarked, spotAlert: spotAlert,
+            chatMuted: chatMuted
         )
     }
 }
@@ -512,6 +522,32 @@ nonisolated struct GameDraftParams: Encodable, Sendable {
 nonisolated struct GameIDParams: Encodable, Sendable {
     let id: UUID
     enum CodingKeys: String, CodingKey { case id = "p_id" }
+}
+
+/// `p_game_id` for `toggle_bookmark`.
+nonisolated struct GameKeyParams: Encodable, Sendable {
+    let id: UUID
+    enum CodingKeys: String, CodingKey { case id = "p_game_id" }
+}
+
+/// `set_spot_alert(p_game_id, p_on)`.
+nonisolated struct SpotAlertParams: Encodable, Sendable {
+    let id: UUID
+    let on: Bool
+    enum CodingKeys: String, CodingKey {
+        case id = "p_game_id"
+        case on = "p_on"
+    }
+}
+
+/// `import_bookmarks(p_ids, p_alert_ids)`.
+nonisolated struct ImportBookmarksParams: Encodable, Sendable {
+    let ids: [UUID]
+    let alertIDs: [UUID]
+    enum CodingKeys: String, CodingKey {
+        case ids = "p_ids"
+        case alertIDs = "p_alert_ids"
+    }
 }
 
 /// `p_user_id` for `block` and `unblock`.

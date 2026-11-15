@@ -36,3 +36,7 @@ url = "https://login.microsoftonline.com/organizations"
 
 [functions.delete-account]
 verify_jwt = true
+
+# The cron job calls this with the service-role key. The function also checks the role itself.
+[functions.send-push]
+verify_jwt = true

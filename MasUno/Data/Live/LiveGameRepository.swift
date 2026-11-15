@@ -95,6 +95,22 @@ final class LiveGameRepository: GameRepository {
         try await write("leave_game", GameIDParams(id: id))
     }
 
+    func toggleBookmark(id: UUID) async throws -> Game {
+        try await write("toggle_bookmark", GameKeyParams(id: id))
+    }
+
+    func setSpotAlert(id: UUID, on: Bool) async throws -> Game {
+        try await write("set_spot_alert", SpotAlertParams(id: id, on: on))
+    }
+
+    func importBookmarks(ids: [UUID], alertIDs: [UUID]) async throws {
+        try await liveRequest {
+            try await client.rpc(
+                "import_bookmarks", params: ImportBookmarksParams(ids: ids, alertIDs: alertIDs)
+            ).execute()
+        }
+    }
+
     /// Yields once per ping on the campus's games channel. The stream ends if the channel can't
     /// connect, so `GameStore` re-opens it.
     func changes(campus: UUID) -> AsyncStream<GameChanges> {

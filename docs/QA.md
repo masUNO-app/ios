@@ -135,3 +135,16 @@ The four poses: **folded** (466×678), **open landscape** (951×669), **open por
 - [ ] The same five cycles with Detail pushed, and again with the Filter sheet open.
 - [ ] Rotate the open display between portrait and landscape: the bars switch each time, and portrait never logs a `BarLayout nudge`.
 - [ ] A regular iPhone looks the same as before, with no `BarLayout nudge` in the log.
+
+## 12. Notifications
+
+Push stays off until `app_config.push_enabled` is true. With it on, two phones, and a sandbox build:
+
+- [ ] After the first join, the primer explains the alerts. Not now asks once more, then stops. Turn on shows the iOS prompt.
+- [ ] Waiting for approval: "Want a heads-up when you're in?" registers a token, and approval sends "You're in".
+- [ ] Settings lists the six switches. Cancellations, changes and "You're in" have no switch. Denied iOS permission shows Open Settings.
+- [ ] Save a full game and turn on the spot alert. Someone leaves. The other phone gets "A spot opened" and Count me in joins.
+- [ ] A reminder about 30 minutes before a game you joined. Directions opens Maps.
+- [ ] Chat: the banner uses the sender's initials. Mute hides the next one. Reply sends. Mark as read clears it.
+- [ ] A banner for the game or chat already on screen does not appear. Opening that screen clears it.
+- [ ] Sign out stops this phone's token. The other phone still gets alerts.

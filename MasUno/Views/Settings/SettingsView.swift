@@ -2,11 +2,14 @@ import CoreLocation
 import SwiftUI
 
 /// Figma: "Settings" (341:2144): grouped cards, a colored icon tile on each row, and Sign out and
-/// Delete account as glass pills. The rows are the ones from SPEC §7.6.7 that work today; the
-/// notification toggles arrive with E16, and the calendar and name-visibility rows are out (R7-5).
+/// Delete account as glass pills. Notifications sit above Privacy & safety (E16). The calendar and
+/// name-visibility rows are out (R7-5).
 struct SettingsView: View {
     @Environment(AppViewModel.self) private var appViewModel
     @Environment(GameStore.self) private var store
+    @Environment(PushNotificationService.self) private var push
+    @State private var prefs = NotificationPrefs.standard
+    @State private var prefsLoaded = false
     @State private var confirmsSignOut = false
     @State private var confirmsDelete = false
     @State private var locationStatus = CLLocationManager().authorizationStatus
@@ -17,6 +20,39 @@ struct SettingsView: View {
         ScrollView {
             // Side by side in open landscape, stacked otherwise. Spacing 10 keeps phones as they were.
             CardGrid(spacing: 10) {
+                section("Notifications") {
+                    if push.authorizationStatus == .denied {
+                        Button {
+                            if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
+                        } label: {
+                            row(
+                                "Notifications are off in iOS Settings",
+                                subtitle: Text("Open Settings"),
+                                systemImage: "bell.slash",
+                                color: Theme.separator,
+                                trailing: "arrow.up.forward"
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    if prefsLoaded {
+                        preference("Games that match your sports", key: \.interestMatch, systemImage: "sportscourt", color: Color(.sportSoccer).opacity(0.35))
+                        preference("A spot opens up", key: \.spotOpen, systemImage: "person.badge.plus", color: Color(.person4).opacity(0.45))
+                        preference("Game reminders", key: \.reminders, systemImage: "clock", color: Color(.person1).opacity(0.5))
+                        preference("Updates on games you host", key: \.hosting, systemImage: "megaphone", color: Color(.sportBasketball).opacity(0.35))
+                        preference("Group chat messages", key: \.chat, systemImage: "bubble.left.and.bubble.right", color: Color(.sportVolleyball).opacity(0.45))
+                        preference("Tips to play", key: \.winback, systemImage: "sparkles", color: Theme.you.opacity(0.55))
+                        Text("Cancellations, changes and You're in are always on.")
+                            .font(.rounded(.footnote))
+                            .foregroundStyle(Theme.muted)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 14)
+                            .padding(.bottom, 8)
+                    } else {
+                        ProgressView().frame(maxWidth: .infinity).padding(.vertical, 12)
+                    }
+                }
+
                 section("Privacy & safety") {
                     // iOS owns the setting, so the row goes straight to it.
                     Button {
@@ -66,6 +102,13 @@ struct SettingsView: View {
         .background(Theme.background)
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.large)
+        .task {
+            await push.refreshAuthorization()
+            if let fetched = try? await push.fetchPrefs() {
+                prefs = fetched
+                prefsLoaded = true
+            }
+        }
         .onAppear {
             locationStatus = CLLocationManager().authorizationStatus
             #if DEBUG
@@ -77,7 +120,10 @@ struct SettingsView: View {
             #endif
         }
         // Back from iPhone Settings: show the new answer.
-        .onChange(of: scenePhase) { locationStatus = CLLocationManager().authorizationStatus }
+        .onChange(of: scenePhase) {
+            locationStatus = CLLocationManager().authorizationStatus
+            if scenePhase == .active { Task { await push.refreshAuthorization() } }
+        }
         .dialog(isPresented: $confirmsSignOut) {
             DialogCard(
                 systemImage: "rectangle.portrait.and.arrow.right", tone: .destructive,
@@ -133,6 +179,36 @@ struct SettingsView: View {
     }
 
     /// Icon tile, title over subtitle, and a chevron (or another symbol, or nothing).
+    private func preference(
+        _ title: String, key: WritableKeyPath<NotificationPrefs, Bool>, systemImage: String, color: Color
+    ) -> some View {
+        Toggle(isOn: Binding(
+            get: { prefs[keyPath: key] },
+            set: { newValue in
+                let previous = prefs
+                prefs[keyPath: key] = newValue
+                Task {
+                    do {
+                        try await push.setPrefs(prefs)
+                    } catch {
+                        prefs = previous
+                        store.notice = (error as? DomainError)?.message ?? DomainError.offline.message
+                    }
+                }
+            }
+        )) {
+            HStack(spacing: 14) {
+                IconTile(systemImage: systemImage, color: color)
+                Text(title)
+                    .font(.rounded(.body))
+                    .foregroundStyle(Theme.ink)
+            }
+        }
+        .tint(Theme.accent)
+        .padding(.horizontal, 14)
+        .frame(minHeight: 58)
+    }
+
     private func row(
         _ title: LocalizedStringKey, subtitle: Text, systemImage: String, color: Color,
         trailing: String? = "chevron.right"

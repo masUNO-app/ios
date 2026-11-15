@@ -25,6 +25,8 @@ targets:
         excludes:
           - "**/README.md"
           - "AppIcon.icon"
+          - "**/*.entitlements"
+      - path: Shared
       # Icon Composer bundle: XcodeGen doesn't put it in a build phase by default, so add it by hand.
       - path: MasUno/AppIcon.icon
         buildPhase: resources
@@ -43,13 +45,19 @@ targets:
         # From Config.xcconfig; read by SupabaseConfig. The anon key is public by design.
         SupabaseURL: $(SUPABASE_URL)
         SupabaseAnonKey: $(SUPABASE_ANON_KEY)
-        # masuno://game/<id> → Event detail (SPEC E3; used by 1.0 notifications).
+        # masuno://game/<id> → Event detail. masuno://game/<id>/chat → group chat. masuno://map → the map.
         # masuno://auth-callback → school sign-in (SPEC §8.4).
+        NSUserActivityTypes:
+          - INSendMessageIntent
         CFBundleURLTypes:
           - CFBundleURLName: com.masuno.app
             CFBundleURLSchemes: [masuno]
     dependencies:
       - package: Supabase
+      - target: MasUnoNotifications
+        embed: true
+      - sdk: UserNotifications.framework
+      - sdk: Intents.framework
     configFiles:
       Debug: Config.xcconfig
       Release: Config.xcconfig
@@ -74,6 +82,45 @@ targets:
         CODE_SIGN_STYLE: Automatic
         LOCALIZATION_PREFERS_STRING_CATALOGS: YES
         SWIFT_EMIT_LOC_STRINGS: YES
+      configs:
+        Debug:
+          CODE_SIGN_ENTITLEMENTS: MasUno/MasUno.Debug.entitlements
+        Release:
+          CODE_SIGN_ENTITLEMENTS: MasUno/MasUno.Release.entitlements
+  MasUnoNotifications:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: MasUnoNotifications
+        excludes:
+          - Info.plist
+          - Samples
+          - "**/*.entitlements"
+          - "**/*.apns"
+      - path: Shared
+    info:
+      path: MasUnoNotifications/Info.plist
+      properties:
+        CFBundleDisplayName: masUNO
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+    dependencies:
+      - sdk: UserNotifications.framework
+      - sdk: Intents.framework
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.masuno.app.NotificationService
+        DEVELOPMENT_TEAM: PU87MU4QAR
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_FILE: MasUnoNotifications/Info.plist
+        CODE_SIGN_ENTITLEMENTS: MasUnoNotifications/MasUnoNotifications.entitlements
+        TARGETED_DEVICE_FAMILY: "1"
+        SUPPORTED_PLATFORMS: "iphoneos iphonesimulator"
+        SUPPORTS_MACCATALYST: NO
+        MARKETING_VERSION: "0.6"
+        CURRENT_PROJECT_VERSION: "1"
+        CODE_SIGN_STYLE: Automatic
+        SKIP_INSTALL: YES
   masUNOTests:
     type: bundle.unit-test
     platform: iOS
@@ -92,6 +139,7 @@ schemes:
     build:
       targets:
         masUNO: all
+        MasUnoNotifications: all
         masUNOTests: [test]
     run:
       config: Debug

@@ -1,0 +1,16 @@
+{
+  "Simulator Target Bundle": "com.masuno.app",
+  "aps": {
+    "alert": {
+      "title": "Maya C. joined",
+      "body": "Sunday pickup soccer \u00b7 4 spots left"
+    },
+    "sound": "default",
+    "thread-id": "game:6f1c0000-0000-4000-8000-000000000001",
+    "target-content-id": "game:6f1c0000-0000-4000-8000-000000000001",
+    "interruption-level": "active"
+  },
+  "kind": "host_update",
+  "game_id": "6f1c0000-0000-4000-8000-000000000001",
+  "outbox_id": 4
+}
