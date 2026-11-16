@@ -170,6 +170,7 @@ final class AppViewModel {
 
     /// Sign-in reached the map. Stop trying to remove the token: this session should keep the phone.
     func noteSignInFinished() {
+        if case .signedIn(let id) = auth.state { push?.noteAccount(id) }
         signOutPendingUserID = nil
     }
 

@@ -47,6 +47,9 @@ final class GameStore {
     private var spentSpotAlerts: Set<UUID> = []
     /// The latest save or spot-alert write for a game. An older reply is ignored.
     private var savedGeneration: [UUID: Int] = [:]
+    @ObservationIgnored private var bookmarkTasks: [UUID: Task<Void, Never>] = [:]
+    @ObservationIgnored private var bookmarkSession = UUID()
+    private var confirmedBookmarks: [UUID: (saved: Bool, alert: Bool)] = [:]
     /// Cancelled games you removed from Going.
     private var dismissedIDs: Set<UUID> = []
     private var unreadByGame: [UUID: Int] = [:]
@@ -365,16 +368,31 @@ final class GameStore {
     }
 
     func refreshSaved() async {
+        let session = bookmarkSession
+        let generations = savedGeneration
+        let pending = Set(bookmarkTasks.keys)
+        let localIDs = savedIDs
         do {
-            // The map skips full games, so a reinstall would otherwise never see "Notify me".
+            // Fetch both parts before changing the cache: a failed refresh keeps local saves.
             let bookmarked = try await games.fetchBookmarkedGames()
-            store(bookmarked)
-            let onlyLocal = savedIDs.subtracting(bookmarked.map(\.id))
-            if !onlyLocal.isEmpty {
-                store(try await games.fetchGames(ids: Array(onlyLocal)))
+            let onlyLocal = localIDs.subtracting(bookmarked.map(\.id))
+            let older = onlyLocal.isEmpty ? [] : try await games.fetchGames(ids: Array(onlyLocal))
+            guard bookmarkSession == session else { return }
+            for game in bookmarked + older {
+                let unchanged = generations[game.id] == savedGeneration[game.id]
+                    && !pending.contains(game.id) && bookmarkTasks[game.id] == nil
+                store([game], updateBookmarks: unchanged)
+                guard unchanged else { continue }
+                confirmedBookmarks[game.id] = (game.isBookmarked, game.spotAlert)
+                // A missing row in the 14-day query may still be an older bookmark. Only
+                // explicit server flags (including the fallback) confirm remote removals.
+                if !game.isBookmarked { savedIDs.remove(game.id) }
+                if !game.isBookmarked || !game.spotAlert { spotAlertIDs.remove(game.id) }
             }
+            write(savedIDs, forKey: savedKey)
+            write(spotAlertIDs, forKey: spotAlertKey)
         } catch {
-            noteFailure(domainError(error))
+            if bookmarkSession == session { noteFailure(domainError(error)) }
         }
     }
 
@@ -452,26 +470,28 @@ final class GameStore {
         }
     }
 
-    private func store(_ fetched: [Game]) {
+    private func store(_ fetched: [Game], updateBookmarks: Bool = true) {
         var alertsChanged = false
         var savedChanged = false
         for game in fetched {
             noteSpotOpened(replacing: cache[game.id], with: game)
-            let spent = spotAlertIDs.contains(game.id)
-                && !game.isFull && !game.isCancelled && !game.hasEnded() && !game.isGoing
-            if spotAlertIDs.contains(game.id), game.isCancelled || game.hasEnded() || game.isGoing || !game.isFull {
-                spotAlertIDs.remove(game.id)
-                alertsChanged = true
-                if spent { spentSpotAlerts.insert(game.id) }
-            }
-            if !game.spotAlert { spentSpotAlerts.remove(game.id) }
-            // A server bookmark is added to the phone cache. A missing flag doesn't remove one:
-            // the local list is what a relaunch reads before the network answers.
-            if game.isBookmarked, savedIDs.insert(game.id).inserted { savedChanged = true }
-            let stillWaiting = game.isFull && !game.isCancelled && !game.hasEnded() && !game.isGoing
-            if game.spotAlert, stillWaiting, !spentSpotAlerts.contains(game.id) {
-                if spotAlertIDs.insert(game.id).inserted { alertsChanged = true }
-                if savedIDs.insert(game.id).inserted { savedChanged = true }
+            if updateBookmarks && bookmarkTasks[game.id] == nil {
+                let spent = spotAlertIDs.contains(game.id)
+                    && !game.isFull && !game.isCancelled && !game.hasEnded() && !game.isGoing
+                if spotAlertIDs.contains(game.id), game.isCancelled || game.hasEnded() || game.isGoing || !game.isFull {
+                    spotAlertIDs.remove(game.id)
+                    alertsChanged = true
+                    if spent { spentSpotAlerts.insert(game.id) }
+                }
+                if !game.spotAlert { spentSpotAlerts.remove(game.id) }
+                // A server bookmark is added to the phone cache. A missing flag doesn't remove one:
+                // the local list is what a relaunch reads before the network answers.
+                if game.isBookmarked, savedIDs.insert(game.id).inserted { savedChanged = true }
+                let stillWaiting = game.isFull && !game.isCancelled && !game.hasEnded() && !game.isGoing
+                if game.spotAlert, stillWaiting, !spentSpotAlerts.contains(game.id) {
+                    if spotAlertIDs.insert(game.id).inserted { alertsChanged = true }
+                    if savedIDs.insert(game.id).inserted { savedChanged = true }
+                }
             }
             cache[game.id] = game
             missingIDs.remove(game.id)
@@ -671,7 +691,7 @@ final class GameStore {
 
     func toggleSaved(_ id: UUID) {
         let saved = !savedIDs.contains(id)
-        let hadAlert = spotAlertIDs.contains(id)
+        rememberBookmarkState(id)
         savedGeneration[id, default: 0] += 1
         let generation = savedGeneration[id] ?? 0
         if saved {
@@ -683,14 +703,14 @@ final class GameStore {
             write(spotAlertIDs, forKey: spotAlertKey)
         }
         write(savedIDs, forKey: savedKey)
-        Task { await syncSaved(id, saved: saved, generation: generation, restoreAlert: hadAlert) }
+        queueBookmarkWrite(id, mutation: .saved(saved), generation: generation)
     }
 
     /// "Alert me if a spot opens" on a full game. Turning it on saves the game too, so it's in
     /// Saved games. The server sends the push. If that write fails, the switch goes back.
     func toggleSpotAlert(_ id: UUID) {
         let on = !spotAlertIDs.contains(id)
-        let wasSaved = savedIDs.contains(id)
+        rememberBookmarkState(id)
         savedGeneration[id, default: 0] += 1
         let generation = savedGeneration[id] ?? 0
         if on {
@@ -701,7 +721,7 @@ final class GameStore {
             spotAlertIDs.remove(id)
         }
         write(spotAlertIDs, forKey: spotAlertKey)
-        Task { await syncSpotAlert(id, on: on, generation: generation, wasSaved: wasSaved) }
+        queueBookmarkWrite(id, mutation: .alert(on), generation: generation)
     }
 
     /// "Remove" on a cancelled game in Going. The game is still cancelled on the server; this
@@ -739,7 +759,10 @@ final class GameStore {
     private func importBookmarksIfNeeded() async {
         let key = "bookmarksImported.\(accountKey)"
         guard !defaults.bool(forKey: key) else { return }
-        guard !savedIDs.isEmpty || !spotAlertIDs.isEmpty else { return }
+        guard !savedIDs.isEmpty || !spotAlertIDs.isEmpty else {
+            defaults.set(true, forKey: key)
+            return
+        }
         do {
             try await games.importBookmarks(ids: Array(savedIDs), alertIDs: Array(spotAlertIDs))
             defaults.set(true, forKey: key)
@@ -748,44 +771,54 @@ final class GameStore {
         }
     }
 
-    private func syncSaved(_ id: UUID, saved: Bool, generation: Int, restoreAlert: Bool) async {
-        do {
-            let game = try await games.setBookmark(id: id, on: saved)
-            guard savedGeneration[id] == generation else { return }
-            applyBookmark(game)
-        } catch {
-            guard savedGeneration[id] == generation else { return }
-            if saved {
-                savedIDs.remove(id)
-                spotAlertIDs.remove(id)
-            } else {
-                savedIDs.insert(id)
-                if restoreAlert { spotAlertIDs.insert(id) }
-            }
-            write(savedIDs, forKey: savedKey)
-            write(spotAlertIDs, forKey: spotAlertKey)
-            fail(domainError(error))
+    private enum BookmarkMutation {
+        case saved(Bool), alert(Bool)
+    }
+
+    private func rememberBookmarkState(_ id: UUID) {
+        if bookmarkTasks[id] == nil {
+            confirmedBookmarks[id] = (savedIDs.contains(id), spotAlertIDs.contains(id))
         }
     }
 
-    private func syncSpotAlert(_ id: UUID, on: Bool, generation: Int, wasSaved: Bool) async {
-        do {
-            let game = try await games.setSpotAlert(id: id, on: on)
-            guard savedGeneration[id] == generation else { return }
-            applyBookmark(game)
-        } catch {
-            guard savedGeneration[id] == generation else { return }
-            if on {
-                spotAlertIDs.remove(id)
-                if !wasSaved { savedIDs.remove(id) }
-            } else {
-                spotAlertIDs.insert(id)
-                savedIDs.insert(id)
+    /// Bookmark and alert writes share one queue because they mutate the same server row.
+    private func queueBookmarkWrite(_ id: UUID, mutation: BookmarkMutation, generation: Int) {
+        let prior = bookmarkTasks[id]
+        let session = bookmarkSession
+        bookmarkTasks[id] = Task {
+            await prior?.value
+            guard self.bookmarkSession == session else { return }
+            defer {
+                if self.bookmarkSession == session, self.savedGeneration[id] == generation {
+                    self.bookmarkTasks[id] = nil
+                }
             }
-            write(savedIDs, forKey: savedKey)
-            write(spotAlertIDs, forKey: spotAlertKey)
-            fail(domainError(error))
+            do {
+                let game: Game
+                switch mutation {
+                case .saved(let on): game = try await self.games.setBookmark(id: id, on: on)
+                case .alert(let on): game = try await self.games.setSpotAlert(id: id, on: on)
+                }
+                guard self.bookmarkSession == session else { return }
+                self.confirmedBookmarks[id] = (game.isBookmarked, game.spotAlert)
+                guard self.savedGeneration[id] == generation else { return }
+                self.applyBookmark(game)
+            } catch {
+                guard self.bookmarkSession == session, self.savedGeneration[id] == generation else { return }
+                let state = self.confirmedBookmarks[id] ?? (saved: false, alert: false)
+                if state.saved { self.savedIDs.insert(id) } else { self.savedIDs.remove(id) }
+                if state.alert { self.spotAlertIDs.insert(id) } else { self.spotAlertIDs.remove(id) }
+                self.write(self.savedIDs, forKey: self.savedKey)
+                self.write(self.spotAlertIDs, forKey: self.spotAlertKey)
+                self.fail(self.domainError(error))
+            }
         }
+    }
+
+    /// Waits for the writes already queued by the UI (also useful to await final server state).
+    func waitForBookmarkWrites() async {
+        let tasks = Array(bookmarkTasks.values)
+        for task in tasks { await task.value }
     }
 
     /// The bookmark RPCs can add or remove, unlike a map refresh, which only adds.
@@ -826,6 +859,10 @@ final class GameStore {
         savedIDs = []
         spotAlertIDs = []
         spentSpotAlerts = []
+        bookmarkSession = UUID()
+        for task in bookmarkTasks.values { task.cancel() }
+        bookmarkTasks = [:]
+        confirmedBookmarks = [:]
         savedGeneration = [:]
         dismissedIDs = []
         unreadByGame = [:]

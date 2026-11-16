@@ -110,6 +110,31 @@ struct NotificationReviewTests {
         #expect(log.snapshot.last?.chat == false)
     }
 
+    @Test func anOldFailureDoesNotRevertANewerSameValueToggle() async {
+        let queue = NotificationPrefQueue(.standard)
+        let log = PrefLog()
+        let gate = Gate()
+        queue.set(\.reminders, to: false, send: { prefs in
+            log.add(prefs)
+            await gate.wait()
+            throw DomainError.offline
+        }, onFailure: { _ in })
+        for _ in 0..<100 where log.snapshot.isEmpty { await Task.yield() }
+        queue.set(\.reminders, to: true, send: { log.add($0) }, onFailure: { _ in })
+        queue.set(\.reminders, to: false, send: { log.add($0) }, onFailure: { _ in })
+        gate.open()
+        await queue.wait()
+        #expect(queue.displayed.reminders == false)
+        #expect(log.snapshot.last?.reminders == false)
+    }
+
+    @Test func anUnsupersededFailedToggleReverts() async {
+        let queue = NotificationPrefQueue(.standard)
+        queue.set(\.reminders, to: false, send: { _ in throw DomainError.offline }, onFailure: { _ in })
+        await queue.wait()
+        #expect(queue.displayed.reminders)
+    }
+
     @Test func swipingThePrimerAwayCountsOnce() {
         let defaults = UserDefaults(suiteName: "Primer.\(UUID().uuidString)")!
         let backend = MockBackend()

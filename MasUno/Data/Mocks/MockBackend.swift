@@ -260,10 +260,16 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         return visibleGames.filter { ids.contains($0.id) }
     }
 
+    /// Lets tests hold a server snapshot while a newer local edit finishes.
+    var beforeBookmarkedGamesReply: (() async -> Void)?
+    var beforeBookmarkWrite: (() async -> Void)?
+
     func fetchBookmarkedGames() async throws -> [Game] {
         try await begin()
         let cutoff = now.addingTimeInterval(-14 * 24 * 3600)
-        return visibleGames.filter { bookmarked.contains($0.id) && $0.endsAt > cutoff }
+        let result = visibleGames.filter { bookmarked.contains($0.id) && $0.endsAt > cutoff }
+        await beforeBookmarkedGamesReply?()
+        return result
     }
 
     /// Moves a game's end, so a test can age a bookmark past the 14-day window.
@@ -382,6 +388,7 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
     }
 
     func setBookmark(id: UUID, on: Bool) async throws -> Game {
+        await beforeBookmarkWrite?()
         try await beginWrite()
         _ = try writableIndex(id)
         if on {
@@ -394,6 +401,7 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
     }
 
     func setSpotAlert(id: UUID, on: Bool) async throws -> Game {
+        await beforeBookmarkWrite?()
         try await beginWrite()
         _ = try writableIndex(id)
         if on {

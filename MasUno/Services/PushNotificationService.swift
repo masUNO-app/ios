@@ -17,6 +17,8 @@ final class PushNotificationService {
     @ObservationIgnored private let logger = Logger(subsystem: "com.masuno.app", category: "Push")
     @ObservationIgnored private var token: String?
     @ObservationIgnored private var lastUploaded: Date?
+    @ObservationIgnored private var accountGeneration = 0
+    @ObservationIgnored private var deviceTask: Task<Void, Never>?
     /// A tap that arrived before the interface was ready.
     @ObservationIgnored private(set) var pendingRoute: URL?
     /// Set by the root view. A nil URL only brings the app forward.
@@ -110,6 +112,8 @@ final class PushNotificationService {
 
     /// Writes the signed-in person into the app group so chat notifications can name them.
     func noteAccount(_ id: UUID?) {
+        accountGeneration += 1
+        lastUploaded = nil
         AppGroupStore.myID = id?.uuidString
     }
 
@@ -117,23 +121,32 @@ final class PushNotificationService {
     /// - Returns: False when the server still has the token. The local copy is kept so sign-out can try again.
     @discardableResult
     func unregister() async -> Bool {
-        guard let token else {
-            AppGroupStore.clearAccount()
+        let generation = accountGeneration
+        let prior = deviceTask
+        let task = Task { @MainActor in
+            await prior?.value
+            guard self.accountGeneration == generation else { return true }
+            if let token = self.token {
+                do {
+                    try await self.repository.unregisterDevice(token: token)
+                } catch {
+                    self.logger.error("Couldn't unregister the device token: \(error.localizedDescription, privacy: .public)")
+                    return self.accountGeneration != generation
+                }
+            }
+            // Sign-in may have queued a new registration during the network call. Keep its
+            // local state; the queued upload runs after this old server unregister finishes.
+            if self.accountGeneration == generation { self.discardLocalDevice() }
             return true
         }
-        do {
-            try await repository.unregisterDevice(token: token)
-        } catch {
-            logger.error("Couldn't unregister the device token: \(error.localizedDescription, privacy: .public)")
-            return false
-        }
-        discardLocalDevice()
-        return true
+        deviceTask = Task { _ = await task.value }
+        return await task.value
     }
 
     /// Forgets the token and the signed-in person on this phone. Account deletion does this even
     /// when the server call failed, because the account is gone and the token cascades.
     func discardLocalDevice() {
+        accountGeneration += 1
         AppGroupStore.clearAccount()
         token = nil
         defaults.removeObject(forKey: Self.tokenKey)
@@ -231,12 +244,24 @@ final class PushNotificationService {
     // MARK: Actions
 
     private func upload(_ token: String) async {
+        let generation = accountGeneration
+        let prior = deviceTask
+        let task = Task { @MainActor in
+            await prior?.value
+            guard self.accountGeneration == generation, self.token == token else { return }
+            await self.uploadNow(token, generation: generation)
+        }
+        deviceTask = task
+        await task.value
+    }
+
+    private func uploadNow(_ token: String, generation: Int) async {
         let locale = Locale.preferredLanguages.first ?? "en"
         do {
             try await repository.registerDevice(
                 token: token, environment: Self.environment, locale: locale, appVersion: AppConfig.currentVersion
             )
-            lastUploaded = .now
+            if accountGeneration == generation { lastUploaded = .now }
         } catch {
             logger.error("Couldn't register the device token: \(error.localizedDescription, privacy: .public)")
         }

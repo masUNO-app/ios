@@ -9,6 +9,7 @@ final class NotificationPrefQueue {
     private(set) var displayed: NotificationPrefs
     private var accepted: NotificationPrefs
     private var chain: Task<Void, Never>?
+    private var generations: [WritableKeyPath<NotificationPrefs, Bool>: Int] = [:]
 
     init(_ prefs: NotificationPrefs = .standard) {
         displayed = prefs
@@ -27,8 +28,9 @@ final class NotificationPrefQueue {
         onFailure: @escaping @MainActor (DomainError) -> Void
     ) {
         displayed[keyPath: key] = value
+        generations[key, default: 0] += 1
+        let generation = generations[key]
         let changed = key
-        let written = value
         let prior = chain
         chain = Task {
             await prior?.value
@@ -37,7 +39,7 @@ final class NotificationPrefQueue {
                 try await send(snapshot)
                 accepted = snapshot
             } catch {
-                if displayed[keyPath: changed] == written {
+                if generations[changed] == generation {
                     displayed[keyPath: changed] = accepted[keyPath: changed]
                 }
                 onFailure(error as? DomainError ?? .offline)

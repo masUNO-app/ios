@@ -44,15 +44,20 @@ private final class SpyNotificationRepository: NotificationRepository {
     var failUnregister = false
     var failMarkOpened = false
     var beforeUnregister: (() async -> Void)?
+    var currentUserID = UUID()
+    var serverTokens: [String: UUID] = [:]
 
     func registerDevice(token: String, environment: String, locale: String, appVersion: String) async throws {
         registered.append((token, environment, locale, appVersion))
+        serverTokens[token] = currentUserID
     }
 
     func unregisterDevice(token: String) async throws {
+        let requestUser = currentUserID
         await beforeUnregister?()
         unregistered.append(token)
         if failUnregister { throw DomainError.offline }
+        if serverTokens[token] == requestUser { serverTokens[token] = nil }
     }
 
     func fetchPrefs() async throws -> NotificationPrefs { prefs }
@@ -236,6 +241,42 @@ struct PushNotificationServiceTests {
             Issue.record("A sign-in that finishes during the retry stays signed in")
         }
         #expect(model.session == .signedIn)
+    }
+
+    @Test(arguments: [false, true])
+    func signingInDuringTheRetryKeepsTheDeviceRegistration(switchAccount: Bool) async {
+        let originalID = UUID()
+        let activeID = switchAccount ? UUID() : originalID
+        let auth = StickyAuth(.signedIn(userID: originalID))
+        let token = "ab12cd34ef56ab12cd34ef56"
+        spy.currentUserID = originalID
+        await service.didRegister(token: token)
+        spy.failUnregister = true
+        let store = GameStore(games: backend, profiles: backend, safety: backend, chat: backend, catalog: backend, defaults: defaults)
+        let model = AppViewModel(auth: auth, catalog: backend, push: service, defaults: defaults, signOutMarker: MemorySignOutMarker())
+        await model.signOut(store: store)
+        let gate = NotificationTestGate()
+        spy.failUnregister = false
+        spy.beforeUnregister = { await gate.wait() }
+        let retry = Task { await model.finishPendingSignOutIfNeeded() }
+        await gate.waitUntilEntered()
+        auth.state = .signedIn(userID: activeID)
+        spy.currentUserID = activeID
+        model.noteSignInFinished()
+        var registrationStarted = false
+        let registration = Task {
+            registrationStarted = true
+            await service.didRegister(token: token)
+        }
+        while !registrationStarted { await Task.yield() }
+        gate.open()
+        await retry.value
+        await registration.value
+        #expect(auth.state == .signedIn(userID: activeID))
+        #expect(model.session == .signedIn)
+        #expect(AppGroupStore.myID == activeID.uuidString)
+        #expect(defaults.string(forKey: "apnsDeviceToken") == token)
+        #expect(spy.serverTokens[token] == activeID)
     }
 
     @Test func aPendingSignOutWaitsUntilTheSessionIsKnown() async {
@@ -571,10 +612,10 @@ struct SpotAlertTests {
         await store.load()
     }
 
-    private static func makeStore(_ backend: MockBackend) -> GameStore {
+    private static func makeStore(_ backend: MockBackend, defaults: UserDefaults? = nil) -> GameStore {
         GameStore(
             games: backend, profiles: backend, safety: backend, chat: backend, catalog: backend,
-            defaults: UserDefaults(suiteName: "SpotAlertTests.\(UUID().uuidString)")!
+            defaults: defaults ?? UserDefaults(suiteName: "SpotAlertTests.\(UUID().uuidString)")!
         )
     }
 
@@ -656,7 +697,119 @@ struct SpotAlertTests {
         backend.latency = .zero
         store.toggleSpotAlert(id)
         await settle(.milliseconds(500))
+        await store.waitForBookmarkWrites()
         #expect(!store.hasSpotAlert(id), "A late reply for an older toggle is ignored")
+        let server = try? await backend.fetchGame(id: id)
+        #expect(server?.spotAlert == false)
+    }
+
+    @Test func aSlowAlertOnFollowedByUnsaveEndsUnsavedOnTheServer() async throws {
+        let id = MockFixtures.GameID.full
+        let gate = NotificationTestGate()
+        backend.beforeBookmarkWrite = { await gate.wait() }
+        store.toggleSpotAlert(id)
+        await gate.waitUntilEntered()
+        store.toggleSaved(id)
+        gate.open()
+        await store.waitForBookmarkWrites()
+        let server = try await backend.fetchGame(id: id)
+        #expect(!server.isBookmarked && !server.spotAlert)
+        #expect(!store.isSaved(id) && !store.hasSpotAlert(id))
+    }
+
+    @Test func aSlowSaveFollowedByUnsaveEndsUnsavedOnTheServer() async throws {
+        let id = MockFixtures.GameID.open
+        let gate = NotificationTestGate()
+        backend.beforeBookmarkWrite = { await gate.wait() }
+        store.toggleSaved(id)
+        await gate.waitUntilEntered()
+        store.toggleSaved(id)
+        gate.open()
+        await store.waitForBookmarkWrites()
+        let server = try await backend.fetchGame(id: id)
+        #expect(!server.isBookmarked && !server.spotAlert)
+        #expect(!store.isSaved(id) && !store.hasSpotAlert(id))
+    }
+
+    @Test func remoteUnsaveIsAppliedOnRefresh() async throws {
+        let id = MockFixtures.GameID.full
+        store.toggleSpotAlert(id)
+        await store.waitForBookmarkWrites()
+        _ = try await backend.setBookmark(id: id, on: false)
+        await store.refreshSaved()
+        #expect(!store.isSaved(id) && !store.hasSpotAlert(id))
+    }
+
+    @Test func remoteAlertDisableKeepsTheSave() async throws {
+        let id = MockFixtures.GameID.full
+        store.toggleSpotAlert(id)
+        await store.waitForBookmarkWrites()
+        _ = try await backend.setSpotAlert(id: id, on: false)
+        await store.refreshSaved()
+        #expect(store.isSaved(id) && !store.hasSpotAlert(id))
+    }
+
+    @Test func anOlderServerSnapshotDoesNotUndoANewerLocalSave() async {
+        let id = MockFixtures.GameID.full
+        store.toggleSaved(id)
+        await store.waitForBookmarkWrites()
+        let gate = NotificationTestGate()
+        backend.beforeBookmarkedGamesReply = { await gate.wait() }
+        let refresh = Task { await store.refreshSaved() }
+        await gate.waitUntilEntered()
+        store.toggleSpotAlert(id)
+        await store.waitForBookmarkWrites()
+        gate.open()
+        await refresh.value
+        #expect(store.isSaved(id) && store.hasSpotAlert(id))
+    }
+
+    @Test func anEditAlreadyPendingAtRefreshStartKeepsItsOptimisticState() async {
+        let id = MockFixtures.GameID.full
+        store.toggleSaved(id)
+        await store.waitForBookmarkWrites()
+        let gate = NotificationTestGate()
+        backend.beforeBookmarkWrite = { await gate.wait() }
+        store.toggleSpotAlert(id)
+        await gate.waitUntilEntered()
+        await store.refreshSaved()
+        #expect(store.isSaved(id) && store.hasSpotAlert(id))
+        gate.open()
+        await store.waitForBookmarkWrites()
+        #expect(store.isSaved(id) && store.hasSpotAlert(id))
+    }
+
+    @Test func aRelaunchDoesNotReimportAnAlreadySyncedRemoteSave() async throws {
+        let id = MockFixtures.GameID.full
+        let defaults = UserDefaults(suiteName: "RemoteRelaunch.\(UUID().uuidString)")!
+        _ = try await backend.setBookmark(id: id, on: true)
+        let first = Self.makeStore(backend, defaults: defaults)
+        await first.load()
+        #expect(first.isSaved(id))
+        _ = try await backend.setBookmark(id: id, on: false)
+        let relaunched = Self.makeStore(backend, defaults: defaults)
+        await relaunched.load()
+        #expect(!relaunched.isSaved(id))
+        let server = try await backend.fetchGame(id: id)
+        #expect(!server.isBookmarked)
+    }
+
+    @Test func aFailedRefreshKeepsCachedSavesAndAlerts() async {
+        let id = MockFixtures.GameID.full
+        store.toggleSpotAlert(id)
+        await store.waitForBookmarkWrites()
+        backend.nextError = .offline
+        await store.refreshSaved()
+        #expect(store.isSaved(id) && store.hasSpotAlert(id))
+    }
+
+    @Test func aBookmarkOlderThanTheQueryWindowIsNotMistakenForARemoteRemoval() async {
+        let id = MockFixtures.GameID.open
+        store.toggleSaved(id)
+        await store.waitForBookmarkWrites()
+        backend.setEndsAt(backend.now.addingTimeInterval(-15 * 24 * 3600), for: id)
+        await store.refreshSaved()
+        #expect(store.isSaved(id))
     }
 
     @Test func aFailedUnsaveDoesntStayHidden() async {
