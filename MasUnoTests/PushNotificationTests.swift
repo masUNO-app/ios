@@ -177,6 +177,33 @@ struct PushNotificationServiceTests {
         #expect(model.session == .signedIn)
     }
 
+    @Test func signingBackInAsTheSameAccountStaysSignedIn() async {
+        spy.failUnregister = true
+        await service.didRegister(token: "ab12cd34ef56ab12cd34ef56")
+        let store = GameStore(
+            games: backend, profiles: backend, safety: backend, chat: backend, catalog: backend, defaults: defaults
+        )
+        let model = AppViewModel(auth: backend, catalog: backend, push: service, defaults: defaults)
+        await model.signOut(store: store)
+        #expect(model.session == .onboarding)
+
+        let onboarding = OnboardingViewModel(auth: backend, catalog: backend)
+        onboarding.onSignedIn = { model.noteSignInFinished() }
+        onboarding.email = MockFixtures.reviewEmail
+        onboarding.password = MockFixtures.reviewPassword
+        await onboarding.submitSignIn()
+
+        #expect(model.signOutPendingUserID == nil)
+        #expect(model.session == .signedIn)
+        await model.finishPendingSignOutIfNeeded()
+        if case .signedIn = backend.state {} else {
+            Issue.record("Signing back in as the same account stays signed in")
+        }
+        #expect(model.session == .signedIn)
+        await service.refreshRegistration(force: true)
+        #expect(spy.registered.count == 2)
+    }
+
     @Test func theOpenScreenIsForgottenWhenTheAppIsKilled() {
         let stored = UserDefaults(suiteName: AppGroupStore.suiteName)
         stored?.removeObject(forKey: "openChatID")

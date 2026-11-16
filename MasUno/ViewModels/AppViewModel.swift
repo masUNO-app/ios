@@ -161,6 +161,11 @@ final class AppViewModel {
         }
     }
 
+    /// Sign-in reached the map. Stop trying to remove the token: this session should keep the phone.
+    func noteSignInFinished() {
+        signOutPendingUserID = nil
+    }
+
     /// Removes a device token that sign-out could not, then ends the saved session.
     func finishPendingSignOutIfNeeded() async {
         guard let pending = signOutPendingUserID else { return }

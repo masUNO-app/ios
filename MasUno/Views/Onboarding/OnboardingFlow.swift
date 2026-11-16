@@ -14,6 +14,10 @@ struct OnboardingFlow: View {
         _viewModel = State(initialValue: OnboardingViewModel(auth: auth, catalog: catalog, campus: campus))
     }
 
+    private func watchSignIn() {
+        viewModel.onSignedIn = { appViewModel.noteSignInFinished() }
+    }
+
     var body: some View {
         @Bindable var viewModel = viewModel
 
@@ -35,6 +39,7 @@ struct OnboardingFlow: View {
                     .navigationBarBackButtonHidden(step.hidesBackButton)
                 }
         }
+        .onAppear { watchSignIn() }
         .dialog(isPresented: $viewModel.isSignInSheetPresented) {
             DialogCard(
                 systemImage: "checkmark.shield",

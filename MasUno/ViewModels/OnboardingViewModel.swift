@@ -56,6 +56,9 @@ final class OnboardingViewModel {
     var guidelinesError: String?
     private(set) var isWorking = false
 
+    /// Set by the root. A finished sign-in keeps the session, even if an earlier sign-out could not drop the token.
+    @ObservationIgnored var onSignedIn: (() -> Void)?
+
     @ObservationIgnored private let auth: any AuthService
     @ObservationIgnored private let catalog: any AppConfigRepository
     /// The only open campus, if there's just one: the copy then names it.
@@ -237,6 +240,7 @@ final class OnboardingViewModel {
         signInError = nil
         await work {
             try await auth.signIn(at: selectedSchool)
+            noteIfSignedIn()
             switch auth.state {
             case .needsProfile:
                 fillInName()
@@ -256,6 +260,7 @@ final class OnboardingViewModel {
         signInError = nil
         await work {
             try await auth.signIn(email: trimmedEmail, password: password)
+            noteIfSignedIn()
             password = ""
             advance()
         } onError: { signInError = $0 }
@@ -305,10 +310,16 @@ final class OnboardingViewModel {
         guidelinesError = nil
         await work {
             try await auth.acceptGuidelines()
+            noteIfSignedIn()
         } onError: { guidelinesError = $0 }
     }
 
     // MARK: Helpers
+
+    /// Signed in for real. A leftover sign-out retry must not send them back out.
+    private func noteIfSignedIn() {
+        if case .signedIn = auth.state { onSignedIn?() }
+    }
 
     /// The step after sign-in or the profile. Signed in needs nothing: the root swaps to the map.
     private func advance() {

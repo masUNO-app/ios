@@ -1,7 +1,7 @@
 -- Push notifications: producers, the send-time rules, and the client RPCs (NOTIF.md §2 and §5).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(65);
+select plan(69);
 
 create function pg_temp.act_as(p_user uuid) returns void language plpgsql as $$
 begin
@@ -251,6 +251,31 @@ select is((select (payload->>'count')::int from private.notification_outbox
     where event_id = (select id from game_ids where name = 'chat') and kind = 'chat_message'
       and user_id = 'b0000000-0000-4000-8000-00000000000b' and locked_at is not null),
     2, 'the leased row keeps the messages it already had');
+create temp table chat_retry on commit drop as
+select
+    (select id from private.notification_outbox
+     where event_id = (select id from game_ids where name = 'chat') and kind = 'chat_message'
+       and user_id = 'b0000000-0000-4000-8000-00000000000b' and locked_at is not null) as leased_id,
+    (select id from private.notification_outbox
+     where event_id = (select id from game_ids where name = 'chat') and kind = 'chat_message'
+       and user_id = 'b0000000-0000-4000-8000-00000000000b'
+       and sent_at is null and dropped is null and locked_at is null) as pending_id;
+grant select on chat_retry to service_role;
+select set_config('request.jwt.claim.role', 'service_role', true);
+set local role service_role;
+select lives_ok(
+    'select public.complete_notifications(jsonb_build_array(jsonb_build_object(
+        ''id'', (select leased_id from chat_retry), ''outcome'', ''retry'', ''error'', ''503'')))',
+    'a retry while a newer row is pending still records the batch');
+reset role;
+select is((select dropped from private.notification_outbox where id = (select leased_id from chat_retry)),
+    'merged', 'the leased row is folded away');
+select is((select (payload->>'count')::int from private.notification_outbox where id = (select pending_id from chat_retry)),
+    3, 'the newer row keeps the messages from both rows');
+select is((select count(*)::int from private.notification_outbox
+    where event_id = (select id from game_ids where name = 'chat') and kind = 'chat_message'
+      and user_id = 'b0000000-0000-4000-8000-00000000000b' and sent_at is null and dropped is null),
+    1, 'one pending chat row remains');
 select is((select count(*)::int from private.notification_outbox
     where event_id = (select id from game_ids where name = 'chat') and kind = 'chat_message'
       and user_id = 'c0000000-0000-4000-8000-00000000000c'),

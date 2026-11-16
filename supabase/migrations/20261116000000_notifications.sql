@@ -900,14 +900,40 @@ declare
     v_kind text;
     v_user uuid;
     v_event uuid;
+    v_merge text;
+    v_payload jsonb;
+    v_other bigint;
 begin
     for v_item in select value from jsonb_array_elements(coalesce(p_results, '[]'::jsonb)) loop
         v_id := (v_item->>'id')::bigint;
         v_outcome := v_item->>'outcome';
-        select kind, user_id, event_id into v_kind, v_user, v_event
+        v_other := null;
+        select kind, user_id, event_id, merge_key, payload
+        into v_kind, v_user, v_event, v_merge, v_payload
         from private.notification_outbox where id = v_id;
 
-        if v_outcome = 'sent' then
+        -- A message that arrived mid-send has its own pending row. Unlocking this lease would
+        -- collide with that row on notification_outbox_pending_merge_idx and abort the batch.
+        if v_outcome in ('retry', 'release') and v_merge is not null then
+            select id into v_other
+            from private.notification_outbox
+            where merge_key = v_merge
+              and id <> v_id
+              and sent_at is null
+              and dropped is null
+              and locked_at is null
+            limit 1
+            for update;
+        end if;
+
+        if v_other is not null then
+            update private.notification_outbox
+            set payload = private.merge_notification_payload(v_kind, v_payload, payload)
+            where id = v_other;
+            update private.notification_outbox
+            set dropped = 'merged', locked_at = null, error = left(v_item->>'error', 500)
+            where id = v_id and sent_at is null;
+        elsif v_outcome = 'sent' then
             update private.notification_outbox
             set sent_at = now(), locked_at = null, error = null
             where id = v_id and sent_at is null;
