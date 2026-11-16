@@ -69,6 +69,21 @@ create index notification_outbox_due_idx
 create index notification_outbox_caps_idx
     on private.notification_outbox (user_id, kind, sent_at);
 
+-- Successful deliveries that leave their outbox row pending for newer merged content.
+-- Normal final deliveries are counted by outbox.sent_at; these extra deliveries must count too.
+create table private.notification_resend_deliveries (
+    outbox_id bigint not null references private.notification_outbox(id) on delete cascade,
+    claimed_at timestamptz not null,
+    user_id uuid not null references auth.users(id) on delete cascade,
+    kind text not null,
+    sent_at timestamptz not null default now(),
+    primary key (outbox_id, claimed_at)
+);
+create index notification_resend_deliveries_budget_idx
+    on private.notification_resend_deliveries (user_id, sent_at);
+alter table private.notification_resend_deliveries enable row level security;
+revoke all on private.notification_resend_deliveries from public, anon, authenticated;
+
 -- The APNs provider token, reused until it is 50 minutes old. Apple refuses a new one more often.
 create table private.apns_jwt (
     id boolean primary key default true check (id),
@@ -245,7 +260,7 @@ begin
                 else notification_outbox.not_before
             end,
             expires_at = p_expires_at,
-            resend = resend or (locked_at is not null and locked_at >= now() - interval '10 minutes')
+            resend = resend or (not p_once and locked_at is not null and locked_at >= now() - interval '10 minutes')
         where merge_key = p_merge_key and sent_at is null and dropped is null
         returning id into v_id;
         if v_id is not null then return; end if;
@@ -277,7 +292,7 @@ begin
                 else notification_outbox.not_before
             end,
             expires_at = p_expires_at,
-            resend = resend or (locked_at is not null and locked_at >= now() - interval '10 minutes')
+            resend = resend or (not p_once and locked_at is not null and locked_at >= now() - interval '10 minutes')
         where merge_key = p_merge_key and sent_at is null and dropped is null;
     end;
 end $$;
@@ -635,6 +650,26 @@ exception when others then
     raise warning 'notification purge failed: %', sqlerrm;
 end $$;
 
+-- A live lease reserves one delivery. Retry/release/drop frees it by clearing locked_at;
+-- a successful send replaces it with sent_at (or a resend delivery if content remains queued).
+create or replace function private.notification_budget_used(p_user uuid, p_since timestamptz, p_kind text default null)
+returns bigint language sql stable security definer set search_path = ''
+as $$
+    select (
+        select count(*) from private.notification_outbox o
+        where o.user_id = p_user
+          and (p_kind is null or o.kind = p_kind)
+          and o.kind <> 'chat_message' and private.notification_level(o.kind) <> 'time-sensitive'
+          and (o.sent_at >= p_since or (
+              o.sent_at is null and o.dropped is null and o.locked_at >= now() - interval '10 minutes'
+          ))
+    ) + (
+        select count(*) from private.notification_resend_deliveries d
+        where d.user_id = p_user and d.sent_at >= p_since
+          and (p_kind is null or d.kind = p_kind)
+    )
+$$;
+
 -- Called by the edge function with the service role. Locks due rows that pass every send-time
 -- rule and returns them with the person's device tokens. Rows that fail are marked dropped.
 create or replace function private.claim_notifications(p_limit integer)
@@ -773,16 +808,19 @@ begin
 
             if v_reason is null then
                 v_day_start := date_trunc('day', now() at time zone v_tz) at time zone v_tz;
-                if v_row.kind = 'interest_match' and (
-                    select count(*) from private.notification_outbox o
-                    where o.user_id = v_row.user_id and o.kind = 'interest_match' and o.sent_at >= v_day_start
-                ) >= 2 then
+                -- Each user's claims share a transaction lock. Try instead of waiting while
+                -- holding outbox row locks, so overlapping drains cannot deadlock each other.
+                if v_row.kind <> 'chat_message' and v_level <> 'time-sensitive' and not
+                    pg_catalog.pg_try_advisory_xact_lock(pg_catalog.hashtextextended(
+                        'notification-budget:' || v_row.user_id::text, 0
+                    )) then
+                    continue;
+                end if;
+                if v_row.kind = 'interest_match' and
+                    private.notification_budget_used(v_row.user_id, v_day_start, 'interest_match') >= 2 then
                     v_reason := 'cap';
-                elsif v_row.kind = 'winback' and exists (
-                    select 1 from private.notification_outbox o
-                    where o.user_id = v_row.user_id and o.kind = 'winback'
-                      and o.sent_at > now() - interval '14 days'
-                ) then
+                elsif v_row.kind = 'winback' and
+                    private.notification_budget_used(v_row.user_id, now() - interval '14 days', 'winback') > 0 then
                     v_reason := 'cap';
                 elsif v_row.kind = 'winback' and (
                     select count(*) = 3 and bool_and(opened_at is null)
@@ -794,12 +832,8 @@ begin
                     ) recent
                 ) then
                     v_reason := 'cap';
-                elsif v_row.kind <> 'chat_message' and v_level <> 'time-sensitive' and (
-                    select count(*) from private.notification_outbox o
-                    where o.user_id = v_row.user_id and o.sent_at >= v_day_start
-                      and o.kind <> 'chat_message'
-                      and private.notification_level(o.kind) <> 'time-sensitive'
-                ) >= 6 then
+                elsif v_row.kind <> 'chat_message' and v_level <> 'time-sensitive' and
+                    private.notification_budget_used(v_row.user_id, v_day_start) >= 6 then
                     v_reason := 'cap';
                 end if;
             end if;
@@ -850,7 +884,10 @@ begin
                 v_context := v_row.payload;
             end if;
 
-            update private.notification_outbox set locked_at = now() where id = v_row.id;
+            -- This snapshot already includes earlier merges. Only an enqueue after this
+            -- claim may arm resend again. clock_timestamp also identifies successive leases.
+            update private.notification_outbox
+            set locked_at = clock_timestamp(), resend = false where id = v_row.id;
 
             id := v_row.id;
             user_id := v_row.user_id;
@@ -904,14 +941,23 @@ declare
     v_user uuid;
     v_event uuid;
     v_resend boolean;
+    v_claimed timestamptz;
 begin
     for v_item in select value from jsonb_array_elements(coalesce(p_results, '[]'::jsonb)) loop
         v_id := (v_item->>'id')::bigint;
         v_outcome := v_item->>'outcome';
-        select kind, user_id, event_id, resend into v_kind, v_user, v_event, v_resend
-        from private.notification_outbox where id = v_id;
+        select kind, user_id, event_id, resend, locked_at
+        into v_kind, v_user, v_event, v_resend, v_claimed
+        from private.notification_outbox where id = v_id and sent_at is null for update;
+        if not found then continue; end if;
 
         if v_outcome = 'sent' then
+            if v_resend and v_claimed is not null and v_kind <> 'chat_message'
+               and private.notification_level(v_kind) <> 'time-sensitive' then
+                insert into private.notification_resend_deliveries (outbox_id, claimed_at, user_id, kind)
+                values (v_id, v_claimed, v_user, v_kind)
+                on conflict (outbox_id, claimed_at) do nothing;
+            end if;
             -- The phone already has this version. Messages that arrived mid-send stay queued.
             update private.notification_outbox
             set sent_at = case when resend then sent_at else now() end,
