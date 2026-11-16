@@ -7,14 +7,17 @@ struct ContentView: View {
     @State private var appViewModel: AppViewModel
     @Environment(\.scenePhase) private var scenePhase
     private let services: AppServices
+    private let notifications: NotificationCenterBridge
 
-    init() {
-        let services = AppServices.make()
+    init(notifications: NotificationCenterBridge = NotificationCenterBridge()) {
+        let services = AppLaunch.services
+        self.notifications = notifications
         self.services = services
         _store = State(initialValue: GameStore(
-            games: services.games, profiles: services.profiles, safety: services.safety, chat: services.chat, catalog: services.catalog
+            games: services.games, profiles: services.profiles, safety: services.safety, chat: services.chat,
+            catalog: services.catalog, notifications: services.notifications
         ))
-        _appViewModel = State(initialValue: AppViewModel(auth: services.auth, catalog: services.catalog))
+        _appViewModel = State(initialValue: AppViewModel(auth: services.auth, catalog: services.catalog, push: services.push))
     }
 
     var body: some View {
@@ -36,6 +39,7 @@ struct ContentView: View {
         .animation(.snappy, value: store.notice)
         .environment(store)
         .environment(appViewModel)
+        .environment(appViewModel.push!)
         .environment(\.currentUserID, store.profile?.id)
         .tint(Theme.accent)
         // SF Pro Rounded throughout (SPEC §7.7.2, R7-10).
@@ -46,10 +50,40 @@ struct ContentView: View {
         .task { await launch() }
         // Onboarding finished. `launch()` handles an already signed-in session.
         .onChange(of: appViewModel.session) { old, new in
-            if old == .onboarding, new == .signedIn { Task { await store.load() } }
+            if old == .onboarding, new == .signedIn {
+                Task {
+                    await store.load()
+                    appViewModel.push?.noteAccount(store.profile?.id)
+                    await appViewModel.push?.refreshRegistration(force: true)
+                    appViewModel.deliverPushRoute(appViewModel.push?.consumePendingRoute())
+                }
+            }
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active, appViewModel.session == .signedIn { Task { await store.refresh() } }
+            if phase == .active {
+                Task {
+                    await appViewModel.finishPendingSignOutIfNeeded()
+                    guard appViewModel.session == .signedIn else { return }
+                    await store.refresh()
+                    await appViewModel.push?.refreshRegistration(force: false)
+                }
+            }
+        }
+        .sheet(isPresented: Binding(
+            get: {
+                store.asksForNotificationPrimer && appViewModel.push?.shouldOfferPrimer(accountID: store.profile?.id) == true
+            },
+            set: { presented in
+                guard !presented else { return }
+                // A drag-away is the same as Not now. Turn on sets the accepted flag first.
+                appViewModel.push?.recordPrimerClose(
+                    accepted: store.notificationPrimerAccepted, accountID: store.profile?.id
+                )
+                store.notificationPrimerAccepted = false
+                store.asksForNotificationPrimer = false
+            }
+        )) {
+            NotificationPrimerSheet()
         }
     }
 
@@ -59,13 +93,22 @@ struct ContentView: View {
 
     private func launch() async {
         store.onSessionProblem = { [auth = appViewModel.auth] in Task { await auth.restoreSession() } }
+        appViewModel.push?.onOpen = { url in
+            if let url { appViewModel.handle(url) }
+        }
+        appViewModel.push?.onRefreshGame = { id in Task { await store.loadGame(id) } }
         await appViewModel.start()
         store.isChatEnabled = appViewModel.config.chatEnabled
         #if DEBUG
         appViewModel.applyDebugSession(mock: services.mock)
         #endif
+        // After the session exists, so a tap that arrived first can send and route.
+        if let push = appViewModel.push { await notifications.connect(push) }
         guard appViewModel.session == .signedIn else { return }
         await store.load()
+        appViewModel.push?.noteAccount(store.profile?.id)
+        await appViewModel.push?.refreshRegistration(force: true)
+        appViewModel.deliverPushRoute(appViewModel.push?.consumePendingRoute())
         #if DEBUG
         await appViewModel.openDebugScreen(store: store, mock: services.mock)
         #endif

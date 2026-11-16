@@ -22,3 +22,5 @@ jobs:
         run: supabase db start
       - name: Run pgTAP tests
         run: supabase test db
+      - name: Run overlapping notification claims
+        run: python3 supabase/tests/notification_claim_concurrency.py

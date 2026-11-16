@@ -14,6 +14,10 @@ struct OnboardingFlow: View {
         _viewModel = State(initialValue: OnboardingViewModel(auth: auth, catalog: catalog, campus: campus))
     }
 
+    private func watchSignIn() {
+        viewModel.onSignedIn = { appViewModel.noteSignInFinished() }
+    }
+
     var body: some View {
         @Bindable var viewModel = viewModel
 
@@ -35,6 +39,7 @@ struct OnboardingFlow: View {
                     .navigationBarBackButtonHidden(step.hidesBackButton)
                 }
         }
+        .onAppear { watchSignIn() }
         .dialog(isPresented: $viewModel.isSignInSheetPresented) {
             DialogCard(
                 systemImage: "checkmark.shield",
@@ -180,6 +185,7 @@ private struct SignInStep: View {
 /// whenever the app comes back to the front.
 private struct PendingStep: View {
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(PushNotificationService.self) private var push
     var viewModel: OnboardingViewModel
 
     var body: some View {
@@ -195,6 +201,10 @@ private struct PendingStep: View {
             }
         } footer: {
             VStack(spacing: 10) {
+                if push.authorizationStatus == .notDetermined {
+                    Button("Want a heads-up when you're in?") { Task { await push.requestPermission() } }
+                        .pill(.primary)
+                }
                 WorkingButton("Check again", isWorking: viewModel.isWorking) { Task { await viewModel.checkApproval() } }
                 Button("Sign out") { Task { await viewModel.signOutWhilePending() } }
                     .pill(.quiet)

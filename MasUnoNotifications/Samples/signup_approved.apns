@@ -1,0 +1,13 @@
+{
+  "Simulator Target Bundle": "com.masuno.app",
+  "aps": {
+    "alert": {
+      "title": "You're in",
+      "body": "Set up your profile and find a game."
+    },
+    "sound": "default",
+    "interruption-level": "active"
+  },
+  "kind": "signup_approved",
+  "outbox_id": 9
+}

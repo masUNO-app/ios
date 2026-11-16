@@ -1,0 +1,13 @@
+{
+  "Simulator Target Bundle": "com.masuno.app",
+  "aps": {
+    "alert": {
+      "title": "4 games at Tec this week",
+      "body": "2 Soccer. Room for one more?"
+    },
+    "sound": "default",
+    "interruption-level": "passive"
+  },
+  "kind": "winback",
+  "outbox_id": 10
+}

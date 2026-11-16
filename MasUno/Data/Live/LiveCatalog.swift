@@ -44,6 +44,7 @@ struct LiveBackend {
     let profiles: LiveProfileRepository
     let safety: LiveSafetyRepository
     let chat: LiveChatRepository
+    let notifications: LiveNotificationRepository
 
     /// `nil` without real keys in `Config.xcconfig`.
     static func make(config: SupabaseConfig? = .current) -> LiveBackend? {
@@ -60,7 +61,8 @@ struct LiveBackend {
             games: LiveGameRepository(client: client, activities: catalog.activities),
             profiles: LiveProfileRepository(client: client, activities: catalog.activities),
             safety: LiveSafetyRepository(client: client),
-            chat: LiveChatRepository(client: client)
+            chat: LiveChatRepository(client: client),
+            notifications: LiveNotificationRepository(client: client)
         )
     }
 }

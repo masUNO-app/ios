@@ -24,6 +24,8 @@ protocol GameRepository: AnyObject {
     func fetchGame(id: UUID) async throws -> Game
     /// The games behind the phone's Saved list. Missing IDs are left out, not errors.
     func fetchGames(ids: [UUID]) async throws -> [Game]
+    /// Saved games from the server, including full ones the map leaves out.
+    func fetchBookmarkedGames() async throws -> [Game]
     /// Who's going, host first, without anyone you blocked.
     func fetchAttendees(gameID: UUID) async throws -> [Attendee]
     /// Group chat system rows, oldest first.
@@ -38,6 +40,55 @@ protocol GameRepository: AnyObject {
     /// listening. It says which games, not how, so callers re-read them. It ends if the connection
     /// can't be made or drops.
     func changes(campus: UUID) -> AsyncStream<GameChanges>
+
+    /// Saves or unsaves a game. Saying the same thing twice leaves it that way.
+    /// - Parameters:
+    ///   - id: The game.
+    ///   - on: Whether it should be saved.
+    /// - Returns: The updated `game_cards` row.
+    func setBookmark(id: UUID, on: Bool) async throws -> Game
+    /// "Notify me if a spot opens." Saving is implied when turning it on.
+    /// - Parameters:
+    ///   - id: The game.
+    ///   - on: Whether the alert is on.
+    /// - Returns: The updated `game_cards` row.
+    func setSpotAlert(id: UUID, on: Bool) async throws -> Game
+    /// Copies Saved games that only lived on this phone up to the server, once.
+    /// - Parameters:
+    ///   - ids: Games to save.
+    ///   - alertIDs: The subset that also wants a spot alert.
+    func importBookmarks(ids: [UUID], alertIDs: [UUID]) async throws
+}
+
+/// Device token, notification preferences and opened receipts (`docs/API.md`).
+protocol NotificationRepository: AnyObject {
+    /// Saves this phone's APNs token. Allowed while an account is still waiting for approval.
+    /// - Parameters:
+    ///   - token: Hex device token.
+    ///   - environment: `sandbox` or `production`.
+    ///   - locale: The phone's preferred language, so the alert can be Spanish.
+    ///   - appVersion: The marketing version.
+    func registerDevice(token: String, environment: String, locale: String, appVersion: String) async throws
+    /// Drops this phone's token. Other phones keep theirs.
+    /// - Parameter token: The hex token this phone registered.
+    func unregisterDevice(token: String) async throws
+    /// The signed-in person's preferences, or the defaults when they haven't chosen.
+    /// - Returns: The preference row.
+    func fetchPrefs() async throws -> NotificationPrefs
+    /// Replaces the preference row.
+    /// - Parameter prefs: Every flag, including win-back.
+    func setPrefs(_ prefs: NotificationPrefs) async throws
+    /// Turns tips on or off without changing the other flags.
+    /// - Parameter on: Whether win-back alerts are on.
+    func setWinback(_ on: Bool) async throws
+    /// Stops or resumes chat alerts for one game the person is in.
+    /// - Parameters:
+    ///   - gameID: The game.
+    ///   - muted: True to stop chat alerts.
+    func setChatMuted(gameID: UUID, muted: Bool) async throws
+    /// Records that a notification was opened. Missing rows are ignored.
+    /// - Parameter outboxID: `notification_outbox.id` from the payload.
+    func markOpened(_ outboxID: Int64) async throws
 }
 
 /// Your own profile (`my_profile`, `complete_profile`).

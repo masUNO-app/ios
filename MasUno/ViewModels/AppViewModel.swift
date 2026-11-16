@@ -32,17 +32,51 @@ final class AppViewModel {
     private(set) var isUpdateRequired = false
     /// The campus onboarding talks about, when exactly one is open. Otherwise the copy stays generic.
     private(set) var launchCampus: University?
+    /// A notification opened the map and it should start on your sports.
+    var focusMapOnMySports = false
+    /// A link that arrived before the session was signed in.
+    private(set) var pendingLink: URL?
+    /// Sign-out hid the account, but the device token is still on the server. The saved session
+    /// stays until the next launch or foreground can remove it.
+    private(set) var signOutPendingUserID: UUID? {
+        didSet { storePendingSignOut(signOutPendingUserID) }
+    }
 
     @ObservationIgnored let auth: any AuthService
+    @ObservationIgnored let push: PushNotificationService?
     @ObservationIgnored private let catalog: any AppConfigRepository
+    @ObservationIgnored private let defaults: UserDefaults
+    @ObservationIgnored private let signOutMarker: any SignOutMarker
 
-    init(auth: any AuthService, catalog: any AppConfigRepository) {
+    init(
+        auth: any AuthService, catalog: any AppConfigRepository, push: PushNotificationService? = nil,
+        defaults: UserDefaults = .standard, signOutMarker: any SignOutMarker = KeychainSignOutMarker()
+    ) {
         self.auth = auth
         self.catalog = catalog
+        self.push = push
+        self.defaults = defaults
+        self.signOutMarker = signOutMarker
+        if let raw = defaults.string(forKey: Self.signOutPendingKey) ?? signOutMarker.read() {
+            signOutPendingUserID = UUID(uuidString: raw)
+        }
+    }
+
+    /// True when a sign-out is waiting to drop the token. Notification actions must not run as that account.
+    static func isSignOutPending(defaults: UserDefaults = .standard) -> Bool {
+        defaults.string(forKey: signOutPendingKey) != nil || KeychainSignOutMarker().read() != nil
     }
 
     var session: Session {
         if isUpdateRequired { return .updateRequired }
+        if let pending = signOutPendingUserID {
+            switch auth.state {
+            case .loading: return .launching
+            case .suspended: return .suspended
+            case .signedIn(let current) where current != pending: break
+            default: return .onboarding
+            }
+        }
         switch auth.state {
         case .loading: return .launching
         case .signedOut, .pendingApproval, .needsProfile, .needsGuidelines: return .onboarding
@@ -62,6 +96,7 @@ final class AppViewModel {
             if open.count == 1 { launchCampus = open[0] }
         }
         await auth.restoreSession()
+        await finishPendingSignOutIfNeeded()
     }
 
     func presentGameForm(editing id: UUID? = nil) {
@@ -91,15 +126,40 @@ final class AppViewModel {
         path = []
     }
 
-    /// `masuno://game/<id>` → Event detail (1.0 notifications use this).
+    /// `masuno://game/<id>`, `masuno://game/<id>/chat` and `masuno://map`.
+    /// A tap before sign-in waits until the session is ready.
     func handle(_ url: URL) {
-        guard url.scheme == "masuno", url.host() == "game",
-              let id = UUID(uuidString: url.lastPathComponent) else { return }
-        sheet = nil
-        path = [.game(id)]
+        guard url.scheme == "masuno" else { return }
+        guard session == .signedIn else {
+            pendingLink = url
+            return
+        }
+        open(url)
+    }
+
+    /// A notification tap, including one that waited through onboarding.
+    /// A nil URL opens a link that was stored earlier.
+    func deliverPushRoute(_ url: URL?) {
+        if let url { handle(url) }
+        openPendingLink()
+    }
+
+    /// Opens a link that arrived while the app was still launching or onboarding.
+    func openPendingLink() {
+        guard session == .signedIn, let url = pendingLink else { return }
+        pendingLink = nil
+        open(url)
     }
 
     func signOut(store: GameStore) async {
+        let userID: UUID? = if case .signedIn(let id) = auth.state { id } else { nil }
+        if let push, await push.unregister() == false {
+            // The account leaves the screen now. The session stays so a later launch can drop the token.
+            signOutPendingUserID = userID
+            leaveAccount(store: store)
+            return
+        }
+        signOutPendingUserID = nil
         do {
             try await auth.signOut()
             leaveAccount(store: store)
@@ -108,13 +168,85 @@ final class AppViewModel {
         }
     }
 
+    /// Sign-in reached the map. Stop trying to remove the token: this session should keep the phone.
+    func noteSignInFinished() {
+        if case .signedIn(let id) = auth.state { push?.noteAccount(id) }
+        signOutPendingUserID = nil
+    }
+
+    /// Removes a device token that sign-out could not, then ends the saved session.
+    /// One call runs at a time. A sign-in that finishes while the token call is in flight is left alone.
+    func finishPendingSignOutIfNeeded() async {
+        if let existing = finishingSignOut {
+            await existing.value
+        }
+        guard signOutPendingUserID != nil, finishingSignOut == nil else { return }
+        let task = Task { @MainActor in
+            await self.finishPendingSignOutNow()
+            self.finishingSignOut = nil
+        }
+        finishingSignOut = task
+        await task.value
+    }
+
+    @ObservationIgnored private var finishingSignOut: Task<Void, Never>?
+
+    private func finishPendingSignOutNow() async {
+        guard let pending = signOutPendingUserID else { return }
+        if case .loading = auth.state { return }
+        guard case .signedIn(let current) = auth.state, current == pending else {
+            if case .signedIn = auth.state { signOutPendingUserID = nil }
+            return
+        }
+        guard await push?.unregister() != false else { return }
+        guard signOutPendingUserID == pending else { return }
+        guard case .signedIn(let still) = auth.state, still == pending else { return }
+        do {
+            try await auth.signOut()
+            if signOutPendingUserID == pending { signOutPendingUserID = nil }
+        } catch {
+            // The token is gone. The session is retried the next time the app opens.
+        }
+    }
+
     func deleteAccount(store: GameStore) async {
+        await push?.unregister()
         do {
             try await auth.deleteAccount()
+            // The server cascades the token. Clear this phone even if unregister did not.
+            push?.discardLocalDevice()
             leaveAccount(store: store)
         } catch {
             store.notice = (error as? DomainError ?? .offline).message
         }
+    }
+
+    private func open(_ url: URL) {
+        sheet = nil
+        if url.host() == "map" {
+            path = []
+            focusMapOnMySports = true
+            return
+        }
+        guard url.host() == "game" else { return }
+        let parts = url.pathComponents.filter { $0 != "/" }
+        guard let id = parts.compactMap(UUID.init(uuidString:)).first ?? UUID(uuidString: url.lastPathComponent) else { return }
+        if parts.contains("chat") {
+            path = [.game(id), .chat(id)]
+        } else {
+            path = [.game(id)]
+        }
+    }
+
+    private static let signOutPendingKey = "signOutPendingUser"
+
+    private func storePendingSignOut(_ id: UUID?) {
+        if let id {
+            defaults.set(id.uuidString, forKey: Self.signOutPendingKey)
+        } else {
+            defaults.removeObject(forKey: Self.signOutPendingKey)
+        }
+        signOutMarker.write(id?.uuidString)
     }
 
     private func leaveAccount(store: GameStore) {

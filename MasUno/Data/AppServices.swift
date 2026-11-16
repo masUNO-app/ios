@@ -8,6 +8,8 @@ struct AppServices {
     let safety: any SafetyRepository
     let chat: any ChatRepository
     let catalog: any AppConfigRepository
+    let notifications: any NotificationRepository
+    let push: PushNotificationService
     #if DEBUG
     let mock: MockBackend
     #endif
@@ -27,26 +29,47 @@ struct AppServices {
         if wantsLive, let live = LiveBackend.make() {
             return AppServices(live, mock: mock)
         }
-        return AppServices(auth: mock, games: mock, profiles: mock, safety: mock, chat: mock, catalog: mock, mock: mock)
+        let push = PushNotificationService(repository: mock, games: mock, chat: mock)
+        return AppServices(
+            auth: mock, games: mock, profiles: mock, safety: mock, chat: mock, catalog: mock,
+            notifications: mock, push: push, mock: mock
+        )
         #else
         // Without real keys, every call fails as offline, so Release never shows mock data (N27).
         guard let live = LiveBackend.make() else {
             let backend = UnavailableBackend()
-            return AppServices(auth: backend, games: backend, profiles: backend, safety: backend, chat: backend, catalog: backend)
+            let push = PushNotificationService(repository: backend, games: backend, chat: backend)
+            return AppServices(
+                auth: backend, games: backend, profiles: backend, safety: backend, chat: backend,
+                catalog: backend, notifications: backend, push: push
+            )
         }
         return AppServices(live)
         #endif
     }
 }
 
+/// One set of services for the process, including a background launch that never opens a scene.
+enum AppLaunch {
+    static let services = AppServices.make()
+}
+
 private extension AppServices {
     #if DEBUG
     init(_ live: LiveBackend, mock: MockBackend) {
-        self.init(auth: live.auth, games: live.games, profiles: live.profiles, safety: live.safety, chat: live.chat, catalog: live.catalog, mock: mock)
+        let push = PushNotificationService(repository: live.notifications, games: live.games, chat: live.chat)
+        self.init(
+            auth: live.auth, games: live.games, profiles: live.profiles, safety: live.safety, chat: live.chat,
+            catalog: live.catalog, notifications: live.notifications, push: push, mock: mock
+        )
     }
     #else
     init(_ live: LiveBackend) {
-        self.init(auth: live.auth, games: live.games, profiles: live.profiles, safety: live.safety, chat: live.chat, catalog: live.catalog)
+        let push = PushNotificationService(repository: live.notifications, games: live.games, chat: live.chat)
+        self.init(
+            auth: live.auth, games: live.games, profiles: live.profiles, safety: live.safety, chat: live.chat,
+            catalog: live.catalog, notifications: live.notifications, push: push
+        )
     }
     #endif
 }

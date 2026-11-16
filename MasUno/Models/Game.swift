@@ -41,6 +41,12 @@ nonisolated struct Game: Identifiable, Hashable, Sendable {
     var myJoinedAt: Date?
     /// Someone you blocked is going, so `join_game` will answer `blocked`.
     var hasBlockedAttendee: Bool
+    /// Saved on the server. The phone also keeps a local cache for offline use.
+    var isBookmarked: Bool = false
+    /// "Notify me if a spot opens" for this saved game.
+    var spotAlert: Bool = false
+    /// Chat alerts for this game are off.
+    var chatMuted: Bool = false
 
     var spotsLeft: Int { max(capacity - goingCount, 0) }
     var isFull: Bool { spotsLeft == 0 }

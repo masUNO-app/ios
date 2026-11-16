@@ -1,0 +1,17 @@
+{
+  "Simulator Target Bundle": "com.masuno.app",
+  "aps": {
+    "alert": {
+      "title": "New Soccer game at Tec",
+      "body": "Sunday pickup soccer \u00b7 Today 7:30 PM \u00b7 room for 4"
+    },
+    "sound": "default",
+    "thread-id": "game:6f1c0000-0000-4000-8000-000000000001",
+    "target-content-id": "game:6f1c0000-0000-4000-8000-000000000001",
+    "category": "INTEREST",
+    "interruption-level": "passive"
+  },
+  "kind": "interest_match",
+  "game_id": "6f1c0000-0000-4000-8000-000000000001",
+  "outbox_id": 7
+}

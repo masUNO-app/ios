@@ -1,0 +1,22 @@
+{
+  "Simulator Target Bundle": "com.masuno.app",
+  "aps": {
+    "alert": {
+      "title": "Starts in 30 min",
+      "body": "Sunday pickup soccer \u00b7 North bleachers"
+    },
+    "sound": "default",
+    "thread-id": "game:6f1c0000-0000-4000-8000-000000000001",
+    "target-content-id": "game:6f1c0000-0000-4000-8000-000000000001",
+    "category": "REMINDER",
+    "interruption-level": "time-sensitive"
+  },
+  "kind": "reminder",
+  "game_id": "6f1c0000-0000-4000-8000-000000000001",
+  "outbox_id": 3,
+  "place": {
+    "name": "Estadio Borregos",
+    "lat": 25.65,
+    "lng": -100.29
+  }
+}

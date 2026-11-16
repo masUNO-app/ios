@@ -13,6 +13,7 @@ already applied to a shared project; add a new timestamped one. Only deploy prod
 | `20261111000000_password_signup_approval` | Sign-up with a school email and a password, approved by hand (N36): `private.signup_requests`, the Discord alert, `approve_signup` / `reject_signup`, `signup_status()`, `pending_approval` |
 | `20261110000000_group_chat` | Group chat messaging (0.6): messages, unread counts, chat RPCs, the Realtime channel, 30-day cleanup. Ships switched off |
 | `20261112000000_games_realtime` | Live game lists (1.0 refresh): a Realtime ping on `campus:<id>:games` naming the games or spots that changed, so open phones on that campus re-read just those |
+| `20261116000000_notifications` | Push notifications: device tokens, preferences, synced bookmarks, the outbox, producers, claim and cron. Ships switched off |
 
 ## Local setup
 
@@ -26,6 +27,12 @@ already applied to a shared project; add a new timestamped one. Only deploy prod
 Migrations don't carry dashboard settings, so do these on each project (B2, B12):
 
 1. `supabase link --project-ref <ref>`, then `supabase db push` and `supabase functions deploy delete-account`.
+   Also `supabase functions deploy send-push`. Set secrets `APNS_KEY_P8`, `APNS_KEY_ID` and `APNS_TEAM_ID`
+   (never commit them). In the SQL editor:
+   `select vault.create_secret('<service-role-key>', 'service_role_key');` and
+   `select vault.create_secret('https://<ref>.supabase.co/functions/v1/send-push', 'send_push_url');`.
+   Leave `push_enabled` false until a phone has registered and `docs/QA.md` §12 passes, then
+   `update public.app_config set value = 'true' where key = 'push_enabled';`.
 2. **Auth → Hooks:** register `public.before_user_created` as the **Before User Created** hook.
 3. **Auth → Providers → Email:** on, with **Confirm email off** and sign-ups allowed. The app's Create account
    needs a session straight back from `signUp`; approval by hand replaces the confirmation email (N36).

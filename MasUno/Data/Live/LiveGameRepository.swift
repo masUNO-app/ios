@@ -53,6 +53,17 @@ final class LiveGameRepository: GameRepository {
         }
     }
 
+    func fetchBookmarkedGames() async throws -> [Game] {
+        let cutoff = Date.now.addingTimeInterval(-14 * 24 * 3600)
+        return try await games {
+            try await client.from("game_cards").select()
+                .eq("is_bookmarked", value: true)
+                .gt("ends_at", value: ServerTime.string(from: cutoff))
+                .order("starts_at")
+                .execute().value
+        }
+    }
+
     func fetchAttendees(gameID: UUID) async throws -> [Attendee] {
         try await liveRequest {
             let rows: [AttendeeRow] = try await client.from("game_attendees").select()
@@ -93,6 +104,22 @@ final class LiveGameRepository: GameRepository {
 
     func leaveGame(id: UUID) async throws -> Game {
         try await write("leave_game", GameIDParams(id: id))
+    }
+
+    func setBookmark(id: UUID, on: Bool) async throws -> Game {
+        try await write("set_bookmark", BookmarkParams(id: id, on: on))
+    }
+
+    func setSpotAlert(id: UUID, on: Bool) async throws -> Game {
+        try await write("set_spot_alert", SpotAlertParams(id: id, on: on))
+    }
+
+    func importBookmarks(ids: [UUID], alertIDs: [UUID]) async throws {
+        try await liveRequest {
+            try await client.rpc(
+                "import_bookmarks", params: ImportBookmarksParams(ids: ids, alertIDs: alertIDs)
+            ).execute()
+        }
     }
 
     /// Yields once per ping on the campus's games channel. The stream ends if the channel can't

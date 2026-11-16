@@ -76,6 +76,17 @@ struct GroupChatView: View {
                 .lineLimit(1)
             }
             ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Button(event.chatMuted ? "Unmute chat" : "Mute chat", systemImage: event.chatMuted ? "bell" : "bell.slash") {
+                        Task { await store.setChatMuted(event.id, muted: !event.chatMuted) }
+                    }
+                } label: {
+                    Image(systemName: event.chatMuted ? "bell.slash" : "bell")
+                }
+                .accessibilityLabel(event.chatMuted ? "Unmute chat" : "Mute chat")
+            }
+            .sharedBackgroundVisibility(.hidden)
+            ToolbarItem(placement: .topBarTrailing) {
                 Button { showsWhoIsGoing = true } label: {
                     let people = store.lineup(for: event)
                     TokenStack(
@@ -103,6 +114,13 @@ struct GroupChatView: View {
         .blockDialog($blockTarget)
         .refreshable { await load() }
         .task { await load() }
+        .onAppear {
+            AppGroupStore.openChatID = eventID.uuidString
+            PushNotificationService.clearDelivered(thread: "chat:\(eventID.uuidString)")
+        }
+        .onDisappear {
+            if AppGroupStore.openChatID == eventID.uuidString { AppGroupStore.openChatID = nil }
+        }
         .task(id: store.isChatEnabled) {
             guard store.isChatEnabled else { return }
             // Asked once per account, the first time you open any chat you can post in.
