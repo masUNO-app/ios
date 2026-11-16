@@ -333,6 +333,9 @@ struct GuestStoreTests {
 
         await store.join(id)
         store.toggleSaved(id)
+        store.toggleSpotAlert(id)
+        await store.setChatMuted(id, muted: true)
+        await store.refreshSaved()
         let draft = GameDraft(
             activity: MockFixtures.activity("padel"), title: "New game",
             startsAt: backend.now.addingTimeInterval(7200), durationMinutes: 60, capacity: 4,

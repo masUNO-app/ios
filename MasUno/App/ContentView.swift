@@ -123,7 +123,7 @@ struct ContentView: View {
             return
         }
         #endif
-        // After the session exists, so a tap that arrived first can send and route.
+        // Install routing for both guest and account sessions; only accounts register a token.
         if let push = appViewModel.push { await notifications.connect(push) }
         // A guest from last time goes straight back to the map.
         if appViewModel.session == .guest { return await appViewModel.resumeGuestBrowsing(store: store) }

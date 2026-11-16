@@ -723,7 +723,7 @@ final class GameStore {
     ///   - id: The game.
     ///   - muted: True to stop them.
     func setChatMuted(_ id: UUID, muted: Bool) async {
-        guard cache[id] != nil else { return }
+        guard !isGuest, cache[id] != nil else { return }
         let before = cache[id]?.chatMuted ?? false
         cache[id]?.chatMuted = muted
         guard let notifications else { return }

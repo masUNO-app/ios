@@ -84,15 +84,6 @@ final class AppViewModel {
     private(set) var isUpdateRequired = false
     /// The campus onboarding talks about, when exactly one is open. Otherwise the copy stays generic.
     private(set) var launchCampus: University?
-    /// A notification opened the map and it should start on your sports.
-    var focusMapOnMySports = false
-    /// A link that arrived before the session was signed in.
-    private(set) var pendingLink: URL?
-    /// Sign-out hid the account, but the device token is still on the server. The saved session
-    /// stays until the next launch or foreground can remove it.
-    private(set) var signOutPendingUserID: UUID? {
-        didSet { storePendingSignOut(signOutPendingUserID) }
-    }
     /// How many campuses are open. A guest can switch campus only when there's more than one.
     private(set) var openCampusCount = 0
     var canSwitchGuestCampus: Bool { openCampusCount > 1 }
@@ -108,6 +99,15 @@ final class AppViewModel {
     var accountPrompt: AccountPrompt?
     /// Consumed by `OnboardingFlow` after leaving guest browse.
     private(set) var onboardingResume: OnboardingResume?
+    /// A notification opened the map and it should start on your sports.
+    var focusMapOnMySports = false
+    /// A link that arrived before the session was signed in.
+    private(set) var pendingLink: URL?
+    /// Sign-out hid the account, but the device token is still on the server. The saved session
+    /// stays until the next launch or foreground can remove it.
+    private(set) var signOutPendingUserID: UUID? {
+        didSet { storePendingSignOut(signOutPendingUserID) }
+    }
 
     @ObservationIgnored let auth: any AuthService
     @ObservationIgnored let push: PushNotificationService?

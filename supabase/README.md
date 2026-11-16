@@ -13,10 +13,11 @@ already applied to a shared project; add a new timestamped one. Only deploy prod
 | `20261111000000_password_signup_approval` | Sign-up with a school email and a password, approved by hand (N36): `private.signup_requests`, the Discord alert, `approve_signup` / `reject_signup`, `signup_status()`, `pending_approval` |
 | `20261110000000_group_chat` | Group chat messaging (0.6): messages, unread counts, chat RPCs, the Realtime channel, 30-day cleanup. Ships switched off |
 | `20261112000000_games_realtime` | Live game lists (1.0 refresh): a Realtime ping on `campus:<id>:games` naming the games or spots that changed, so open phones on that campus re-read just those |
-| `20261116000000_notifications` | Push notifications: device tokens, preferences, synced bookmarks, the outbox, producers, claim and cron. Ships switched off |
 | `20261113000000_guest_games` | Guest browsing (1.0, R7-15): `guest_games(p_university)`, a campus's open games without names, notes or meet-up spots, the only game read `anon` has |
 | `20261114000000_invites_and_beta` | Invite-only with a waitlist and the beta tester badge (1.0, N37): `private.invites`, 3 codes per member, `my_invites()`, `redeem_invite(p_code)`, `waitlist_position()`, `private.grant_invites`, the invite FYI alert, `mark_beta_tester()` and `is_beta_tester` on `my_profile` and `game_attendees` |
 | `20261115000000_waitlist_sync` | One waitlist with the website (N38): `signup_requests.source`, `waitlist_join` and `waitlist_export` for the website's Apps Script (anon, secret-checked), the push to the Sheet on every change, website joins in `waitlist_position()`, and the approval alert when a website email creates its account |
+
+| `20261116000000_notifications` | Push notifications: device tokens, preferences, synced bookmarks, the outbox, producers, claim and cron. Ships switched off |
 
 ## Local setup
 

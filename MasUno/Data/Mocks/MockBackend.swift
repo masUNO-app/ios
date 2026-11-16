@@ -46,18 +46,19 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
     private var passwords: [String: String] = [:]
     /// Signed up and nobody has run `approveSignUp()` yet.
     private var isAwaitingApproval = false
-    private var bookmarked: Set<UUID> = []
-    private var spotAlerts: Set<UUID> = []
-    private var mutedChats: Set<UUID> = []
-    private var deviceToken: String?
-    private var prefs = NotificationPrefs.standard
-    private var openedNotifications: Set<Int64> = []
     /// The signed-in student's codes (`my_invites`). A waiting account redeems from the same list.
     private(set) var invites: [Invite]
     /// When each wrong code was typed, for the 5-an-hour limit on `redeem_invite`.
     private var wrongInviteTries: [Date] = []
     /// `waitlist_position()` while waiting.
     var waitlistPlace = 3
+
+    private var bookmarked: Set<UUID> = []
+    private var spotAlerts: Set<UUID> = []
+    private var mutedChats: Set<UUID> = []
+    private var deviceToken: String?
+    private var prefs = NotificationPrefs.standard
+    private var openedNotifications: Set<Int64> = []
 
     /// `state` defaults to signed in with the Monterrey fixtures. Pass `.signedOut(expired: false)`
     /// to preview onboarding: the new account then has no profile until `completeProfile`.

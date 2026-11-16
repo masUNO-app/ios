@@ -652,6 +652,12 @@ nonisolated struct GameIDParams: Encodable, Sendable {
     enum CodingKeys: String, CodingKey { case id = "p_id" }
 }
 
+/// `p_university` for `guest_games`.
+nonisolated struct GuestGamesParams: Encodable, Sendable {
+    let campus: UUID
+    enum CodingKeys: String, CodingKey { case campus = "p_university" }
+}
+
 /// `set_bookmark(p_game_id, p_on)`.
 nonisolated struct BookmarkParams: Encodable, Sendable {
     let id: UUID
@@ -680,12 +686,6 @@ nonisolated struct ImportBookmarksParams: Encodable, Sendable {
         case ids = "p_ids"
         case alertIDs = "p_alert_ids"
     }
-}
-
-/// `p_university` for `guest_games`.
-nonisolated struct GuestGamesParams: Encodable, Sendable {
-    let campus: UUID
-    enum CodingKeys: String, CodingKey { case campus = "p_university" }
 }
 
 /// `p_user_id` for `block` and `unblock`.

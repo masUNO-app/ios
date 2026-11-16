@@ -127,7 +127,7 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
         SUPPORTED_PLATFORMS: "iphoneos iphonesimulator"
         SUPPORTS_MACCATALYST: NO
-        MARKETING_VERSION: "0.6"
+        MARKETING_VERSION: "0.9"
         CURRENT_PROJECT_VERSION: "1"
         CODE_SIGN_STYLE: Automatic
         SKIP_INSTALL: YES

@@ -24,6 +24,8 @@ private final class StickyAuth: AuthService {
     func signUp(email: String, password: String) async throws {}
     func signIn(email: String, password: String) async throws {}
     func refreshStatus() async throws {}
+    func redeemInvite(_ code: String) async throws {}
+    func waitlistPosition() async throws -> Int? { nil }
     func completeProfile(_ input: ProfileInput) async throws {}
     func acceptGuidelines() async throws {}
     func signOut() async throws {
