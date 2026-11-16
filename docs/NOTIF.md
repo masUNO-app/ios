@@ -114,7 +114,7 @@ three avatars instead of the sport badge. Decide on a device (§11).
 ### 3.2 How it works
 
 ```
-send-push ──APNs──▶ phone ──▶ Notification Service Extension (MasUnoNotifications)
+send-push ──APNs──▶ phone ──▶ Notification Service Extension (masUNONotifications)
    payload has            1. Read sender, game and sport from the payload.
    mutable-content: 1     2. Draw the sender's avatar and the sport badge (UIGraphicsImageRenderer).
                           3. Build INPerson (sender) and INSendMessageIntent (group = game).
@@ -158,7 +158,7 @@ a group. `shared.myID` comes from the App Group (§6.2).
 - **Capability "Communication Notifications"** on `com.masuno.app`
   (`com.apple.developer.usernotifications.communication`), and `NSUserActivityTypes` =
   `[INSendMessageIntent]` in the app's Info.plist.
-- **A Notification Service Extension target**, `MasUnoNotifications`
+- **A Notification Service Extension target**, `masUNONotifications`
   (`com.masuno.app.NotificationService`), linking `Intents`.
 - **An App Group**, `group.com.masuno.app`, on the app and the extension.
 - The extension draws avatars with the same palette and initials rules as `PersonSummary.color`
@@ -397,9 +397,9 @@ at most two people.
   Release), Communication Notifications, Time Sensitive Notifications and the App Group. Add
   `NSUserActivityTypes: [INSendMessageIntent]`. No `remote-notification` background mode is needed:
   every push is a visible alert.
-- **New target `MasUnoNotifications`:** type `app-extension`, the service-extension principal class,
+- **New target `masUNONotifications`:** type `app-extension`, the service-extension principal class,
   the App Group entitlement, embedded in the app, `TARGETED_DEVICE_FAMILY: "1"`, the same team and
-  deployment target. Sources: `MasUnoNotifications/` plus `Shared/`.
+  deployment target. Sources: `masUNONotifications/` plus `Shared/`.
 - **`Shared/`**, compiled into both: `NotificationPayload` (Codable, the keys in §5.5),
   `AvatarRenderer` (initials avatar and sport badge with `UIGraphicsImageRenderer`), `AppGroupStore`
   (my ID, the chat on screen).
@@ -538,7 +538,7 @@ is about 40 h. The cut line below keeps the beta on time.
 | 5 | Synced Saved and "Notify me" (B15), with the one-time import | Ethan | 2 h | Nov 28 |
 | 6 | Screens: primer, Settings section, approval opt-in, Mute in chat (E16) | Ethan | 4 h | Nov 29 |
 | 7 | **Beta cut:** kinds 1–7 and 9 on dev, then prod, then TestFlight | Both | — | **Dec 1** |
-| 8 | Extension `MasUnoNotifications`, `Shared/` renderer, communication chat (kind 8), Reply action | Ethan | 6 h | Dec 4 |
+| 8 | Extension `masUNONotifications`, `Shared/` renderer, communication chat (kind 8), Reply action | Ethan | 6 h | Dec 4 |
 | 9 | Chat producer and throttle; turn on chat push on prod | Emilio | 2 h | Dec 4 |
 | 10 | QA pass (`docs/QA.md`, new §12), App Review notes, privacy labels | Both | 3 h | Dec 7 |
 | 11 | After launch: `winback` and `saved_soon` (kinds 10–11), §9 items | — | 3 h + | Jan |
@@ -548,7 +548,7 @@ depend on them.
 
 ### Testing
 
-- **Simulator:** `xcrun simctl push <udid> com.masuno.app MasUnoNotifications/Samples/chat.apns`
+- **Simulator:** `xcrun simctl push <udid> com.masuno.app masUNONotifications/Samples/chat.apns`
   delivers a payload without APNs. Keep one sample per kind next to the extension. Check that the
   simulator runs the extension for simulated pushes; if it doesn't, use a device.
 - **pgTAP:** each producer writes the right rows for the right people; each rule in §2.2 drops what

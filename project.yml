@@ -60,7 +60,7 @@ targets:
             CFBundleURLSchemes: [masuno]
     dependencies:
       - package: Supabase
-      - target: MasUnoNotifications
+      - target: masUNONotifications
         embed: true
       - sdk: UserNotifications.framework
       - sdk: Intents.framework
@@ -93,11 +93,11 @@ targets:
           CODE_SIGN_ENTITLEMENTS: MasUno/MasUno.Debug.entitlements
         Release:
           CODE_SIGN_ENTITLEMENTS: MasUno/MasUno.Release.entitlements
-  MasUnoNotifications:
+  masUNONotifications:
     type: app-extension
     platform: iOS
     sources:
-      - path: MasUnoNotifications
+      - path: masUNONotifications
         excludes:
           - Info.plist
           - Samples
@@ -105,7 +105,7 @@ targets:
           - "**/*.apns"
       - path: Shared
     info:
-      path: MasUnoNotifications/Info.plist
+      path: masUNONotifications/Info.plist
       properties:
         CFBundleDisplayName: masUNO
         CFBundleShortVersionString: $(MARKETING_VERSION)
@@ -122,8 +122,8 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.masuno.app.NotificationService
         DEVELOPMENT_TEAM: PU87MU4QAR
         GENERATE_INFOPLIST_FILE: NO
-        INFOPLIST_FILE: MasUnoNotifications/Info.plist
-        CODE_SIGN_ENTITLEMENTS: MasUnoNotifications/MasUnoNotifications.entitlements
+        INFOPLIST_FILE: masUNONotifications/Info.plist
+        CODE_SIGN_ENTITLEMENTS: masUNONotifications/masUNONotifications.entitlements
         TARGETED_DEVICE_FAMILY: "1"
         SUPPORTED_PLATFORMS: "iphoneos iphonesimulator"
         SUPPORTS_MACCATALYST: NO
@@ -149,7 +149,7 @@ schemes:
     build:
       targets:
         masUNO: all
-        MasUnoNotifications: all
+        masUNONotifications: all
         masUNOTests: [test]
     run:
       config: Debug
