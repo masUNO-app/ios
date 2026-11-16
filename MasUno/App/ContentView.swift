@@ -55,8 +55,7 @@ struct ContentView: View {
                     await store.load()
                     appViewModel.push?.noteAccount(store.profile?.id)
                     await appViewModel.push?.refreshRegistration(force: true)
-                    if let url = appViewModel.push?.consumePendingRoute() { appViewModel.handle(url) }
-                    appViewModel.openPendingLink()
+                    appViewModel.deliverPushRoute(appViewModel.push?.consumePendingRoute())
                 }
             }
         }
@@ -77,9 +76,9 @@ struct ContentView: View {
             set: { presented in
                 guard !presented else { return }
                 // A drag-away is the same as Not now. Turn on sets the accepted flag first.
-                if !store.notificationPrimerAccepted, let id = store.profile?.id {
-                    appViewModel.push?.recordPrimerDecline(accountID: id)
-                }
+                appViewModel.push?.recordPrimerClose(
+                    accepted: store.notificationPrimerAccepted, accountID: store.profile?.id
+                )
                 store.notificationPrimerAccepted = false
                 store.asksForNotificationPrimer = false
             }
@@ -109,8 +108,7 @@ struct ContentView: View {
         await store.load()
         appViewModel.push?.noteAccount(store.profile?.id)
         await appViewModel.push?.refreshRegistration(force: true)
-        if let url = appViewModel.push?.consumePendingRoute() { appViewModel.handle(url) }
-        appViewModel.openPendingLink()
+        appViewModel.deliverPushRoute(appViewModel.push?.consumePendingRoute())
         #if DEBUG
         await appViewModel.openDebugScreen(store: store, mock: services.mock)
         #endif

@@ -39,18 +39,23 @@ final class AppViewModel {
     /// Sign-out hid the account, but the device token is still on the server. The saved session
     /// stays until the next launch or foreground can remove it.
     private(set) var signOutPendingUserID: UUID? {
-        didSet { Self.storePendingSignOut(signOutPendingUserID) }
+        didSet { storePendingSignOut(signOutPendingUserID) }
     }
 
     @ObservationIgnored let auth: any AuthService
     @ObservationIgnored let push: PushNotificationService?
     @ObservationIgnored private let catalog: any AppConfigRepository
+    @ObservationIgnored private let defaults: UserDefaults
 
-    init(auth: any AuthService, catalog: any AppConfigRepository, push: PushNotificationService? = nil) {
+    init(
+        auth: any AuthService, catalog: any AppConfigRepository, push: PushNotificationService? = nil,
+        defaults: UserDefaults = .standard
+    ) {
         self.auth = auth
         self.catalog = catalog
         self.push = push
-        if let raw = UserDefaults.standard.string(forKey: Self.signOutPendingKey) {
+        self.defaults = defaults
+        if let raw = defaults.string(forKey: Self.signOutPendingKey) {
             signOutPendingUserID = UUID(uuidString: raw)
         }
     }
@@ -125,6 +130,13 @@ final class AppViewModel {
         open(url)
     }
 
+    /// A notification tap, including one that waited through onboarding.
+    /// A nil URL opens a link that was stored earlier.
+    func deliverPushRoute(_ url: URL?) {
+        if let url { handle(url) }
+        openPendingLink()
+    }
+
     /// Opens a link that arrived while the app was still launching or onboarding.
     func openPendingLink() {
         guard session == .signedIn, let url = pendingLink else { return }
@@ -194,11 +206,11 @@ final class AppViewModel {
 
     private static let signOutPendingKey = "signOutPendingUser"
 
-    private static func storePendingSignOut(_ id: UUID?) {
+    private func storePendingSignOut(_ id: UUID?) {
         if let id {
-            UserDefaults.standard.set(id.uuidString, forKey: signOutPendingKey)
+            defaults.set(id.uuidString, forKey: Self.signOutPendingKey)
         } else {
-            UserDefaults.standard.removeObject(forKey: signOutPendingKey)
+            defaults.removeObject(forKey: Self.signOutPendingKey)
         }
     }
 

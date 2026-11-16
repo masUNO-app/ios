@@ -79,15 +79,32 @@ nonisolated final class NotificationCenterBridge: NSObject, UIApplicationDelegat
     /// A reply or "Count me in" needs the saved session, which a background launch has not restored yet.
     @MainActor
     private func perform(_ tap: PendingTap) async {
-        await AppLaunch.services.auth.restoreSession()
-        if let service = serviceBox.service(for: tap) {
+        await handleNotificationTap(
+            restore: { await AppLaunch.services.auth.restoreSession() },
+            box: serviceBox,
+            tap: tap
+        ) { service, tap in
             await service.handle(action: tap.action, payload: tap.payload, reply: tap.reply)
         }
     }
 }
 
+/// Restores the session, then runs the action. A tap that arrives before the service exists waits.
+@MainActor
+func handleNotificationTap(
+    restore: @escaping @MainActor () async -> Void,
+    box: ServiceBox,
+    tap: PendingTap,
+    handle: @escaping @MainActor (PushNotificationService, PendingTap) async -> Void
+) async {
+    await restore()
+    if let service = box.service(for: tap) {
+        await handle(service, tap)
+    }
+}
+
 /// A tap that arrived before the service existed. Only the decoded, sendable payload is kept.
-nonisolated private struct PendingTap: Sendable {
+nonisolated struct PendingTap: Sendable {
     let action: String
     let payload: NotificationPayload?
     let reply: String?
@@ -96,7 +113,7 @@ nonisolated private struct PendingTap: Sendable {
 /// Lets the nonisolated delegate callbacks reach the main-actor service.
 /// The service is only swapped once, at launch. Taps that arrive earlier wait here.
 /// Nonisolated so the bridge can create it outside the main actor.
-nonisolated private final class ServiceBox: @unchecked Sendable {
+nonisolated final class ServiceBox: @unchecked Sendable {
     nonisolated(unsafe) private var service: PushNotificationService?
     private var pending: [PendingTap] = []
     private let lock = NSLock()

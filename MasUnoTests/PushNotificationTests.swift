@@ -3,6 +3,29 @@ import Testing
 import UserNotifications
 @testable import masUNO
 
+/// An account whose signed-in id the test can change.
+@MainActor
+private final class StickyAuth: AuthService {
+    var state: AuthState
+    private(set) var signedOut = false
+    var suggestedName: SuggestedName? { nil }
+
+    init(_ state: AuthState) { self.state = state }
+
+    func restoreSession() async {}
+    func signIn(at school: University) async throws {}
+    func signUp(email: String, password: String) async throws {}
+    func signIn(email: String, password: String) async throws {}
+    func refreshStatus() async throws {}
+    func completeProfile(_ input: ProfileInput) async throws {}
+    func acceptGuidelines() async throws {}
+    func signOut() async throws {
+        signedOut = true
+        state = .signedOut(expired: false)
+    }
+    func deleteAccount() async throws {}
+}
+
 /// Records what `PushNotificationService` sends to the backend.
 @MainActor
 private final class SpyNotificationRepository: NotificationRepository {
@@ -99,6 +122,75 @@ struct PushNotificationServiceTests {
         spy.failUnregister = false
         await service.unregister()
         #expect(spy.unregistered.count == 2, "A failed unregister keeps the token, or the old account keeps this phone")
+    }
+
+    @Test func aFailedSignOutRetriesOnTheNextLaunch() async {
+        spy.failUnregister = true
+        await service.didRegister(token: "ab12cd34ef56ab12cd34ef56")
+        let store = GameStore(
+            games: backend, profiles: backend, safety: backend, chat: backend, catalog: backend,
+            defaults: defaults, notifications: spy
+        )
+        let model = AppViewModel(auth: backend, catalog: backend, push: service, defaults: defaults)
+        await model.signOut(store: store)
+
+        #expect(model.session == .onboarding)
+        #expect(model.signOutPendingUserID != nil)
+        if case .signedIn = backend.state {} else {
+            Issue.record("The session stays until the token can be removed")
+        }
+        #expect(spy.unregistered.count == 1)
+
+        spy.failUnregister = false
+        let relaunchedPush = PushNotificationService(
+            repository: spy, games: backend, chat: backend, defaults: defaults
+        )
+        let relaunch = AppViewModel(auth: backend, catalog: backend, push: relaunchedPush, defaults: defaults)
+        #expect(relaunch.session == .onboarding)
+        #expect(relaunch.signOutPendingUserID == model.signOutPendingUserID)
+        await relaunch.start()
+        #expect(relaunch.signOutPendingUserID == nil)
+        if case .signedOut = backend.state {} else {
+            Issue.record("The next launch finishes sign-out")
+        }
+        #expect(spy.unregistered.count == 2)
+    }
+
+    @Test func aNewSignInIsNotSignedOutByThePendingRetry() async {
+        let first = UUID()
+        let second = UUID()
+        let auth = StickyAuth(.signedIn(userID: first))
+        spy.failUnregister = true
+        await service.didRegister(token: "cd34ef56ab12cd34ef56ab12cd34ef56")
+        let store = GameStore(
+            games: backend, profiles: backend, safety: backend, chat: backend, catalog: backend, defaults: defaults
+        )
+        let model = AppViewModel(auth: auth, catalog: backend, push: service, defaults: defaults)
+        await model.signOut(store: store)
+        #expect(model.session == .onboarding)
+        #expect(!auth.signedOut)
+
+        auth.state = .signedIn(userID: second)
+        await model.finishPendingSignOutIfNeeded()
+        #expect(model.signOutPendingUserID == nil)
+        #expect(!auth.signedOut)
+        #expect(model.session == .signedIn)
+    }
+
+    @Test func theOpenScreenIsForgottenWhenTheAppIsKilled() {
+        let stored = UserDefaults(suiteName: AppGroupStore.suiteName)
+        stored?.removeObject(forKey: "openChatID")
+        stored?.removeObject(forKey: "openGameID")
+        let chat = UUID().uuidString
+        let game = UUID().uuidString
+        AppGroupStore.openChatID = chat
+        AppGroupStore.openGameID = game
+        #expect(AppGroupStore.openChatID == chat)
+        #expect(stored?.string(forKey: "openChatID") == nil)
+        #expect(stored?.string(forKey: "openGameID") == nil)
+        AppGroupStore.clearAccount()
+        #expect(AppGroupStore.openChatID == nil)
+        #expect(AppGroupStore.openGameID == nil)
     }
 
     @Test func theSameTokenTwiceInAMinuteUploadsOnce() async {

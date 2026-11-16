@@ -180,3 +180,23 @@ function expiration(iso: string): number {
 export function hostFor(environment: string): string {
     return environment === "sandbox" ? "https://api.sandbox.push.apple.com" : "https://api.push.apple.com";
 }
+
+/// Runs `work` over `items` with at most `limit` calls in flight, and keeps result order.
+export async function mapPool<T, R>(
+    items: readonly T[],
+    limit: number,
+    work: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+    const results = new Array<R>(items.length);
+    if (items.length === 0) return results;
+    let next = 0;
+    const workers = Math.min(Math.max(1, limit), items.length);
+    await Promise.all(Array.from({ length: workers }, async () => {
+        while (next < items.length) {
+            const index = next;
+            next += 1;
+            results[index] = await work(items[index]!, index);
+        }
+    }));
+    return results;
+}

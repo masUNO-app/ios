@@ -212,6 +212,12 @@ final class PushNotificationService {
         defaults.set(declines(for: accountID) + 1, forKey: declineKey(accountID))
     }
 
+    /// Closing the primer. Turn on is not a decline. A swipe and Not now each count once.
+    func recordPrimerClose(accepted: Bool, accountID: UUID?) {
+        guard !accepted, let accountID else { return }
+        recordPrimerDecline(accountID: accountID)
+    }
+
     func recordPrimerAccepted(accountID: UUID) {
         defaults.set(2, forKey: declineKey(accountID))
     }

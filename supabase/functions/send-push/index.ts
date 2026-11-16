@@ -2,7 +2,7 @@
 // Secrets, never in the repo: APNS_KEY_P8, APNS_KEY_ID, APNS_TEAM_ID.
 
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { buildPush, classifyApnsStatus, hostFor, type ClaimedNotification, type DeviceToken } from "./payload.ts";
+import { buildPush, classifyApnsStatus, hostFor, mapPool, type ClaimedNotification, type DeviceToken } from "./payload.ts";
 import { importApnsKey, signApnsJwt } from "./jwt.ts";
 
 const TOPIC = "com.masuno.app";
@@ -84,17 +84,7 @@ interface DeliveryResult {
 
 /// A few posts at a time. One hundred rows, one after another, outlives the claim lease.
 async function deliverAll(rows: ClaimedNotification[], jwt: string): Promise<DeliveryResult[]> {
-    const results: DeliveryResult[] = new Array(rows.length);
-    let next = 0;
-    const workers = Math.min(8, rows.length);
-    await Promise.all(Array.from({ length: workers }, async () => {
-        while (next < rows.length) {
-            const index = next;
-            next += 1;
-            results[index] = await deliver(rows[index], jwt);
-        }
-    }));
-    return results;
+    return mapPool(rows, 8, (row) => deliver(row, jwt));
 }
 
 async function deliver(row: ClaimedNotification, jwt: string): Promise<DeliveryResult> {
@@ -102,10 +92,12 @@ async function deliver(row: ClaimedNotification, jwt: string): Promise<DeliveryR
     let sent = 0;
     let retry = false;
     let lastError = "";
-    for (const device of row.tokens ?? []) {
-        const outcome = await post(row, device, jwt);
+    const tokens = row.tokens ?? [];
+    const outcomes = await mapPool(tokens, 8, (device) => post(row, device, jwt));
+    for (let index = 0; index < outcomes.length; index++) {
+        const outcome = outcomes[index];
         if (outcome.status === "sent") sent += 1;
-        else if (outcome.status === "dead") dead.push(device.token);
+        else if (outcome.status === "dead") dead.push(tokens[index].token);
         else if (outcome.status === "retry") {
             retry = true;
             lastError = outcome.error ?? "apns";

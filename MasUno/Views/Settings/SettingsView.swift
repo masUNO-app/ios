@@ -8,10 +8,7 @@ struct SettingsView: View {
     @Environment(AppViewModel.self) private var appViewModel
     @Environment(GameStore.self) private var store
     @Environment(PushNotificationService.self) private var push
-    @State private var prefs = NotificationPrefs.standard
-    /// The last row the server accepted. A failed toggle puts only its own switch back.
-    @State private var serverPrefs = NotificationPrefs.standard
-    @State private var prefsChain: Task<Void, Never>?
+    @State private var prefQueue = NotificationPrefQueue()
     @State private var prefsLoaded = false
     @State private var prefsFailed = false
     @State private var confirmsSignOut = false
@@ -167,8 +164,7 @@ struct SettingsView: View {
     private func loadPrefs() async {
         prefsFailed = false
         do {
-            prefs = try await push.fetchPrefs()
-            serverPrefs = prefs
+            prefQueue.replace(try await push.fetchPrefs())
             prefsLoaded = true
         } catch {
             prefsLoaded = false
@@ -214,25 +210,13 @@ struct SettingsView: View {
         _ title: String, key: WritableKeyPath<NotificationPrefs, Bool>, systemImage: String, color: Color
     ) -> some View {
         Toggle(isOn: Binding(
-            get: { prefs[keyPath: key] },
+            get: { prefQueue.displayed[keyPath: key] },
             set: { newValue in
-                prefs[keyPath: key] = newValue
-                let changed = key
-                let written = newValue
-                let prior = prefsChain
-                prefsChain = Task {
-                    await prior?.value
-                    let snapshot = prefs
-                    do {
-                        try await push.setPrefs(snapshot)
-                        serverPrefs = snapshot
-                    } catch {
-                        if prefs[keyPath: changed] == written {
-                            prefs[keyPath: changed] = serverPrefs[keyPath: changed]
-                        }
-                        store.notice = (error as? DomainError)?.message ?? DomainError.offline.message
-                    }
-                }
+                prefQueue.set(key, to: newValue, send: { snapshot in
+                    try await push.setPrefs(snapshot)
+                }, onFailure: { error in
+                    store.notice = error.message
+                })
             }
         )) {
             HStack(spacing: 14) {

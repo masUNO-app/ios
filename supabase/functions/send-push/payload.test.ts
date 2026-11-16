@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildPush, classifyApnsStatus } from "./payload.ts";
+import { buildPush, classifyApnsStatus, mapPool } from "./payload.ts";
 import { languageOf, renderAlert } from "./templates.ts";
 import { importApnsKey, signApnsJwt } from "./jwt.ts";
 
@@ -159,6 +159,21 @@ test("a bad payload is permanent and a network status is not", () => {
     assert.equal(classifyApnsStatus(410, "Unregistered").status, "dead");
     assert.equal(classifyApnsStatus(429, "TooManyRequests").status, "retry");
     assert.equal(classifyApnsStatus(500, "Internal").status, "retry");
+});
+
+test("sends stay in order with only a few in flight", async () => {
+    let inFlight = 0;
+    let peak = 0;
+    const results = await mapPool([1, 2, 3, 4, 5, 6], 2, async (item) => {
+        inFlight += 1;
+        peak = Math.max(peak, inFlight);
+        await new Promise((resolve) => setTimeout(resolve, 15));
+        inFlight -= 1;
+        return item * 10;
+    });
+    assert.deepEqual(results, [10, 20, 30, 40, 50, 60]);
+    assert.equal(peak, 2);
+    assert.deepEqual(await mapPool([], 8, async (item: number) => item), []);
 });
 
 test("an ES256 provider token verifies", async () => {
