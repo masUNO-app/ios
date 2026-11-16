@@ -59,6 +59,7 @@ struct NotificationPrimerSheet: View {
     }
 
     private func decline() {
+        // Dismiss runs the sheet binding in ContentView, which records this close as one decline.
         store.asksForNotificationPrimer = false
         dismiss()
     }

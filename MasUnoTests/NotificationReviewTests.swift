@@ -152,9 +152,9 @@ struct NotificationReviewTests {
         _ = box.install(push)
         let order = StepLog()
         let tap = PendingTap(action: "REPLY", payload: nil, reply: "On my way")
-        await handleNotificationTap(restore: {
+        await handleNotificationTap(restoreSession: true, box: box, tap: tap, restore: {
             order.add("restore")
-        }, box: box, tap: tap) { _, tap in
+        }) { _, tap in
             order.add(tap.reply ?? "handle")
         }
         #expect(order.snapshot == ["restore", "On my way"])
@@ -164,9 +164,9 @@ struct NotificationReviewTests {
         let box = ServiceBox()
         let tap = PendingTap(action: "COUNT_ME_IN", payload: nil, reply: nil)
         let order = StepLog()
-        await handleNotificationTap(restore: {
+        await handleNotificationTap(restoreSession: true, box: box, tap: tap, restore: {
             order.add("restore")
-        }, box: box, tap: tap) { _, _ in
+        }) { _, _ in
             order.add("handle")
         }
         #expect(order.snapshot == ["restore"])
@@ -176,5 +176,37 @@ struct NotificationReviewTests {
         let waiting = box.install(push)
         #expect(waiting.map(\.action) == ["COUNT_ME_IN"])
         #expect(box.service(for: tap) === push)
+    }
+
+    @Test func aForegroundTapDoesNotRestoreTheSession() async {
+        let box = ServiceBox()
+        let backend = MockBackend()
+        let defaults = UserDefaults(suiteName: "Foreground.\(UUID().uuidString)")!
+        let push = PushNotificationService(repository: backend, games: backend, chat: backend, defaults: defaults)
+        _ = box.install(push)
+        let order = StepLog()
+        let tap = PendingTap(action: "OPEN", payload: nil, reply: nil)
+        await handleNotificationTap(restoreSession: false, box: box, tap: tap, restore: {
+            order.add("restore")
+        }) { _, _ in
+            order.add("handle")
+        }
+        #expect(order.snapshot == ["handle"])
+    }
+
+    @Test func aTapDuringAPendingSignOutIsDropped() async {
+        let box = ServiceBox()
+        let backend = MockBackend()
+        let defaults = UserDefaults(suiteName: "Dropped.\(UUID().uuidString)")!
+        let push = PushNotificationService(repository: backend, games: backend, chat: backend, defaults: defaults)
+        _ = box.install(push)
+        let order = StepLog()
+        let tap = PendingTap(action: "REPLY", payload: nil, reply: "hi")
+        await handleNotificationTap(drop: true, restoreSession: true, box: box, tap: tap, restore: {
+            order.add("restore")
+        }) { _, _ in
+            order.add("handle")
+        }
+        #expect(order.snapshot.isEmpty)
     }
 }

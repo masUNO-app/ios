@@ -22,7 +22,8 @@ nonisolated final class NotificationCenterBridge: NSObject, UIApplicationDelegat
         return true
     }
 
-    /// Called once the app has built its services. Registers the categories and delivers any tap that arrived first.
+    /// Called once the app has built its services. The real app installs the service before the
+    /// delegate is set, so this replay is empty there. It stays for a `connect` that runs first.
     @MainActor
     func connect(_ service: PushNotificationService) async {
         let waiting = serviceBox.install(service)
@@ -76,28 +77,35 @@ nonisolated final class NotificationCenterBridge: NSObject, UIApplicationDelegat
         await perform(tap)
     }
 
-    /// A reply or "Count me in" needs the saved session, which a background launch has not restored yet.
+    /// A background launch has not restored the session yet. A foreground tap already has one.
     @MainActor
     private func perform(_ tap: PendingTap) async {
+        let needsRestore = if case .loading = AppLaunch.services.auth.state { true } else { false }
         await handleNotificationTap(
-            restore: { await AppLaunch.services.auth.restoreSession() },
+            drop: AppViewModel.isSignOutPending(),
+            restoreSession: needsRestore,
             box: serviceBox,
-            tap: tap
+            tap: tap,
+            restore: { await AppLaunch.services.auth.restoreSession() }
         ) { service, tap in
             await service.handle(action: tap.action, payload: tap.payload, reply: tap.reply)
         }
     }
 }
 
-/// Restores the session, then runs the action. A tap that arrives before the service exists waits.
+/// Runs a tap. A sign-out that is still dropping its token is ignored. The session is restored
+/// only while launch has not finished, so a foreground tap is not held up on a profile read.
 @MainActor
 func handleNotificationTap(
-    restore: @escaping @MainActor () async -> Void,
+    drop: Bool = false,
+    restoreSession: Bool,
     box: ServiceBox,
     tap: PendingTap,
+    restore: @escaping @MainActor () async -> Void = {},
     handle: @escaping @MainActor (PushNotificationService, PendingTap) async -> Void
 ) async {
-    await restore()
+    guard !drop else { return }
+    if restoreSession { await restore() }
     if let service = box.service(for: tap) {
         await handle(service, tap)
     }
@@ -111,7 +119,8 @@ nonisolated struct PendingTap: Sendable {
 }
 
 /// Lets the nonisolated delegate callbacks reach the main-actor service.
-/// The service is only swapped once, at launch. Taps that arrive earlier wait here.
+/// `didFinishLaunching` installs the service before the delegate is set, so a tap can't
+/// arrive first in the app. The queue stays for a `connect` that runs before that install.
 /// Nonisolated so the bridge can create it outside the main actor.
 nonisolated final class ServiceBox: @unchecked Sendable {
     nonisolated(unsafe) private var service: PushNotificationService?

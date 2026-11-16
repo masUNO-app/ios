@@ -127,11 +127,17 @@ final class PushNotificationService {
             logger.error("Couldn't unregister the device token: \(error.localizedDescription, privacy: .public)")
             return false
         }
+        discardLocalDevice()
+        return true
+    }
+
+    /// Forgets the token and the signed-in person on this phone. Account deletion does this even
+    /// when the server call failed, because the account is gone and the token cascades.
+    func discardLocalDevice() {
         AppGroupStore.clearAccount()
-        self.token = nil
+        token = nil
         defaults.removeObject(forKey: Self.tokenKey)
         lastUploaded = nil
-        return true
     }
 
     func fetchPrefs() async throws -> NotificationPrefs {

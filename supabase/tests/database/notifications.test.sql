@@ -1,7 +1,7 @@
 -- Push notifications: producers, the send-time rules, and the client RPCs (NOTIF.md §2 and §5).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(69);
+select plan(71);
 
 create function pg_temp.act_as(p_user uuid) returns void language plpgsql as $$
 begin
@@ -246,36 +246,44 @@ reset role;
 select is((select count(*)::int from private.notification_outbox
     where event_id = (select id from game_ids where name = 'chat') and kind = 'chat_message'
       and user_id = 'b0000000-0000-4000-8000-00000000000b' and sent_at is null and dropped is null),
-    2, 'a message that arrives during a send starts its own row');
+    1, 'a message that arrives during a send stays on the leased row');
 select is((select (payload->>'count')::int from private.notification_outbox
     where event_id = (select id from game_ids where name = 'chat') and kind = 'chat_message'
       and user_id = 'b0000000-0000-4000-8000-00000000000b' and locked_at is not null),
-    2, 'the leased row keeps the messages it already had');
-create temp table chat_retry on commit drop as
-select
-    (select id from private.notification_outbox
-     where event_id = (select id from game_ids where name = 'chat') and kind = 'chat_message'
-       and user_id = 'b0000000-0000-4000-8000-00000000000b' and locked_at is not null) as leased_id,
-    (select id from private.notification_outbox
-     where event_id = (select id from game_ids where name = 'chat') and kind = 'chat_message'
-       and user_id = 'b0000000-0000-4000-8000-00000000000b'
-       and sent_at is null and dropped is null and locked_at is null) as pending_id;
-grant select on chat_retry to service_role;
+    3, 'the leased row picks up the new message');
+select is((select resend from private.notification_outbox
+    where event_id = (select id from game_ids where name = 'chat') and kind = 'chat_message'
+      and user_id = 'b0000000-0000-4000-8000-00000000000b' and locked_at is not null),
+    true, 'that send is marked to go out again');
+create temp table chat_resend on commit drop as
+select id from private.notification_outbox
+where event_id = (select id from game_ids where name = 'chat') and kind = 'chat_message'
+  and user_id = 'b0000000-0000-4000-8000-00000000000b' and locked_at is not null;
+grant select on chat_resend to service_role;
 select set_config('request.jwt.claim.role', 'service_role', true);
 set local role service_role;
 select lives_ok(
     'select public.complete_notifications(jsonb_build_array(jsonb_build_object(
-        ''id'', (select leased_id from chat_retry), ''outcome'', ''retry'', ''error'', ''503'')))',
-    'a retry while a newer row is pending still records the batch');
+        ''id'', (select id from chat_resend), ''outcome'', ''sent'')))',
+    'a send that gained a message while in flight is recorded');
 reset role;
-select is((select dropped from private.notification_outbox where id = (select leased_id from chat_retry)),
-    'merged', 'the leased row is folded away');
-select is((select (payload->>'count')::int from private.notification_outbox where id = (select pending_id from chat_retry)),
-    3, 'the newer row keeps the messages from both rows');
-select is((select count(*)::int from private.notification_outbox
-    where event_id = (select id from game_ids where name = 'chat') and kind = 'chat_message'
-      and user_id = 'b0000000-0000-4000-8000-00000000000b' and sent_at is null and dropped is null),
-    1, 'one pending chat row remains');
+select is((select sent_at from private.notification_outbox where id = (select id from chat_resend)),
+    null, 'the merged row is not marked sent');
+select is((select resend from private.notification_outbox where id = (select id from chat_resend)),
+    false, 'the resend flag is cleared');
+select is((select locked_at from private.notification_outbox where id = (select id from chat_resend)),
+    null, 'the lease is cleared so the merged row can send');
+select private.enqueue_notification(
+    'b0000000-0000-4000-8000-00000000000b', 'reminder',
+    (select id from game_ids where name = 'chat'), '{}'::jsonb,
+    'once-reminder', 'game:once', now(), now() + interval '1 hour', true, 'keep');
+update private.notification_outbox set locked_at = now() where merge_key = 'once-reminder';
+select private.enqueue_notification(
+    'b0000000-0000-4000-8000-00000000000b', 'reminder',
+    (select id from game_ids where name = 'chat'), '{}'::jsonb,
+    'once-reminder', 'game:once', now(), now() + interval '1 hour', true, 'keep');
+select is((select count(*)::int from private.notification_outbox where merge_key = 'once-reminder'),
+    1, 'a reminder already mid-send is not written again');
 select is((select count(*)::int from private.notification_outbox
     where event_id = (select id from game_ids where name = 'chat') and kind = 'chat_message'
       and user_id = 'c0000000-0000-4000-8000-00000000000c'),

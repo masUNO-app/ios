@@ -46,18 +46,25 @@ final class AppViewModel {
     @ObservationIgnored let push: PushNotificationService?
     @ObservationIgnored private let catalog: any AppConfigRepository
     @ObservationIgnored private let defaults: UserDefaults
+    @ObservationIgnored private let signOutMarker: any SignOutMarker
 
     init(
         auth: any AuthService, catalog: any AppConfigRepository, push: PushNotificationService? = nil,
-        defaults: UserDefaults = .standard
+        defaults: UserDefaults = .standard, signOutMarker: any SignOutMarker = KeychainSignOutMarker()
     ) {
         self.auth = auth
         self.catalog = catalog
         self.push = push
         self.defaults = defaults
-        if let raw = defaults.string(forKey: Self.signOutPendingKey) {
+        self.signOutMarker = signOutMarker
+        if let raw = defaults.string(forKey: Self.signOutPendingKey) ?? signOutMarker.read() {
             signOutPendingUserID = UUID(uuidString: raw)
         }
+    }
+
+    /// True when a sign-out is waiting to drop the token. Notification actions must not run as that account.
+    static func isSignOutPending(defaults: UserDefaults = .standard) -> Bool {
+        defaults.string(forKey: signOutPendingKey) != nil || KeychainSignOutMarker().read() != nil
     }
 
     var session: Session {
@@ -167,16 +174,35 @@ final class AppViewModel {
     }
 
     /// Removes a device token that sign-out could not, then ends the saved session.
+    /// One call runs at a time. A sign-in that finishes while the token call is in flight is left alone.
     func finishPendingSignOutIfNeeded() async {
+        if let existing = finishingSignOut {
+            await existing.value
+        }
+        guard signOutPendingUserID != nil, finishingSignOut == nil else { return }
+        let task = Task { @MainActor in
+            await self.finishPendingSignOutNow()
+            self.finishingSignOut = nil
+        }
+        finishingSignOut = task
+        await task.value
+    }
+
+    @ObservationIgnored private var finishingSignOut: Task<Void, Never>?
+
+    private func finishPendingSignOutNow() async {
         guard let pending = signOutPendingUserID else { return }
-        if case .signedIn(let current) = auth.state, current != pending {
-            signOutPendingUserID = nil
+        if case .loading = auth.state { return }
+        guard case .signedIn(let current) = auth.state, current == pending else {
+            if case .signedIn = auth.state { signOutPendingUserID = nil }
             return
         }
         guard await push?.unregister() != false else { return }
+        guard signOutPendingUserID == pending else { return }
+        guard case .signedIn(let still) = auth.state, still == pending else { return }
         do {
             try await auth.signOut()
-            signOutPendingUserID = nil
+            if signOutPendingUserID == pending { signOutPendingUserID = nil }
         } catch {
             // The token is gone. The session is retried the next time the app opens.
         }
@@ -186,6 +212,8 @@ final class AppViewModel {
         await push?.unregister()
         do {
             try await auth.deleteAccount()
+            // The server cascades the token. Clear this phone even if unregister did not.
+            push?.discardLocalDevice()
             leaveAccount(store: store)
         } catch {
             store.notice = (error as? DomainError ?? .offline).message
@@ -217,6 +245,7 @@ final class AppViewModel {
         } else {
             defaults.removeObject(forKey: Self.signOutPendingKey)
         }
+        signOutMarker.write(id?.uuidString)
     }
 
     private func leaveAccount(store: GameStore) {

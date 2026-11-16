@@ -262,7 +262,14 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
 
     func fetchBookmarkedGames() async throws -> [Game] {
         try await begin()
-        return visibleGames.filter { bookmarked.contains($0.id) }
+        let cutoff = now.addingTimeInterval(-14 * 24 * 3600)
+        return visibleGames.filter { bookmarked.contains($0.id) && $0.endsAt > cutoff }
+    }
+
+    /// Moves a game's end, so a test can age a bookmark past the 14-day window.
+    func setEndsAt(_ date: Date, for id: UUID) {
+        guard let index = games.firstIndex(where: { $0.id == id }) else { return }
+        games[index].endsAt = date
     }
 
     func fetchAttendees(gameID: UUID) async throws -> [Attendee] {

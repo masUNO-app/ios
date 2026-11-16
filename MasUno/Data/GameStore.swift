@@ -687,7 +687,7 @@ final class GameStore {
     }
 
     /// "Alert me if a spot opens" on a full game. Turning it on saves the game too, so it's in
-    /// Saved games. The server sends the push. This phone keeps a copy so it works offline.
+    /// Saved games. The server sends the push. If that write fails, the switch goes back.
     func toggleSpotAlert(_ id: UUID) {
         let on = !spotAlertIDs.contains(id)
         let wasSaved = savedIDs.contains(id)

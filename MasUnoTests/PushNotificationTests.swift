@@ -3,6 +3,13 @@ import Testing
 import UserNotifications
 @testable import masUNO
 
+@MainActor
+private final class MemorySignOutMarker: SignOutMarker {
+    var stored: String?
+    func read() -> String? { stored }
+    func write(_ id: String?) { stored = id }
+}
+
 /// An account whose signed-in id the test can change.
 @MainActor
 private final class StickyAuth: AuthService {
@@ -36,12 +43,14 @@ private final class SpyNotificationRepository: NotificationRepository {
     var winback: [Bool] = []
     var failUnregister = false
     var failMarkOpened = false
+    var beforeUnregister: (() async -> Void)?
 
     func registerDevice(token: String, environment: String, locale: String, appVersion: String) async throws {
         registered.append((token, environment, locale, appVersion))
     }
 
     func unregisterDevice(token: String) async throws {
+        await beforeUnregister?()
         unregistered.append(token)
         if failUnregister { throw DomainError.offline }
     }
@@ -131,7 +140,8 @@ struct PushNotificationServiceTests {
             games: backend, profiles: backend, safety: backend, chat: backend, catalog: backend,
             defaults: defaults, notifications: spy
         )
-        let model = AppViewModel(auth: backend, catalog: backend, push: service, defaults: defaults)
+        let marker = MemorySignOutMarker()
+        let model = AppViewModel(auth: backend, catalog: backend, push: service, defaults: defaults, signOutMarker: marker)
         await model.signOut(store: store)
 
         #expect(model.session == .onboarding)
@@ -145,7 +155,9 @@ struct PushNotificationServiceTests {
         let relaunchedPush = PushNotificationService(
             repository: spy, games: backend, chat: backend, defaults: defaults
         )
-        let relaunch = AppViewModel(auth: backend, catalog: backend, push: relaunchedPush, defaults: defaults)
+        let relaunch = AppViewModel(
+            auth: backend, catalog: backend, push: relaunchedPush, defaults: defaults, signOutMarker: marker
+        )
         #expect(relaunch.session == .onboarding)
         #expect(relaunch.signOutPendingUserID == model.signOutPendingUserID)
         await relaunch.start()
@@ -165,7 +177,9 @@ struct PushNotificationServiceTests {
         let store = GameStore(
             games: backend, profiles: backend, safety: backend, chat: backend, catalog: backend, defaults: defaults
         )
-        let model = AppViewModel(auth: auth, catalog: backend, push: service, defaults: defaults)
+        let model = AppViewModel(
+            auth: auth, catalog: backend, push: service, defaults: defaults, signOutMarker: MemorySignOutMarker()
+        )
         await model.signOut(store: store)
         #expect(model.session == .onboarding)
         #expect(!auth.signedOut)
@@ -183,7 +197,8 @@ struct PushNotificationServiceTests {
         let store = GameStore(
             games: backend, profiles: backend, safety: backend, chat: backend, catalog: backend, defaults: defaults
         )
-        let model = AppViewModel(auth: backend, catalog: backend, push: service, defaults: defaults)
+        let marker = MemorySignOutMarker()
+        let model = AppViewModel(auth: backend, catalog: backend, push: service, defaults: defaults, signOutMarker: marker)
         await model.signOut(store: store)
         #expect(model.session == .onboarding)
 
@@ -202,6 +217,73 @@ struct PushNotificationServiceTests {
         #expect(model.session == .signedIn)
         await service.refreshRegistration(force: true)
         #expect(spy.registered.count == 2)
+    }
+
+    @Test func signingInDuringTheRetryIsNotSignedOut() async {
+        spy.failUnregister = true
+        await service.didRegister(token: "ab12cd34ef56ab12cd34ef56")
+        let store = GameStore(
+            games: backend, profiles: backend, safety: backend, chat: backend, catalog: backend, defaults: defaults
+        )
+        let model = AppViewModel(
+            auth: backend, catalog: backend, push: service, defaults: defaults, signOutMarker: MemorySignOutMarker()
+        )
+        await model.signOut(store: store)
+        spy.failUnregister = false
+        spy.beforeUnregister = { model.noteSignInFinished() }
+        await model.finishPendingSignOutIfNeeded()
+        if case .signedIn = backend.state {} else {
+            Issue.record("A sign-in that finishes during the retry stays signed in")
+        }
+        #expect(model.session == .signedIn)
+    }
+
+    @Test func aPendingSignOutWaitsUntilTheSessionIsKnown() async {
+        let id = UUID()
+        let auth = StickyAuth(.signedIn(userID: id))
+        spy.failUnregister = true
+        await service.didRegister(token: "ab12cd34ef56ab12cd34ef56")
+        let store = GameStore(
+            games: backend, profiles: backend, safety: backend, chat: backend, catalog: backend, defaults: defaults
+        )
+        let model = AppViewModel(
+            auth: auth, catalog: backend, push: service, defaults: defaults, signOutMarker: MemorySignOutMarker()
+        )
+        await model.signOut(store: store)
+        auth.state = .loading
+        await model.finishPendingSignOutIfNeeded()
+        #expect(model.signOutPendingUserID == id)
+        #expect(!auth.signedOut)
+    }
+
+    @Test func aReinstallKeepsThePendingSignOut() async {
+        spy.failUnregister = true
+        await service.didRegister(token: "ab12cd34ef56ab12cd34ef56")
+        let marker = MemorySignOutMarker()
+        let store = GameStore(
+            games: backend, profiles: backend, safety: backend, chat: backend, catalog: backend, defaults: defaults
+        )
+        let model = AppViewModel(auth: backend, catalog: backend, push: service, defaults: defaults, signOutMarker: marker)
+        await model.signOut(store: store)
+        let fresh = UserDefaults(suiteName: "Reinstall.\(UUID().uuidString)")!
+        let relaunch = AppViewModel(auth: backend, catalog: backend, push: service, defaults: fresh, signOutMarker: marker)
+        #expect(relaunch.signOutPendingUserID == model.signOutPendingUserID)
+        #expect(relaunch.session == .onboarding)
+    }
+
+    @Test func deletingTheAccountClearsThePhoneEvenIfUnregisterFails() async {
+        service.noteAccount(UUID())
+        await service.didRegister(token: "ab12cd34ef56ab12cd34ef56")
+        spy.failUnregister = true
+        let store = GameStore(
+            games: backend, profiles: backend, safety: backend, chat: backend, catalog: backend, defaults: defaults
+        )
+        let model = AppViewModel(auth: backend, catalog: backend, push: service, defaults: defaults)
+        await model.deleteAccount(store: store)
+        #expect(AppGroupStore.myID == nil)
+        let again = PushNotificationService(repository: spy, games: backend, chat: backend, defaults: defaults)
+        await again.refreshRegistration(force: true)
+        #expect(spy.registered.count == 1)
     }
 
     @Test func theOpenScreenIsForgottenWhenTheAppIsKilled() {
@@ -548,6 +630,15 @@ struct SpotAlertTests {
         await settle()
         #expect(!store.isSaved(id))
         #expect(!store.hasSpotAlert(id))
+    }
+
+    @Test func aBookmarkOlderThanTwoWeeksIsLeftOut() async throws {
+        let id = MockFixtures.GameID.open
+        store.toggleSaved(id)
+        await settle()
+        backend.setEndsAt(backend.now.addingTimeInterval(-15 * 24 * 3600), for: id)
+        let fetched = try await backend.fetchBookmarkedGames()
+        #expect(!fetched.contains { $0.id == id })
     }
 
     @Test func aFailedNotifyMeSaysSo() async {

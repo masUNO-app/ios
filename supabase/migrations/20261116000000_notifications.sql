@@ -55,12 +55,14 @@ create table private.notification_outbox (
     opened_at timestamptz,
     dropped text,
     attempts integer not null default 0,
-    error text
+    error text,
+    -- A message arrived while this row was being sent. After APNs accepts it, queue it again.
+    resend boolean not null default false
 );
--- A leased row is left out, so a message that arrives mid-send can insert its own row.
+-- One undelivered row per merge key, including a row that is mid-send.
 create unique index notification_outbox_pending_merge_idx
     on private.notification_outbox (merge_key)
-    where sent_at is null and dropped is null and merge_key is not null and locked_at is null;
+    where sent_at is null and dropped is null and merge_key is not null;
 create index notification_outbox_due_idx
     on private.notification_outbox (not_before)
     where sent_at is null and dropped is null;
@@ -210,6 +212,7 @@ end $$;
 -- p_schedule: debounce resets the wait (an edited game), throttle holds a chat burst to one
 -- push, keep leaves the first wait alone (host updates over 5 minutes).
 -- p_once: a key that was already sent or dropped is not written again (reminders, win-back).
+-- A row that is still unsent, including one mid-send, is updated instead of inserted again.
 create or replace function private.enqueue_notification(
     p_user uuid,
     p_kind text,
@@ -241,9 +244,9 @@ begin
                 end
                 else notification_outbox.not_before
             end,
-            expires_at = p_expires_at
+            expires_at = p_expires_at,
+            resend = resend or (locked_at is not null and locked_at >= now() - interval '10 minutes')
         where merge_key = p_merge_key and sent_at is null and dropped is null
-          and (locked_at is null or locked_at < now() - interval '10 minutes')
         returning id into v_id;
         if v_id is not null then return; end if;
         if p_once and exists (
@@ -273,9 +276,9 @@ begin
                 end
                 else notification_outbox.not_before
             end,
-            expires_at = p_expires_at
-        where merge_key = p_merge_key and sent_at is null and dropped is null
-          and (locked_at is null or locked_at < now() - interval '10 minutes');
+            expires_at = p_expires_at,
+            resend = resend or (locked_at is not null and locked_at >= now() - interval '10 minutes')
+        where merge_key = p_merge_key and sent_at is null and dropped is null;
     end;
 end $$;
 
@@ -900,53 +903,36 @@ declare
     v_kind text;
     v_user uuid;
     v_event uuid;
-    v_merge text;
-    v_payload jsonb;
-    v_other bigint;
+    v_resend boolean;
 begin
     for v_item in select value from jsonb_array_elements(coalesce(p_results, '[]'::jsonb)) loop
         v_id := (v_item->>'id')::bigint;
         v_outcome := v_item->>'outcome';
-        v_other := null;
-        select kind, user_id, event_id, merge_key, payload
-        into v_kind, v_user, v_event, v_merge, v_payload
+        select kind, user_id, event_id, resend into v_kind, v_user, v_event, v_resend
         from private.notification_outbox where id = v_id;
 
-        -- A message that arrived mid-send has its own pending row. Unlocking this lease would
-        -- collide with that row on notification_outbox_pending_merge_idx and abort the batch.
-        if v_outcome in ('retry', 'release') and v_merge is not null then
-            select id into v_other
-            from private.notification_outbox
-            where merge_key = v_merge
-              and id <> v_id
-              and sent_at is null
-              and dropped is null
-              and locked_at is null
-            limit 1
-            for update;
-        end if;
-
-        if v_other is not null then
+        if v_outcome = 'sent' then
+            -- The phone already has this version. Messages that arrived mid-send stay queued.
             update private.notification_outbox
-            set payload = private.merge_notification_payload(v_kind, v_payload, payload)
-            where id = v_other;
-            update private.notification_outbox
-            set dropped = 'merged', locked_at = null, error = left(v_item->>'error', 500)
+            set sent_at = case when resend then sent_at else now() end,
+                locked_at = null,
+                not_before = case when resend then now() else not_before end,
+                resend = false,
+                error = null
             where id = v_id and sent_at is null;
-        elsif v_outcome = 'sent' then
-            update private.notification_outbox
-            set sent_at = now(), locked_at = null, error = null
-            where id = v_id and sent_at is null;
-            if v_kind = 'spot_open' then
+            if v_kind = 'spot_open' and not coalesce(v_resend, false) then
                 update public.bookmarks set notify = false
                 where user_id = v_user and event_id = v_event;
             end if;
         elsif v_outcome = 'release' then
-            update private.notification_outbox set locked_at = null where id = v_id and sent_at is null;
+            update private.notification_outbox
+            set locked_at = null, resend = false
+            where id = v_id and sent_at is null;
         elsif v_outcome = 'retry' then
             update private.notification_outbox set
                 attempts = attempts + 1,
                 locked_at = null,
+                resend = false,
                 error = left(v_item->>'error', 500),
                 not_before = now() + make_interval(mins => (power(2, attempts + 1))::int),
                 dropped = case when attempts + 1 >= 3 then 'error' else dropped end
