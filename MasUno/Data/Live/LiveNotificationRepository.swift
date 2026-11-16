@@ -10,7 +10,7 @@ final class LiveNotificationRepository: NotificationRepository {
     }
 
     func registerDevice(token: String, environment: String, locale: String, appVersion: String) async throws {
-        try await liveRequest {
+        _ = try await liveRequest {
             try await client.rpc(
                 "register_device",
                 params: RegisterDeviceParams(token: token, environment: environment, locale: locale, appVersion: appVersion)
@@ -19,7 +19,7 @@ final class LiveNotificationRepository: NotificationRepository {
     }
 
     func unregisterDevice(token: String) async throws {
-        try await liveRequest {
+        _ = try await liveRequest {
             try await client.rpc("unregister_device", params: UnregisterDeviceParams(token: token)).execute()
         }
     }
@@ -47,7 +47,7 @@ final class LiveNotificationRepository: NotificationRepository {
     }
 
     func setChatMuted(gameID: UUID, muted: Bool) async throws {
-        try await liveRequest {
+        _ = try await liveRequest {
             try await client.rpc(
                 "set_chat_muted", params: ChatMutedParams(gameID: gameID, muted: muted)
             ).execute()
@@ -55,7 +55,7 @@ final class LiveNotificationRepository: NotificationRepository {
     }
 
     func markOpened(_ outboxID: Int64) async throws {
-        try await liveRequest {
+        _ = try await liveRequest {
             try await client.rpc("notification_opened", params: OpenedParams(outboxID: outboxID)).execute()
         }
     }

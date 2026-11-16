@@ -44,6 +44,8 @@ struct DialogCard<Content: View>: View {
     var footnote: Text?
     var confirm: DialogAction
     var cancel: DialogAction?
+    /// A quiet third option under the two pills.
+    var tertiary: DialogAction?
     @ViewBuilder var content: Content
 
     var body: some View {
@@ -78,6 +80,10 @@ struct DialogCard<Content: View>: View {
                     Button(cancel.title) { closeDialog(cancel.perform) }
                         .pill(.secondary)
                 }
+                if let tertiary {
+                    Button(tertiary.title) { closeDialog(tertiary.perform) }
+                        .pill(.quiet)
+                }
             }
             .padding(.top, 4)
         }
@@ -103,19 +109,29 @@ struct DialogAction {
 extension DialogCard where Content == EmptyView {
     init(
         systemImage: String, tone: Tone = .friendly, title: Text, message: Text? = nil,
-        footnote: Text? = nil, confirm: DialogAction, cancel: DialogAction? = nil
+        footnote: Text? = nil, confirm: DialogAction, cancel: DialogAction? = nil,
+        tertiary: DialogAction? = nil
     ) {
         self.init(
             systemImage: systemImage, tone: tone, title: title, message: message,
-            footnote: footnote, confirm: confirm, cancel: cancel
+            footnote: footnote, confirm: confirm, cancel: cancel, tertiary: tertiary
         ) { EmptyView() }
+    }
+}
+
+/// Callable value, following SwiftUI's environment action pattern.
+struct CloseDialogAction {
+    var perform: (@escaping () -> Void) -> Void
+
+    func callAsFunction(_ action: @escaping () -> Void) {
+        perform(action)
     }
 }
 
 extension EnvironmentValues {
     /// Fades the dialog out, then runs the action (so an action that presents something else
     /// doesn't fight the dismissal).
-    @Entry var closeDialog: (@escaping () -> Void) -> Void = { $0() }
+    @Entry var closeDialog = CloseDialogAction { $0() }
 }
 
 extension View {
@@ -170,7 +186,7 @@ private struct DialogPresenter<Item: Identifiable, Card: View>: ViewModifier {
                             .accessibilityHidden(true)
 
                         card(item)
-                            .environment(\.closeDialog) { close($0) }
+                            .environment(\.closeDialog, CloseDialogAction { close($0) })
                             .padding(.horizontal, 24)
                             .scaleEffect(isShown ? 1 : 0.92)
                             .opacity(isShown ? 1 : 0)

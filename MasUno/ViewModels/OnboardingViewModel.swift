@@ -12,12 +12,14 @@ final class OnboardingViewModel {
         case about
         /// School SSO. Unreachable while sign-in is email and password (N36).
         case findSchool
+        /// "Which campus?" for Browse as a guest when several are open.
+        case guestCampus
 
         /// Past sign-in there's nothing to go back to, and past the profile it's already saved.
         var hidesBackButton: Bool {
             switch self {
             case .pending, .verified, .about, .guidelines: true
-            case .signUp, .signIn, .findSchool: false
+            case .signUp, .signIn, .findSchool, .guestCampus: false
             }
         }
     }
@@ -30,6 +32,8 @@ final class OnboardingViewModel {
     private(set) var schoolsFailedToLoad = false
     var schoolSearch = ""
     var selectedSchool: University?
+    /// The campus picked on the guest step.
+    var guestCampusChoice: University?
 
     /// At least this many characters, checked before the server's own rule.
     static let minimumPasswordLength = 8
@@ -37,6 +41,9 @@ final class OnboardingViewModel {
     // Sign up and Sign in share these.
     var email = ""
     var password = ""
+    /// A member's invite code (N37), typed on Create account or on the waitlist. Optional: without
+    /// one, the account waits for the team.
+    var inviteCode = ""
 
     // Only write back when the value changes: in an @Observable class an unconditional
     // write in didSet calls didSet again, forever.
@@ -51,10 +58,17 @@ final class OnboardingViewModel {
     /// "Check again" came back still waiting.
     private(set) var isStillPending = false
     var pendingError: String?
+    /// The invite code was refused, at sign-up or on the waitlist. The account exists either way.
+    var inviteError: String?
+    /// Your place on the waitlist, 1 being next. Nil until it loads, or once you're in.
+    private(set) var waitlistPosition: Int?
     var aboutError: String?
     var profileError: String?
     var guidelinesError: String?
     private(set) var isWorking = false
+    /// Welcome → Browse as a guest couldn't pick an open campus.
+    var guestBrowseError: String?
+    private(set) var isStartingGuest = false
 
     /// Set by the root. A finished sign-in keeps the session, even if an earlier sign-out could not drop the token.
     @ObservationIgnored var onSignedIn: (() -> Void)?
@@ -92,6 +106,15 @@ final class OnboardingViewModel {
         return "Pickup games on campus that are one or two players short. Grab the open spot and play today."
     }
 
+    /// The open campuses a guest can browse, narrowed by the search.
+    var filteredOpenCampuses: [University] {
+        let open = Set(schools.filter(\.signupEnabled).map(\.id))
+        return filteredSchools.filter { open.contains($0.id) }
+    }
+
+    /// Search only earns its place on a long list.
+    var guestCampusesNeedSearch: Bool { schools.filter(\.signupEnabled).count > 5 }
+
     /// Matches the name, short name or domain, ignoring case and accents.
     var filteredSchools: [University] {
         let query = schoolSearch.trimmingCharacters(in: .whitespaces)
@@ -122,8 +145,13 @@ final class OnboardingViewModel {
     }
 
     var signUpMessage: LocalizedStringKey {
-        if let campus { return "Use your \(campus.shortName) email (@\(campus.emailDomain)). We approve each account by hand, usually within a day." }
-        return "Use your school email. We approve each account by hand, usually within a day."
+        if let campus { return "masUNO is invite-only for now. Use your \(campus.shortName) email (@\(campus.emailDomain)). With an invite code you're in right away; without one you join the waitlist." }
+        return "masUNO is invite-only for now. Use your school email. With an invite code you're in right away; without one you join the waitlist."
+    }
+
+    /// The rate limit on codes is per hour, so it says so; the chat's "too fast" wording doesn't fit here.
+    private func inviteMessage(for error: DomainError) -> String {
+        error == .rateLimited ? String(localized: "Too many tries. Wait an hour and try again.") : message(for: error)
     }
 
     var emailPlaceholder: String {
@@ -169,12 +197,60 @@ final class OnboardingViewModel {
         path.append(.signIn)
     }
 
-    /// Creates the account and lands on "We're checking your account"; an allowlisted address
-    /// skips the wait.
+    /// After guest browse: jump straight to Create account or Sign in.
+    /// - Parameter resume: Which step to open.
+    func applyResume(_ resume: AppViewModel.OnboardingResume) {
+        switch resume {
+        case .signUp: path = [.signUp]
+        case .signIn: path = [.signIn]
+        case .guestCampus: path = [.guestCampus]
+        }
+    }
+
+    /// Picks an open campus and asks the app to show the guest map (SPEC R7-15).
+    /// - Parameter app: Root presentation; starts guest browse.
+    /// - Parameter store: Loads nameless games for that campus.
+    func browseAsGuest(app: AppViewModel, store: GameStore) async {
+        guard !isStartingGuest else { return }
+        guestBrowseError = nil
+        isStartingGuest = true
+        defer { isStartingGuest = false }
+
+        if let campus {
+            await app.browseAsGuest(campus: campus, store: store)
+            return
+        }
+
+        do {
+            let open = try await catalog.fetchUniversities().filter(\.signupEnabled)
+            if open.count > 1 {
+                path.append(.guestCampus)
+            } else if let campus = open.first {
+                await app.browseAsGuest(campus: campus, store: store)
+            } else {
+                guestBrowseError = String(localized: "Browsing isn't open on any campus yet. Create an account to join the wait.")
+            }
+        } catch {
+            guestBrowseError = (error as? DomainError ?? .offline).message
+        }
+    }
+
+    /// **Browse games** on the campus step.
+    func startGuestBrowsing(app: AppViewModel, store: GameStore) async {
+        guard let guestCampusChoice, !isStartingGuest else { return }
+        isStartingGuest = true
+        defer { isStartingGuest = false }
+        await app.browseAsGuest(campus: guestCampusChoice, store: store)
+    }
+
+    /// Creates the account and lands on the waitlist ("We're checking your account"); an allowlisted
+    /// address skips the wait. With an invite code it goes straight on to You're in. A refused code
+    /// still leaves the account made, on the waitlist with `inviteError`, where it can try again.
     func submitSignUp() async {
         guard !trimmedEmail.isEmpty, !password.isEmpty, !isWorking else { return }
         signUpError = nil
         passwordError = nil
+        inviteError = nil
         guard password.count >= Self.minimumPasswordLength else {
             passwordError = DomainError.weakPassword.message
             return
@@ -182,8 +258,44 @@ final class OnboardingViewModel {
         await work {
             try await auth.signUp(email: trimmedEmail, password: password)
             password = ""
+            // Redeemed before moving on, so the waitlist doesn't flash past on the way to You're in.
+            if auth.state == .pendingApproval, hasInviteCode {
+                do {
+                    try await auth.redeemInvite(inviteCode)
+                    inviteCode = ""
+                    return enterAfterApproval()
+                } catch {
+                    inviteError = inviteMessage(for: error as? DomainError ?? .offline)
+                }
+            }
             advance()
         } onError: { signUpError = $0 }
+    }
+
+    /// **Use code** on the waitlist. On success it's You're in, as when the team approves.
+    func redeemInviteWhileWaiting() async {
+        guard auth.state == .pendingApproval, hasInviteCode, !isWorking else { return }
+        inviteError = nil
+        await work {
+            do {
+                try await auth.redeemInvite(inviteCode)
+                inviteCode = ""
+                enterAfterApproval()
+            } catch {
+                inviteError = inviteMessage(for: error as? DomainError ?? .offline)
+            }
+        } onError: { inviteError = $0 }
+    }
+
+    /// The place in line on the waitlist. Quiet: without it the step just doesn't show a number.
+    func loadWaitlistPosition() async {
+        guard auth.state == .pendingApproval else {
+            waitlistPosition = nil
+            return
+        }
+        do {
+            waitlistPosition = try await auth.waitlistPosition()
+        } catch {}
     }
 
     /// "Check again" on the waiting step, and every time the app comes back to it.
@@ -335,6 +447,16 @@ final class OnboardingViewModel {
             break
         }
     }
+
+    /// Approved while waiting, by the team or an invite: You're in, then the profile.
+    private func enterAfterApproval() {
+        guard auth.state == .needsProfile else { return advance() }
+        waitlistPosition = nil
+        fillInName()
+        path = [.verified]
+    }
+
+    private var hasInviteCode: Bool { !Invite.normalized(inviteCode).isEmpty }
 
     /// A starting point from the school's sign-in, never over something already typed.
     private func fillInName() {

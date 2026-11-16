@@ -198,7 +198,7 @@ final class PushNotificationService {
         case Self.countMeIn:
             await countMeIn(payload)
         case Self.directions:
-            await openDirections(payload)
+            openDirections(payload)
         default:
             deliver(payload.routeURL())
         }

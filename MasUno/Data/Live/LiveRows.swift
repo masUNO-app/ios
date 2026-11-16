@@ -310,6 +310,68 @@ nonisolated struct GameCardRow: Decodable, Sendable {
     }
 }
 
+/// A row from `guest_games(p_university)`: a `game_cards` row without names, notes, the meet-up
+/// spot or anything per viewer, since a guest has no account.
+nonisolated struct GuestGameRow: Decodable, Sendable {
+    let id: UUID
+    let activitySlug: String
+    let title: String
+    let startsAt: Date
+    let durationMinutes: Int
+    let endsAt: Date
+    let capacity: Int
+    let goingCount: Int
+    let placeName: String
+    let placeAddress: String
+    let lat: Double
+    let lng: Double
+    let repostedAt: Date?
+    let createdAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id, title, capacity, lat, lng
+        case activitySlug = "activity_slug"
+        case startsAt = "starts_at"
+        case durationMinutes = "duration_minutes"
+        case endsAt = "ends_at"
+        case goingCount = "going_count"
+        case placeName = "place_name"
+        case placeAddress = "place_address"
+        case repostedAt = "reposted_at"
+        case createdAt = "created_at"
+    }
+
+    init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        activitySlug = try c.decode(String.self, forKey: .activitySlug)
+        title = try c.decode(String.self, forKey: .title)
+        startsAt = try c.decodeServerTime(forKey: .startsAt)
+        durationMinutes = try c.decode(Int.self, forKey: .durationMinutes)
+        endsAt = try c.decodeServerTime(forKey: .endsAt)
+        capacity = try c.decode(Int.self, forKey: .capacity)
+        goingCount = try c.decode(Int.self, forKey: .goingCount)
+        placeName = try c.decode(String.self, forKey: .placeName)
+        placeAddress = try c.decode(String.self, forKey: .placeAddress)
+        lat = try c.decode(Double.self, forKey: .lat)
+        lng = try c.decode(Double.self, forKey: .lng)
+        repostedAt = try c.decodeServerTimeIfPresent(forKey: .repostedAt)
+        createdAt = try c.decodeServerTime(forKey: .createdAt)
+    }
+
+    /// The host is `PersonSummary.hidden`, which is how screens know to leave people out.
+    func game(activity: (String) -> Activity) -> Game {
+        Game(
+            id: id, host: .hidden, activity: activity(activitySlug), title: title, startsAt: startsAt,
+            durationMinutes: durationMinutes, endsAt: endsAt, capacity: capacity, goingCount: goingCount,
+            notes: nil, place: Place(name: placeName, address: placeAddress, latitude: lat, longitude: lng),
+            meetPoint: nil, materialChangeAt: nil, cancelledAt: nil,
+            autoRepost: false, repostedAt: repostedAt, createdAt: createdAt,
+            myRole: nil, myJoinedAt: nil, hasBlockedAttendee: false
+        )
+    }
+}
+
 /// A row in `game_attendees`.
 nonisolated struct AttendeeRow: Decodable, Sendable {
     let userID: UUID
@@ -318,6 +380,7 @@ nonisolated struct AttendeeRow: Decodable, Sendable {
     let gradYear: Int
     let role: String
     let joinedAt: Date
+    let isBetaTester: Bool
 
     enum CodingKeys: String, CodingKey {
         case role
@@ -326,6 +389,7 @@ nonisolated struct AttendeeRow: Decodable, Sendable {
         case lastInitial = "last_initial"
         case gradYear = "grad_year"
         case joinedAt = "joined_at"
+        case isBetaTester = "is_beta_tester"
     }
 
     init(from decoder: any Decoder) throws {
@@ -336,11 +400,15 @@ nonisolated struct AttendeeRow: Decodable, Sendable {
         gradYear = try c.decode(Int.self, forKey: .gradYear)
         role = try c.decode(String.self, forKey: .role)
         joinedAt = try c.decodeServerTime(forKey: .joinedAt)
+        // Missing on a server from before the badge.
+        isBetaTester = try c.decodeIfPresent(Bool.self, forKey: .isBetaTester) ?? false
     }
 
     var attendee: Attendee {
         Attendee(
-            person: PersonSummary(id: userID, firstName: firstName, lastInitial: lastInitial, gradYear: gradYear),
+            person: PersonSummary(
+                id: userID, firstName: firstName, lastInitial: lastInitial, gradYear: gradYear, isBetaTester: isBetaTester
+            ),
             role: GameRole(rawValue: role) ?? .player, joinedAt: joinedAt
         )
     }
@@ -403,10 +471,12 @@ nonisolated struct MyProfileRow: Decodable, Sendable {
     let centerLng: Double
     let interests: [String]
     let chatRulesAcceptedAt: Date?
+    let isBetaTester: Bool
 
     enum CodingKeys: String, CodingKey {
         case id, interests
         case chatRulesAcceptedAt = "chat_rules_accepted_at"
+        case isBetaTester = "is_beta_tester"
         case firstName = "first_name"
         case lastName = "last_name"
         case gradYear = "grad_year"
@@ -433,6 +503,8 @@ nonisolated struct MyProfileRow: Decodable, Sendable {
         interests = try c.decodeIfPresent([String].self, forKey: .interests) ?? []
         // Missing on a server without chat.
         chatRulesAcceptedAt = try c.decodeServerTimeIfPresent(forKey: .chatRulesAcceptedAt)
+        // Missing on a server from before the badge.
+        isBetaTester = try c.decodeIfPresent(Bool.self, forKey: .isBetaTester) ?? false
     }
 
     /// `my_profile` doesn't carry the campus's sign-in provider; the map and Me card don't need it.
@@ -443,7 +515,7 @@ nonisolated struct MyProfileRow: Decodable, Sendable {
                 id: universityID, name: universityName, shortName: universityShortName,
                 emailDomain: universityEmailDomain, centerLatitude: centerLat, centerLongitude: centerLng
             ),
-            interests: interests.map(activity), chatRulesAcceptedAt: chatRulesAcceptedAt
+            interests: interests.map(activity), chatRulesAcceptedAt: chatRulesAcceptedAt, isBetaTester: isBetaTester
         )
     }
 }
@@ -464,6 +536,62 @@ nonisolated struct BlockedPersonRow: Decodable, Sendable {
 
     var person: PersonSummary {
         PersonSummary(id: userID, firstName: firstName, lastInitial: lastInitial ?? "", gradYear: gradYear)
+    }
+}
+
+// MARK: - Invites and the waitlist (N37)
+
+/// A row from `my_invites()`. The redeemer's name is null until they've set up a profile.
+nonisolated struct InviteRow: Decodable, Sendable {
+    let code: String
+    let createdAt: Date
+    let redeemedAt: Date?
+    let redeemerFirstName: String?
+    let redeemerLastInitial: String?
+
+    enum CodingKeys: String, CodingKey {
+        case code
+        case createdAt = "created_at"
+        case redeemedAt = "redeemed_at"
+        case redeemerFirstName = "redeemer_first_name"
+        case redeemerLastInitial = "redeemer_last_initial"
+    }
+
+    init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        code = try c.decode(String.self, forKey: .code)
+        createdAt = try c.decodeServerTime(forKey: .createdAt)
+        redeemedAt = try c.decodeServerTimeIfPresent(forKey: .redeemedAt)
+        redeemerFirstName = try c.decodeIfPresent(String.self, forKey: .redeemerFirstName)
+        redeemerLastInitial = try c.decodeIfPresent(String.self, forKey: .redeemerLastInitial)
+    }
+
+    var invite: Invite {
+        let redeemedBy = redeemerFirstName.map { first in
+            let initial = redeemerLastInitial?.trimmingCharacters(in: .whitespaces) ?? ""
+            return initial.isEmpty ? first : "\(first) \(initial)."
+        }
+        return Invite(code: code, createdAt: createdAt, redeemedAt: redeemedAt, redeemedBy: redeemedBy)
+    }
+}
+
+/// `p_code` for `redeem_invite`, already normalized so what's sent is what the server compares.
+nonisolated struct RedeemInviteParams: Encodable, Sendable {
+    let code: String
+    enum CodingKeys: String, CodingKey { case code = "p_code" }
+
+    init(code: String) {
+        self.code = Invite.normalized(code)
+    }
+}
+
+/// What `redeem_invite` answers. The refusals come back as the result rather than raised, so the
+/// server's wrong-try count isn't rolled back with the call; they're the same codes as errors.
+nonisolated enum RedeemInviteResult {
+    /// - Throws: `.invalidInvite`, `.rateLimited`, or `.unknown` for anything else but "approved".
+    static func check(_ status: String) throws {
+        guard status != "approved" else { return }
+        throw DomainError(serverCode: status)
     }
 }
 
@@ -522,6 +650,12 @@ nonisolated struct GameDraftParams: Encodable, Sendable {
 nonisolated struct GameIDParams: Encodable, Sendable {
     let id: UUID
     enum CodingKeys: String, CodingKey { case id = "p_id" }
+}
+
+/// `p_university` for `guest_games`.
+nonisolated struct GuestGamesParams: Encodable, Sendable {
+    let campus: UUID
+    enum CodingKeys: String, CodingKey { case campus = "p_university" }
 }
 
 /// `set_bookmark(p_game_id, p_on)`.

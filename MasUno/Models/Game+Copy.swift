@@ -2,8 +2,10 @@ import Foundation
 
 /// Status and host lines in the 1.0 voice (SPEC §7.7.5): "Room for N more", not "N spots left".
 extension Game {
-    /// "Basketball · Hosted by Alex R." / "Basketball · Hosted by you".
+    /// "Basketball · Hosted by Alex R." / "Basketball · Hosted by you". Just "Basketball" for a
+    /// guest, who isn't shown the host.
     var hostLine: String {
+        if hidesPeople { return activity.name }
         let host = isHostedByMe ? String(localized: "you") : host.displayName
         return String(localized: "\(activity.name) · Hosted by \(host)")
     }
@@ -39,9 +41,10 @@ extension Game {
     /// Everyone going except the host.
     var joinedCount: Int { max(goingCount - 1, 0) }
 
-    /// Me › Going, cancelled: "Cancelled by Alex".
+    /// Me › Going, cancelled: "Cancelled by Alex". A guest isn't shown who cancelled.
     var cancelledLine: String {
-        isHostedByMe ? String(localized: "You cancelled this game") : String(localized: "Cancelled by \(host.firstName)")
+        if isHostedByMe { return String(localized: "You cancelled this game") }
+        return hidesPeople ? String(localized: "This game was cancelled.") : String(localized: "Cancelled by \(host.firstName)")
     }
 
     /// Me › Earlier: "You played · 10 showed up".

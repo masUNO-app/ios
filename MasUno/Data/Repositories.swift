@@ -17,6 +17,10 @@ protocol GameRepository: AnyObject {
     /// Open games for the map: not cancelled, ended or full, starting within 7 days,
     /// newest bump first.
     func fetchMapGames() async throws -> [Game]
+    /// Open games on a campus as a guest sees them (`guest_games`): the map's rules, but no names,
+    /// notes or meet-up spot, and `host` is `PersonSummary.hidden`. Works signed out. Empty for the
+    /// demo campus or one closed to sign-ups.
+    func fetchGuestGames(campus: UUID) async throws -> [Game]
     /// Everything you host or joined that hasn't been over for more than 14 days.
     /// `GameStore` splits it into Going, Hosting and Past.
     func fetchMyGames() async throws -> [Game]
@@ -91,12 +95,17 @@ protocol NotificationRepository: AnyObject {
     func markOpened(_ outboxID: Int64) async throws
 }
 
-/// Your own profile (`my_profile`, `complete_profile`).
+/// Your own profile (`my_profile`, `complete_profile`), your invite codes and the beta badge (N37).
 protocol ProfileRepository: AnyObject {
     /// Nil until onboarding has saved a profile.
     func fetchMyProfile() async throws -> Profile?
     /// Edit profile & interests.
     func updateProfile(_ input: ProfileInput) async throws -> Profile
+    /// Your invite codes, oldest first (`my_invites`). The server creates any you're still owed, so a
+    /// member always has their allowance, used or not.
+    func fetchInvites() async throws -> [Invite]
+    /// Stamps the beta tester badge (`mark_beta_tester`); calling it again keeps the first time.
+    func markBetaTester() async throws -> Profile
 }
 
 /// Reports (people, games and chat messages) and blocks. Instant local hiding after a block is `GameStore`'s job (B6).

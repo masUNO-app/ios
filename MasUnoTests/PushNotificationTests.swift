@@ -24,6 +24,8 @@ private final class StickyAuth: AuthService {
     func signUp(email: String, password: String) async throws {}
     func signIn(email: String, password: String) async throws {}
     func refreshStatus() async throws {}
+    func redeemInvite(_ code: String) async throws {}
+    func waitlistPosition() async throws -> Int? { nil }
     func completeProfile(_ input: ProfileInput) async throws {}
     func acceptGuidelines() async throws {}
     func signOut() async throws {
@@ -498,7 +500,7 @@ struct PushNotificationServiceTests {
 
 // MARK: - Payloads
 
-/// The `.apns` files in `MasUnoNotifications/Samples`, read from the repo.
+/// The `.apns` files in `masUNONotifications/Samples`, read from the repo.
 private enum NotificationSamples {
     struct Sample {
         let name: String
@@ -509,7 +511,7 @@ private enum NotificationSamples {
     static func all() throws -> [Sample] {
         let folder = URL(filePath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent()
-            .appending(path: "MasUnoNotifications/Samples")
+            .appending(path: "masUNONotifications/Samples")
         let files = try FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)
             .filter { $0.pathExtension == "apns" }
             .sorted { $0.lastPathComponent < $1.lastPathComponent }

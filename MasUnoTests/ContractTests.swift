@@ -14,6 +14,7 @@ struct DomainModelTests {
         ("not_authenticated", .notAuthenticated), ("suspended", .suspended),
         ("email_not_allowed", .emailNotAllowed),
         ("pending_approval", .pendingApproval),
+        ("rate_limited", .rateLimited), ("invalid_invite", .invalidInvite),
     ])
     func serverCodesMap(code: String, error: DomainError) {
         #expect(DomainError(serverCode: code) == error)
@@ -224,6 +225,16 @@ struct MockSafetyTests {
         #expect(try await backend.fetchMapGames().map(\.id).contains(MockFixtures.GameID.open))
     }
 
+    /// `guest_games` has no viewer, so a block doesn't change it, and it never names anyone.
+    @Test func guestGamesIgnoreBlocksAndHideNames() async throws {
+        try await backend.block(userID: MockFixtures.alex.id)
+        backend.endSession(expired: false)
+        let guest = try await backend.fetchGuestGames(campus: MockFixtures.tec.id)
+        #expect(guest.contains { $0.id == MockFixtures.GameID.open })
+        #expect(guest.allSatisfy { $0.host.isHidden && $0.notes == nil && $0.meetPoint == nil })
+        #expect(try await backend.fetchGuestGames(campus: MockFixtures.otherCampus.id).isEmpty)
+    }
+
     @Test func cannotBlockYourself() async throws {
         await #expect(throws: DomainError.invalidInput) { try await backend.block(userID: backend.me.id) }
     }
@@ -426,6 +437,187 @@ struct CampusTests {
         offline.reset()
         let afterSignOut = GameStore(games: backend, profiles: backend, safety: backend, chat: backend, catalog: backend, defaults: defaults)
         #expect(afterSignOut.campus == nil)
+    }
+}
+
+@MainActor
+struct GuestBrowsingTests {
+    /// The guest choice is kept in defaults, so each test gets its own.
+    private static func freshDefaults() -> UserDefaults {
+        UserDefaults(suiteName: "GuestBrowsingTests.app.\(UUID().uuidString)")!
+    }
+
+    private func store(_ backend: MockBackend) -> GameStore {
+        GameStore(games: backend, profiles: backend, safety: backend, chat: backend, catalog: backend,
+                  defaults: Self.freshDefaults())
+    }
+
+    @Test func aGuestWhoComesBackLandsOnTheMapAgain() async {
+        let auth = MockBackend(state: .signedOut(expired: false))
+        let defaults = Self.freshDefaults()
+        let first = AppViewModel(auth: auth, catalog: auth, defaults: defaults)
+        await first.browseAsGuest(campus: MockFixtures.tec, store: store(auth))
+
+        let relaunched = AppViewModel(auth: auth, catalog: auth, defaults: defaults)
+        let fresh = store(auth)
+        await relaunched.start()
+        #expect(relaunched.session == .guest)
+        await relaunched.resumeGuestBrowsing(store: fresh)
+        #expect(fresh.isGuest)
+        #expect(!fresh.mapGames().isEmpty)
+    }
+
+    @Test func goingToSignUpOrSigningInForgetsTheGuestChoice() async {
+        let auth = MockBackend(state: .signedOut(expired: false))
+        let defaults = Self.freshDefaults()
+        let app = AppViewModel(auth: auth, catalog: auth, defaults: defaults)
+        let games = store(auth)
+        await app.browseAsGuest(campus: MockFixtures.tec, store: games)
+        app.endGuestBrowsing(resume: .signUp, store: games)
+        #expect(AppViewModel(auth: auth, catalog: auth, defaults: defaults).session == .onboarding)
+
+        // A guest choice left behind never outranks an account.
+        await app.browseAsGuest(campus: MockFixtures.tec, store: games)
+        let signedIn = MockBackend()
+        let relaunched = AppViewModel(auth: signedIn, catalog: signedIn, defaults: defaults)
+        await relaunched.start()
+        #expect(relaunched.session == .signedIn)
+        #expect(!relaunched.isBrowsingAsGuest)
+    }
+
+    @Test func aGuestWhoseCampusClosedStartsAtWelcome() async {
+        let auth = MockBackend(state: .signedOut(expired: false))
+        let defaults = Self.freshDefaults()
+        await AppViewModel(auth: auth, catalog: auth, defaults: defaults).browseAsGuest(campus: MockFixtures.tec, store: store(auth))
+
+        var closed = MockFixtures.tec
+        closed.signupEnabled = false
+        auth.universities = [closed]
+        let relaunched = AppViewModel(auth: auth, catalog: auth, defaults: defaults)
+        await relaunched.start()
+        #expect(relaunched.session == .onboarding)
+    }
+
+    @Test func aGuestSeesBlankCirclesNotACount() {
+        let world = MockFixtures.world(now: .now)
+        var game = world.games[0]
+        game.host = .hidden
+        let lineup = Lineup(game: game, attendees: [], me: nil)
+        #expect(lineup.people.isEmpty)
+        #expect(lineup.unlisted == game.goingCount)
+        #expect(lineup.accessibilityLabel.contains("\(game.goingCount) going"))
+    }
+
+    @Test func browseAsGuestShowsTheMapSession() async {
+        let auth = MockBackend(state: .signedOut(expired: false))
+        let app = AppViewModel(auth: auth, catalog: auth, defaults: Self.freshDefaults())
+        let store = GameStore(games: auth, profiles: auth, safety: auth, chat: auth, catalog: auth,
+                              defaults: UserDefaults(suiteName: "GuestBrowsingTests.\(UUID().uuidString)")!)
+        #expect(app.session == .onboarding)
+        await app.browseAsGuest(campus: MockFixtures.tec, store: store)
+        #expect(app.session == .guest)
+        #expect(store.isGuest)
+        let games = store.mapGames()
+        #expect(!games.isEmpty)
+        #expect(games.allSatisfy { $0.hidesPeople })
+    }
+
+    @Test func endingGuestBrowseOpensSignUpOrSignIn() async {
+        let auth = MockBackend(state: .signedOut(expired: false))
+        let app = AppViewModel(auth: auth, catalog: auth, defaults: Self.freshDefaults())
+        let store = GameStore(games: auth, profiles: auth, safety: auth, chat: auth, catalog: auth,
+                              defaults: UserDefaults(suiteName: "GuestBrowsingEnd.\(UUID().uuidString)")!)
+        await app.browseAsGuest(campus: MockFixtures.tec, store: store)
+        app.requireAccount(.join)
+        #expect(app.accountPrompt == .join)
+        app.endGuestBrowsing(resume: .signUp, store: store)
+        #expect(app.session == .onboarding)
+        #expect(app.onboardingResume == .signUp)
+        #expect(!store.isGuest)
+        #expect(app.accountPrompt == nil)
+
+        let onboarding = OnboardingViewModel(auth: auth, catalog: auth, campus: MockFixtures.tec)
+        onboarding.applyResume(.signIn)
+        #expect(onboarding.path == [.signIn])
+    }
+
+    @Test func welcomeBrowseAsGuestUsesTheLaunchCampus() async {
+        let auth = MockBackend(state: .signedOut(expired: false))
+        let app = AppViewModel(auth: auth, catalog: auth, defaults: Self.freshDefaults())
+        let store = GameStore(games: auth, profiles: auth, safety: auth, chat: auth, catalog: auth,
+                              defaults: UserDefaults(suiteName: "GuestWelcome.\(UUID().uuidString)")!)
+        let onboarding = OnboardingViewModel(auth: auth, catalog: auth, campus: MockFixtures.tec)
+        await onboarding.browseAsGuest(app: app, store: store)
+        #expect(app.session == .guest)
+        #expect(onboarding.guestBrowseError == nil)
+    }
+
+    @Test func severalOpenCampusesAskWhichOne() async {
+        let auth = MockBackend(state: .signedOut(expired: false))
+        auth.universities = [MockFixtures.tec, MockFixtures.otherCampus]
+        let app = AppViewModel(auth: auth, catalog: auth, defaults: Self.freshDefaults())
+        let games = store(auth)
+        let onboarding = OnboardingViewModel(auth: auth, catalog: auth)
+        await onboarding.browseAsGuest(app: app, store: games)
+        #expect(onboarding.path == [.guestCampus])
+        #expect(app.session == .onboarding)
+        #expect(onboarding.guestBrowseError == nil)
+
+        await onboarding.loadSchools()
+        onboarding.guestCampusChoice = MockFixtures.otherCampus
+        await onboarding.startGuestBrowsing(app: app, store: games)
+        #expect(app.session == .guest)
+        #expect(app.guestCampus?.id == MockFixtures.otherCampus.id)
+        #expect(games.campus?.id == MockFixtures.otherCampus.id)
+    }
+
+    @Test func oneOpenCampusGoesStraightIn() async {
+        let auth = MockBackend(state: .signedOut(expired: false))
+        let app = AppViewModel(auth: auth, catalog: auth, defaults: Self.freshDefaults())
+        let onboarding = OnboardingViewModel(auth: auth, catalog: auth)
+        await onboarding.browseAsGuest(app: app, store: store(auth))
+        #expect(onboarding.path.isEmpty)
+        #expect(app.guestCampus?.id == MockFixtures.tec.id)
+    }
+
+    @Test func browsingAnotherCampusEndsTheGuestSessionAndAsksAgain() async {
+        let auth = MockBackend(state: .signedOut(expired: false))
+        auth.universities = [MockFixtures.tec, MockFixtures.otherCampus]
+        let defaults = Self.freshDefaults()
+        let app = AppViewModel(auth: auth, catalog: auth, defaults: defaults)
+        let games = store(auth)
+        await app.start()
+        #expect(app.canSwitchGuestCampus)
+        await app.browseAsGuest(campus: MockFixtures.tec, store: games)
+
+        app.endGuestBrowsing(resume: .guestCampus, store: games)
+        #expect(app.session == .onboarding)
+        #expect(!games.isGuest)
+        #expect(app.onboardingResume == .guestCampus)
+
+        let onboarding = OnboardingViewModel(auth: auth, catalog: auth)
+        onboarding.applyResume(.guestCampus)
+        #expect(onboarding.path == [.guestCampus])
+    }
+
+    @Test func oneOpenCampusOffersNoSwitch() async {
+        let auth = MockBackend(state: .signedOut(expired: false))
+        let app = AppViewModel(auth: auth, catalog: auth, defaults: Self.freshDefaults())
+        await app.start()
+        #expect(!app.canSwitchGuestCampus)
+    }
+
+    @Test func aRelaunchRestoresTheChosenCampus() async {
+        let auth = MockBackend(state: .signedOut(expired: false))
+        auth.universities = [MockFixtures.tec, MockFixtures.otherCampus]
+        let defaults = Self.freshDefaults()
+        await AppViewModel(auth: auth, catalog: auth, defaults: defaults)
+            .browseAsGuest(campus: MockFixtures.otherCampus, store: store(auth))
+
+        let relaunched = AppViewModel(auth: auth, catalog: auth, defaults: defaults)
+        await relaunched.start()
+        #expect(relaunched.session == .guest)
+        #expect(relaunched.guestCampus?.id == MockFixtures.otherCampus.id)
     }
 }
 
@@ -744,6 +936,34 @@ struct LiveGameContractTests {
         #expect(row.game(activity: catalog.activity(slug:)).myRole == nil)
     }
 
+    /// A `guest_games` row: no names, notes, meet-up spot or per-viewer columns to read.
+    @Test func guestGameRowBecomesANamelessGame() throws {
+        let row: GuestGameRow = try decode("""
+        {"id":"6f1c2a9e-2f7b-4a59-9d3e-1d2c3b4a5f60","activity_slug":"padel","title":"Padel doubles",
+         "starts_at":"2026-11-10T23:30:00.123456+00:00","duration_minutes":90,"ends_at":"2026-11-11T01:00:00.123456+00:00",
+         "capacity":4,"going_count":3,"spots_left":1,"place_name":"Canchas de pádel",
+         "place_address":"Av. Eugenio Garza Sada 2501","lat":25.6505,"lng":-100.2899,"reposted_at":null,
+         "created_at":"2026-11-09T06:15:00.5+00:00","sort_at":"2026-11-09T06:15:00.5+00:00"}
+        """)
+        let game = row.game(activity: catalog.activity(slug:))
+        #expect(game.hidesPeople)
+        #expect(game.host == .hidden)
+        #expect(game.activity.slug == "padel")
+        #expect(game.endsAt.timeIntervalSince(game.startsAt) == 90 * 60)
+        #expect(game.spotsLeft == 1)
+        #expect(game.place.longitude == -100.2899)
+        #expect(game.notes == nil && game.meetPoint == nil && game.myRole == nil)
+        #expect(game.repostedAt == nil)
+        #expect(game.createdAt == ServerTime.date(from: "2026-11-09T06:15:00.5Z"))
+        #expect(game.status(now: game.startsAt.addingTimeInterval(-60)) == .open)
+    }
+
+    @Test func guestGamesParamsNameTheCampus() throws {
+        let params = try encoded(GuestGamesParams(campus: MockFixtures.tec.id))
+        #expect(Set(params.keys) == ["p_university"])
+        #expect(params["p_university"] as? String == MockFixtures.tec.id.uuidString)
+    }
+
     @Test func badTimestampFailsToDecode() {
         #expect(throws: DecodingError.self) {
             let _: GameCardRow = try decode(card.replacingOccurrences(of: "2026-11-10T23:30:00.123456+00:00", with: "soon"))
@@ -851,5 +1071,248 @@ struct LiveGameContractTests {
         #expect(game["p_user_id"] is NSNull)
         #expect(game["p_game_id"] as? String == id.uuidString)
         #expect(game["p_note"] as? String == "Fake game")
+    }
+}
+
+/// Invite codes and the waitlist (N37): the helpers, the mock's `redeem_invite` rules and onboarding.
+@MainActor
+struct InviteTests {
+    private func model() -> (OnboardingViewModel, MockBackend) {
+        let auth = MockBackend(state: .signedOut(expired: false))
+        return (OnboardingViewModel(auth: auth, catalog: auth, campus: MockFixtures.tec), auth)
+    }
+
+    private func waiting() async throws -> MockBackend {
+        let auth = MockBackend(state: .signedOut(expired: false))
+        try await auth.signUp(email: "a0123@tec.mx", password: "long-enough")
+        return auth
+    }
+
+    @Test func codesShowInTwoHalves() {
+        #expect(Invite.display("PLAY4NWE") == "PLAY-4NWE")
+        #expect(Invite.display("SHORT") == "SHORT")
+        #expect(Invite(code: "PLAY4NWE", createdAt: .now).displayCode == "PLAY-4NWE")
+    }
+
+    @Test func typedCodesAreNormalized() {
+        #expect(Invite.normalized(" play-4nwe ") == "PLAY4NWE")
+        #expect(Invite.normalized("PLAY 4NWE") == "PLAY4NWE")
+        #expect(Invite.normalized("play\u{2014}4nwe\n") == "PLAY4NWE")
+        #expect(Invite.normalized("  - ").isEmpty)
+    }
+
+    @Test func aGoodCodeLetsAWaitingAccountInOnce() async throws {
+        let auth = try await waiting()
+        #expect(try await auth.waitlistPosition() == auth.waitlistPlace)
+        try await auth.redeemInvite("play-4nwe")
+        #expect(auth.state == .needsProfile)
+        #expect(try await auth.waitlistPosition() == nil)
+        #expect(auth.invites.first { $0.code == MockFixtures.inviteCode }?.isUsed == true)
+
+        let other = try await waiting()
+        await #expect(throws: DomainError.invalidInvite) { try await other.redeemInvite(MockFixtures.usedInviteCode) }
+        #expect(other.state == .pendingApproval)
+    }
+
+    @Test func sixthTryInAnHourWaitsEvenWithAGoodCode() async throws {
+        let auth = try await waiting()
+        for _ in 1...5 {
+            await #expect(throws: DomainError.invalidInvite) { try await auth.redeemInvite("WRONGONE") }
+        }
+        await #expect(throws: DomainError.rateLimited) { try await auth.redeemInvite(MockFixtures.inviteCode) }
+        #expect(auth.state == .pendingApproval)
+        auth.now = auth.now.addingTimeInterval(3601)
+        try await auth.redeemInvite(MockFixtures.inviteCode)
+        #expect(auth.state == .needsProfile)
+    }
+
+    @Test func anAccountThatIsNotWaitingHasNothingToRedeem() async throws {
+        let auth = MockBackend()
+        try await auth.redeemInvite("WRONGONE")
+        #expect(auth.state == .signedIn(userID: auth.me.id))
+        #expect(try await auth.waitlistPosition() == nil)
+    }
+
+    @Test func signingUpWithACodeGoesStraightPastTheWaitlist() async {
+        let (model, auth) = model()
+        model.path = [.signUp]
+        model.email = "a0123@tec.mx"
+        model.password = "long-enough"
+        model.inviteCode = " play-4nwe "
+        await model.submitSignUp()
+        #expect(auth.state == .needsProfile)
+        #expect(model.path == [.verified])
+        #expect(model.inviteError == nil)
+        #expect(model.inviteCode.isEmpty)
+    }
+
+    @Test func aWrongCodeAtSignUpKeepsTheAccountOnTheWaitlist() async {
+        let (model, auth) = model()
+        model.path = [.signUp]
+        model.email = "a0123@tec.mx"
+        model.password = "long-enough"
+        model.inviteCode = "NOPE-NOPE"
+        await model.submitSignUp()
+        #expect(auth.state == .pendingApproval)
+        #expect(model.path == [.pending])
+        #expect(model.signUpError == nil)
+        #expect(model.inviteError == "That invite code doesn't work. Check it and try again.")
+        #expect(model.inviteCode == "NOPE-NOPE")
+    }
+
+    @Test func signingUpWithoutACodeIsTheWaitlistAsBefore() async {
+        let (model, auth) = model()
+        model.email = "a0123@tec.mx"
+        model.password = "long-enough"
+        await model.submitSignUp()
+        #expect(auth.state == .pendingApproval)
+        #expect(model.path == [.pending])
+        #expect(model.inviteError == nil)
+        await model.loadWaitlistPosition()
+        #expect(model.waitlistPosition == auth.waitlistPlace)
+    }
+
+    @Test func aCodeFromTheWaitlistLetsYouIn() async {
+        let (model, auth) = model()
+        model.email = "a0123@tec.mx"
+        model.password = "long-enough"
+        await model.submitSignUp()
+        await model.loadWaitlistPosition()
+
+        model.inviteCode = MockFixtures.usedInviteCode
+        await model.redeemInviteWhileWaiting()
+        #expect(model.inviteError == DomainError.invalidInvite.message)
+        #expect(model.path == [.pending])
+
+        model.inviteCode = MockFixtures.inviteCode
+        await model.redeemInviteWhileWaiting()
+        #expect(auth.state == .needsProfile)
+        #expect(model.inviteError == nil)
+        #expect(model.path == [.verified])
+        #expect(model.waitlistPosition == nil)
+        #expect(model.firstName == "Emilio")
+    }
+
+    @Test func tooManyWrongCodesSaySo() async {
+        let (model, _) = model()
+        model.email = "a0123@tec.mx"
+        model.password = "long-enough"
+        await model.submitSignUp()
+        for _ in 1...5 {
+            model.inviteCode = "WRONGONE"
+            await model.redeemInviteWhileWaiting()
+        }
+        model.inviteCode = MockFixtures.inviteCode
+        await model.redeemInviteWhileWaiting()
+        #expect(model.inviteError == "Too many tries. Wait an hour and try again.")
+        #expect(model.path == [.pending])
+    }
+
+    @Test func gameInviteMessageCarriesAnUnusedCode() {
+        let game = MockFixtures.world(now: .now).games[0]
+        let plain = EventDetailViewModel.inviteMessage(for: game)
+        #expect(!plain.contains("invite code"))
+
+        let used = Invite(code: "AAAABBBB", createdAt: .now, redeemedAt: .now)
+        let free = Invite(code: "PLAY4NWE", createdAt: .now)
+        #expect(EventDetailViewModel.inviteMessage(for: game, invites: [used]) == plain)
+        #expect(EventDetailViewModel.inviteMessage(for: game, invites: [used, free]) == plain + " Use my invite code PLAY-4NWE to skip the waitlist.")
+    }
+
+    @Test func meOfferTitleCountsUnusedCodes() {
+        let model = MeViewModel()
+        let used = Invite(code: "AAAABBBB", createdAt: .now, redeemedAt: .now)
+        let free = Invite(code: "PLAY4NWE", createdAt: .now)
+        #expect(model.inviteTitle(for: []) == "Invite friends")
+        #expect(model.inviteTitle(for: [used]) == "Invite friends")
+        #expect(model.inviteTitle(for: [used, free, free]) == "Invite friends · 2 left")
+    }
+
+    @Test func anEmptyCodeDoesNothing() async {
+        let (model, auth) = model()
+        model.email = "a0123@tec.mx"
+        model.password = "long-enough"
+        model.inviteCode = " - "
+        await model.submitSignUp()
+        await model.redeemInviteWhileWaiting()
+        #expect(model.inviteError == nil)
+        #expect(auth.state == .pendingApproval)
+    }
+}
+
+/// The N37 rows and parameters: `my_invites`, `redeem_invite` and the badge columns.
+@MainActor
+struct LiveInviteContractTests {
+    private func decode<Row: Decodable>(_ json: String) throws -> Row {
+        try JSONDecoder().decode(Row.self, from: Data(json.utf8))
+    }
+
+    private let catalog = ActivityCatalog { Activity.builtIn }
+
+    @Test func inviteRowsBecomeInvites() throws {
+        let rows: [InviteRow] = try decode("""
+        [{"code":"KXPQ7M4D","created_at":"2026-11-14T06:15:00.123456+00:00","redeemed_at":"2026-11-14T08:00:00+00:00",
+          "redeemer_first_name":"Ana","redeemer_last_initial":"G"},
+         {"code":"PLAY4NWE","created_at":"2026-11-14T06:15:00.123456+00:00","redeemed_at":"2026-11-14T09:00:00+00:00",
+          "redeemer_first_name":null,"redeemer_last_initial":null},
+         {"code":"JUMP3ZRS","created_at":"2026-11-14T06:15:00.123456+00:00","redeemed_at":null,
+          "redeemer_first_name":null,"redeemer_last_initial":null}]
+        """)
+        let invites = rows.map(\.invite)
+        #expect(invites.map(\.id) == ["KXPQ7M4D", "PLAY4NWE", "JUMP3ZRS"])
+        #expect(invites[0].redeemedBy == "Ana G.")
+        #expect(invites[0].redeemedAt == ServerTime.date(from: "2026-11-14T08:00:00Z"))
+        #expect(invites[1].isUsed && invites[1].redeemedBy == nil)
+        #expect(!invites[2].isUsed)
+        #expect(invites[2].createdAt == ServerTime.date(from: "2026-11-14T06:15:00.123456+00:00"))
+    }
+
+    @Test func redeemSendsTheNormalizedCode() throws {
+        let data = try JSONEncoder().encode(RedeemInviteParams(code: " play-4nwe "))
+        let json = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        #expect(Set(json.keys) == ["p_code"])
+        #expect(json["p_code"] as? String == "PLAY4NWE")
+    }
+
+    @Test func redeemResultsMapLikeErrorCodes() {
+        #expect(throws: Never.self) { try RedeemInviteResult.check("approved") }
+        #expect(throws: DomainError.invalidInvite) { try RedeemInviteResult.check("invalid_invite") }
+        #expect(throws: DomainError.rateLimited) { try RedeemInviteResult.check("rate_limited") }
+        #expect(throws: DomainError.unknown("brand_new")) { try RedeemInviteResult.check("brand_new") }
+    }
+
+    private let profile = """
+    {"id":"0b7e4b8c-1111-4c3d-9a2b-123456789abc","first_name":"Ana","last_name":"Solis","grad_year":2028,
+     "university_id":"00000000-0000-0000-0000-00000000B001","university_name":"Tec de Monterrey",
+     "university_short_name":"Tec","university_email_domain":"tec.mx","center_lat":25.65,
+     "center_lng":-100.29,"interests":["soccer"],"guidelines_accepted_at":null,"banned_at":null,
+     "chat_rules_accepted_at":null
+    """
+
+    @Test func myProfileReadsTheBadgeAndAnOlderServerWithoutIt() throws {
+        let flagged: MyProfileRow = try decode(profile + #","is_beta_tester":true}"#)
+        #expect(flagged.profile(activity: catalog.activity(slug:)).isBetaTester)
+        #expect(flagged.profile(activity: catalog.activity(slug:)).summary.isBetaTester)
+        let older: MyProfileRow = try decode(profile + "}")
+        #expect(!older.profile(activity: catalog.activity(slug:)).isBetaTester)
+    }
+
+    private let attendee = """
+    {"event_id":"6f1c2a9e-2f7b-4a59-9d3e-1d2c3b4a5f60","user_id":"0b7e4b8c-1111-4c3d-9a2b-123456789abc",
+     "first_name":"Sofía","last_initial":"M","grad_year":2027,"role":"player","joined_at":"2026-11-09T06:15:00.5+00:00"
+    """
+
+    @Test func whosGoingReadsTheBadgeAndAnOlderServerWithoutIt() throws {
+        let flagged: AttendeeRow = try decode(attendee + #","is_beta_tester":true}"#)
+        #expect(flagged.attendee.person.isBetaTester)
+        let older: AttendeeRow = try decode(attendee + "}")
+        #expect(!older.attendee.person.isBetaTester)
+        #expect(older.attendee.person.displayName == "Sofía M.")
+    }
+
+    @Test func fixturesShowSomeBetaTestersInWhosGoing() async throws {
+        let backend = MockBackend()
+        let going = try await backend.fetchAttendees(gameID: MockFixtures.GameID.going)
+        #expect(Set(going.filter(\.person.isBetaTester).map(\.id)) == MockFixtures.betaTesterIDs)
     }
 }

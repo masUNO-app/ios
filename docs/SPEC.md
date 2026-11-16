@@ -59,11 +59,13 @@
 
 ## 1. What changed
 
-### This revision (rev. 7, Nov 5; N30–N33 added Nov 6; N34–N35 added Nov 10; N36 added Nov 11)
+### This revision (rev. 7, Nov 5; N30–N33 added Nov 6; N34–N35 added Nov 10; N36 added Nov 11; N37–N38 added Nov 14)
 
 | # | Change | Why | Sign-off |
 | - | --- | --- | --- |
-| N36 | **Sign-in is a school email and a password, with each new account approved by hand** (replaces N33's "school SSO is the only sign-in"; §7.5 and §8.4 still describe SSO). Create account takes a school address at an open campus; the auth hook refuses any other. The sign-up posts to the team Discord, and a team member approves or rejects it in the SQL editor (`private.approve_signup` / `reject_signup`). Until then the app shows "We're checking your account" and every write RPC answers `pending_approval`. No confirmation or reset emails (no custom SMTP). The SSO code and the hook's SSO branch stay, unused, in case Tec IT approves the Entra app. `docs/API.md` (Sign-in) has the contract. | Getting the Entra app approved by Tec IT will take too long, and we don't expect it to happen. | Decided (Ethan, Nov 11) |
+| N38 | **One waitlist** (1.0; amends N37). The website's waitlist (the Google Sheet its Apps Script writes) and the app's share one queue, Supabase's `private.signup_requests`, and the Sheet mirrors it both ways: a website join calls `waitlist_join`; every change here is pushed to the Sheet straight away ("App status": Waiting, Approved, In the app, Removed, with the place in line); an hourly `waitlist_export` heals anything missed. A school email keeps its place: joining on the website first puts it in line at that time, and creating the account in the app later keeps it (the earlier of the two counts) and only then alerts the team to approve. The team can approve a website email before it has an account, and it goes straight in. Non-school emails stay Sheet-only, as launch news. One shared secret in Vault and the Apps Script guards both directions. `docs/API.md` (Website waitlist sync) has the contract. | Two waitlists would mean two places in line and two lists for the team to approve; students who joined on the website first shouldn't lose their place by signing up in the app. | Decided (Ethan, 2026-11-14) |
+| N37 | **Invite-only with a waitlist, and a beta tester badge** (1.0; amends N36). A sign-up without a code waits for the team exactly as in N36, and the app now calls that wait the **waitlist**, with your place in line. A member's invite code lets the account in at once with no approval, typed on Create account or later on the waitlist. Codes work once and record who invited whom; the team gets an FYI in Discord, not an approval request. Every member has 3 codes and the team can give more (`private.grant_invites`). More than 5 wrong codes in an hour locks redeeming until the hour is up. Allowlisted (review/QA) accounts and the unused SSO path don't change. Separately, the first time a signed-in member opens a TestFlight build, the profile gets a permanent **beta tester** badge, shown on their Me card and next to their name in Who's going; the app reports it itself, which is fine for a badge. `docs/API.md` (Invites and the waitlist, Beta tester) has the contract. *Nov 14 (N38): the website's waitlist is the same queue, so a website join holds a place in it.* | Grow through students who vouch for each other, like early Gmail, without the team approving every sign-up by hand; thank the beta testers. | Decided (Ethan, Nov 14) |
+| N36 | **Sign-in is a school email and a password, with each new account approved by hand** (replaces N33's "school SSO is the only sign-in"; §7.5 and §8.4 still describe SSO). Create account takes a school address at an open campus; the auth hook refuses any other. The sign-up posts to the team Discord, and a team member approves or rejects it in the SQL editor (`private.approve_signup` / `reject_signup`). Until then the app shows "We're checking your account" and every write RPC answers `pending_approval`. No confirmation or reset emails (no custom SMTP). The SSO code and the hook's SSO branch stay, unused, in case Tec IT approves the Entra app. `docs/API.md` (Sign-in) has the contract. *Nov 14 (N37): from 1.0 this wait is the waitlist, and a member's invite code (3 each) skips approval.* | Getting the Entra app approved by Tec IT will take too long, and we don't expect it to happen. | Decided (Ethan, Nov 11) |
 | N34 | **0.5 submits Thu Nov 12**, moved from Mon Nov 9 by the program manager. Status then: the backend merged on Nov 9 (PR #12), prod was set up on Nov 10 (B12), and B7 is in review (PR #13). If the must-haves aren't on prod by Thu Nov 12, N20's slip rule still applies: submit the day they are, with Mon Nov 16 (with 0.6) as the hard backstop. The last resubmit that can be live for Demo Day #2 is Fri Nov 13. Chat messaging (B20 + E26) moves to 0.6. | Program schedule change; the original weekend plan also needed ~28 h of backend work in three days (K1). | Program manager (Nov 10) |
 | N35 | **Prod's Azure tenant stays `organizations`, not locked to Tec** (replaces "lock to the tenant" in §8.4 and §8.10). Instead, the auth hook checks that an Azure sign-up came from the campus's own tenant, `universities.tenant_id` (B22). B22 must be live before real students can sign in on prod. It's a server change, so it doesn't wait for an app release. | `organizations` admits any work or school tenant, and that tenant's admin can give a user any email address, including an unverified `@tec.mx` one. A tenant lock would fix that but tie the project to one campus, against N32. A per-campus tenant check fixes it either way. | ⚑ Emilio (B22) |
 | N20 | **0.5 still submits Mon Nov 9.** Nothing backend is in the repo yet, so all remaining 0.5 work moves into Fri–Sun Nov 6–8: contract freeze Fri noon, backend core Sat, go/no-go #2 Sun noon, RC + Beta App Review Sun evening (§4.1). If sign-in, join or delete account isn't live on prod by Sun noon, 0.5 submits the day they are, with Mon Nov 16 as the hard backstop. | Team plan (Nov 5): review waits are long, so submit as early as possible. A mock build can't pass review (2.1). | ⚑ Ricardo, Emilio (weekend hours) |
@@ -200,6 +202,7 @@ N1 builds at each demo day, 0.5 before Demo Day #3, 1.0 after it, launch Dec 16 
 - "A spot opened" push to people who saved a game (pairs with auto-repost).
 - Group chat messaging, if it missed 0.5 (B20, E26, Appendix A).
 - Full accessibility pass; metrics view; fixes from 0.5 feedback.
+- **Guest browse (R7-15):** map and game details without names; an account for join, save, host and Who's going.
 
 ### After the program (§13)
 Chat push and retention, profile photos, calendar sync, name-visibility setting, dark mode, links that open a specific game, organizer approval, recurring games, non-sport activities, new campuses, own domain/email.
@@ -485,7 +488,8 @@ Cards 16–20 pt radius with hairline border; pill buttons ~50 pt; boxed fields 
 ```
 Launch → version check → session?
 ├─ None → Welcome (§7.5)
-│    └─ Get started → Create account / I already have an account
+│    ├─ Get started → Create account / I already have an account
+│    └─ Browse as a guest → guest Map (no Me / host until an account)
 ├─ Suspended → "Your account is suspended" + support email
 └─ Signed in → Map
      ├─ Search · Saved → Event detail
@@ -540,8 +544,8 @@ Frames: `https://www.figma.com/design/5eKA3f0I90VVABrAuNMFD2/masuno-figma?node-i
 
 *Campus names below come from `university_lookup`: "Tec" at launch. If the list can't load or more than one campus is open, the copy says "campus" and "school account" instead (N32). Sign-in is a school email and a password, approved by hand (N36). School SSO (`FindSchoolStep`, Azure web sheet) is kept in the code but unused, as in `docs/API.md`.*
 
-1. **Welcome** — masUNO / "We're looking for you." **Get started** opens "Quick check before you join": **Create account** or **I already have an account**. Footer: Privacy & Terms. Sign-in still gates the app (R7-15).
-2. **Create account** — school email + password (at least 8 characters). The hook refuses a non-school or closed-campus address ("masUNO is just for Tec students right now." / "masUNO isn't open at your school yet."). The sign-up posts to the team Discord; until someone runs `private.approve_signup`, the app shows **We're checking your account**. **Check again** / coming back to the app; **Sign out** returns to Welcome.
+1. **Welcome** — masUNO / "We're looking for you." **Get started** opens "Quick check before you join": **Create account** or **I already have an account**. **Browse as a guest** opens the map without signing in (R7-15). Footer: Privacy & Terms. Guest campuses come from `university_lookup` with `signup_enabled` (never the hidden demo campus, C12). One open campus (Tec at launch) opens the map with no picker; several open a **Which campus?** step first. The guest map can be empty when that campus has no matching open games; Demo's auto-refreshed games are only for allowlisted review/QA accounts, not guests. The guest Me button asks for an account; when more than one campus is open it also offers **Browse another campus**.
+2. **Create account** — school email + password (at least 8 characters). The hook refuses a non-school or closed-campus address ("masUNO is just for Tec students right now." / "masUNO isn't open at your school yet."). The sign-up posts to the team Discord; until someone runs `private.approve_signup`, the app shows **We're checking your account**. **Check again** / coming back to the app; **Sign out** returns to Welcome. *1.0 (N37):* that wait is the **waitlist**, with your place in line; an invite code from a member, typed here or on the waitlist, skips it. Members have 3 codes each, and a TestFlight build gives a beta tester badge.
 3. **You're in** — after approval, once, when `my_profile` has no row yet. Then **Make it yours:** first name, last name, class year, at least one sport; preview "Emilio G. · Class of 2029". Then **Community guidelines** (**I agree**, required) → map.
 4. **(1.0) Notification primer** — after your first join or hosted game (C11), not during first-run onboarding.
 
@@ -553,12 +557,12 @@ The location primer is a card on the **first map open** (C11), not a Welcome ste
 
 #### 7.6.1 Map (E4, E9)
 - Default view: your location if you're within ~15 km of your campus; otherwise your campus's center (from `my_profile`; Tec ≈ 25.6514, −100.2895, and the demo campus for review accounts). The "Turn on location" banner shows when location is denied (N31). The campus fallback is required: App Review is not in Monterrey. Recenter button sits right above the avatar. *(DEBUG builds can pin "you" at Tec with `-mockLocation YES`.)*
-- Shows games that aren't cancelled, ended or full, start within 7 days, and whose host isn't blocked either way.
+- Shows games that aren't cancelled, ended or full, start within 7 days, and whose host isn't blocked either way. Guests use `guest_games` for that campus: same filters, no names.
 - Pins: sport-colored teardrop with emoji; "Soon" if starting within 60 min (1.0 adds "Now"). Overlapping pins open a group sheet.
-- Popup: a map callout above the selected pin that grows out of it, moves with the map and closes when the pin scrolls off screen. Sport line, title, room left, time, place; **Details** + **Count me in** / **View game** / **Edit game**. Once you're going and not the host, **Leave** replaces Details.
-- Bookmark button next to search opens **Saved** (N15).
-- Search (title, sport, place, host first name) and sport filter. Standard Apple map style.
-- Signed-in map listens on `campus:<id>:games` (`docs/API.md`, Game changes). A saved or spot-alert game that was full and now has room shows "A spot just opened in …".
+- Popup: a map callout above the selected pin that grows out of it, moves with the map and closes when the pin scrolls off screen. Sport line, title, room left, time, place; **Details** + **Count me in** / **View game** / **Edit game**. Once you're going and not the host, **Leave** replaces Details. Guests see a sport-only host line, no bookmark, no names.
+- Bookmark button next to search opens **Saved** (N15). Guests have no bookmark.
+- Search (title, sport, place; host first name when signed in) and sport filter. Standard Apple map style.
+- Signed-in map listens on `campus:<id>:games` (`docs/API.md`, Game changes). A saved or spot-alert game that was full and now has room shows "A spot just opened in …". Guests do not listen; they re-read on foreground. Empty guest map copy: "No games nearby yet".
 
 #### 7.6.2 Game form (E7)
 - Sport, Game name (1–40), Date (today to +6 days), Start time, Duration (30 min–3 h), Location (→ picker; required, no default: "Pick where the game is."), Meet-up spot (optional, ≤ 80), Players (2–22; editing can't go below the number going), Notes (optional, ≤ 280).
@@ -583,6 +587,7 @@ The location primer is a card on the **first map open** (C11), not a Welcome ste
 - Invite a friend: share sheet with "Join me for After-work hoops — Today · 7:35 PM at … N spots left on masUNO:" + the App Store link (no deep link to the game until after the program).
 - Menu: going → Leave game, Report game; not going → Report game; hosting → Cancel game.
 - **Count me in** from the map opens the game with the arrive animation. Join shows "You're in" immediately and rolls back if the server says the game filled: "Someone just took the last spot." If someone you blocked is going: "Someone you blocked is going."
+- Guests: no names, notes or meet-up. Who's going, join, bookmark, report and host ask for an account.
 
 #### 7.6.5 Me (E12, E21)
 Card: initials, your full name, "Class of 2029 · Tec de Monterrey", "Verified student" badge (if O4 confirms staff don't share the student domain; otherwise "Tec verified"), interests. Going and Hosting lists with **Group chat** (**· N new** once E26 ships); Past (last 14 days, collapsed) under Going; **Edit profile & interests** (first/last name ≤ 30, class year, ≥ 1 sport; preview "Emilio G. · Class of 2029"). Empty states "No games yet. Find one on the map." / "Host a game in under a minute."
@@ -708,7 +713,7 @@ Defaults below apply unless signed off otherwise (§12, R7-4…R7-10, R7-15). Ar
 | R7-8 | Mic glyph in the search bar | No voice search (D1 removed it) | **No mic glyph.** |
 | R7-9 | `DESIGN.md`: Spanish is the primary market | "English first, strings externalized"; Spanish in 1.0 | **No change:** the app follows the phone's language from 1.0; development language stays English. |
 | R7-10 | Nunito everywhere | SF Pro in 0.5 | **SF Pro Rounded** in the app (`DESIGN.md` allows it; no bundled font); Nunito in Figma and on the website. |
-| R7-15 | Sign in to join opens over a game with **Not now**, so people browse signed out and sign in when they join | "Sign-in gates the app" (§1); signed-out game reads aren't in `docs/API.md` or B3 | **0.5 keeps the gate:** the sheet follows the Location primer with no game behind it. Browse-first is a separate 1.0 decision, because it needs a contract and RLS change. |
+| R7-15 | Sign in to join opens over a game with **Not now**, so people browse signed out and sign in when they join | "Sign-in gates the app" (§1); signed-out game reads aren't in `docs/API.md` or B3 | **0.5 keeps the gate:** the sheet follows the Location primer with no game behind it. **1.0 (decided by Ethan, Nov 13):** guests browse the map and game details without names; joining, saving, hosting and Who's going need an account. Reads go through `guest_games` (`docs/API.md`, Guests). Guests use listed open campuses only (Demo is not choosable); a single open campus skips the picker. |
 | — | Find your school lists Illinois Tech and UIC | Tec-only launch (N32) | **Concept only.** The list comes from `university_lookup`, so it shows Tec alone at launch. |
 | — | "Your spot is held while you sign in." and campus locations under school names | No hold in `join_game`; no column for a campus location | **Ethan removes both from the frames.** |
 | — | Placeholder content: San Francisco map and addresses, "[Padel venue near Tec]", a warm map overlay | Monterrey launch; standard Apple map style (§7.6.1) | Use Monterrey venues in frames, decks and screenshots; standard map style in the app. |
@@ -878,8 +883,8 @@ With one campus open, onboarding names it. With several, it says "school account
 
 | Layer | What | Owner |
 | --- | --- | --- |
-| Database | Last-spot race (two sessions), `going_count` never above players, RLS visible/invisible, blocks both ways, bans, posting window, text filter, auth hook (each provider, other domains, password sign-up refused) | Emilio |
-| Data layer | `GameStore` join/leave + rollback, error mapping, `AuthService` states, callback errors | Ethan (0.5) |
+| Database | Last-spot race (two sessions), `going_count` never above players, RLS visible/invisible, blocks both ways, bans, posting window, text filter, auth hook (each provider, other domains, password sign-up refused), `guest_games` pgTAP | Emilio |
+| Data layer | `GameStore` join/leave + rollback, error mapping, `AuthService` states, callback errors, guest load | Ethan (0.5) |
 | Sign-in spike | One real Tec account on a physical iPhone, end to end (B21) | Emilio, Ethan |
 | Screens | Form validation, event-state logic, one UI smoke test | Ethan |
 | Design QA | 0.x builds vs the green frames and §7; 1.0 vs §7.7 frames; screenshots in UI PRs | Arianna |
@@ -1001,7 +1006,9 @@ Alert in team chat → on-call person (Ricardo or Arianna) checks the report in 
 | R7-14 | K19 — what happens if only allowlisted accounts can sign in at the Sun Nov 8 go/no-go | ⚑ Ricardo signs off; Ethan agrees (Nov 6). Still submit Mon Nov 9, with manual release, so the review slot isn't lost; release and open the external beta only once a real Tec account signs in on prod. Otherwise N20's slip rule applies |
 | R7-16 | N35 — prod's Azure tenant stays `organizations`; the hook checks each campus's `tenant_id` (B22) | Decided (Ethan, Nov 10); ⚑ Emilio builds B22 |
 | R7-17 | N34 — 0.5 submits Thu Nov 12; 0.6 stays Mon Nov 16 | Program manager (Nov 10) |
-| R7-15 | Browse before sign-in (§7.7.6) | 0.5 keeps the gate (Ethan, Nov 6). ⚑ Team decides for 1.0 by Wed Nov 11 (D12); default is to keep the gate |
+| R7-15 | Browse before sign-in (§7.7.6) | 0.5 keeps the gate (Ethan, Nov 6). 1.0: guests browse the map and game details without names; joining, saving, hosting and Who's going need an account; reads go through `guest_games`. Guests use listed open campuses only (Demo is not choosable); a single open campus skips the picker. Decided (Ethan, Nov 13) |
+| R7-18 | N37 — invite-only with a waitlist: a sign-up without a code waits for approval (N36), a member's code (3 each, single use) lets the account in with no approval; plus a permanent beta tester badge for members who open a TestFlight build | Decided (Ethan, Nov 14) |
+| R7-19 | N38 — one waitlist: website and app share Supabase's queue, the Sheet mirrors it both ways (push on change, hourly heal), a school email keeps its place across both, non-school emails stay Sheet-only launch news | Decided (Ethan, 2026-11-14) |
 
 ### Rev. 6 (Nov 3)
 

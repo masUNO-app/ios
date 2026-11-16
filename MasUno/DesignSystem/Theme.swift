@@ -30,7 +30,7 @@ enum Theme {
     /// The signed-in person, everywhere. Kept out of the other people's palette.
     static let you = Color(.you)
     /// Opaque row separators and the day pill.
-    static let separator = Color(.separator)
+    static let separator = Color(.rowSeparator)
 
     // Derived from the tokens above.
 

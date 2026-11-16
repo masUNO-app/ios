@@ -46,6 +46,13 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
     private var passwords: [String: String] = [:]
     /// Signed up and nobody has run `approveSignUp()` yet.
     private var isAwaitingApproval = false
+    /// The signed-in student's codes (`my_invites`). A waiting account redeems from the same list.
+    private(set) var invites: [Invite]
+    /// When each wrong code was typed, for the 5-an-hour limit on `redeem_invite`.
+    private var wrongInviteTries: [Date] = []
+    /// `waitlist_position()` while waiting.
+    var waitlistPlace = 3
+
     private var bookmarked: Set<UUID> = []
     private var spotAlerts: Set<UUID> = []
     private var mutedChats: Set<UUID> = []
@@ -68,6 +75,7 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         })
         self.people = world.people
         self.messages = world.messages
+        self.invites = world.invites
         self.state = state ?? .signedIn(userID: world.me.id)
         self.profile = state == nil ? world.me : nil
     }
@@ -179,6 +187,31 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         if state == .pendingApproval, !isAwaitingApproval { state = .needsProfile }
     }
 
+    /// Like `redeem_invite`: the limit comes first, so the sixth try in an hour waits even with a good
+    /// code. The waiting account and the inviter share this mock, so there's no own-code check.
+    func redeemInvite(_ code: String) async throws {
+        try await begin()
+        if case .signedOut = state { throw DomainError.notAuthenticated }
+        guard state == .pendingApproval, isAwaitingApproval else { return }
+        let hourAgo = now.addingTimeInterval(-3600)
+        guard wrongInviteTries.filter({ $0 > hourAgo }).count < 5 else { throw DomainError.rateLimited }
+        let typed = Invite.normalized(code)
+        guard let index = invites.firstIndex(where: { $0.code == typed && !$0.isUsed }) else {
+            wrongInviteTries.append(now)
+            throw DomainError.invalidInvite
+        }
+        invites[index].redeemedAt = now
+        wrongInviteTries = []
+        isAwaitingApproval = false
+        state = .needsProfile
+    }
+
+    func waitlistPosition() async throws -> Int? {
+        try await begin()
+        if case .signedOut = state { throw DomainError.notAuthenticated }
+        return state == .pendingApproval && isAwaitingApproval ? waitlistPlace : nil
+    }
+
     func signIn(email: String, password: String) async throws {
         try await begin()
         if let saved = passwords[email.lowercased()], saved == password {
@@ -238,10 +271,18 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
 
     func fetchMapGames() async throws -> [Game] {
         try await begin()
-        return visibleGames
-            .filter { !$0.isCancelled && !$0.hasEnded(now: now) && !$0.isFull }
-            .filter { $0.startsAt.timeIntervalSince(now) < GameDraft.postingWindow }
-            .sorted { ($0.repostedAt ?? $0.createdAt) > ($1.repostedAt ?? $1.createdAt) }
+        return onTheMap(visibleGames)
+    }
+
+    /// Like `guest_games`: the map for someone with no blocks, stripped of names, notes and the
+    /// meet-up spot. A read, so it works signed out. The mock has one campus, so any open campus in
+    /// `universities` gets its games; a closed one, an unlisted one or the demo campus gets none.
+    func fetchGuestGames(campus: UUID) async throws -> [Game] {
+        try await begin()
+        guard campus != MockFixtures.demoCampus.id,
+              universities.contains(where: { $0.id == campus && $0.signupEnabled })
+        else { return [] }
+        return onTheMap(games).map(Self.asGuest)
     }
 
     func fetchMyGames() async throws -> [Game] {
@@ -498,6 +539,20 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         return updated
     }
 
+    /// Codes belong to members, so there are none until the profile is saved.
+    func fetchInvites() async throws -> [Invite] {
+        try await beginWrite()
+        return profile == nil ? [] : invites
+    }
+
+    func markBetaTester() async throws -> Profile {
+        try await beginWrite()
+        guard var updated = profile else { throw DomainError.notAuthenticated }
+        updated.isBetaTester = true
+        profile = updated
+        return updated
+    }
+
     // MARK: SafetyRepository
 
     func report(_ target: ReportTarget, reason: ReportReason, note: String?) async throws {
@@ -654,6 +709,32 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         return game
     }
 
+    /// The map's rules: not cancelled, ended or full, starting within 7 days, newest bump first.
+    /// - Parameter candidates: The games this reader may see.
+    /// - Returns: The ones that belong on the map, in map order.
+    private func onTheMap(_ candidates: [Game]) -> [Game] {
+        candidates
+            .filter { !$0.isCancelled && !$0.hasEnded(now: now) && !$0.isFull }
+            .filter { $0.startsAt.timeIntervalSince(now) < GameDraft.postingWindow }
+            .sorted { ($0.repostedAt ?? $0.createdAt) > ($1.repostedAt ?? $1.createdAt) }
+    }
+
+    /// What a `guest_games` row carries: nothing that names anyone or depends on who's asking.
+    /// - Parameter game: The game as the mock stores it.
+    /// - Returns: The same game with the host hidden and the per-viewer fields cleared.
+    private static func asGuest(_ game: Game) -> Game {
+        var game = game
+        game.host = .hidden
+        game.notes = nil
+        game.meetPoint = nil
+        game.materialChangeAt = nil
+        game.autoRepost = false
+        game.myRole = nil
+        game.myJoinedAt = nil
+        game.hasBlockedAttendee = false
+        return game
+    }
+
     /// `game_cards.has_blocked_attendee` is computed per reader.
     private func decorated(_ game: Game) -> Game {
         var game = game
@@ -713,7 +794,7 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         return Profile(
             id: me.id, firstName: first, lastName: last, gradYear: input.gradYear,
             university: profile?.university ?? signInCampus, interests: input.interests,
-            chatRulesAcceptedAt: profile?.chatRulesAcceptedAt
+            chatRulesAcceptedAt: profile?.chatRulesAcceptedAt, isBetaTester: profile?.isBetaTester ?? false
         )
     }
 

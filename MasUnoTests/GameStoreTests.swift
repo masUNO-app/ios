@@ -299,6 +299,125 @@ struct GameStoreTests {
     }
 }
 
+/// Browsing signed out (R7-15): the map without names, and nothing an account does.
+@MainActor
+struct GuestStoreTests {
+    let backend = MockBackend(state: .signedOut(expired: false))
+    let store: GameStore
+
+    init() {
+        store = GameStore(
+            games: backend, profiles: backend, safety: backend, chat: backend, catalog: backend,
+            defaults: UserDefaults(suiteName: "GuestStoreTests.\(UUID().uuidString)")!
+        )
+    }
+
+    @Test func guestMapHasGamesWithoutNames() async {
+        await store.loadGuest(campus: MockFixtures.tec)
+        #expect(store.isGuest)
+        #expect(store.campus == MockFixtures.tec)
+        #expect(store.mapState == .loaded)
+        let map = store.mapGames()
+        #expect(map.contains { $0.id == MockFixtures.GameID.open })
+        #expect(map.allSatisfy { $0.host.isHidden && $0.notes == nil && $0.meetPoint == nil && $0.myRole == nil })
+        #expect(store.profile == nil)
+        #expect(backend.gameChangeListenerCount == 0)
+    }
+
+    @Test func guestActionsChangeNothingAndAreNotSessionProblems() async throws {
+        var reported = false
+        store.onSessionProblem = { reported = true }
+        await store.loadGuest(campus: MockFixtures.tec)
+        let id = MockFixtures.GameID.open
+        let before = try #require(store.game(id))
+
+        await store.join(id)
+        store.toggleSaved(id)
+        store.toggleSpotAlert(id)
+        await store.setChatMuted(id, muted: true)
+        await store.refreshSaved()
+        let draft = GameDraft(
+            activity: MockFixtures.activity("padel"), title: "New game",
+            startsAt: backend.now.addingTimeInterval(7200), durationMinutes: 60, capacity: 4,
+            place: MockFixtures.Places.park
+        )
+        await #expect(throws: DomainError.notAuthenticated) { try await store.createGame(draft) }
+
+        #expect(store.game(id) == before)
+        #expect(backend.games.first { $0.id == id }?.goingCount == before.goingCount)
+        #expect(!store.isSaved(id))
+        #expect(store.notice == nil)
+        #expect(!reported)
+    }
+
+    @Test func failedGuestLoadOffersRetryThenRecovers() async {
+        backend.nextError = .offline
+        await store.loadGuest(campus: MockFixtures.tec)
+        #expect(store.mapState == .failed(.offline))
+        #expect(store.isOffline)
+        await store.refresh()
+        #expect(store.mapState == .loaded)
+        #expect(!store.isOffline)
+        #expect(!store.mapGames().isEmpty)
+    }
+
+    @Test func guestDetailOfAGameThatFilledIsMissing() async {
+        await store.loadGuest(campus: MockFixtures.tec)
+        let id = MockFixtures.GameID.open
+        backend.fillGame(id: id)
+        await store.loadGame(id)
+        #expect(store.isMissing(id))
+        #expect(store.game(id) == nil)
+    }
+
+    @Test func signingInLeavesNoNamelessGames() async throws {
+        await store.loadGuest(campus: MockFixtures.tec)
+        try await backend.signIn(email: MockFixtures.reviewEmail, password: MockFixtures.reviewPassword)
+        await store.load()
+        #expect(!store.isGuest)
+        #expect(store.profile != nil)
+        #expect(store.campus == MockFixtures.demoCampus)
+        #expect(!store.mapGames().isEmpty)
+        #expect(store.mapGames().allSatisfy { !$0.host.isHidden })
+    }
+
+    @Test func closedCampusShowsAnEmptyMap() async {
+        var closedTec = MockFixtures.tec
+        closedTec.signupEnabled = false
+        backend.universities = [closedTec]
+        await store.loadGuest(campus: closedTec)
+        #expect(store.mapState == .loaded)
+        #expect(store.mapGames().isEmpty)
+
+        await store.loadGuest(campus: MockFixtures.demoCampus)
+        #expect(store.mapGames().isEmpty)
+    }
+
+    @Test func guestCampusIsNotRememberedAndResetEndsGuestMode() async {
+        let defaults = UserDefaults(suiteName: "GuestStoreTests.\(UUID().uuidString)")!
+        let guest = GameStore(games: backend, profiles: backend, safety: backend, chat: backend, catalog: backend, defaults: defaults)
+        await guest.loadGuest(campus: MockFixtures.tec)
+        let relaunched = GameStore(games: backend, profiles: backend, safety: backend, chat: backend, catalog: backend, defaults: defaults)
+        #expect(relaunched.campus == nil)
+
+        guest.reset()
+        #expect(!guest.isGuest)
+        #expect(guest.campus == nil)
+        #expect(guest.mapGames().isEmpty)
+    }
+
+    @Test func guestGameCopyAndLineupLeavePeopleOut() async throws {
+        await store.loadGuest(campus: MockFixtures.tec)
+        let game = try #require(store.game(MockFixtures.GameID.open))
+        #expect(game.hidesPeople)
+        #expect(game.hostLine == game.activity.name)
+        let lineup = store.lineup(for: game)
+        #expect(lineup.people.isEmpty)
+        #expect(lineup.unlisted == game.goingCount)
+        #expect(lineup.open == game.spotsLeft)
+    }
+}
+
 @MainActor
 struct AutoRepostTests {
     let backend = MockBackend()
@@ -413,5 +532,73 @@ struct PopupPlacementTests {
         #expect(TokenRowLayout.capacity(width: 322, tokenWidth: 32) >= 12)
         #expect(TokenRowLayout.capacity(width: 302, tokenWidth: 32) == 11)
         #expect(TokenRowLayout.capacity(width: 20, tokenWidth: 32) == 1)
+    }
+}
+
+/// Invite codes and the beta tester badge in the store (N37).
+@MainActor
+struct InviteAndBadgeStoreTests {
+    let backend = MockBackend()
+    let store: GameStore
+
+    init() async {
+        store = GameStore(
+            games: backend, profiles: backend, safety: backend, chat: backend, catalog: backend,
+            defaults: UserDefaults(suiteName: "InviteAndBadgeStoreTests.\(UUID().uuidString)")!
+        )
+        await store.load()
+    }
+
+    @Test func loadFillsThreeCodesAndMarksTheUsedOne() {
+        #expect(store.invites.count == 3)
+        let used = store.invites.filter(\.isUsed)
+        #expect(used.map(\.code) == [MockFixtures.usedInviteCode])
+        #expect(used.first?.redeemedBy == "Priya S.")
+        #expect(store.invites.contains { $0.code == MockFixtures.inviteCode && !$0.isUsed })
+    }
+
+    @Test func aFailedInviteLoadKeepsTheLastCodesAndSignOutClearsThem() async {
+        backend.nextError = .offline
+        await store.loadInvites()
+        #expect(store.invites.count == 3)
+        #expect(store.notice == nil)
+        store.reset()
+        #expect(store.invites.isEmpty)
+    }
+
+    @Test func aTestFlightBuildFlagsTheProfile() async {
+        #expect(store.profile?.isBetaTester == false)
+        await store.markBetaTesterIfNeeded(isTestFlight: true)
+        #expect(store.profile?.isBetaTester == true)
+        #expect(backend.profile?.isBetaTester == true)
+        #expect(store.profile?.summary.isBetaTester == true)
+    }
+
+    @Test func otherBuildsNeverFlagIt() async {
+        await store.markBetaTesterIfNeeded(isTestFlight: false)
+        #expect(store.profile?.isBetaTester == false)
+        #expect(backend.profile?.isBetaTester == false)
+    }
+
+    /// One try per session: a failure isn't retried in a loop, and it stays quiet.
+    @Test func itAsksOnceEvenWhenTheServerFails() async {
+        var reported = false
+        store.onSessionProblem = { reported = true }
+        backend.nextError = .notAuthenticated
+        await store.markBetaTesterIfNeeded(isTestFlight: true)
+        await store.markBetaTesterIfNeeded(isTestFlight: true)
+        #expect(backend.profile?.isBetaTester == false)
+        #expect(store.profile?.isBetaTester == false)
+        #expect(store.notice == nil)
+        #expect(!reported)
+    }
+
+    @Test func guestsGetNoCodesAndNoBadge() async {
+        await store.loadGuest(campus: MockFixtures.tec)
+        #expect(store.invites.isEmpty)
+        await store.loadInvites()
+        await store.markBetaTesterIfNeeded(isTestFlight: true)
+        #expect(store.invites.isEmpty)
+        #expect(backend.profile?.isBetaTester == false)
     }
 }

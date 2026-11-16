@@ -84,6 +84,14 @@ struct WhoIsGoingSheet: View {
                             .tracking(0.4)
                             .foregroundStyle(Theme.accent)
                     }
+                    // Muted, so Host stays the only green tag.
+                    if person.isBetaTester {
+                        Text("Beta")
+                            .textCase(.uppercase)
+                            .font(.rounded(.caption2, .heavy))
+                            .tracking(0.4)
+                            .foregroundStyle(Theme.muted)
+                    }
                 }
                 // Class year only: interests are private (SPEC §8.8, R7-4).
                 Text("Class of \(String(person.gradYear))")
