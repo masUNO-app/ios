@@ -55,7 +55,7 @@ final class LiveGameRepository: GameRepository {
 
     func fetchBookmarkedGames() async throws -> [Game] {
         let cutoff = Date.now.addingTimeInterval(-14 * 24 * 3600)
-        try await games {
+        return try await games {
             try await client.from("game_cards").select()
                 .eq("is_bookmarked", value: true)
                 .gt("ends_at", value: ServerTime.string(from: cutoff))
