@@ -82,7 +82,7 @@ nonisolated final class NotificationService: UNNotificationServiceExtension {
         interaction.direction = .incoming
         do {
             try await interaction.donate()
-            return try await content.updating(from: intent)
+            return try content.updating(from: intent)
         } catch {
             return content
         }

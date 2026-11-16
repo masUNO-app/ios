@@ -125,7 +125,7 @@ final class LiveGameRepository: GameRepository {
     }
 
     func importBookmarks(ids: [UUID], alertIDs: [UUID]) async throws {
-        try await liveRequest {
+        _ = try await liveRequest {
             try await client.rpc(
                 "import_bookmarks", params: ImportBookmarksParams(ids: ids, alertIDs: alertIDs)
             ).execute()
