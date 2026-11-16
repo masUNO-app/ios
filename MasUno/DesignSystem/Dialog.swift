@@ -119,10 +119,19 @@ extension DialogCard where Content == EmptyView {
     }
 }
 
+/// Callable value, following SwiftUI's environment action pattern.
+struct CloseDialogAction {
+    var perform: (@escaping () -> Void) -> Void
+
+    func callAsFunction(_ action: @escaping () -> Void) {
+        perform(action)
+    }
+}
+
 extension EnvironmentValues {
     /// Fades the dialog out, then runs the action (so an action that presents something else
     /// doesn't fight the dismissal).
-    @Entry var closeDialog: (@escaping () -> Void) -> Void = { $0() }
+    @Entry var closeDialog = CloseDialogAction { $0() }
 }
 
 extension View {
@@ -177,7 +186,7 @@ private struct DialogPresenter<Item: Identifiable, Card: View>: ViewModifier {
                             .accessibilityHidden(true)
 
                         card(item)
-                            .environment(\.closeDialog) { close($0) }
+                            .environment(\.closeDialog, CloseDialogAction { close($0) })
                             .padding(.horizontal, 24)
                             .scaleEffect(isShown ? 1 : 0.92)
                             .opacity(isShown ? 1 : 0)

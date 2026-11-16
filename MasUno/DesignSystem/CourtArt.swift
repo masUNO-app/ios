@@ -8,7 +8,7 @@ struct CourtArt: View {
     var scale: CGFloat = 1
 
     /// Width of the Figma frame the paths are drawn in.
-    static let designWidth: CGFloat = 402
+    nonisolated static let designWidth: CGFloat = 402
 
     var body: some View {
         ZStack {

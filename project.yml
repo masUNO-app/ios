@@ -1,5 +1,6 @@
 name: masUNO
 options:
+  xcodeVersion: "27.2"
   bundleIdPrefix: com.masuno
   deploymentTarget:
     iOS: "26.0"
@@ -13,6 +14,11 @@ configs:
   Release: release
 settings:
   base:
+    # Match Xcode's recommended project defaults; keep them when regenerating the project.
+    CLANG_CXX_LANGUAGE_STANDARD: "gnu++20"
+    GCC_C_LANGUAGE_STANDARD: gnu17
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    LOCALIZATION_PREFERS_STRING_CATALOGS: YES
     SWIFT_VERSION: "6.0"
     SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
     SWIFT_APPROACHABLE_CONCURRENCY: YES
