@@ -22,7 +22,7 @@ struct BookmarkButton: View {
                 .foregroundStyle(isSaved ? Theme.accent : Theme.ink)
                 .contentTransition(.symbolEffect(.replace))
                 .frame(width: 36, height: 36)
-                .glassEffect(.regular.interactive(), in: .circle)
+                .appGlass(in: .circle, interactive: true)
                 .contentShape(.circle)
         }
         .buttonStyle(.plain)

@@ -412,7 +412,7 @@ struct EventMapView: View {
         }
         .padding(.horizontal, 14)
         .frame(height: 48)
-        .glassEffect(.regular.interactive(), in: .capsule)
+        .appGlass(in: .capsule, interactive: true)
         .foregroundStyle(Theme.ink)
     }
 
@@ -494,7 +494,7 @@ struct EventMapView: View {
             .foregroundStyle(Theme.muted)
             .padding(.horizontal, 12)
             .frame(height: 32)
-            .glassEffect(.regular.interactive(), in: .capsule)
+            .appGlass(in: .capsule, interactive: true)
         }
         .buttonStyle(.plain)
         .accessibilityHint("Refreshes the map")
@@ -595,7 +595,7 @@ struct EventMapView: View {
                 .foregroundStyle(Theme.ink)
                 .padding(.horizontal, 12)
                 .frame(height: 32)
-                .glassEffect(.regular.interactive(), in: .capsule)
+                .appGlass(in: .capsule, interactive: true)
         }
         .buttonStyle(.plain)
     }
@@ -617,7 +617,7 @@ struct EventMapView: View {
                     .foregroundStyle(Theme.ink)
                     .contentTransition(.symbolEffect(.replace))
                     .frame(width: Self.mapButtonSize, height: Self.mapButtonSize)
-                    .glassEffect(.regular.interactive(), in: .circle)
+                    .appGlass(in: .circle, interactive: true)
                     .contentShape(.circle)
             }
             .buttonStyle(.plain)
@@ -651,6 +651,37 @@ struct EventMapView: View {
     /// bar and nothing moves.
     @ToolbarContentBuilder
     private var mapActions: some ToolbarContent {
+        if #available(iOS 26, *) {
+            glassMapActions
+        } else {
+            classicMapActions
+        }
+    }
+
+    /// iOS 18 toolbars use ordinary spacers and draw each control's own surface.
+    @ToolbarContentBuilder
+    private var classicMapActions: some ToolbarContent {
+        if searchInNavigationBar {
+            ToolbarItem(placement: .topBarLeading) {
+                searchField.frame(width: navigationFieldWidth)
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Saved games", systemImage: "bookmark") { openSaved() }
+                    .tint(Theme.ink)
+            }
+        }
+        ToolbarItemGroup(placement: .bottomBar) {
+            filterButton.glassCircle()
+            Spacer()
+            addGameButton
+            Spacer()
+            profileButton(matchesFilter: false)
+        }
+    }
+
+    @available(iOS 26, *)
+    @ToolbarContentBuilder
+    private var glassMapActions: some ToolbarContent {
         if usesVerticalBar {
             // Without a vertical bar the navigation bar is hidden, and the field and Saved float
             // over the map instead.
@@ -727,9 +758,10 @@ struct EventMapView: View {
             .tint(Theme.ink)
     }
 
+    @ViewBuilder
     private var addGameButton: some View {
         // Explicit HStack: toolbars render `Label`s icon-only, but this needs its title.
-        Button {
+        let button = Button {
             // Guests hit the account card; `presentGameForm` also gates as a backstop.
             appViewModel.presentGameForm()
         } label: {
@@ -742,9 +774,14 @@ struct EventMapView: View {
             // screens, and beside a vertical bar.
             .frame(width: isWideLayout || usesVerticalBar ? nil : addButtonWidth)
         }
-        .buttonStyle(.glassProminent)
-        .controlSize(.large)
-        .tint(Theme.accent)
+        if #available(iOS 26, *) {
+            button
+                .buttonStyle(.glassProminent)
+                .controlSize(.large)
+                .tint(Theme.accent)
+        } else {
+            button.pill(.primary, expands: false)
+        }
     }
 
     /// The avatar opens Me. The bar draws the glass around it, as for Filter. In the bottom bar
@@ -771,9 +808,7 @@ struct EventMapView: View {
         }
         // A custom toolbar label otherwise gets a horizontal glass capsule, so the avatar
         // sits in a pill. The circle follows the token.
-        .buttonStyle(.plain)
-        .buttonBorderShape(.circle)
-        .buttonSizing(.fitted)
+        .modifier(MapProfileSizing())
         .accessibilityLabel(store.isGuest ? "Account" : "Me")
         #if DEBUG
         .contextMenu {
@@ -832,5 +867,19 @@ private extension ToolbarContent {
         #else
         self
         #endif
+    }
+}
+
+/// Only newer toolbars need to opt out of their automatic capsule sizing.
+private struct MapProfileSizing: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 26, *) {
+            content
+                .buttonStyle(.plain)
+                .buttonBorderShape(.circle)
+                .buttonSizing(.fitted)
+        } else {
+            content.glassCircle()
+        }
     }
 }

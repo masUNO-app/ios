@@ -95,7 +95,7 @@ struct GroupChatView: View {
                 .labelStyle(.iconOnly)
                 .tint(.black)
             }
-            .sharedBackgroundVisibility(.visible)
+            .appSharedBackgroundVisibility(.visible)
             ToolbarItem(placement: .topBarTrailing) {
                 Button { showsWhoIsGoing = true } label: {
                     let people = store.lineup(for: event)
@@ -107,7 +107,7 @@ struct GroupChatView: View {
                 }
                 .accessibilityLabel("Who's going")
             }
-            .sharedBackgroundVisibility(.hidden)
+            .appSharedBackgroundVisibility(.hidden)
         }
         .sheet(isPresented: $showsWhoIsGoing) { WhoIsGoingSheet(eventID: eventID) }
         .sheet(isPresented: $editsMeetUp) { WhereToMeetSheet(event: event) }
@@ -494,7 +494,7 @@ struct GroupChatView: View {
                     .foregroundStyle(Theme.ink)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
-                    .glassEffect(.regular, in: .rect(cornerRadius: 23))
+                    .appGlass(in: .rect(cornerRadius: 23))
                     .onChange(of: viewModel.draft) {
                         if viewModel.draft.count > ChatMessage.bodyLimit {
                             viewModel.draft = String(viewModel.draft.prefix(ChatMessage.bodyLimit))
@@ -505,10 +505,7 @@ struct GroupChatView: View {
                     .labelStyle(.iconOnly)
                     .fontWeight(.bold)
                     .foregroundStyle(Theme.ink)
-                    .buttonStyle(.glassProminent)
-                    .buttonBorderShape(.circle)
-                    .controlSize(.large)
-                    .tint(event.activity.color)
+                    .appProminentCircle(tint: event.activity.color)
                     // Stays in the sport's color; an empty draft just doesn't send.
                     .opacity(viewModel.canSend ? 1 : 0.75)
             }

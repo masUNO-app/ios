@@ -204,7 +204,7 @@ private struct NoticeBanner: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 20)
                 .padding(.vertical, 13)
-                .glassEffect(.regular, in: .capsule)
+                .appGlass(in: .capsule)
                 .padding(.horizontal, Theme.gutter)
                 .transition(.scale(scale: 0.9).combined(with: .opacity))
                 .onTapGesture { store.notice = nil }

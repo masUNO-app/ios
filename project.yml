@@ -3,7 +3,7 @@ options:
   xcodeVersion: "27.2"
   bundleIdPrefix: com.masuno
   deploymentTarget:
-    iOS: "26.0"
+    iOS: "18.0"
   createIntermediateGroups: true
 packages:
   Supabase:
@@ -84,7 +84,7 @@ targets:
         SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
         SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD: NO
         MARKETING_VERSION: "0.9"
-        CURRENT_PROJECT_VERSION: "2"
+        CURRENT_PROJECT_VERSION: "3"
         CODE_SIGN_STYLE: Automatic
         LOCALIZATION_PREFERS_STRING_CATALOGS: YES
         SWIFT_EMIT_LOC_STRINGS: YES
@@ -128,7 +128,7 @@ targets:
         SUPPORTED_PLATFORMS: "iphoneos iphonesimulator"
         SUPPORTS_MACCATALYST: NO
         MARKETING_VERSION: "0.9"
-        CURRENT_PROJECT_VERSION: "2"
+        CURRENT_PROJECT_VERSION: "3"
         CODE_SIGN_STYLE: Automatic
         SKIP_INSTALL: YES
   masUNOTests:

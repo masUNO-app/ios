@@ -14,35 +14,22 @@ struct LocationPickerServices {
             request.naturalLanguageQuery = query
             if let region { request.region = region }
             let search = MKLocalSearch(request: request)
-            let cancellation = PickerRequestCancellation { search.cancel() }
+            let cancellation = LocationRequestCancellation { search.cancel() }
             let response = try await withTaskCancellationHandler {
                 try await search.start()
             } onCancel: {
                 Task { @MainActor in cancellation.cancel() }
             }
+            try Task.checkCancellation()
             guard let item = response.mapItems.first else { throw LocationService.Failure.unavailable }
-            return Place(mapItem: item, location: item.location, fallbackName: query)
+            return Place(mapItem: item, fallbackName: query)
         },
         currentPlace: { try await LocationService.currentPlace() },
         reverse: { coordinate in
             let location = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
-            guard let request = MKReverseGeocodingRequest(location: location) else { throw LocationService.Failure.unavailable }
-            let cancellation = PickerRequestCancellation { request.cancel() }
-            let items = try await withTaskCancellationHandler {
-                try await request.mapItems
-            } onCancel: {
-                Task { @MainActor in cancellation.cancel() }
-            }
-            return Place(mapItem: items.first, location: location, fallbackName: String(localized: "Dropped pin"))
+            return try await LocationService.reversePlace(at: location, fallbackName: String(localized: "Dropped pin"))
         }
     )
-}
-
-@MainActor
-private final class PickerRequestCancellation {
-    private let action: () -> Void
-    init(_ action: @escaping () -> Void) { self.action = action }
-    func cancel() { action() }
 }
 
 /// "Where's the game?" (SPEC §7.6.3): search suggestions near campus or the current location,

@@ -1,7 +1,7 @@
 # masUNO (iOS)
 
 masUNO helps Tec students find a pickup game — basketball, tennis, soccer,
-volleyball or padel — on a map, host one, and fill the last open spots. SwiftUI, iOS 26+.
+volleyball or padel — on a map, host one, and fill the last open spots. SwiftUI, iOS 18.0+. Liquid Glass controls are used on iOS 26 and later; iOS 18 uses themed controls.
 Launch is 1.0 on Wed Dec 16; 0.5 and 0.6 are the earlier App Store builds (SPEC §3).
 
 Where things stand (Nov 15): the Supabase backend is live on `masuno-dev` and `masuno-prod`, the 1.0 UI
@@ -20,7 +20,7 @@ invite-only sign-up with a waitlist, and the beta tester badge. Debug builds use
 | Backend | Supabase (Postgres, RLS, RPCs, Realtime, one edge function). `masuno-dev` for Debug, `masuno-prod` for Release | `supabase/` |
 | Alerts | Report, sign-up and invite alerts post to the team Discord from the database | `supabase/README.md` |
 | Website and waitlist | `masuno-app.github.io` (Privacy & Terms, Support, the waitlist). Its Google Sheet waitlist is mirrored with Supabase's queue by an Apps Script (N38) | SPEC §8, `docs/API.md` (Website waitlist sync) |
-| CI | `ios.yml` builds and runs unit tests; `database.yml` runs the pgTAP tests; `keep-alive.yml` reads prod daily so the free project doesn't pause | `.github/workflows/` |
+| CI | `ios.yml` builds and runs unit/UI tests on iOS 18.6 and the newest simulator; `database.yml` runs the pgTAP tests; `keep-alive.yml` reads prod daily so the free project doesn't pause | `.github/workflows/` |
 | Design | Figma file and the 1.0 frames (SPEC §7.7) | Arianna |
 
 ## Setup

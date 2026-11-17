@@ -723,7 +723,7 @@ Defaults below apply unless signed off otherwise (§12, R7-4…R7-10, R7-15). Ar
 ## 8. Technical specification
 
 ### 8.1 Architecture & environments
-- **Client:** SwiftUI, `@Observable`, iOS 26 target (Liquid Glass — confirm in `project.yml`), XcodeGen, `supabase-swift` v2 behind repository protocols; mocks for previews and tests.
+- **Client:** SwiftUI, `@Observable`, iOS 18.0 minimum (Liquid Glass on iOS 26+, themed controls on iOS 18; configured in `project.yml`), XcodeGen, `supabase-swift` v2 behind repository protocols; mocks for previews and tests.
 - **Layers:** Views + view models (Ethan) → `GameStore` + `AuthService` + repositories (Ethan for 0.5, rev. 7 N21) → Supabase (Emilio). Views never import the Supabase SDK.
 - **Backend:** Supabase Postgres with RLS on every table; Auth (school SSO through the Azure provider + allowlisted review passwords); Edge Functions for `delete-account` and (1.0) `send-push`; `pg_cron` + `pg_net` for jobs.
 - **Projects:** `masuno-dev` and `masuno-prod` in Ricardo's organization, with Emilio as an Owner; both on the **free plan** (2 active projects allowed). Free projects pause after a week without activity and have no automatic backups, so a daily GitHub Action pings prod and Emilio runs `supabase db dump` weekly into private storage (it contains personal data).

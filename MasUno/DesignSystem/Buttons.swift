@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// The four Liquid Glass pills (SPEC §7.7.3). They're the native glass button styles with the
-/// theme's tints, so they get the system's shape, press and disabled states.
+/// The app's pill actions (SPEC §7.7.3), using native Liquid Glass on iOS 26+ and themed
+/// capsule buttons on iOS 18.
 enum PillStyle {
     /// Green: the one primary action on a screen.
     case primary
@@ -22,12 +22,20 @@ extension View {
     }
 
     /// Round glass button for an icon: close, bookmark, more.
+    @ViewBuilder
     func glassCircle(size: ControlSize = .large) -> some View {
-        labelStyle(.iconOnly)
-            .buttonStyle(.glass)
-            .buttonBorderShape(.circle)
-            .controlSize(size)
-            .tint(Theme.ink)
+        if #available(iOS 26, *) {
+            labelStyle(.iconOnly)
+                .buttonStyle(.glass)
+                .buttonBorderShape(.circle)
+                .controlSize(size)
+                .tint(Theme.ink)
+        } else {
+            labelStyle(.iconOnly)
+                .buttonStyle(AdaptiveCircleButtonStyle())
+                .foregroundStyle(Theme.ink)
+                .controlSize(size)
+        }
     }
 }
 
@@ -37,6 +45,18 @@ private struct PillModifier: ViewModifier {
     var size: ControlSize
 
     func body(content: Content) -> some View {
+        if #available(iOS 26, *) {
+            modern(content: content)
+        } else {
+            content
+                .font(.rounded(size == .large ? .headline : .subheadline, .bold))
+                .buttonStyle(CapsuleActionStyle(style: style, expands: expands, size: size))
+        }
+    }
+
+    @available(iOS 26, *)
+    @ViewBuilder
+    private func modern(content: Content) -> some View {
         let sized = content
             .controlSize(size)
             .buttonSizing(expands ? .flexible : .automatic)
@@ -53,6 +73,44 @@ private struct PillModifier: ViewModifier {
             sized.buttonStyle(.glass).tint(Theme.ink)
         case .quietDestructive:
             sized.buttonStyle(.glass).tint(Theme.destructive)
+        }
+    }
+}
+
+private struct CapsuleActionStyle: ButtonStyle {
+    var style: PillStyle
+    var expands: Bool
+    var size: ControlSize
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .padding(.horizontal, size == .large ? 20 : 14)
+            .frame(maxWidth: expands ? .infinity : nil, minHeight: size == .large ? Theme.buttonHeight : 38)
+            .foregroundStyle(foreground)
+            .background(background, in: .capsule)
+            .overlay(Capsule().strokeBorder(Theme.hairline, lineWidth: 0.5))
+            .contentShape(.capsule)
+            .opacity(isEnabled ? (configuration.isPressed ? 0.75 : 1) : 0.45)
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.98 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+
+    private var foreground: Color {
+        switch style {
+        case .primary, .destructive: Theme.onAccent
+        case .secondary, .quiet: Theme.ink
+        case .quietDestructive: Theme.destructive
+        }
+    }
+
+    private var background: Color {
+        switch style {
+        case .primary: Theme.accent
+        case .secondary: Theme.accentSoft
+        case .destructive: Theme.destructive
+        case .quiet, .quietDestructive: Theme.card
         }
     }
 }
