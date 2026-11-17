@@ -2,7 +2,7 @@
 -- A school address with a password gets in, but waits for the team's approval.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(23);
+select plan(24);
 
 create function pg_temp.act_as(p_user uuid) returns void language sql as $$
     select set_config('request.jwt.claim.sub', coalesce(p_user::text, ''), true)
@@ -21,9 +21,14 @@ select ok(public.before_user_created('{"user":{"email":"someone@gmail.com","app_
     'a password sign-up outside the campus domain is refused');
 select ok(public.before_user_created('{"user":{"email":"x@demo.masuno.invalid","app_metadata":{"provider":"email"}}}') ? 'error',
     'nobody signs up on the demo campus by domain');
+select is((select count(*) from private.signup_requests), 0::bigint, 'refused sign-ups leave no request');
+-- The allowlist is public, so a password sign-up with one of its addresses waits like any other.
+-- The team creates those accounts in the dashboard, which doesn't run this hook.
 select is(public.before_user_created('{"user":{"email":"official.masuno.app+review1@gmail.com","app_metadata":{"provider":"email"}}}'),
     '{}'::jsonb, 'an allowlisted review account signs up with a password');
-select is((select count(*) from private.signup_requests), 0::bigint, 'refused and allowlisted sign-ups leave no request');
+select is((select count(*) from private.signup_requests where email = 'official.masuno.app+review1@gmail.com' and approved_at is null),
+    1::bigint, 'and waits for approval');
+delete from private.signup_requests;
 
 -- A school address with a password: let in, and waiting for approval.
 select is(public.before_user_created('{"user":{"email":"Pending@Tec.mx","app_metadata":{"provider":"email"}}}'),

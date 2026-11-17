@@ -27,12 +27,12 @@ An RPC fails with `raise exception '<code>'`, so PostgREST returns the code as `
 | Code | `DomainError` | Meaning |
 | --- | --- | --- |
 | `not_authenticated` | `.notAuthenticated` | No valid session. Any RPC. |
-| `suspended` | `.suspended` | `banned_at` is set. Any write RPC. The app shows the suspended screen. |
+| `suspended` | `.suspended` | `banned_at` is set. Any write RPC. The app shows the suspended screen. Reads return no rows except `my_profile` and your own blocks, bookmarks and preferences. |
 | `pending_approval` | `.pendingApproval` | The account signed up with a password and the team hasn't approved it yet (N36). Any write RPC, including `complete_profile`. The app shows "We're checking your account". |
 | `full` | `.full` | No spots left. |
 | `cancelled` | `.cancelled` | The game is cancelled. |
 | `ended` | `.ended` | The game has ended. |
-| `blocked` | `.blocked` | The host or someone going is in a blocked pair with you. |
+| `blocked` | `.blocked` | Someone going is someone you blocked. Never because someone going blocked you: that would tell you where they'll be. A host in a blocked pair either way is `not_found`. |
 | `not_found` | `.notFound` | No such game, or a block hides it from you. |
 | `not_allowed` | `.notAllowed` | You aren't the host, or the host tried to leave. |
 | `limit_reached` | `.limitReached` | Already hosting 3 upcoming games. |
@@ -148,7 +148,7 @@ them and game RPCs return them. RLS hides games whose host is in a blocked pair 
 | `sort_at` | `timestamptz` | `coalesce(reposted_at, created_at)`; used for ordering |
 | `my_role` | `text?` (`host`, `player`) | `myRole` |
 | `my_joined_at` | `timestamptz?` | `myJoinedAt` |
-| `has_blocked_attendee` | `bool` | `hasBlockedAttendee` |
+| `has_blocked_attendee` | `bool` | `hasBlockedAttendee`. Only someone *you* blocked; false when someone going blocked you |
 | `my_chat_muted` | `bool` | `chatMuted` |
 | `is_bookmarked` | `bool` | `isBookmarked` |
 | `spot_alert` | `bool` | `spotAlert` |
@@ -433,7 +433,11 @@ ship off, the same way chat does.
 
 | RPC | Returns | Errors |
 | --- | --- | --- |
-| `register_device(p_token text, p_environment text, p_locale text, p_app_version text)` | `void` | `invalid_input`, `not_authenticated` |
+| `register_device(p_token text, p_environment text, p_locale text, p_app_version text, p_install_id text?)` | `void` | `invalid_input`, `not_authenticated` |
+
+`p_install_id` is a random secret the app keeps per install. A token moves to another account only when
+the install that registered it asks; otherwise the call changes nothing for that token. Builds that
+don't send it still work, and their rows get the secret on the next registration from a newer build.
 | `unregister_device(p_token text)` | `void` | `not_authenticated` |
 | `set_notification_prefs(p_interest_match bool, p_spot_open bool, p_reminders bool, p_hosting bool, p_chat bool, p_winback bool)` | `notification_prefs` | `invalid_input`, `pending_approval`, `not_authenticated` |
 | `set_winback(p_on bool)` | `notification_prefs` | `invalid_input`, `pending_approval`, `not_authenticated` |
