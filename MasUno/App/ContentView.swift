@@ -47,6 +47,8 @@ struct ContentView: View {
         // Light mode only (SPEC §7.1).
         .preferredColorScheme(.light)
         .onOpenURL { appViewModel.handle($0) }
+        .onChange(of: appViewModel.path, initial: true) { _, _ in retainNavigationGames() }
+        .onChange(of: appViewModel.sheet) { _, _ in retainNavigationGames() }
         .task { await launch() }
         // Onboarding finished. `launch()` handles an already signed-in session.
         .onChange(of: appViewModel.session) { old, new in
@@ -110,6 +112,21 @@ struct ContentView: View {
             && appViewModel.path.isEmpty && appViewModel.sheet == nil
     }
 
+    private func retainNavigationGames() {
+        var ids = Set(appViewModel.path.compactMap { route -> UUID? in
+            switch route {
+            case .game(let id), .chat(let id): return id
+            default: return nil
+            }
+        })
+        switch appViewModel.sheet {
+        case .gameForm(let id): if let id { ids.insert(id) }
+        case .playAgain(let id): ids.insert(id)
+        case nil: break
+        }
+        store.retainGames(ids)
+    }
+
     private func launch() async {
         store.onSessionProblem = { [auth = appViewModel.auth] in Task { await auth.restoreSession() } }
         appViewModel.push?.onOpen = { url in
@@ -140,8 +157,9 @@ struct ContentView: View {
     private func loadSignedIn() async {
         await store.load()
         appViewModel.push?.noteAccount(store.profile?.id)
-        await appViewModel.push?.refreshRegistration(force: true)
+        // Routing is useful immediately; device registration must not delay a tapped game.
         appViewModel.deliverPushRoute(appViewModel.push?.consumePendingRoute())
+        await appViewModel.push?.refreshRegistration(force: true)
         await store.markBetaTesterIfNeeded(isTestFlight: await BuildChannel.isTestFlight)
     }
 

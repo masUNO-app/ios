@@ -159,16 +159,19 @@ final class AppViewModel {
 
     /// Version check, then the saved session. Offline, the built-in config lets the app carry on.
     func start() async {
-        if let fetched = try? await catalog.fetchAppConfig() { config = fetched }
+        let fetchedConfig = Task { @MainActor [catalog] in try? await catalog.fetchAppConfig() }
+        let fetchedCampuses = Task { @MainActor [catalog] in try? await catalog.fetchUniversities() }
+        defer { fetchedConfig.cancel(); fetchedCampuses.cancel() }
+        if let fetched = await fetchedConfig.value { config = fetched }
         isUpdateRequired = !config.supports(version: AppConfig.currentVersion)
-        if let campuses = try? await catalog.fetchUniversities() {
+        await auth.restoreSession()
+        if let campuses = await fetchedCampuses.value {
             let open = campuses.filter(\.signupEnabled)
             openCampusCount = open.count
             if open.count == 1 { launchCampus = open[0] }
             // A returning guest's campus may have closed since; if so, they start at Welcome.
             if let browsing = guestCampus { guestCampus = open.first { $0.id == browsing.id } }
         }
-        await auth.restoreSession()
         await finishPendingSignOutIfNeeded()
         // An account always wins over a leftover guest choice.
         if case .signedIn = auth.state { guestCampus = nil }
