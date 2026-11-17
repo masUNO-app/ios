@@ -29,10 +29,12 @@ select is((select user_id from private.device_tokens where token = 'pendingtoken
     'f0000000-0000-4000-8000-00000000000f'::uuid, 'the token is theirs');
 
 set local role authenticated;
+select pg_temp.act_as('f0000000-0000-4000-8000-00000000000f');
+select public.unregister_device('pendingtokenpendingtoken');
 select pg_temp.act_as('a0000000-0000-4000-8000-00000000000a');
 select public.complete_profile('Alice', 'Zamora', 2027, array['soccer'], 'en');
 select lives_ok($$ select public.register_device('pendingtokenpendingtoken', 'production', 'en-US', '1.0') $$,
-    'signing in on the same phone moves the token');
+    'signing in after legacy sign-out registers the token for the new account');
 reset role;
 select is((select user_id from private.device_tokens where token = 'pendingtokenpendingtoken'),
     'a0000000-0000-4000-8000-00000000000a'::uuid, 'the token now belongs to Alice');

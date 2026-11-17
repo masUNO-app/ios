@@ -5,18 +5,19 @@ import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supa
 import { type ClaimedNotification } from "./payload.ts";
 import { deliverAll, type FencedNotification, type DeliveryResult } from "./delivery.ts";
 import { importApnsKey, signApnsJwt } from "./jwt.ts";
+import { bearerMatches } from "./auth.ts";
 
 const TOPIC = "com.masuno.app";
 
 Deno.serve(async (request) => {
     if (request.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
-    if (roleOf(request.headers.get("Authorization")) !== "service_role") {
-        return new Response("Unauthorized", { status: 401 });
-    }
 
     const url = Deno.env.get("SUPABASE_URL");
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     if (!url || !serviceRoleKey) return new Response("Server misconfigured", { status: 500 });
+    if (!(await bearerMatches(request.headers.get("Authorization"), serviceRoleKey))) {
+        return new Response("Unauthorized", { status: 401 });
+    }
 
     const admin = createClient(url, serviceRoleKey, {
         global: { fetch: (input, init) => fetch(input, {
@@ -65,20 +66,6 @@ Deno.serve(async (request) => {
     }
     return Response.json({ sent: results.filter((result) => result.outcome === "sent").length });
 });
-
-function roleOf(authorization: string | null): string | null {
-    const token = authorization?.replace(/^Bearer\s+/i, "") ?? "";
-    const segment = token.split(".")[1];
-    if (!segment) return null;
-    try {
-        const base64 = segment.replaceAll("-", "+").replaceAll("_", "/");
-        const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
-        const json = JSON.parse(atob(padded));
-        return typeof json.role === "string" ? json.role : null;
-    } catch {
-        return null;
-    }
-}
 
 async function providerToken(admin: SupabaseClient, pem: string, keyID: string, teamID: string): Promise<string> {
     const { data } = await admin.rpc("current_apns_jwt");

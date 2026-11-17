@@ -18,6 +18,7 @@ already applied to a shared project; add a new timestamped one. Only deploy prod
 | `20261115000000_waitlist_sync` | One waitlist with the website (N38): `signup_requests.source`, `waitlist_join` and `waitlist_export` for the website's Apps Script (anon, secret-checked), the push to the Sheet on every change, website joins in `waitlist_position()`, and the approval alert when a website email creates its account |
 
 | `20261116000000_notifications` | Push notifications: device tokens, preferences, synced bookmarks, the outbox, producers, claim and cron. Ships switched off |
+| `20261119000000_security_fixes` | Security review fixes: RSVPs, `has_blocked_attendee` and `join_game` no longer reveal a blocker's games; banned accounts read nothing; allowlisted password sign-ups wait for approval; sign-up alerts mask emails; device tokens bound to their install; signed-out callers limited to `guest_games` and the waitlist RPCs |
 
 ## Local setup
 
@@ -44,18 +45,23 @@ Migrations don't carry dashboard settings, so do these on each project (B2, B12)
    CLI v3 defaults database commands to the local stack; `--remote` explicitly selects the linked project.
    Also `supabase functions deploy send-push`. Set secrets `APNS_KEY_P8`, `APNS_KEY_ID` and `APNS_TEAM_ID`
    (never commit them). In the SQL editor:
-   `select vault.create_secret('<service-role-key>', 'service_role_key');` and
+   `select vault.create_secret('<service-role-key>', 'service_role_key');` (the legacy `service_role` JWT,
+   exactly the function's `SUPABASE_SERVICE_ROLE_KEY`: send-push compares the two and refuses anything else) and
    `select vault.create_secret('https://<ref>.supabase.co/functions/v1/send-push', 'send_push_url');`.
    Leave `push_enabled` false until a phone has registered and `docs/QA.md` §12 passes, then
    `update public.app_config set value = 'true' where key = 'push_enabled';`.
 2. **Auth → Hooks:** register `public.before_user_created` as the **Before User Created** hook.
-3. **Auth → Providers → Email:** on, with **Confirm email off** and sign-ups allowed. The app's Create account
+3. **Auth → Providers → Email:** on, with **Confirm email off** and sign-ups allowed, and **Minimum password
+   length 8** (the app checks the same; `config.toml` only sets it locally). The app's Create account
    needs a session straight back from `signUp`; approval by hand replaces the confirmation email (N36).
    Sign-up alerts go to the report alerts' webhook (step 6) unless you add a separate one:
    `select vault.create_secret('<discord-webhook-url>', 'signup_alert_webhook_url');`.
    *School SSO, unused until a school approves it:* **Auth → Providers → Azure:** client ID and secret from the Entra app; Azure Tenant URL `https://login.microsoftonline.com/organizations` until Tec's tenant is confirmed (O4), then lock it to Tec before real students sign in on prod. Never `common`.
 4. **Auth → URL Configuration:** add `masuno://auth-callback` to Redirect URLs.
 5. **Auth → Users:** create the three allowlisted password accounts with "Auto confirm" on: `official.masuno.app+review1@gmail.com`, `+review2`, `+qa1`. Passwords go in the shared password manager.
+   Accounts made here skip the sign-up hook, so they're in straight away. The addresses are public in a
+   migration, so anyone signing up with one from the app waits for approval: reject any such request you
+   didn't make.
 6. **Report alerts (Discord) — set up on masuno-dev and masuno-prod (Nov 11).** On a new project,
    create a Discord channel webhook (Channel settings → Integrations → Webhooks → New Webhook),
    then in the SQL editor run
@@ -92,7 +98,9 @@ Migrations don't carry dashboard settings, so do these on each project (B2, B12)
 ## Sign-up approvals
 
 Students sign up with their school email and a password (N36). Each new one posts "New sign-up waiting for
-approval" to the team Discord with two lines to paste into the SQL editor:
+approval" to the team Discord with a masked address (`a•••@tec.mx`) and two lines to paste into the SQL
+editor. The lines name the request by its id and look the email up there, so no address is stored in Discord.
+By email, when you have it:
 
 - Approve: `select private.approve_signup('<email>');`
 - Reject: `select private.reject_signup('<email>');` deletes the unapproved account, so the address can ask again.
@@ -127,7 +135,7 @@ stops their unused codes working.
 ## Moderation
 
 - New reports post to the team Discord (step 6 above). Act within 24 h and set `resolved_at`.
-- Ban: `update public.profiles set banned_at = now() where id = '<user id>';`. Every write RPC then fails with `suspended`.
+- Ban: `update public.profiles set banned_at = now() where id = '<user id>';`. Every write RPC then fails with `suspended`, and reads return nothing but the account's own profile, blocks, bookmarks and preferences.
 - Hide a chat message: `update private.chat_messages set deleted_at = now() where id = '<message id>';`. A message report has `message_id` and a copy of the text in `message_body`.
 - Turn chat off everywhere: `update public.app_config set value = 'false' where key = 'chat_enabled';`.
 - Add a filtered word: `insert into private.blocked_words (word) values ('<lowercase, no accents>');`.
@@ -144,7 +152,8 @@ Run the two-session last-spot, RLS/block, suspension and account-deletion checks
 publishing the updated `send-push` function: that function requires `claim_notifications_v2`
 and `complete_notifications_v2`. The migration keeps legacy wrappers so the existing sender
 continues to operate during the transition. Do not deploy the new sender ahead of the SQL.
-Keep `verify_jwt = true`; the function's role check depends on gateway signature verification.
+Keep `verify_jwt = true`; the sender also compares the bearer token directly with its configured
+service-role key.
 
 A v2 claim includes an opaque `claim_token`. Every completion/release includes that token;
 expired or duplicate workers cannot complete a newer attempt or remove its device tokens.
@@ -165,3 +174,11 @@ sender checks pass; actual phone notification delivery still needs a registered 
 Dev is intentionally not connected to the production waitlist Sheet; configuring a dev Sheet
 requires a separate Apps Script deployment.
 See [QA.md](../docs/QA.md) for the remaining physical-device and two-phone delivery checks.
+
+## Security migration rollout
+
+The security migration uses version `20261119000000` because hosted projects already record
+`20261117000000` for delivery fencing and `20261118000000` for host-roster reconciliation.
+Apply it from the combined release history, retaining those previously deployed migration files.
+A legacy device token with no install hash can be bound only by its current account; old clients
+can still refresh their own registration and must unregister before switching accounts.
