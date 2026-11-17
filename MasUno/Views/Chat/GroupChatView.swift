@@ -89,16 +89,13 @@ struct GroupChatView: View {
                 .lineLimit(1)
             }
             ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    Button(event.chatMuted ? "Unmute chat" : "Mute chat", systemImage: event.chatMuted ? "bell" : "bell.slash") {
-                        Task { await store.setChatMuted(event.id, muted: !event.chatMuted) }
-                    }
-                } label: {
-                    Image(systemName: event.chatMuted ? "bell.slash" : "bell")
+                Button(event.chatMuted ? "Unmute chat" : "Mute chat", systemImage: event.chatMuted ? "bell.slash" : "bell") {
+                    Task { await store.setChatMuted(event.id, muted: !event.chatMuted) }
                 }
-                .accessibilityLabel(event.chatMuted ? "Unmute chat" : "Mute chat")
+                .labelStyle(.iconOnly)
+                .tint(.black)
             }
-            .sharedBackgroundVisibility(.hidden)
+            .sharedBackgroundVisibility(.visible)
             ToolbarItem(placement: .topBarTrailing) {
                 Button { showsWhoIsGoing = true } label: {
                     let people = store.lineup(for: event)
