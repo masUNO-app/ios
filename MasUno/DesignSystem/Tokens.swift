@@ -103,6 +103,7 @@ struct OpenSpotToken: View {
     var isLive = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.courtDecorationRuns) private var decorationRuns
     @State private var isTurning = false
 
     var body: some View {
@@ -129,8 +130,11 @@ struct OpenSpotToken: View {
             }
             .frame(width: size, height: size)
             .accessibilityHidden(true)
-            .onAppear { isTurning = isLive && !reduceMotion }
-            .onChange(of: reduceMotion) { isTurning = isLive && !reduceMotion }
+            .onAppear { isTurning = isLive && !reduceMotion && decorationRuns }
+            .onDisappear { isTurning = false }
+            .onChange(of: reduceMotion) { isTurning = isLive && !reduceMotion && decorationRuns }
+            .onChange(of: isLive) { isTurning = isLive && !reduceMotion && decorationRuns }
+            .onChange(of: decorationRuns) { isTurning = isLive && !reduceMotion && decorationRuns }
     }
 }
 

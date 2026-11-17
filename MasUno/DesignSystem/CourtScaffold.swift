@@ -16,6 +16,7 @@ struct CourtScaffold<Sheet: View>: View {
     /// and back down. Measured here, against the same court as the one on screen.
     var onSheetUnderBar: ((Bool) -> Void)?
     var sheet: Sheet
+    @State private var courtIsVisible = true
 
     init(
         activity: Activity, lineup: Lineup, capacity: Int, holdsYou: Bool = false, showsOpenSpots: Bool = true,
@@ -81,12 +82,18 @@ struct CourtScaffold<Sheet: View>: View {
             } action: { _, isUnder in
                 onSheetUnderBar?(isUnder)
             }
+            .onScrollGeometryChange(for: Bool.self) { geometry in
+                geometry.contentOffset.y < sheetTop
+            } action: { _, visible in
+                courtIsVisible = visible
+            }
             .background(alignment: .top) {
                 // Over the content column, not under a side bar.
                 CourtHeader(
                     activity: activity, lineup: lineup, capacity: capacity, scale: scale,
                     holdsYou: holdsYou, showsOpenSpots: showsOpenSpots, onTap: onTap ?? {}
                 )
+                .environment(\.courtDecorationVisible, courtIsVisible)
                 .allowsHitTesting(onTap != nil)
                 .accessibilityHidden(onTap == nil)
                 .frame(maxHeight: .infinity, alignment: .top)
