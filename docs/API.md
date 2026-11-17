@@ -434,7 +434,6 @@ ship off, the same way chat does.
 | RPC | Returns | Errors |
 | --- | --- | --- |
 | `register_device(p_token text, p_environment text, p_locale text, p_app_version text, p_install_id text?)` | `void` | `invalid_input`, `not_authenticated` |
-
 | `unregister_device(p_token text)` | `void` | `not_authenticated` |
 | `set_notification_prefs(p_interest_match bool, p_spot_open bool, p_reminders bool, p_hosting bool, p_chat bool, p_winback bool)` | `notification_prefs` | `invalid_input`, `pending_approval`, `not_authenticated` |
 | `set_winback(p_on bool)` | `notification_prefs` | `invalid_input`, `pending_approval`, `not_authenticated` |
