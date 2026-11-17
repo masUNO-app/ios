@@ -64,13 +64,25 @@ enum LocationService {
         if #available(iOS 26.0, *) {
             guard let request = MKReverseGeocodingRequest(location: location) else { throw Failure.unavailable }
             let cancellation = LocationRequestCancellation { request.cancel() }
-            let items = try await withTaskCancellationHandler {
-                try await request.mapItems
+            let place: Place = try await withTaskCancellationHandler {
+                // Older SDKs import the async mapItems property as nonisolated. Convert
+                // the callback's MapKit objects before resuming with our Sendable value.
+                try await withCheckedThrowingContinuation { continuation in
+                    request.getMapItems { items, error in
+                        if let error {
+                            continuation.resume(throwing: error)
+                        } else {
+                            continuation.resume(returning: Place(
+                                mapItem: items?.first, location: location, fallbackName: fallbackName
+                            ))
+                        }
+                    }
+                }
             } onCancel: {
                 Task { @MainActor in cancellation.cancel() }
             }
             try Task.checkCancellation()
-            return Place(mapItem: items.first, location: location, fallbackName: fallbackName)
+            return place
         } else {
             let geocoder = CLGeocoder()
             let cancellation = LocationRequestCancellation { geocoder.cancelGeocode() }
