@@ -109,7 +109,10 @@ With `chat_enabled` on (0.6, E26). Phone A hosts, Phone B joined:
 - [ ] Report a person and a game. "Thanks — we'll review this within 24 hours." The team-chat alert arrives within a minute.
 - [ ] Phone B blocks Phone A: A's games and name disappear **without refreshing**.
 - [ ] Phone A can no longer see B's games or name after a refresh, and neither can join the other's game.
-- [ ] Settings › Blocked people lists the name. Unblock brings the games back.
+- [ ] In a third person’s game, neither side can see the other in Who’s going, chat messages or system rows, including previously loaded/older chat pages. Counts still include hidden peers.
+- [ ] A host blocks a joined player: their active RSVP disappears, the spot opens, and the player loses the game/chat on their phone. Repeat with the player blocking the host. Counts stay correct after repeated blocks.
+- [ ] Queue a chat burst before a block, including two different senders. After blocking, notifications contain only visible names and message bodies. Leaving closes queued member-only delivery too.
+- [ ] Settings › Blocked people lists the name. Unblock brings the games back without restoring a removed RSVP.
 - [ ] A moderator bans an account: its next action lands on "Your account is suspended".
 
 ## 10. Cancel and delete

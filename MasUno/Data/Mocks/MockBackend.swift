@@ -35,6 +35,8 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
     private var activity: [UUID: [GameActivityEntry]] = [:]
     private var people: [UUID: PersonSummary]
     private var blockedIDs: [UUID] = []
+    /// Incoming blocks are intentionally absent from `fetchBlockedPeople`, as on the server.
+    private var blockingMeIDs: Set<UUID> = []
     private var messages: [UUID: [ChatMessage]]
     private var lastRead: [UUID: Date] = [:]
     private var listeners: [UUID: [UUID: AsyncStream<ChatUpdate>.Continuation]] = [:]
@@ -100,6 +102,20 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         }
         games[index].goingCount -= 1
         if game.isFull, game.autoRepost, !game.isCancelled { games[index].repostedAt = now }
+    }
+
+    /// Another account blocks this viewer, without revealing that account through `my_blocks`.
+    func simulateBlock(by userID: UUID) {
+        guard userID != me.id, people[userID] != nil else { return }
+        blockingMeIDs.insert(userID)
+        removeBlockedMemberships(with: userID)
+        announcePrivacyChange()
+    }
+
+    /// Removing a block never restores a removed RSVP.
+    func simulateUnblock(by userID: UUID) {
+        blockingMeIDs.remove(userID)
+        announcePrivacyChange()
     }
 
     /// The host of a game you're in cancels it, from their own phone.
@@ -323,7 +339,7 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         try await begin()
         _ = try visibleGame(gameID)
         return (attendees[gameID] ?? [])
-            .filter { !blockedIDs.contains($0.id) }
+            .filter { !hasBlock(with: $0.id) }
             .sorted { ($0.role == .host ? 0 : 1, $0.joinedAt) < ($1.role == .host ? 0 : 1, $1.joinedAt) }
     }
 
@@ -331,7 +347,7 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         try await begin()
         _ = try visibleGame(gameID)
         return (activity[gameID] ?? []).filter { entry in
-            !(entry.actor.map { blockedIDs.contains($0.id) } ?? false)
+            !(entry.actor.map { hasBlock(with: $0.id) } ?? false)
         }
     }
 
@@ -570,11 +586,14 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         guard userID != me.id, people[userID] != nil else { throw DomainError.invalidInput }
         guard !blockedIDs.contains(userID) else { return }
         blockedIDs.insert(userID, at: 0)
+        removeBlockedMemberships(with: userID)
+        announcePrivacyChange()
     }
 
     func unblock(userID: UUID) async throws {
         try await beginWrite()
         blockedIDs.removeAll { $0 == userID }
+        announcePrivacyChange()
     }
 
     func fetchBlockedPeople() async throws -> [PersonSummary] {
@@ -707,9 +726,42 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         return email.contains("@") ? campuses.first { $0.emailDomain == domain } : nil
     }
 
-    /// What RLS lets you read: nothing hosted by someone you blocked.
+    private func hasBlock(with personID: UUID) -> Bool {
+        blockedIDs.contains(personID) || blockingMeIDs.contains(personID)
+    }
+
+    /// Host/player blocks remove the player's active RSVP in either direction. A peer block
+    /// in somebody else's game only hides identities; it must not reveal who blocked whom.
+    private func removeBlockedMemberships(with personID: UUID) {
+        for index in games.indices {
+            let game = games[index]
+            guard !game.isCancelled, !game.hasEnded(now: now) else { continue }
+            let departingID: UUID
+            if game.host.id == me.id { departingID = personID }
+            else if game.host.id == personID { departingID = me.id }
+            else { continue }
+            let removed = (attendees[game.id] ?? []).filter { $0.id == departingID && $0.role == .player }
+            guard !removed.isEmpty else { continue }
+            attendees[game.id]?.removeAll { $0.id == departingID && $0.role == .player }
+            games[index].goingCount = max(1, game.goingCount - removed.count)
+            if departingID == me.id {
+                games[index].myRole = nil
+                games[index].myJoinedAt = nil
+            }
+            if game.isFull, game.autoRepost { games[index].repostedAt = now }
+        }
+    }
+
+    /// The real campus invalidation carries no game or actor identifier, including for blocks
+    /// of peers whose membership remains in a shared game.
+    private func announcePrivacyChange() {
+        announce(.unlisted)
+        for gameID in listeners.keys { announce(.activity, in: gameID) }
+    }
+
+    /// What RLS lets you read: nothing hosted by either side of a block.
     private var visibleGames: [Game] {
-        games.filter { !blockedIDs.contains($0.host.id) }.map(decorated)
+        games.filter { !hasBlock(with: $0.host.id) }.map(decorated)
     }
 
     private func visibleGame(_ id: UUID) throws -> Game {
@@ -757,10 +809,10 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         games.contains { $0.id == gameID && $0.myRole != nil }
     }
 
-    /// What RLS lets you read: chats of games you're in, without anyone you blocked.
+    /// What RLS lets you read: chats of games you're in, hiding both directions of a block.
     private func readableMessages(_ gameID: UUID) -> [ChatMessage] {
-        guard isMember(of: gameID), !blockedIDs.contains(where: { blocked in games.contains { $0.id == gameID && $0.host.id == blocked } }) else { return [] }
-        return (messages[gameID] ?? []).filter { !blockedIDs.contains($0.sender.id) }.sorted { ($0.createdAt, $0.id.uuidString) < ($1.createdAt, $1.id.uuidString) }
+        guard isMember(of: gameID), games.contains(where: { $0.id == gameID && !hasBlock(with: $0.host.id) }) else { return [] }
+        return (messages[gameID] ?? []).filter { !hasBlock(with: $0.sender.id) }.sorted { ($0.createdAt, $0.id.uuidString) < ($1.createdAt, $1.id.uuidString) }
     }
 
     private func announce(_ update: ChatUpdate, in gameID: UUID) {
@@ -768,8 +820,7 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
     }
 
     private func writableIndex(_ id: UUID) throws -> Int {
-        guard !blockedIDs.contains(where: { blocked in games.contains { $0.id == id && $0.host.id == blocked } }),
-              let index = games.firstIndex(where: { $0.id == id })
+        guard let index = games.firstIndex(where: { $0.id == id && !hasBlock(with: $0.host.id) })
         else { throw DomainError.notFound }
         return index
     }

@@ -204,8 +204,8 @@ struct MockSafetyTests {
 
         let who = try await backend.fetchAttendees(gameID: MockFixtures.GameID.hosting)
         #expect(!who.map(\.id).contains(MockFixtures.alex.id))
-        // The count still includes them (C9).
-        #expect(try await backend.fetchGame(id: MockFixtures.GameID.hosting).goingCount == 3)
+        // A host/player block removes the player's active RSVP and frees the actual spot.
+        #expect(try await backend.fetchGame(id: MockFixtures.GameID.hosting).goingCount == 2)
     }
 
     @Test func joiningAGameWithSomeoneBlockedFails() async throws {

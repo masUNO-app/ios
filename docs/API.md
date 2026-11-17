@@ -165,7 +165,7 @@ How `GameRepository` reads it:
 ### `game_attendees` → `Attendee`
 
 `event_id`, `user_id`, `first_name`, `last_initial`, `grad_year`, `role`, `joined_at`, `is_beta_tester` (1.0;
-missing on an older server, read as `false`). Excludes anyone in a blocked pair with the reader. `going_count` still counts them.
+missing on an older server, read as `false`). Excludes anyone in a blocked pair with the reader. `going_count` still counts hidden peers in another host’s game. A host/player block removes the player from active games and frees the spot.
 `fetchAttendees` orders host first, then by `joined_at`.
 
 ### `game_activity` → `GameActivityEntry`
@@ -174,7 +174,8 @@ A view over an append-only table the RPCs write to (`private.game_activity`): `l
 `rsvps` row, and one `material_change_at` can't tell a meet-up edit from a time change. Only people in the
 game can read its rows. System rows for group chat: `id`, `event_id`, `kind`, `actor_id?`, `actor_first_name?`,
 `actor_last_initial?`, `actor_grad_year?`, `at`. Oldest first. Actor columns are null for a deleted
-account or a blocked pair. `kind` is one of `created`, `joined`, `left`, `meet_point_updated`,
+account. Rows from an actor in a blocked pair are omitted entirely, including from the underlying
+activity table, so anonymous rows cannot disclose their attendance. `kind` is one of `created`, `joined`, `left`, `meet_point_updated`,
 `time_or_place_changed`, `cancelled`.
 
 ### `my_profile` → `Profile`
@@ -220,7 +221,13 @@ Rules the signatures don't show:
 - **`cancel_game`** is a soft cancel. Calling it on a game that's already cancelled returns the row.
 - **`report`** takes exactly one of `p_user_id` and `p_game_id`. `p_reason` is one of `harassment`,
   `inappropriate`, `spam`, `unsafe`, `other`.
-- **`block`** returns `invalid_input` for yourself or an unknown user; blocking twice is a no-op.
+- **`block`** returns `invalid_input` for yourself or an unknown user. In either block direction,
+  the player is removed from upcoming/in-progress games hosted by the other person; host RSVPs
+  and historical attendance remain intact. Counts, reopened spots and auto-repost reconcile in
+  the same transaction. Existing block pairs are repaired by migration `20261121000000`.
+  Repeating the call does not decrement counts again. **`unblock`** never rejoins removed games.
+  Both operations emit a campus invalidation without actor/game IDs. Clients reload cached
+  games, attendees, activity and chat pages; in-flight responses cannot restore revoked content.
 
 ## Group chat (0.6)
 

@@ -839,7 +839,7 @@ notification_outbox (id bigserial pk, user_id uuid, kind text, event_id uuid, pa
 | `join_game(id)` | Lock row; reject cancelled/ended/host/blocked; `full` if no spots; idempotent | `full`, `cancelled`, `ended`, `blocked`, `not_found` |
 | `leave_game(id)` | Lock row; remove; decrement; if the game was full and `auto_repost`, set `reposted_at` | `not_found`, `not_allowed` (host), `ended` |
 | `report(user?, game?, reason, note?)` | Insert report → alert | `invalid_input` |
-| `block(user_id)` / `unblock(user_id)` | Own blocks | `invalid_input` |
+| `block(user_id)` / `unblock(user_id)` | Own blocks; host/player blocks remove active player RSVPs in either direction; unblock never rejoins | `invalid_input` |
 | `my_blocks()` | Names for Blocked people, which RLS otherwise hides | — |
 | *1.0:* `register_device`, `set_bookmark`, `set_notification_prefs` | | — |
 
