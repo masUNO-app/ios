@@ -238,8 +238,8 @@ Messages from a sender in a blocked pair with the reader, and messages a moderat
 
 | Method | PostgREST query |
 | --- | --- |
-| `fetchMessages(before:limit:)` | `event_id=eq.<id>&order=created_at.desc&limit=50`, plus `created_at=lte.<oldest>` for an older page |
-| `fetchMessages(since:)` | `event_id=eq.<id>&created_at=gte.<newest − 5 s>&order=created_at` |
+| `fetchMessages(before:limit:)` | `event_id=eq.<id>&order=created_at.desc,id.desc&limit=50`; older pages use strict `(created_at,id) < (oldest timestamp,oldest id)` |
+| `fetchMessages(since:)` | `event_id=eq.<id>&created_at=gte.<newest − 5 s>&order=created_at.asc,id.asc`; fetch 200-row pages using a strict composite cursor until exhausted |
 
 ### `chat_unread`
 
@@ -455,3 +455,10 @@ and keeps reports without the reporter.
 `send-push`: `POST` with the service-role key and no body. The cron job calls it. `204` when nothing
 is due, otherwise it claims a batch and delivers it to APNs. `401` for any other role. `500` when
 APNs isn't configured, and those rows are released so the attempt isn't burned.
+
+### Build 2 chat amendments
+
+`ChatMessageCursor` carries the original server timestamp text and UUID. Preserve server
+microseconds in page filters; a timestamp converted through `Date` and a millisecond formatter
+can overlap or skip rows. Equal timestamps advance using UUID order on both adapters. Realtime
+updates additionally expose connected/disconnected state; these are transport state, not messages.

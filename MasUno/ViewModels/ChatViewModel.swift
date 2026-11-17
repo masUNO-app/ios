@@ -33,6 +33,7 @@ final class ChatViewModel {
     static let pageSize = 50
     /// How often an open chat checks for new messages, in case the live channel is down.
     static let pollInterval: Duration = .seconds(15)
+    static let healthyPollInterval: Duration = .seconds(60)
     /// Messages from the same person this close together share one name line.
     private static let runGap: TimeInterval = 5 * 60
 
@@ -43,11 +44,39 @@ final class ChatViewModel {
     /// There are messages before the oldest one loaded.
     private(set) var hasOlder = false
     private(set) var isLoadingOlder = false
+    /// A refresh can fail without invalidating a successfully loaded empty conversation.
+    private(set) var refreshError: DomainError?
+    private(set) var isConnected = false
+    private(set) var hasLoaded = false
     var draft = ""
     /// Shown above the composer when the text filter refuses a draft.
     var draftError: String?
     /// "Before you chat" needs an answer.
     var asksForRules = false
+
+    @ObservationIgnored private var context: UUID?
+    @ObservationIgnored private var opening = UUID()
+    @ObservationIgnored private var latestRead: ReadFlight?
+    @ObservationIgnored private var incrementalRead: ReadFlight?
+    @ObservationIgnored private var updateRefresh: Task<Void, Never>?
+    @ObservationIgnored private var needsMessages = false
+    @ObservationIgnored private var needsActivity = false
+    @ObservationIgnored private var sendTasks: [UUID: (id: UUID, task: Task<ChatMessage, any Error>)] = [:]
+
+    /// Each waiter owns its cancellation. Only the last departing waiter cancels the shared read.
+    private final class ReadFlight {
+        let id = UUID()
+        let session: UUID
+        let task: Task<[ChatMessage], any Error>
+        let reads = SharedReadPool<Int, [ChatMessage]>(resource: "chat")
+        var waiters: Set<UUID> = []
+        var published = false
+
+        init(session: UUID, fetch: @escaping @MainActor () async throws -> [ChatMessage]) {
+            self.session = session
+            task = Task { try await fetch() }
+        }
+    }
 
     init(gameID: UUID) {
         self.gameID = gameID
@@ -62,6 +91,7 @@ final class ChatViewModel {
     /// Messages and system rows in time order with a row for each new day, then unsent messages.
     /// People you blocked are left out, including ones blocked a moment ago.
     func rows(in store: GameStore, calendar: Calendar = .current) -> [Row] {
+        guard context == nil || context == store.sessionID else { return [] }
         let visible = messages.filter { !store.isBlocked($0.sender.id) }
         var activity = store.activity(of: gameID)
         // Until the older pages are loaded, system rows from before them would bunch up at the top.
@@ -98,67 +128,248 @@ final class ChatViewModel {
 
     // MARK: Loading
 
-    /// Loads the latest page, then follows the game's channel until the screen closes.
+    /// The scene owns this task. A failed or ended subscription reconnects, with reconciliation
+    /// after each connection gap. The same activity channel also keeps the read-only hub current.
     func open(in store: GameStore) async {
-        await reload(in: store)
-        for await update in store.chat.updates(gameID: gameID) {
-            switch update {
-            case .message:
-                await fetchNew(in: store)
-            case .activity:
-                await store.loadActivity(gameID)
-                await store.loadAttendees(gameID)
-                await store.loadGame(gameID)
+        prepare(in: store)
+        let session = store.sessionID
+        let operation = UUID()
+        opening = operation
+        defer {
+            if opening == operation {
+                isConnected = false
+                updateRefresh?.cancel()
+                updateRefresh = nil
+                needsMessages = false
+                needsActivity = false
+            }
+        }
+        if store.isChatEnabled {
+            if hasLoaded { await fetchNew(in: store) } else { await reload(in: store) }
+        }
+        var failures = 0
+        while !Task.isCancelled, isCurrent(session, in: store), opening == operation {
+            isConnected = false
+            for await update in store.chat.updates(gameID: gameID) {
+                guard !Task.isCancelled, isCurrent(session, in: store), opening == operation else { return }
+                switch update {
+                case .connected:
+                    isConnected = true
+                    failures = 0
+                    if store.isChatEnabled { await fetchNew(in: store) }
+                    await store.loadActivity(gameID)
+                case .disconnected:
+                    isConnected = false
+                case .message:
+                    enqueueUpdate(activity: false, in: store, session: session, operation: operation)
+                case .activity:
+                    enqueueUpdate(activity: true, in: store, session: session, operation: operation)
+                }
+            }
+            isConnected = false
+            guard !Task.isCancelled, isCurrent(session, in: store), opening == operation else { return }
+            let delays: [Duration] = [.seconds(2), .seconds(5), .seconds(15), .seconds(30)]
+            let delay = delays[min(failures, delays.count - 1)]
+            failures += 1
+            do { try await Task.sleep(for: delay) } catch { return }
+            if store.isChatEnabled { await fetchNew(in: store) }
+            await store.loadActivity(gameID)
+        }
+    }
+
+    /// Consume a burst while its reads run, retaining a follow-up invalidation rather than
+    /// fetching once per buffered broadcast. Neither message nor activity demand can be lost.
+    private func enqueueUpdate(activity: Bool, in store: GameStore, session: UUID, operation: UUID) {
+        needsMessages = needsMessages || !activity
+        needsActivity = needsActivity || activity
+        guard updateRefresh == nil else { return }
+        updateRefresh = Task { [weak self] in
+            guard let self else { return }
+            defer { if opening == operation { updateRefresh = nil } }
+            while !Task.isCancelled, isCurrent(session, in: store), opening == operation,
+                  needsMessages || needsActivity {
+                do { try await Task.sleep(for: .milliseconds(150)) } catch { return }
+                let messages = needsMessages
+                let activity = needsActivity
+                needsMessages = false
+                needsActivity = false
+                if messages, store.isChatEnabled { await fetchNew(in: store) }
+                if activity {
+                    async let rows: Void = store.loadActivity(gameID)
+                    async let attendees: Void = store.loadAttendees(gameID)
+                    async let game: Void = store.loadGame(gameID)
+                    _ = await (rows, attendees, game)
+                }
             }
         }
     }
 
-    /// The safety net under the live channel: runs until the screen closes.
+    /// A slow healthy reconciliation, or a faster fallback when the live channel is unavailable.
+    /// Scene gating in GroupChatView cancels this while inactive.
     func poll(in store: GameStore, every interval: Duration = pollInterval) async {
-        while !Task.isCancelled {
-            try? await Task.sleep(for: interval)
-            if Task.isCancelled { return }
-            await fetchNew(in: store)
+        prepare(in: store)
+        let session = store.sessionID
+        while !Task.isCancelled, isCurrent(session, in: store) {
+            do { try await Task.sleep(for: isConnected ? max(interval, Self.healthyPollInterval) : interval) }
+            catch { return }
+            guard !Task.isCancelled, isCurrent(session, in: store) else { return }
+            if store.isChatEnabled { await fetchNew(in: store) }
             await store.loadActivity(gameID)
         }
     }
 
     func reload(in store: GameStore) async {
-        if state == .idle { state = .loading }
-        do {
-            let page = try await store.chat.fetchMessages(gameID: gameID, before: nil, limit: Self.pageSize)
+        guard !Task.isCancelled else { return }
+        prepare(in: store)
+        let session = store.sessionID
+        let flight: ReadFlight
+        if let existing = latestRead, existing.session == session {
+            flight = existing
+        } else {
+            if !hasLoaded { state = .loading }
+            refreshError = nil
+            let repository = store.chat
+            flight = ReadFlight(session: session) { [gameID] in
+                try await repository.fetchMessages(gameID: gameID, before: nil, limit: Self.pageSize)
+            }
+            latestRead = flight
+        }
+        let waiter = UUID()
+        flight.waiters.insert(waiter)
+        defer { release(waiter, from: flight) }
+        let result = await wait(for: flight, waiter: waiter)
+        guard !Task.isCancelled, isCurrent(session, in: store), latestRead?.id == flight.id, !flight.published else { return }
+        flight.published = true
+        switch result {
+        case .success(let page):
+            // Refreshing the newest page does not discard knowledge about older pages already read.
+            let hadEarlier = messages.first.map { first in page.first.map { first.createdAt < $0.createdAt } ?? false } ?? false
             merge(page)
-            hasOlder = page.count == Self.pageSize
+            if !hadEarlier { hasOlder = page.count == Self.pageSize }
+            hasLoaded = true
             state = .loaded
+            refreshError = nil
+            store.succeeded("chat:\(gameID)")
             await store.markChatRead(gameID)
-        } catch {
-            let error = store.domainError(error)
-            store.noteFailure(error)
-            state = messages.isEmpty ? .failed(error) : .loaded
+        case .failure(let error):
+            if OperationCancellation.isCancellation(error) {
+                state = hasLoaded ? .loaded : .idle
+                return
+            }
+            let domain = store.domainError(error)
+            store.noteFailure(domain, resource: "chat:\(gameID)")
+            if hasLoaded {
+                state = .loaded
+                refreshError = domain
+            } else {
+                state = .failed(domain)
+            }
         }
     }
 
-    /// Everything since the newest message we have, reaching back a little for one that was
-    /// written at the same moment but landed later.
+    /// Everything since the newest message, with overlap for delayed arrivals. Equivalent reads
+    /// share a task; the repository pages catch-up results beyond the server's response cap.
     func fetchNew(in store: GameStore) async {
-        guard state == .loaded, let newest = messages.last?.createdAt else { return await reload(in: store) }
-        guard let fresh = try? await store.chat.fetchMessages(gameID: gameID, since: newest.addingTimeInterval(-5)) else { return }
-        let known = Set(messages.map(\.id))
-        merge(fresh)
-        if fresh.contains(where: { !known.contains($0.id) }) { await store.markChatRead(gameID) }
+        guard !Task.isCancelled else { return }
+        prepare(in: store)
+        guard hasLoaded, let newest = messages.last?.createdAt else { return await reload(in: store) }
+        let session = store.sessionID
+        let flight: ReadFlight
+        if let existing = incrementalRead, existing.session == session {
+            flight = existing
+        } else {
+            let repository = store.chat
+            flight = ReadFlight(session: session) { [gameID] in
+                try await repository.fetchMessages(gameID: gameID, since: newest.addingTimeInterval(-5))
+            }
+            incrementalRead = flight
+        }
+        let waiter = UUID()
+        flight.waiters.insert(waiter)
+        defer { release(waiter, from: flight) }
+        let result = await wait(for: flight, waiter: waiter)
+        guard !Task.isCancelled, isCurrent(session, in: store), incrementalRead?.id == flight.id, !flight.published else { return }
+        flight.published = true
+        switch result {
+        case .success(let fresh):
+            let known = Set(messages.map(\.id))
+            merge(fresh)
+            store.succeeded("chat:\(gameID)")
+            if fresh.contains(where: { !known.contains($0.id) }) { await store.markChatRead(gameID) }
+        case .failure(let error):
+            if !OperationCancellation.isCancellation(error) { store.noteFailure(store.domainError(error), resource: "chat:\(gameID)") }
+        }
     }
 
     func loadOlder(in store: GameStore) async {
-        guard hasOlder, !isLoadingOlder, let oldest = messages.first?.createdAt else { return }
+        guard !Task.isCancelled else { return }
+        prepare(in: store)
+        guard hasOlder, !isLoadingOlder, let oldest = messages.first else { return }
+        let session = store.sessionID
         isLoadingOlder = true
-        defer { isLoadingOlder = false }
+        defer { if isCurrent(session, in: store) { isLoadingOlder = false } }
         do {
-            let page = try await store.chat.fetchMessages(gameID: gameID, before: oldest, limit: Self.pageSize)
+            let page = try await store.chat.fetchMessages(gameID: gameID, before: ChatMessageCursor(oldest), limit: Self.pageSize)
+            guard !Task.isCancelled, isCurrent(session, in: store) else { return }
             hasOlder = page.count == Self.pageSize
             merge(page)
         } catch {
-            store.noteFailure(store.domainError(error))
+            if isCurrent(session, in: store), !OperationCancellation.isCancellation(error) { store.noteFailure(store.domainError(error), resource: "chat:\(gameID)") }
         }
+    }
+
+    private func prepare(in store: GameStore) {
+        let session = store.sessionID
+        guard context != session else { return }
+        updateRefresh?.cancel()
+        updateRefresh = nil
+        needsMessages = false
+        needsActivity = false
+        latestRead?.reads.cancelAll()
+        incrementalRead?.reads.cancelAll()
+        latestRead?.task.cancel()
+        incrementalRead?.task.cancel()
+        latestRead = nil
+        incrementalRead = nil
+        sendTasks = [:]
+        if context != nil {
+            messages = []
+            pending = []
+            draft = ""
+            draftError = nil
+            asksForRules = false
+            state = .idle
+            hasOlder = false
+            isLoadingOlder = false
+            hasLoaded = false
+            refreshError = nil
+            isConnected = false
+        }
+        context = session
+    }
+
+    private func isCurrent(_ session: UUID, in store: GameStore) -> Bool {
+        context == session && store.sessionID == session
+    }
+
+    private func wait(for flight: ReadFlight, waiter: UUID) async -> Result<[ChatMessage], any Error> {
+        do {
+            let messages = try await flight.reads.value(for: 0) { try await flight.task.value }
+            return .success(messages)
+        } catch {
+            return .failure(error)
+        }
+    }
+
+    private func release(_ waiter: UUID, from flight: ReadFlight) {
+        flight.waiters.remove(waiter)
+        guard flight.waiters.isEmpty else { return }
+        if !flight.published { flight.task.cancel() }
+        if latestRead?.id == flight.id {
+            latestRead = nil
+            if state == .loading { state = hasLoaded ? .loaded : .idle }
+        }
+        if incrementalRead?.id == flight.id { incrementalRead = nil }
     }
 
     // MARK: Sending
@@ -166,6 +377,7 @@ final class ChatViewModel {
     /// Shows the message right away, then sends it. The same checks as the server's text filter run
     /// first, so an obvious refusal never leaves the composer.
     func send(in store: GameStore) {
+        prepare(in: store)
         let body = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !body.isEmpty else { return }
         if TextFilter.hasLink(body) {
@@ -196,21 +408,43 @@ final class ChatViewModel {
 
     /// "Before you chat": I agree. Sends anything that was waiting on it.
     func acceptRules(in store: GameStore) async {
+        prepare(in: store)
+        let session = store.sessionID
         do {
             try await store.acceptChatRules()
+            guard isCurrent(session, in: store) else { return }
             asksForRules = false
             for message in pending where message.error == .chatRulesRequired { retry(message.id, in: store) }
         } catch {
+            guard isCurrent(session, in: store), !OperationCancellation.isCancellation(error) else { return }
             store.notice = store.domainError(error).message
         }
     }
 
     func deliver(_ id: UUID, in store: GameStore) async {
+        prepare(in: store)
         guard let message = pending.first(where: { $0.id == id }) else { return }
+        let session = store.sessionID
+        let delivery: (id: UUID, task: Task<ChatMessage, any Error>)
+        if let existing = sendTasks[id] {
+            delivery = existing
+        } else {
+            let repository = store.chat
+            delivery = (UUID(), Task { [gameID] in
+                guard store.sessionID == session, !store.isGuest else { throw CancellationError() }
+                return try await repository.sendMessage(gameID: gameID, body: message.body, clientID: id)
+            })
+            sendTasks[id] = delivery
+        }
+        defer { if sendTasks[id]?.id == delivery.id { sendTasks[id] = nil } }
         do {
-            merge([try await store.chat.sendMessage(gameID: gameID, body: message.body, clientID: id)])
+            let sent = try await delivery.task.value
+            guard isCurrent(session, in: store) else { return }
+            merge([sent])
         } catch {
-            let error = store.domainError(error)
+            guard isCurrent(session, in: store) else { return }
+            // A cancelled send has an uncertain outcome. The stable client ID makes explicit retry safe.
+            let error = OperationCancellation.isCancellation(error) ? DomainError.unknown("send_outcome_unknown") : store.domainError(error)
             store.noteFailure(error)
             if error == .chatRulesRequired { asksForRules = true }
             if let index = pending.firstIndex(where: { $0.id == id }) { pending[index].error = error }

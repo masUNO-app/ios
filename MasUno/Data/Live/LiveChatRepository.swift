@@ -20,20 +20,46 @@ final class LiveChatRepository: ChatRepository {
             }
             let rows: [GameMessageRow] = try await query
                 .order("created_at", ascending: false)
+                .order("id", ascending: false)
                 .limit(limit)
                 .execute().value
             return rows.reversed().map(\.message)
         }
     }
 
-    func fetchMessages(gameID: UUID, since: Date) async throws -> [ChatMessage] {
+    func fetchMessages(gameID: UUID, before cursor: ChatMessageCursor, limit: Int) async throws -> [ChatMessage] {
         try await liveRequest {
+            let time = cursor.serverCreatedAt ?? ServerTime.string(from: cursor.createdAt)
             let rows: [GameMessageRow] = try await client.from("game_messages").select()
                 .eq("event_id", value: gameID.uuidString)
-                .gte("created_at", value: ServerTime.string(from: since))
-                .order("created_at")
-                .execute().value
-            return rows.map(\.message)
+                .or("created_at.lt.\(time),and(created_at.eq.\(time),id.lt.\(cursor.id.uuidString))")
+                .order("created_at", ascending: false).order("id", ascending: false)
+                .limit(limit).execute().value
+            return rows.reversed().map(\.message)
+        }
+    }
+
+    func fetchMessages(gameID: UUID, since: Date) async throws -> [ChatMessage] {
+        try await liveRequest {
+            let pageSize = 200
+            var all: [ChatMessage] = []
+            var cursor: ChatMessageCursor?
+            while true {
+                try Task.checkCancellation()
+                var query = client.from("game_messages").select()
+                    .eq("event_id", value: gameID.uuidString)
+                    .gte("created_at", value: ServerTime.string(from: since))
+                if let cursor {
+                    let time = cursor.serverCreatedAt ?? ServerTime.string(from: cursor.createdAt)
+                    query = query.or("created_at.gt.\(time),and(created_at.eq.\(time),id.gt.\(cursor.id.uuidString))")
+                }
+                let rows: [GameMessageRow] = try await query.order("created_at").order("id")
+                    .limit(pageSize).execute().value
+                let page = rows.map(\.message)
+                all += page
+                guard page.count == pageSize, let last = page.last else { return all }
+                cursor = ChatMessageCursor(last)
+            }
         }
     }
 
@@ -70,16 +96,34 @@ final class LiveChatRepository: ChatRepository {
     /// and the chat keeps up through its timer.
     func updates(gameID: UUID) -> AsyncStream<ChatUpdate> {
         let client = client
-        return AsyncStream { continuation in
+        return AsyncStream(bufferingPolicy: .bufferingNewest(64)) { continuation in
             let listener = Task {
                 let channel = client.channel(chatChannelName(gameID: gameID)) { $0.isPrivate = true }
                 let messages = channel.broadcastStream(event: "message")
                 let activity = channel.broadcastStream(event: "activity")
                 do {
                     try await channel.subscribeWithError()
+                    continuation.yield(.connected)
                     await withTaskGroup(of: Void.self) { group in
                         group.addTask { for await _ in messages { continuation.yield(.message) } }
                         group.addTask { for await _ in activity { continuation.yield(.activity) } }
+                        group.addTask {
+                            var connected = true
+                            for await status in channel.statusChange {
+                                switch status {
+                                case .subscribed:
+                                    if !connected { continuation.yield(.connected) }
+                                    connected = true
+                                case .subscribing:
+                                    connected = false
+                                    continuation.yield(.disconnected)
+                                case .unsubscribed, .unsubscribing:
+                                    continuation.yield(.disconnected)
+                                    continuation.finish()
+                                    return
+                                }
+                            }
+                        }
                     }
                 } catch {}
                 await client.removeChannel(channel)

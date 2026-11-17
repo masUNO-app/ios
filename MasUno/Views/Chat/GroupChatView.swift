@@ -7,6 +7,7 @@ import SwiftUI
 struct GroupChatView: View {
     @Environment(GameStore.self) private var store
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
     let eventID: UUID
 
     @State private var viewModel: ChatViewModel
@@ -17,6 +18,13 @@ struct GroupChatView: View {
     @State private var position = ScrollPosition(edge: .bottom)
     /// The first page is on screen, so from here a new row is news worth animating to.
     @State private var hasShownLatest = false
+    @State private var followsLatest = true
+
+    private struct Lifecycle: Hashable {
+        let active: Bool
+        let messaging: Bool
+        let session: UUID
+    }
     @FocusState private var composerIsFocused: Bool
 
     /// How far the sport band reaches down from the top of the screen.
@@ -54,6 +62,11 @@ struct GroupChatView: View {
         }
         .scrollPosition($position)
         .defaultScrollAnchor(.bottom)
+        .onScrollGeometryChange(for: Bool.self) { geometry in
+            geometry.visibleRect.maxY >= geometry.contentSize.height - 80
+        } action: { _, nearBottom in
+            followsLatest = nearBottom
+        }
         .scrollDismissesKeyboard(.interactively)
         .safeAreaInset(edge: .top, spacing: 0) {
             pinnedCard(event)
@@ -112,32 +125,37 @@ struct GroupChatView: View {
             }
         }
         .blockDialog($blockTarget)
-        .refreshable { await load() }
-        .task { await load() }
-        .onAppear {
-            AppGroupStore.openChatID = eventID.uuidString
-            PushNotificationService.clearDelivered(thread: "chat:\(eventID.uuidString)")
+        .refreshable { await load(includeMessages: true) }
+        .onChange(of: scenePhase, initial: true) { _, phase in
+            if phase == .active {
+                AppGroupStore.openChatID = eventID.uuidString
+                PushNotificationService.clearDelivered(thread: "chat:\(eventID.uuidString)")
+            } else if AppGroupStore.openChatID == eventID.uuidString {
+                AppGroupStore.openChatID = nil
+            }
         }
         .onDisappear {
             if AppGroupStore.openChatID == eventID.uuidString { AppGroupStore.openChatID = nil }
         }
-        .task(id: store.isChatEnabled) {
-            guard store.isChatEnabled else { return }
-            // Asked once per account, the first time you open any chat you can post in.
-            if event.isChatOpen(), let profile = store.profile, profile.chatRulesAcceptedAt == nil {
+        .task(id: Lifecycle(active: scenePhase == .active, messaging: store.isChatEnabled, session: store.sessionID)) {
+            guard scenePhase == .active else { return }
+            let session = store.sessionID
+            await load(includeMessages: false)
+            guard !Task.isCancelled, store.sessionID == session else { return }
+            if store.isChatEnabled, event.isChatOpen(), let profile = store.profile, profile.chatRulesAcceptedAt == nil {
                 viewModel.asksForRules = true
             }
-            await viewModel.open(in: store)
-        }
-        .task(id: store.isChatEnabled) {
-            guard store.isChatEnabled else { return }
-            await viewModel.poll(in: store)
+            await withTaskGroup(of: Void.self) { group in
+                group.addTask { await viewModel.open(in: store) }
+                group.addTask { await viewModel.poll(in: store) }
+            }
         }
         // Follow the conversation: a new last row scrolls into view; loading older pages doesn't.
         // While the chat is still loading, land on the newest message without a visible scroll.
         .onChange(of: rows.last?.id) {
+            let sentHere: Bool = if case .pending = rows.last { true } else { false }
             if hasShownLatest {
-                withAnimation { position.scrollTo(edge: .bottom) }
+                if followsLatest || sentHere { withAnimation { position.scrollTo(edge: .bottom) } }
             } else {
                 position.scrollTo(edge: .bottom)
             }
@@ -150,10 +168,11 @@ struct GroupChatView: View {
         #endif
     }
 
-    private func load() async {
-        await store.loadAttendees(eventID)
-        await store.loadActivity(eventID)
-        if store.isChatEnabled, viewModel.state != .idle { await viewModel.reload(in: store) }
+    private func load(includeMessages: Bool) async {
+        async let attendees: Void = store.loadAttendees(eventID)
+        async let activity: Void = store.loadActivity(eventID)
+        if includeMessages, store.isChatEnabled { await viewModel.reload(in: store) }
+        _ = await (attendees, activity)
     }
 
     // MARK: Band and pinned card
@@ -237,6 +256,8 @@ struct GroupChatView: View {
     private var olderMessages: some View {
         if case .failed = viewModel.state {
             RetryCard(message: "Couldn't load messages.") { await viewModel.reload(in: store) }
+        } else if viewModel.refreshError != nil {
+            RetryCard(message: "Couldn't refresh messages.") { await viewModel.reload(in: store) }
         } else if viewModel.hasOlder {
             Button("Earlier messages") { Task { await viewModel.loadOlder(in: store) } }
                 .pill(.quiet, expands: false, size: .small)

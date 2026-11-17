@@ -739,6 +739,7 @@ nonisolated struct GameMessageRow: Decodable, Sendable {
     let body: String
     let clientID: UUID
     let createdAt: Date
+    let createdAtText: String
 
     enum CodingKeys: String, CodingKey {
         case id, body
@@ -761,6 +762,7 @@ nonisolated struct GameMessageRow: Decodable, Sendable {
         senderGradYear = try c.decode(Int.self, forKey: .senderGradYear)
         body = try c.decode(String.self, forKey: .body)
         clientID = try c.decode(UUID.self, forKey: .clientID)
+        createdAtText = try c.decode(String.self, forKey: .createdAt)
         createdAt = try c.decodeServerTime(forKey: .createdAt)
     }
 
@@ -768,7 +770,7 @@ nonisolated struct GameMessageRow: Decodable, Sendable {
         ChatMessage(
             id: id, gameID: eventID,
             sender: PersonSummary(id: senderID, firstName: senderFirstName, lastInitial: senderLastInitial, gradYear: senderGradYear),
-            body: body, clientID: clientID, createdAt: createdAt
+            body: body, clientID: clientID, createdAt: createdAt, serverCreatedAt: createdAtText
         )
     }
 }

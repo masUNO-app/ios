@@ -126,12 +126,27 @@ protocol AppConfigRepository: AnyObject {
     func fetchUniversities() async throws -> [University]
 }
 
+/// Strict history boundary. The original server timestamp preserves PostgreSQL microsecond precision.
+nonisolated struct ChatMessageCursor: Hashable, Sendable {
+    let createdAt: Date
+    let id: UUID
+    var serverCreatedAt: String? = nil
+
+    init(_ message: ChatMessage) {
+        createdAt = message.createdAt
+        id = message.id
+        serverCreatedAt = message.serverCreatedAt
+    }
+}
+
 /// Group chat messaging (`game_messages`, `chat_unread` and the chat RPCs; SPEC Appendix A). System
 /// rows stay in `GameRepository.fetchActivity`.
 protocol ChatRepository: AnyObject {
     /// The newest `limit` messages, oldest first. Pass the oldest one you have as `before` for the
     /// page before it; that page can repeat it. Messages from people you blocked are left out.
     func fetchMessages(gameID: UUID, before: Date?, limit: Int) async throws -> [ChatMessage]
+    /// A strict `(created_at, id)` boundary, so equal-time messages cannot trap older-page loading.
+    func fetchMessages(gameID: UUID, before cursor: ChatMessageCursor, limit: Int) async throws -> [ChatMessage]
     /// Everything sent at or after `since`, oldest first.
     func fetchMessages(gameID: UUID, since: Date) async throws -> [ChatMessage]
     /// `clientID` identifies this send: sending it again returns the first message instead of
@@ -145,4 +160,13 @@ protocol ChatRepository: AnyObject {
     /// Fires when a game's chat has something new, for as long as the caller keeps listening. It
     /// ends if the connection can't be made, so callers also check on a timer.
     func updates(gameID: UUID) -> AsyncStream<ChatUpdate>
+}
+
+// Compatibility for adapters that only implement the original Date-based contract. Live and mock
+// adapters override this with a strict composite query. A short page ends history conservatively.
+extension ChatRepository {
+    func fetchMessages(gameID: UUID, before cursor: ChatMessageCursor, limit: Int) async throws -> [ChatMessage] {
+        try await fetchMessages(gameID: gameID, before: cursor.createdAt, limit: limit)
+            .filter { ($0.createdAt, $0.id.uuidString) < (cursor.createdAt, cursor.id.uuidString) }
+    }
 }

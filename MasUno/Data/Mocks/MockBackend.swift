@@ -590,6 +590,14 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         return Array(visible.suffix(limit))
     }
 
+    func fetchMessages(gameID: UUID, before cursor: ChatMessageCursor, limit: Int) async throws -> [ChatMessage] {
+        try await begin()
+        let visible = readableMessages(gameID).filter {
+            ($0.createdAt, $0.id.uuidString) < (cursor.createdAt, cursor.id.uuidString)
+        }
+        return Array(visible.suffix(limit))
+    }
+
     func fetchMessages(gameID: UUID, since: Date) async throws -> [ChatMessage] {
         try await begin()
         return readableMessages(gameID).filter { $0.createdAt >= since }
@@ -752,7 +760,7 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
     /// What RLS lets you read: chats of games you're in, without anyone you blocked.
     private func readableMessages(_ gameID: UUID) -> [ChatMessage] {
         guard isMember(of: gameID), !blockedIDs.contains(where: { blocked in games.contains { $0.id == gameID && $0.host.id == blocked } }) else { return [] }
-        return (messages[gameID] ?? []).filter { !blockedIDs.contains($0.sender.id) }.sorted { $0.createdAt < $1.createdAt }
+        return (messages[gameID] ?? []).filter { !blockedIDs.contains($0.sender.id) }.sorted { ($0.createdAt, $0.id.uuidString) < ($1.createdAt, $1.id.uuidString) }
     }
 
     private func announce(_ update: ChatUpdate, in gameID: UUID) {
