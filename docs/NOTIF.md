@@ -324,8 +324,9 @@ Triggers never fail the write. Like the Realtime pings, a failure raises a warni
 
 ### 5.4 `send-push` (Edge Function)
 
-- **Claim:** `private.claim_notifications(100)` applies §2.2 and returns the due rows that pass, each
-  with its tokens. Rows that fail get `dropped = '<reason>'`.
+- **Claim:** service-role RPC `public.claim_notifications_v2(100)` applies §2.2 and returns the due rows that pass, each
+  with its tokens and opaque `claim_token`. Completion/release must return that token; stale
+  workers cannot change a newer attempt or delete its device tokens. Rows that fail get `dropped = '<reason>'`.
 - **Text:** a TypeScript table of templates per kind and language (`en`, `es`), filled from the
   payload. Names are always "First L.".
 - **APNs:** `POST https://api.push.apple.com/3/device/<token>` (`api.sandbox.push.apple.com` for
@@ -336,6 +337,11 @@ Triggers never fail the write. Like the Realtime pings, a failure raises a warni
   So keep the JWT in a private table, and only sign a new one when the stored one is 50 minutes old.
 - **HTTP/2:** APNs only speaks HTTP/2. Deno's `fetch` negotiates it with ALPN; that's the first
   thing the 1-hour spike checks (§10, step 1). Fallback: `node:http2` in Deno.
+- **Budgets:** at most 8 actual APNs requests across all rows/devices; each request and its body
+  share a 10-second deadline. Stop starting work after a 90-second batch budget; unattempted
+  devices produce retry results. SQL claims retain the ten-minute recovery lease.
+- **Partial success:** a row is sent when at least one device accepts it, preserving the existing
+  policy. Other transient device failures are not separately retried after row success.
 - **Results:** `200` → `sent_at`. `410` or `400 BadDeviceToken` → delete the token. `429` / `5xx` →
   `attempts + 1` and `not_before = now() + 2^attempts min`, up to 3 attempts. Then `error`.
 - **Secrets** (Supabase, never in the repo): `APNS_KEY_P8`, `APNS_KEY_ID`, `APNS_TEAM_ID`. The cron

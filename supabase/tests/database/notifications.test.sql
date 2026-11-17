@@ -331,29 +331,40 @@ select ok(exists (select 1 from private.notification_outbox
       and user_id = 'b0000000-0000-4000-8000-00000000000b' and dropped is null),
     'a saved game with room nudges the person who saved it');
 
+-- Keep the fixed-time win-back scenario separate from the now()-relative games above and seed data.
+-- Otherwise those basketball games enter this window as the real date changes.
+insert into public.universities (name, short_name, email_domain, signup_enabled, center_lat, center_lng)
+values ('Winback test', 'Winback', 'winback.test.invalid', false, 25.65, -100.29);
+insert into auth.users (id, email) values
+    ('90000000-0000-4000-8000-000000000001', 'host@winback.test.invalid'),
+    ('90000000-0000-4000-8000-000000000002', 'player@winback.test.invalid');
+insert into public.profiles (id, university_id, first_name, last_name, grad_year, interests, last_seen_at)
+select u.id, campus.id, u.first_name, 'Test', 2027, array['basketball'], timestamptz '2026-11-01 00:00+00'
+from (values
+    ('90000000-0000-4000-8000-000000000001'::uuid, 'Host'),
+    ('90000000-0000-4000-8000-000000000002'::uuid, 'Player')
+) as u(id, first_name)
+cross join public.universities campus where campus.email_domain = 'winback.test.invalid';
+
 insert into public.games (
     university_id, host_id, activity_slug, title, starts_at, duration_minutes, ends_at, capacity,
     place_name, place_address, lat, lng
 )
 select university_id, id, 'basketball', 'Weekday hoops', timestamptz '2026-11-18 18:00+00', 60,
        timestamptz '2026-11-18 19:00+00', 8, 'Arena', 'Tec', 25.65, -100.29
-from public.profiles where id = 'a0000000-0000-4000-8000-00000000000a';
+from public.profiles where id = '90000000-0000-4000-8000-000000000001';
 insert into public.games (
     university_id, host_id, activity_slug, title, starts_at, duration_minutes, ends_at, capacity,
     place_name, place_address, lat, lng
 )
 select university_id, id, 'basketball', 'Second hoops', timestamptz '2026-11-19 18:00+00', 60,
        timestamptz '2026-11-19 19:00+00', 8, 'Arena', 'Tec', 25.65, -100.29
-from public.profiles where id = 'a0000000-0000-4000-8000-00000000000a';
-update public.profiles set last_seen_at = timestamptz '2026-11-01 00:00+00'
-where id = 'b0000000-0000-4000-8000-00000000000b';
-update public.notification_prefs set winback = true where user_id = 'b0000000-0000-4000-8000-00000000000b';
+from public.profiles where id = '90000000-0000-4000-8000-000000000001';
 insert into public.notification_prefs (user_id, winback)
-select 'b0000000-0000-4000-8000-00000000000b', true
-where not exists (select 1 from public.notification_prefs where user_id = 'b0000000-0000-4000-8000-00000000000b');
+values ('90000000-0000-4000-8000-000000000002', true);
 select private.enqueue_winback(timestamptz '2026-11-17 23:00+00');
 select is((select (payload->>'games')::int from private.notification_outbox
-    where user_id = 'b0000000-0000-4000-8000-00000000000b' and kind = 'winback'),
+    where user_id = '90000000-0000-4000-8000-000000000002' and kind = 'winback'),
     2, 'win-back names how many games are on that weeknight');
 
 -- Approval tells every token of that account.

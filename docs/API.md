@@ -456,9 +456,17 @@ and keeps reports without the reporter.
 is due, otherwise it claims a batch and delivers it to APNs. `401` for any other role. `500` when
 APNs isn't configured, and those rows are released so the attempt isn't burned.
 
-### Build 2 chat amendments
+### Build 2 chat and delivery amendments
 
 `ChatMessageCursor` carries the original server timestamp text and UUID. Preserve server
 microseconds in page filters; a timestamp converted through `Date` and a millisecond formatter
 can overlap or skip rows. Equal timestamps advance using UUID order on both adapters. Realtime
 updates additionally expose connected/disconnected state; these are transport state, not messages.
+
+The push sender uses service-role-only `claim_notifications_v2(p_limit integer default 100)`
+and `complete_notifications_v2(p_results jsonb)`. Claims retain the legacy snapshot fields and
+add `claim_token uuid`. Every result includes `id`, `claim_token`, `outcome` (`sent`, `retry`,
+`release`, `drop`), plus optional `error`/`drop_tokens`. Completion locks the current row and
+compares the token before changing outcome or deleting tokens. Missing/stale tokens are no-ops.
+Legacy RPCs remain during rollout. Deploy migration 17 before the v2 sender; retain gateway JWT
+verification. No new client database permission is granted.

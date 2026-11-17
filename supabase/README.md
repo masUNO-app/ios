@@ -30,7 +30,10 @@ already applied to a shared project; add a new timestamped one. Only deploy prod
 
 Migrations don't carry dashboard settings, so do these on each project (B2, B12):
 
-1. `supabase link --project-ref <ref>`, then `supabase db push` and `supabase functions deploy delete-account`.
+1. `supabase link --project-ref <ref>`, then `supabase migration list --remote` and
+   `supabase db push --remote --dry-run`. Review the pending migrations, apply them with
+   `supabase db push --remote`, then `supabase functions deploy delete-account`.
+   CLI v3 defaults database commands to the local stack; `--remote` explicitly selects the linked project.
    Also `supabase functions deploy send-push`. Set secrets `APNS_KEY_P8`, `APNS_KEY_ID` and `APNS_TEAM_ID`
    (never commit them). In the SQL editor:
    `select vault.create_secret('<service-role-key>', 'service_role_key');` and
@@ -66,6 +69,11 @@ Migrations don't carry dashboard settings, so do these on each project (B2, B12)
    `select vault.create_secret('https://script.google.com/macros/s/<deployment id>/exec', 'waitlist_sync_url');`.
    Give the same secret to whoever deploys the website's Apps Script (Script Property `WAITLIST_SYNC_SECRET`,
    with `SUPABASE_URL` and `SUPABASE_ANON_KEY`), through the password manager, never in chat or a repo.
+   Use the production project for the live website; dev needs a separate Sheet and deployment so its
+   test accounts never enter the production waitlist. In the website repo's updated `apps-script/Code.gs`,
+   run `checkSync()` to validate the properties without creating a signup, then `setupSync()` to add
+   headers, install the hourly trigger and reconcile existing rows. Approve the Google permissions.
+   Publish a new version of the existing Apps Script deployment to keep its `/exec` URL unchanged.
    Join on the website with a school email and confirm the row appears in `private.signup_requests` with
    `source = 'website'`, and that the Sheet's "App status" fills in within a minute. Without the secrets,
    `waitlist_join` and `waitlist_export` refuse every call, nothing is pushed, and Postgres logs a warning on
@@ -121,3 +129,31 @@ stops their unused codes working.
 The Edge Function needs Supabase-managed `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY`. Never put the service-role key, the Entra client secret, the webhook URL or the waitlist sync secret in the iOS app or in source control.
 
 Run the two-session last-spot, RLS/block, suspension and account-deletion checks in `docs/QA.md` before release.
+
+## Build 2 delivery protocol rollout
+
+`20261117000000_delivery_fencing_and_realtime.sql` is a forward migration. Apply it before
+publishing the updated `send-push` function: that function requires `claim_notifications_v2`
+and `complete_notifications_v2`. The migration keeps legacy wrappers so the existing sender
+continues to operate during the transition. Do not deploy the new sender ahead of the SQL.
+Keep `verify_jwt = true`; the function's role check depends on gateway signature verification.
+
+A v2 claim includes an opaque `claim_token`. Every completion/release includes that token;
+expired or duplicate workers cannot complete a newer attempt or remove its device tokens.
+Legacy-to-legacy claims retain their earlier limitations, so finish deploying the v2 sender.
+Actual APNs sends have a global cap of 8, a 10-second request/body deadline, and a 90-second
+batch budget. A row succeeds if at least one device succeeds, preserving the previous policy.
+
+The user-authorized activation on 2026-11-16 deployed this protocol to both projects, in dev →
+prod order. Forward migration `20261116000100_align_campus_realtime.sql` first repaired dev's
+recorded-migration-12 drift (old all-campus triggers/policy), then migration 17 installed fencing,
+then the matching sender was deployed. Applied migration history was not rewritten.
+
+Both projects now have chat/push enabled and active scheduled jobs. Production uses a Production
+APNs key and dev uses a separate Sandbox key for `com.masuno.app`; keys remain outside the repo
+and are installed as Edge secrets. Each dispatcher uses its own project's service-role JWT in
+Vault. Gateway JWT verification remains enabled. Public config/auth checks and authenticated
+sender checks pass; actual phone notification delivery still needs a registered device.
+Dev is intentionally not connected to the production waitlist Sheet; configuring a dev Sheet
+requires a separate Apps Script deployment.
+See [QA.md](../docs/QA.md) for the remaining physical-device and two-phone delivery checks.
