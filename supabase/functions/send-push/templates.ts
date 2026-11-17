@@ -25,6 +25,7 @@ export interface NotificationContext {
 
 export interface NotificationPayloadData {
     actor_id?: string;
+    roster_changes?: Record<string, { name: string; action: "joined" | "left" }>;
     joined?: string[];
     left?: string[];
     spots_left?: number;
@@ -102,7 +103,7 @@ function sportLabel(context: NotificationContext, payload: NotificationPayloadDa
 }
 
 function spots(context: NotificationContext, payload: NotificationPayloadData): number {
-    return payload.spots_left ?? context.spots_left ?? 0;
+    return context.spots_left ?? payload.spots_left ?? 0;
 }
 
 /**
@@ -207,25 +208,22 @@ function hostUpdate(
     room: number,
     payload: NotificationPayloadData,
 ): AlertCopy {
-    const joined = payload.joined ?? [];
-    const left = payload.left ?? [];
-    const names = joinNames(joined.length ? joined : left, language);
+    const members = payload.roster_changes ? Object.values(payload.roster_changes) : undefined;
+    // New payloads preserve identity: two distinct people may legitimately share a display name.
+    // Legacy payloads have no identity map, so at least suppress repeated identical labels.
+    const joined = members
+        ? members.filter((member) => member.action === "joined").map((member) => member.name)
+        : [...new Set(payload.joined ?? [])];
+    const left = members
+        ? members.filter((member) => member.action === "left").map((member) => member.name)
+        : [...new Set(payload.left ?? [])];
+    const parts: string[] = [];
     if (language === "es") {
-        const verb = joined.length && !left.length
-            ? "se unió"
-            : !joined.length && left.length
-            ? "se fue"
-            : "cambió";
-        const title = joined.length > 1
-            ? `${joinNames(joined, language)} se unieron`
-            : left.length > 1 && !joined.length
-            ? `${joinNames(left, language)} se fueron`
-            : `${names} ${verb}`;
-        return { title, body: `${game} · quedan ${room} lugares` };
+        if (joined.length) parts.push(`${joinNames(joined, language)} ${joined.length > 1 ? "se unieron" : "se unió"}`);
+        if (left.length) parts.push(`${joinNames(left, language)} ${left.length > 1 ? "se fueron" : "se fue"}`);
+        return { title: parts.join(", ") || "Cambió tu juego", body: `${game} · quedan ${room} lugares` };
     }
-    const verb = joined.length ? "joined" : "left";
-    const title = joined.length && left.length
-        ? `${joinNames(joined, language)} joined, ${joinNames(left, language)} left`
-        : `${names} ${verb}`;
-    return { title, body: `${game} · ${room} spots left` };
+    if (joined.length) parts.push(`${joinNames(joined, language)} joined`);
+    if (left.length) parts.push(`${joinNames(left, language)} left`);
+    return { title: parts.join(", ") || "Your game changed", body: `${game} · ${room} spots left` };
 }

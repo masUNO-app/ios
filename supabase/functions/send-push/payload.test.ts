@@ -194,3 +194,44 @@ test("an ES256 provider token verifies", async () => {
     );
     assert.equal(verified, true);
 });
+
+
+test("host summaries use each participant's latest action despite stale legacy arrays", () => {
+    const payload = {
+        joined: ["Ricardo G.", "Ari P.", "Ari P."], left: ["Ari P."], spots_left: 9,
+        roster_changes: {
+            ricardo: { name: "Ricardo G.", action: "joined" as const },
+            ari: { name: "Ari P.", action: "left" as const },
+        },
+    };
+    const alert = renderAlert("host_update", "en", { ...game, spots_left: 3 }, payload);
+    assert.equal(alert.title, "Ricardo G. joined, Ari P. left");
+    assert.equal(alert.body, "Sunday pickup soccer · 3 spots left");
+    const rejoined = { ...payload, roster_changes: { ...payload.roster_changes,
+        ari: { name: "Ari P.", action: "joined" as const },
+    } };
+    assert.equal(renderAlert("host_update", "en", game, rejoined).title, "Ricardo G. and Ari P. joined");
+});
+
+test("host summaries preserve distinct participants sharing a name", () => {
+    const payload = { roster_changes: {
+        first: { name: "Ari P.", action: "joined" as const },
+        second: { name: "Ari P.", action: "left" as const },
+    } };
+    assert.equal(renderAlert("host_update", "en", game, payload).title, "Ari P. joined, Ari P. left");
+});
+
+test("Spanish host summaries name both joins and departures", () => {
+    assert.equal(renderAlert("host_update", "es", game, {
+        roster_changes: {
+            first: { name: "Ricardo G.", action: "joined" },
+            second: { name: "Ari P.", action: "left" },
+        },
+    }).title, "Ricardo G. se unió, Ari P. se fue");
+});
+
+test("legacy host summaries deduplicate repeated labels", () => {
+    assert.equal(renderAlert("host_update", "en", game, {
+        joined: ["Ari P.", "Ari P."], left: [],
+    }).title, "Ari P. joined");
+});

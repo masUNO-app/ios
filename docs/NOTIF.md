@@ -311,7 +311,7 @@ into a pending row with the same `merge_key` (adding a name, bumping a count) or
 |---|---|---|
 | `game_activity` insert, `cancelled` | `game_cancelled` | Also drops pending rows for that game (reminder, changed, interest, spot, saved_soon) |
 | `game_activity` insert, `time_or_place_changed` / `meet_point_updated` | `game_changed` | `not_before = now() + 2 min`, merge key `changed:<game>:<user>`: several edits make one push with the final values, read at send time |
-| `game_activity` insert, `joined` / `left` | `host_update` | Merge key `host:<game>`, 5 min. If the join filled the game: `game_full` instead |
+| `game_activity` insert, `joined` / `left` | `host_update` | Merge key `host:<game>`, 5 min; one latest action per participant ID. If the join filled the game: `game_full` instead |
 | `game_activity` insert, `created` | `interest_match` | Campus members with the sport in `interests`, minus the host and blocked pairs. `not_before = now() + 3 min`, so a game cancelled or edited right away doesn't go out. The cap is checked at send time |
 | `games` update where a full game gains a free seat | `spot_open` | `bookmarks.notify` holders who aren't going, whether or not auto-repost bumps the pin. Clears their `notify` once sent: one alert per "Notify me" |
 | `chat_messages` insert | `chat_message` | Members except the sender, not muted, not blocked. Merge key `chat:<game>:<user>`, `not_before` now for the first, +2 min after that (§3.4) |
@@ -321,6 +321,17 @@ into a pending row with the same `merge_key` (adding a name, bumping a count) or
 
 Triggers never fail the write. Like the Realtime pings, a failure raises a warning and returns
 (`exception when others`).
+
+Host summaries store `roster_changes` keyed by participant UUID, with each person's latest name
+and `joined`/`left` action. New actions replace that person's earlier action instead of appending
+names; two different people sharing a display name stay distinct. `joined` and `left` arrays are
+also derived for sender compatibility. A departure invalidates any still-pending `game_full`
+alert. The sender uses the current game context for the number of available spots.
+
+Migration `20261118000000_reconcile_host_notification_roster.sql` repairs pending legacy host
+summaries from their activity window and current RSVP membership. If a repaired row is already
+claimed, its claim identity is preserved and a corrected resend is armed. Already-delivered
+notifications cannot be rewritten by this queue repair.
 
 ### 5.4 `send-push` (Edge Function)
 
