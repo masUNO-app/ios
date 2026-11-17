@@ -54,6 +54,7 @@ final class ProfileEditorViewModel {
 
     /// Returns true when saved (`complete_profile`).
     func save(in store: GameStore) async -> Bool {
+        guard !isSaving else { return false }
         showsErrors = true
         saveError = nil
         guard nameError(firstName) == nil, nameError(lastName) == nil, interestsError == nil else { return false }
@@ -69,6 +70,7 @@ final class ProfileEditorViewModel {
             try await store.updateProfile(input)
             return true
         } catch {
+            guard !OperationCancellation.isCancellation(error) else { return false }
             saveError = (error as? DomainError ?? .offline).message
             return false
         }

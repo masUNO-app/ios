@@ -65,6 +65,7 @@ struct WhereToMeetSheet: View {
             try await store.updateMeetPoint(event.id, to: trimmed.isEmpty ? nil : trimmed)
             dismiss()
         } catch {
+            guard !OperationCancellation.isCancellation(error) else { return }
             errorMessage = (error as? DomainError ?? .offline).message
         }
     }

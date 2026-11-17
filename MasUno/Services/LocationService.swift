@@ -19,13 +19,27 @@ enum LocationService {
     }
 
     /// Asks for When-In-Use permission if needed, then returns the first location fix.
-    static func currentLocation() async throws -> CLLocation {
+    static func currentLocation(timeout: Duration = .seconds(15)) async throws -> CLLocation {
         if let mock = mockCoordinate {
             return CLLocation(latitude: mock.latitude, longitude: mock.longitude)
         }
+        return try await withThrowingTaskGroup(of: CLLocation.self) { group in
+            group.addTask { try await oneShotLocation() }
+            group.addTask {
+                try await Task.sleep(for: timeout)
+                throw Failure.unavailable
+            }
+            defer { group.cancelAll() }
+            guard let location = try await group.next() else { throw Failure.unavailable }
+            return location
+        }
+    }
+
+    private static func oneShotLocation() async throws -> CLLocation {
         let session = CLServiceSession(authorization: .whenInUse)
         defer { session.invalidate() }
         for try await update in CLLocationUpdate.liveUpdates() {
+            try Task.checkCancellation()
             if update.authorizationDenied || update.authorizationDeniedGlobally { throw Failure.denied }
             if let location = update.location { return location }
         }
@@ -35,7 +49,9 @@ enum LocationService {
     /// Current location as a place, named from a reverse-geocoded address.
     static func currentPlace() async throws -> Place {
         let location = try await currentLocation()
+        try Task.checkCancellation()
         let item = try? await MKReverseGeocodingRequest(location: location)?.mapItems.first
+        try Task.checkCancellation()
         return Place(mapItem: item, location: location, fallbackName: String(localized: "Current location"))
     }
 }

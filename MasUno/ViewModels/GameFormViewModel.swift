@@ -151,6 +151,7 @@ final class GameFormViewModel {
 
     /// Validates, then saves. Returns true when the sheet can close.
     func save(in store: GameStore) async -> Bool {
+        guard !isSaving else { return false }
         showsErrors = true
         formError = nil
         guard isValid, let place else { return false }
@@ -177,6 +178,7 @@ final class GameFormViewModel {
             }
             return true
         } catch {
+            guard !OperationCancellation.isCancellation(error) else { return false }
             formError = (error as? DomainError ?? .offline).message
             return false
         }

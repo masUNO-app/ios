@@ -167,6 +167,7 @@ struct ReportSheet: View {
             noteIsFocused = false
             isSent = true
         } catch {
+            guard !OperationCancellation.isCancellation(error) else { return }
             errorMessage = (error as? DomainError ?? .offline).message
         }
     }

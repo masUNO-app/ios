@@ -33,7 +33,9 @@ struct LocationPickerView: View {
                     confirm: DialogAction("OK")
                 )
             }
+            .onDisappear { viewModel.cancelResolution() }
             .onAppear {
+                viewModel.resumeResolution()
                 #if DEBUG
                 if UserDefaults.standard.string(forKey: "screen") == "picker" {
                     viewModel.query = "Estadio"
@@ -190,10 +192,11 @@ struct LocationPickerView: View {
             }
             .lineLimit(1)
             Button("Set location") {
+                guard viewModel.canConfirm else { return }
                 place = viewModel.selection
                 dismiss()
             }
-            .disabled(viewModel.selection == nil)
+            .disabled(!viewModel.canConfirm)
             .pill(.primary)
         }
         .padding(.horizontal, Theme.gutter)
