@@ -475,6 +475,9 @@ struct PushNotificationServiceTests {
         await service.handle(action: "COUNT_ME_IN", payload: NotificationPayload(kind: "spot_open", gameID: gameID), reply: nil)
         let game = try #require(try await backend.fetchGames(ids: [gameID]).first)
         #expect(game.myRole == nil)
+        #expect(system.requests.count == 1)
+        #expect(system.requests.first?.content.title == "Someone beat you to it")
+        #expect(system.requests.first?.content.body == "That game just filled up.")
     }
 
     // MARK: Primer

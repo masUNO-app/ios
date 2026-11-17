@@ -305,7 +305,7 @@ final class PushNotificationService {
         content.sound = .default
         let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
         do {
-            try await UNUserNotificationCenter.current().add(request)
+            try await system.add(request)
         } catch {
             logger.error("Couldn't post the full-game notice: \(error.localizedDescription, privacy: .public)")
         }

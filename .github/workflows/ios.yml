@@ -152,8 +152,9 @@ jobs:
 
       # Swift Testing still runs concurrent tests in-process; disable extra simulator clones.
       # Keep sysdiagnose collection off: CI has stalled for 600s collecting it after failures.
+      # Allow cold simulator test-runner startup; individual test bodies finish in seconds.
       - name: Run mock unit tests
-        timeout-minutes: 8
+        timeout-minutes: 12
         run: |
           test_runs=(build/Build/Products/*.xctestrun)
           [[ -f "${test_runs[0]}" && ${#test_runs[@]} -eq 1 ]]
@@ -166,7 +167,7 @@ jobs:
 
       - name: Run mock UI tests
         if: ${{ !cancelled() && steps.build-tests.outcome == 'success' && steps.boot-simulator.outcome == 'success' }}
-        timeout-minutes: 8
+        timeout-minutes: 12
         run: |
           test_runs=(build/Build/Products/*.xctestrun)
           [[ -f "${test_runs[0]}" && ${#test_runs[@]} -eq 1 ]]
@@ -175,8 +176,8 @@ jobs:
             -resultBundlePath artifacts/ui-tests.xcresult -only-testing:masUNOUITests \
             -parallel-testing-enabled NO -collect-test-diagnostics never \
             -test-timeouts-enabled YES \
-            -default-test-execution-time-allowance 120 \
-            -maximum-test-execution-time-allowance 180 \
+            -default-test-execution-time-allowance 240 \
+            -maximum-test-execution-time-allowance 300 \
             -enableCodeCoverage NO CODE_SIGNING_ALLOWED=NO \
             2>&1 | tee artifacts/ui-tests.log
 
@@ -284,8 +285,9 @@ jobs:
 
       # Swift Testing still runs concurrent tests in-process; disable extra simulator clones.
       # Keep sysdiagnose collection off: CI has stalled for 600s collecting it after failures.
+      # Allow cold simulator test-runner startup; individual test bodies finish in seconds.
       - name: Run mock unit tests
-        timeout-minutes: 8
+        timeout-minutes: 12
         run: |
           test_runs=(build/Build/Products/*.xctestrun)
           [[ -f "${test_runs[0]}" && ${#test_runs[@]} -eq 1 ]]
@@ -298,7 +300,7 @@ jobs:
 
       - name: Run mock UI tests
         if: ${{ !cancelled() && steps.build-tests.outcome == 'success' && steps.boot-simulator.outcome == 'success' }}
-        timeout-minutes: 8
+        timeout-minutes: 12
         run: |
           test_runs=(build/Build/Products/*.xctestrun)
           [[ -f "${test_runs[0]}" && ${#test_runs[@]} -eq 1 ]]
@@ -307,8 +309,8 @@ jobs:
             -resultBundlePath artifacts/ui-tests.xcresult -only-testing:masUNOUITests \
             -parallel-testing-enabled NO -collect-test-diagnostics never \
             -test-timeouts-enabled YES \
-            -default-test-execution-time-allowance 120 \
-            -maximum-test-execution-time-allowance 180 \
+            -default-test-execution-time-allowance 240 \
+            -maximum-test-execution-time-allowance 300 \
             -enableCodeCoverage NO CODE_SIGNING_ALLOWED=NO \
             2>&1 | tee artifacts/ui-tests.log
 
@@ -411,8 +413,9 @@ jobs:
 
       # Swift Testing still runs concurrent tests in-process; disable extra simulator clones.
       # Keep sysdiagnose collection off: CI has stalled for 600s collecting it after failures.
+      # Allow cold simulator test-runner startup; individual test bodies finish in seconds.
       - name: Run mock unit tests
-        timeout-minutes: 8
+        timeout-minutes: 12
         run: |
           test_runs=(build/Build/Products/*.xctestrun)
           [[ -f "${test_runs[0]}" && ${#test_runs[@]} -eq 1 ]]
@@ -425,7 +428,7 @@ jobs:
 
       - name: Run mock UI tests
         if: ${{ !cancelled() && steps.build-tests.outcome == 'success' && steps.boot-simulator.outcome == 'success' }}
-        timeout-minutes: 8
+        timeout-minutes: 12
         run: |
           test_runs=(build/Build/Products/*.xctestrun)
           [[ -f "${test_runs[0]}" && ${#test_runs[@]} -eq 1 ]]
@@ -434,8 +437,8 @@ jobs:
             -resultBundlePath artifacts/ui-tests.xcresult -only-testing:masUNOUITests \
             -parallel-testing-enabled NO -collect-test-diagnostics never \
             -test-timeouts-enabled YES \
-            -default-test-execution-time-allowance 120 \
-            -maximum-test-execution-time-allowance 180 \
+            -default-test-execution-time-allowance 240 \
+            -maximum-test-execution-time-allowance 300 \
             -enableCodeCoverage NO CODE_SIGNING_ALLOWED=NO \
             2>&1 | tee artifacts/ui-tests.log
 
