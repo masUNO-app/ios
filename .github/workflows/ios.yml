@@ -51,11 +51,11 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            ~/Library/org.swiftpm
-            ~/Library/Developer/Xcode/DerivedData/SourcePackages
-          key: spm-v1-xcode26.6-${{ hashFiles('project.yml') }}
+            ~/Library/Caches/org.swift.swiftpm
+            build/SourcePackages
+          key: spm-v2-${{ runner.os }}-${{ runner.arch }}-xcode26.6-${{ hashFiles('project.yml') }}
           restore-keys: |
-            spm-v1-xcode26.6-
+            spm-v2-${{ runner.os }}-${{ runner.arch }}-xcode26.6-
 
       - name: Generate the project
         run: |
@@ -68,7 +68,8 @@ jobs:
           mkdir -p artifacts
           xcodebuild build -quiet -project masUNO.xcodeproj -scheme masUNO \
             -configuration Release -destination 'generic/platform=iOS' \
-            -derivedDataPath build CODE_SIGNING_ALLOWED=NO \
+            -derivedDataPath build -clonedSourcePackagesDirPath build/SourcePackages \
+            -skipPackageUpdates CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO \
             2>&1 | tee artifacts/release.log
 
       - name: Upload Release logs
@@ -99,14 +100,15 @@ jobs:
           xcode-version: "26.6"
 
       - name: Restore SwiftPM cache
-        uses: actions/cache@v4
+        id: spm-cache
+        uses: actions/cache/restore@v4
         with:
           path: |
-            ~/Library/org.swiftpm
-            ~/Library/Developer/Xcode/DerivedData/SourcePackages
-          key: spm-v1-xcode26.6-${{ hashFiles('project.yml') }}
+            ~/Library/Caches/org.swift.swiftpm
+            build/SourcePackages
+          key: spm-v2-${{ runner.os }}-${{ runner.arch }}-xcode26.6-${{ hashFiles('project.yml') }}
           restore-keys: |
-            spm-v1-xcode26.6-
+            spm-v2-${{ runner.os }}-${{ runner.arch }}-xcode26.6-
 
       - name: Generate the project
         run: |
@@ -115,36 +117,97 @@ jobs:
           cp Config.xcconfig.template Config.xcconfig
           xcodegen generate
 
-      - name: Boot iPhone 16 Pro on iOS 26.5
-        timeout-minutes: 10
+      # Compile before booting: the simulator and Swift compiler compete for runner memory.
+      - name: Build the app and both test bundles
+        id: build-tests
+        timeout-minutes: 12
+        run: |
+          xcodebuild build-for-testing -quiet -project masUNO.xcodeproj -scheme masUNO \
+            -configuration Debug -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build \
+            -clonedSourcePackagesDirPath build/SourcePackages -skipPackageUpdates \
+            -enableCodeCoverage NO ONLY_ACTIVE_ARCH=YES ARCHS="$(uname -m)" \
+            CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO \
+            2>&1 | tee artifacts/build-tests.log
+
+      - name: Save SwiftPM cache before testing
+        if: steps.spm-cache.outputs.cache-hit != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/Library/Caches/org.swift.swiftpm
+            build/SourcePackages
+          key: ${{ steps.spm-cache.outputs.cache-primary-key }}
+
+      - name: Boot iPhone 17 Pro on iOS 26.5
+        id: boot-simulator
+        timeout-minutes: 5
         env:
           SIMULATOR_RUNTIME: com.apple.CoreSimulator.SimRuntime.iOS-26-5
         run: |
           simulator=$(xcrun simctl create 'masUNO CI' \
-            com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro "$SIMULATOR_RUNTIME")
+            com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro "$SIMULATOR_RUNTIME")
           echo "SIMULATOR=$simulator" >> "$GITHUB_ENV"
           xcrun simctl boot "$simulator"
           xcrun simctl bootstatus "$simulator" -b
 
-      - name: Run all mock unit and UI tests
+      # Swift Testing still runs concurrent tests in-process; disable extra simulator clones.
+      # Keep sysdiagnose collection off: CI has stalled for 600s collecting it after failures.
+      - name: Run mock unit tests
+        timeout-minutes: 5
         run: |
-          xcodebuild test -quiet -project masUNO.xcodeproj -scheme masUNO \
-            -configuration Debug -destination "id=$SIMULATOR" \
-            -derivedDataPath build -resultBundlePath artifacts/tests.xcresult \
-            -parallel-testing-enabled YES \
-            -maximum-parallel-testing-workers 2 \
-            CODE_SIGNING_ALLOWED=NO \
-            2>&1 | tee artifacts/tests.log
+          xcodebuild test-without-building -quiet -project masUNO.xcodeproj -scheme masUNO \
+            -configuration Debug -destination "id=$SIMULATOR" -destination-timeout 30 \
+            -derivedDataPath build -clonedSourcePackagesDirPath build/SourcePackages -skipPackageUpdates \
+            -resultBundlePath artifacts/unit-tests.xcresult -only-testing:masUNOTests \
+            -parallel-testing-enabled NO -collect-test-diagnostics never \
+            -enableCodeCoverage NO CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee artifacts/unit-tests.log
 
-      - name: Upload test log
+      - name: Run mock UI tests
+        if: ${{ !cancelled() && steps.build-tests.outcome == 'success' && steps.boot-simulator.outcome == 'success' }}
+        timeout-minutes: 8
+        run: |
+          xcodebuild test-without-building -quiet -project masUNO.xcodeproj -scheme masUNO \
+            -configuration Debug -destination "id=$SIMULATOR" -destination-timeout 30 \
+            -derivedDataPath build -clonedSourcePackagesDirPath build/SourcePackages -skipPackageUpdates \
+            -resultBundlePath artifacts/ui-tests.xcresult -only-testing:masUNOUITests \
+            -parallel-testing-enabled NO -collect-test-diagnostics never \
+            -test-timeouts-enabled YES \
+            -default-test-execution-time-allowance 120 \
+            -maximum-test-execution-time-allowance 180 \
+            -enableCodeCoverage NO CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee artifacts/ui-tests.log
+
+      - name: Shut down the test simulator
+        if: always() && env.SIMULATOR != ''
+        timeout-minutes: 1
+        continue-on-error: true
+        run: xcrun simctl shutdown "$SIMULATOR"
+
+      - name: Upload build and test logs
         if: always()
+        timeout-minutes: 2
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: ios-test-results-26.5
-          path: artifacts/tests.log
+          path: artifacts/*.log
           compression-level: 6
           if-no-files-found: warn
+          retention-days: 7
+
+      - name: Upload failed test results
+        if: failure()
+        timeout-minutes: 3
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-test-failures-26.5
+          path: artifacts/*.xcresult
+          compression-level: 0
+          if-no-files-found: ignore
           retention-days: 7
 
   test-ios27:
@@ -169,14 +232,15 @@ jobs:
           xcodebuild -version | grep -q '^Xcode 27\.2'
 
       - name: Restore SwiftPM cache
-        uses: actions/cache@v4
+        id: spm-cache
+        uses: actions/cache/restore@v4
         with:
           path: |
-            ~/Library/org.swiftpm
-            ~/Library/Developer/Xcode/DerivedData/SourcePackages
-          key: spm-v1-xcode27.2-${{ hashFiles('project.yml') }}
+            ~/Library/Caches/org.swift.swiftpm
+            build/SourcePackages
+          key: spm-v2-${{ runner.os }}-${{ runner.arch }}-xcode27.2-${{ hashFiles('project.yml') }}
           restore-keys: |
-            spm-v1-xcode27.2-
+            spm-v2-${{ runner.os }}-${{ runner.arch }}-xcode27.2-
 
       - name: Generate the project
         run: |
@@ -185,8 +249,32 @@ jobs:
           cp Config.xcconfig.template Config.xcconfig
           xcodegen generate
 
+      # Compile before booting: the simulator and Swift compiler compete for runner memory.
+      - name: Build the app and both test bundles
+        id: build-tests
+        timeout-minutes: 12
+        run: |
+          xcodebuild build-for-testing -quiet -project masUNO.xcodeproj -scheme masUNO \
+            -configuration Debug -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build \
+            -clonedSourcePackagesDirPath build/SourcePackages -skipPackageUpdates \
+            -enableCodeCoverage NO ONLY_ACTIVE_ARCH=YES ARCHS="$(uname -m)" \
+            CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO \
+            2>&1 | tee artifacts/build-tests.log
+
+      - name: Save SwiftPM cache before testing
+        if: steps.spm-cache.outputs.cache-hit != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/Library/Caches/org.swift.swiftpm
+            build/SourcePackages
+          key: ${{ steps.spm-cache.outputs.cache-primary-key }}
+
       - name: Boot iPhone 18 Pro on iOS 27.2
-        timeout-minutes: 10
+        id: boot-simulator
+        timeout-minutes: 5
         env:
           SIMULATOR_RUNTIME: com.apple.CoreSimulator.SimRuntime.iOS-27-2
         run: |
@@ -196,30 +284,66 @@ jobs:
           xcrun simctl boot "$simulator"
           xcrun simctl bootstatus "$simulator" -b
 
-      - name: Run all mock unit and UI tests
+      # Swift Testing still runs concurrent tests in-process; disable extra simulator clones.
+      # Keep sysdiagnose collection off: CI has stalled for 600s collecting it after failures.
+      - name: Run mock unit tests
+        timeout-minutes: 5
         run: |
-          xcodebuild test -quiet -project masUNO.xcodeproj -scheme masUNO \
-            -configuration Debug -destination "id=$SIMULATOR" \
-            -derivedDataPath build -resultBundlePath artifacts/tests.xcresult \
-            -parallel-testing-enabled YES \
-            -maximum-parallel-testing-workers 2 \
-            CODE_SIGNING_ALLOWED=NO \
-            2>&1 | tee artifacts/tests.log
+          xcodebuild test-without-building -quiet -project masUNO.xcodeproj -scheme masUNO \
+            -configuration Debug -destination "id=$SIMULATOR" -destination-timeout 30 \
+            -derivedDataPath build -clonedSourcePackagesDirPath build/SourcePackages -skipPackageUpdates \
+            -resultBundlePath artifacts/unit-tests.xcresult -only-testing:masUNOTests \
+            -parallel-testing-enabled NO -collect-test-diagnostics never \
+            -enableCodeCoverage NO CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee artifacts/unit-tests.log
 
-      - name: Upload test log
+      - name: Run mock UI tests
+        if: ${{ !cancelled() && steps.build-tests.outcome == 'success' && steps.boot-simulator.outcome == 'success' }}
+        timeout-minutes: 8
+        run: |
+          xcodebuild test-without-building -quiet -project masUNO.xcodeproj -scheme masUNO \
+            -configuration Debug -destination "id=$SIMULATOR" -destination-timeout 30 \
+            -derivedDataPath build -clonedSourcePackagesDirPath build/SourcePackages -skipPackageUpdates \
+            -resultBundlePath artifacts/ui-tests.xcresult -only-testing:masUNOUITests \
+            -parallel-testing-enabled NO -collect-test-diagnostics never \
+            -test-timeouts-enabled YES \
+            -default-test-execution-time-allowance 120 \
+            -maximum-test-execution-time-allowance 180 \
+            -enableCodeCoverage NO CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee artifacts/ui-tests.log
+
+      - name: Shut down the test simulator
+        if: always() && env.SIMULATOR != ''
+        timeout-minutes: 1
+        continue-on-error: true
+        run: xcrun simctl shutdown "$SIMULATOR"
+
+      - name: Upload build and test logs
         if: always()
+        timeout-minutes: 2
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: ios-test-results-27.2
-          path: artifacts/tests.log
+          path: artifacts/*.log
           compression-level: 6
           if-no-files-found: warn
           retention-days: 7
 
+      - name: Upload failed test results
+        if: failure()
+        timeout-minutes: 3
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-test-failures-27.2
+          path: artifacts/*.xcresult
+          compression-level: 0
+          if-no-files-found: ignore
+          retention-days: 7
+
   test-ios18:
     name: test-ios18
-    if: github.event_name != 'pull_request'
     runs-on: macos-15-intel
     timeout-minutes: 30
     defaults:
@@ -235,14 +359,15 @@ jobs:
           xcode-version: "26.3"
 
       - name: Restore SwiftPM cache
-        uses: actions/cache@v4
+        id: spm-cache
+        uses: actions/cache/restore@v4
         with:
           path: |
-            ~/Library/org.swiftpm
-            ~/Library/Developer/Xcode/DerivedData/SourcePackages
-          key: spm-v1-xcode26.3-${{ hashFiles('project.yml') }}
+            ~/Library/Caches/org.swift.swiftpm
+            build/SourcePackages
+          key: spm-v2-${{ runner.os }}-${{ runner.arch }}-xcode26.3-${{ hashFiles('project.yml') }}
           restore-keys: |
-            spm-v1-xcode26.3-
+            spm-v2-${{ runner.os }}-${{ runner.arch }}-xcode26.3-
 
       - name: Generate the project
         run: |
@@ -251,8 +376,32 @@ jobs:
           cp Config.xcconfig.template Config.xcconfig
           xcodegen generate
 
+      # Compile before booting: the simulator and Swift compiler compete for runner memory.
+      - name: Build the app and both test bundles
+        id: build-tests
+        timeout-minutes: 12
+        run: |
+          xcodebuild build-for-testing -quiet -project masUNO.xcodeproj -scheme masUNO \
+            -configuration Debug -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build \
+            -clonedSourcePackagesDirPath build/SourcePackages -skipPackageUpdates \
+            -enableCodeCoverage NO ONLY_ACTIVE_ARCH=YES ARCHS="$(uname -m)" \
+            CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO \
+            2>&1 | tee artifacts/build-tests.log
+
+      - name: Save SwiftPM cache before testing
+        if: steps.spm-cache.outputs.cache-hit != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/Library/Caches/org.swift.swiftpm
+            build/SourcePackages
+          key: ${{ steps.spm-cache.outputs.cache-primary-key }}
+
       - name: Boot iPhone 16 Pro on iOS 18.6
-        timeout-minutes: 10
+        id: boot-simulator
+        timeout-minutes: 5
         env:
           SIMULATOR_RUNTIME: com.apple.CoreSimulator.SimRuntime.iOS-18-6
         run: |
@@ -262,23 +411,60 @@ jobs:
           xcrun simctl boot "$simulator"
           xcrun simctl bootstatus "$simulator" -b
 
-      - name: Run all mock unit and UI tests
+      # Swift Testing still runs concurrent tests in-process; disable extra simulator clones.
+      # Keep sysdiagnose collection off: CI has stalled for 600s collecting it after failures.
+      - name: Run mock unit tests
+        timeout-minutes: 5
         run: |
-          xcodebuild test -quiet -project masUNO.xcodeproj -scheme masUNO \
-            -configuration Debug -destination "id=$SIMULATOR" \
-            -derivedDataPath build -resultBundlePath artifacts/tests.xcresult \
-            -parallel-testing-enabled YES \
-            -maximum-parallel-testing-workers 2 \
-            CODE_SIGNING_ALLOWED=NO \
-            2>&1 | tee artifacts/tests.log
+          xcodebuild test-without-building -quiet -project masUNO.xcodeproj -scheme masUNO \
+            -configuration Debug -destination "id=$SIMULATOR" -destination-timeout 30 \
+            -derivedDataPath build -clonedSourcePackagesDirPath build/SourcePackages -skipPackageUpdates \
+            -resultBundlePath artifacts/unit-tests.xcresult -only-testing:masUNOTests \
+            -parallel-testing-enabled NO -collect-test-diagnostics never \
+            -enableCodeCoverage NO CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee artifacts/unit-tests.log
 
-      - name: Upload test log
+      - name: Run mock UI tests
+        if: ${{ !cancelled() && steps.build-tests.outcome == 'success' && steps.boot-simulator.outcome == 'success' }}
+        timeout-minutes: 8
+        run: |
+          xcodebuild test-without-building -quiet -project masUNO.xcodeproj -scheme masUNO \
+            -configuration Debug -destination "id=$SIMULATOR" -destination-timeout 30 \
+            -derivedDataPath build -clonedSourcePackagesDirPath build/SourcePackages -skipPackageUpdates \
+            -resultBundlePath artifacts/ui-tests.xcresult -only-testing:masUNOUITests \
+            -parallel-testing-enabled NO -collect-test-diagnostics never \
+            -test-timeouts-enabled YES \
+            -default-test-execution-time-allowance 120 \
+            -maximum-test-execution-time-allowance 180 \
+            -enableCodeCoverage NO CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee artifacts/ui-tests.log
+
+      - name: Shut down the test simulator
+        if: always() && env.SIMULATOR != ''
+        timeout-minutes: 1
+        continue-on-error: true
+        run: xcrun simctl shutdown "$SIMULATOR"
+
+      - name: Upload build and test logs
         if: always()
+        timeout-minutes: 2
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: ios-test-results-18.6
-          path: artifacts/tests.log
+          path: artifacts/*.log
           compression-level: 6
           if-no-files-found: warn
+          retention-days: 7
+
+      - name: Upload failed test results
+        if: failure()
+        timeout-minutes: 3
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-test-failures-18.6
+          path: artifacts/*.xcresult
+          compression-level: 0
+          if-no-files-found: ignore
           retention-days: 7
