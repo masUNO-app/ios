@@ -19,7 +19,9 @@ jobs:
   test:
     # Preserve the existing required check name for the newest-OS job.
     name: ${{ matrix.ios == 'latest' && 'test' || 'test-ios18' }}
-    runs-on: macos-26
+    # The arm64 pool repeatedly cancelled iOS 18 before acquiring a runner. Intel supports
+    # the same Xcode and simulator runtimes without relying on that constrained pool.
+    runs-on: macos-26-intel
     timeout-minutes: 45
     strategy:
       fail-fast: false
@@ -43,7 +45,7 @@ jobs:
           available = any(r["version"] == "18.6" and r["isAvailable"] for r in json.load(sys.stdin)["runtimes"])
           sys.exit(0 if available else 1)
           '; then
-            xcodebuild -downloadPlatform iOS -buildVersion 18.6
+            xcodebuild -downloadPlatform iOS -buildVersion 18.6 -architectureVariant universal
           fi
           xcrun simctl create 'iPhone 16 Pro (iOS 18)' \
             com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro \
@@ -84,9 +86,12 @@ jobs:
       - name: Check Release app and extension packaging
         run: |
           set -o pipefail
-          xcodebuild build -project masUNO.xcodeproj -scheme masUNO -configuration Release \
+          if ! xcodebuild build -project masUNO.xcodeproj -scheme masUNO -configuration Release \
             -destination 'generic/platform=iOS Simulator' -derivedDataPath build \
-            CODE_SIGNING_ALLOWED=NO | tail -n 60
+            CODE_SIGNING_ALLOWED=NO 2>&1 | tee xcodebuild-release.log | tail -n 80; then
+            awk '/error:|Stack dump:|While running pass/ { remaining = 12 } remaining > 0 { print; remaining-- }' xcodebuild-release.log
+            exit 1
+          fi
       - name: Upload test results and screenshots
         if: always()
         uses: actions/upload-artifact@v4
@@ -95,5 +100,6 @@ jobs:
           path: |
             build/Logs/Test/*.xcresult
             xcodebuild-test.log
+            xcodebuild-release.log
           if-no-files-found: ignore
           retention-days: 7

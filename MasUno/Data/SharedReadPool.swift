@@ -30,6 +30,10 @@ final class SharedReadPool<Key: Hashable & Sendable, Value: Sendable> {
         limiter = limit.map { ReadConcurrencyLimiter(limit: $0) }
     }
 
+    // Swift 6.3 crashes optimizing a generic isolated deinit when deploying before iOS 26
+    // (swiftlang/swift#90625). No actor-bound cleanup is needed; keep destruction nonisolated.
+    nonisolated deinit {}
+
     func value(for key: Key, operation: @escaping @MainActor () async throws -> Value) async throws -> Value {
         let waiter = UUID()
         return try await withTaskCancellationHandler {
