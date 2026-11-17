@@ -144,6 +144,20 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         TARGETED_DEVICE_FAMILY: "1"
         SUPPORTED_PLATFORMS: "iphoneos iphonesimulator"
+  masUNOUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: MasUnoUITests
+    dependencies:
+      - target: masUNO
+    settings:
+      base:
+        SWIFT_DEFAULT_ACTOR_ISOLATION: nonisolated
+        PRODUCT_BUNDLE_IDENTIFIER: com.masuno.app.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TARGETED_DEVICE_FAMILY: "1"
+        SUPPORTED_PLATFORMS: "iphoneos iphonesimulator"
 schemes:
   masUNO:
     build:
@@ -151,6 +165,7 @@ schemes:
         masUNO: all
         masUNONotifications: all
         masUNOTests: [test]
+        masUNOUITests: [test]
     run:
       config: Debug
       # Debug runs against masuno-dev (Debug keys in Config.xcconfig). Untick it in the scheme to run
@@ -161,6 +176,7 @@ schemes:
       config: Debug
       targets:
         - masUNOTests
+        - masUNOUITests
       # Unit tests stay on mocks: their host app never calls the backend.
       commandLineArguments:
         "-liveAuth NO": true

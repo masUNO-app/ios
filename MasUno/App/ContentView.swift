@@ -39,7 +39,7 @@ struct ContentView: View {
         .animation(.snappy, value: store.notice)
         .environment(store)
         .environment(appViewModel)
-        .environment(appViewModel.push!)
+        .environment(services.push)
         .environment(\.currentUserID, store.profile?.id)
         .tint(Theme.accent)
         // SF Pro Rounded throughout (SPEC §7.7.2, R7-10).
@@ -82,6 +82,8 @@ struct ContentView: View {
             }
         )) {
             NotificationPrimerSheet()
+                .environment(store)
+                .environment(services.push)
         }
         .dialog(item: Bindable(appViewModel).accountPrompt) { prompt in
             DialogCard(

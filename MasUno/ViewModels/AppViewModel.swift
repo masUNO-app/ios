@@ -478,6 +478,13 @@ final class AppViewModel {
             path = [.me(), .settings, .blockedPeople]
         case "calendar": path = [.game(IDs.going)]
         case "detail-open": path = [.game(IDs.open)]
+        case "create-primer":
+            // Deterministic UI regression for the success path that used to crash in the primer.
+            guard let template = store.game(IDs.open) else { return }
+            var draft = GameDraft(template)
+            draft.title = "Primer regression game"
+            draft.startsAt = .now.addingTimeInterval(7200)
+            try? await store.createGame(draft)
         case "join":
             // "Count me in" on the map, once it has settled.
             try? await Task.sleep(for: .seconds(1.5))
