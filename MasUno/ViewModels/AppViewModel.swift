@@ -439,6 +439,7 @@ final class AppViewModel {
         case "edit": presentGameForm(editing: IDs.hosting)
         case "gallery": path = [.gallery]
         case "chat": path = [.chat(IDs.going)]
+        case "chat-unavailable": path = [.chat(IDs.open)]
         case "chat-rules":
             // First time in a chat: "Before you chat" comes up over it.
             mock.resetChatRules()

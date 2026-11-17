@@ -67,7 +67,11 @@ Checked in `private.claim_notifications` at send time, not only when the row is 
 things change while a row waits:
 
 - **Never** to the person who caused it (the sender, the host who edited, the one who joined).
-- **Never** across a block, either way, using `private.blocked_pair`.
+- **Never** across a block, either way, using `private.blocked_pair`. Both claim protocols rebuild
+  chat sender names, message bodies, counts and other-member names from currently visible messages,
+  and filter every actor in a host roster summary. A block made after enqueue still applies.
+- **Membership:** chat, reminders and game changes/cancellations require a current RSVP. A removed
+  player does not receive queued member-only content.
 - **Never** to banned accounts, or about a cancelled game (except `game_cancelled`) or a game that
   has started (except `chat_message`, until the chat closes 24 h after the end).
 - **Preferences:** a setting that's off drops the row.

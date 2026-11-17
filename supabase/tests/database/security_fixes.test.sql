@@ -3,7 +3,7 @@
 -- and signed-out callers run only what's meant for them.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(39);
+select plan(42);
 
 create function pg_temp.act_as(p_user uuid) returns void language plpgsql as $$
 begin
@@ -58,6 +58,16 @@ select public.join_game((select id from game_ids where name = 'open'));
 select pg_temp.act_as('a0000000-0000-4000-8000-00000000000a');
 select throws_ok($$ select public.join_game((select id from game_ids where name = 'open')) $$,
     'P0001', 'blocked', 'the blocker gets `blocked` for a game someone they blocked is in');
+
+-- Chat pushes list other members by name, but never across a block.
+reset role;
+select is(private.chat_others((select id from game_ids where name = 'joined'), 'c0000000-0000-4000-8000-00000000000c',
+    'a0000000-0000-4000-8000-00000000000a'), '[]'::jsonb, 'a chat push to the blocker doesn''t name the person they blocked');
+select is(private.chat_others((select id from game_ids where name = 'joined'), 'c0000000-0000-4000-8000-00000000000c',
+    'b0000000-0000-4000-8000-00000000000b'), '[]'::jsonb, 'nor does one to the blocked person name the blocker');
+select is(private.chat_others((select id from game_ids where name = 'joined'), 'a0000000-0000-4000-8000-00000000000a',
+    'c0000000-0000-4000-8000-00000000000c') -> 0 ->> 'name', 'Bruno Y.', 'everyone else still sees both names');
+set local role authenticated;
 
 -- A banned account reads nothing past its own data.
 reset role;

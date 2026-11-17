@@ -13,7 +13,9 @@ private final class ControlledGames: GameRepository {
     let changesReady = NotificationTestGate()
     var gameRead: ((UUID) async throws -> Game)?
     var peopleRead: ((UUID) async throws -> [Attendee])?
+    var activityRead: ((UUID) async throws -> [GameActivityEntry])?
     var joinWrite: ((UUID) async throws -> Game)?
+    var bookmarkWrite: ((UUID, Bool) async throws -> Game)?
     var createWrite: ((GameDraft) async throws -> Game)?
     var mapCalls = 0
     init(_ backend: MockBackend) { self.backend = backend }
@@ -24,13 +26,13 @@ private final class ControlledGames: GameRepository {
     func fetchGames(ids: [UUID]) async throws -> [Game] { batchCalls += 1; if let batchRead { return try await batchRead(ids) }; return try await backend.fetchGames(ids: ids) }
     func fetchBookmarkedGames() async throws -> [Game] { try await backend.fetchBookmarkedGames() }
     func fetchAttendees(gameID: UUID) async throws -> [Attendee] { if let peopleRead { return try await peopleRead(gameID) }; return try await backend.fetchAttendees(gameID: gameID) }
-    func fetchActivity(gameID: UUID) async throws -> [GameActivityEntry] { try await backend.fetchActivity(gameID: gameID) }
+    func fetchActivity(gameID: UUID) async throws -> [GameActivityEntry] { if let activityRead { return try await activityRead(gameID) }; return try await backend.fetchActivity(gameID: gameID) }
     func createGame(_ draft: GameDraft) async throws -> Game { if let createWrite { return try await createWrite(draft) }; return try await backend.createGame(draft) }
     func updateGame(id: UUID, _ draft: GameDraft) async throws -> Game { try await backend.updateGame(id: id, draft) }
     func cancelGame(id: UUID) async throws -> Game { try await backend.cancelGame(id: id) }
     func joinGame(id: UUID) async throws -> Game { if let joinWrite { return try await joinWrite(id) }; return try await backend.joinGame(id: id) }
     func leaveGame(id: UUID) async throws -> Game { try await backend.leaveGame(id: id) }
-    func setBookmark(id: UUID, on: Bool) async throws -> Game { try await backend.setBookmark(id: id, on: on) }
+    func setBookmark(id: UUID, on: Bool) async throws -> Game { if let bookmarkWrite { return try await bookmarkWrite(id, on) }; return try await backend.setBookmark(id: id, on: on) }
     func setSpotAlert(id: UUID, on: Bool) async throws -> Game { try await backend.setSpotAlert(id: id, on: on) }
     func importBookmarks(ids: [UUID], alertIDs: [UUID]) async throws { try await backend.importBookmarks(ids: ids, alertIDs: alertIDs) }
     func changes(campus: UUID) -> AsyncStream<GameChanges> {
@@ -65,6 +67,98 @@ struct GameStoreConcurrencyTests {
         await old.value
         #expect(store.attendees(of: id).isEmpty)
         #expect(store.profile == nil)
+    }
+
+    @Test func lateAttendeeReplyCannotRestoreAnIncomingBlockedIdentity() async throws {
+        let id = MockFixtures.GameID.going
+        let stale = try await backend.fetchAttendees(gameID: id)
+        let gate = NotificationTestGate()
+        games.peopleRead = { _ in await gate.wait(); return stale }
+        let old = Task { await store.loadAttendees(id) }
+        await gate.waitUntilEntered()
+        games.peopleRead = nil
+        backend.simulateBlock(by: MockFixtures.maya.id)
+        await store.refresh()
+        gate.open()
+        await old.value
+        #expect(!store.attendees(of: id).contains { $0.id == MockFixtures.maya.id })
+        await store.loadAttendees(id)
+        #expect(!store.attendees(of: id).contains { $0.id == MockFixtures.maya.id })
+        #expect(store.attendees(of: id).contains { $0.id == MockFixtures.sam.id })
+    }
+
+    @Test func lateActivityReplyCannotRestoreAnIncomingBlockedIdentity() async throws {
+        let id = MockFixtures.GameID.going
+        let stale = try await backend.fetchActivity(gameID: id)
+        let gate = NotificationTestGate()
+        games.activityRead = { _ in await gate.wait(); return stale }
+        let old = Task { await store.loadActivity(id) }
+        await gate.waitUntilEntered()
+        games.activityRead = nil
+        backend.simulateBlock(by: MockFixtures.maya.id)
+        await store.refresh()
+        gate.open()
+        await old.value
+        #expect(!store.activity(of: id).contains { $0.actor?.id == MockFixtures.maya.id })
+    }
+
+    @Test func lateGameReplyCannotRestoreAnIncomingBlockedHost() async throws {
+        let id = MockFixtures.GameID.open
+        let stale = try await backend.fetchGame(id: id)
+        let gate = NotificationTestGate()
+        games.gameRead = { _ in await gate.wait(); return stale }
+        let old = Task { await store.loadGame(id) }
+        await gate.waitUntilEntered()
+        games.gameRead = nil
+        backend.simulateBlock(by: MockFixtures.alex.id)
+        await store.refresh()
+        gate.open()
+        await old.value
+        #expect(store.game(id) == nil)
+        #expect(store.isMissing(id))
+    }
+
+    @Test func delayedJoinReplyCannotRestoreMembershipRemovedByAHostBlock() async throws {
+        let id = MockFixtures.GameID.open
+        let gate = NotificationTestGate()
+        games.joinWrite = { [backend] id in
+            let game = try await backend.joinGame(id: id)
+            await gate.wait()
+            return game
+        }
+        let joining = Task { await store.join(id) }
+        await gate.waitUntilEntered()
+        backend.simulateBlock(by: MockFixtures.alex.id)
+        await store.refresh()
+        #expect(store.game(id) == nil)
+        gate.open()
+        await joining.value
+        #expect(store.game(id) == nil)
+        #expect(!store.goingGames().contains { $0.id == id })
+        #expect(!store.asksForNotificationPrimer)
+        backend.simulateUnblock(by: MockFixtures.alex.id)
+        await store.refresh()
+        #expect(store.game(id)?.myRole == nil)
+        #expect(store.game(id)?.goingCount == 2)
+    }
+
+    @Test func delayedBookmarkReplyCannotRestoreAnIncomingBlockedHost() async throws {
+        let id = MockFixtures.GameID.open
+        let gate = NotificationTestGate()
+        games.bookmarkWrite = { [backend] id, on in
+            let game = try await backend.setBookmark(id: id, on: on)
+            await gate.wait()
+            return game
+        }
+        store.toggleSaved(id)
+        await gate.waitUntilEntered()
+        backend.simulateBlock(by: MockFixtures.alex.id)
+        await store.refresh()
+        #expect(store.game(id) == nil)
+        gate.open()
+        await store.waitForBookmarkWrites()
+        #expect(store.game(id) == nil)
+        #expect(!store.savedGames().contains { $0.id == id })
     }
 
     @Test func oldAccountMapCannotReplaceGuestMap() async throws {

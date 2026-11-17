@@ -24,6 +24,8 @@ jobs:
         run: supabase test db
       - name: Run overlapping notification claims
         run: python3 supabase/tests/notification_claim_concurrency.py
+      - name: Run concurrent block and join checks
+        run: python3 supabase/tests/block_join_concurrency.py
   edge-functions:
     runs-on: ubuntu-latest
     timeout-minutes: 10

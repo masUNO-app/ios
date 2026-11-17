@@ -54,7 +54,17 @@ final class ChatViewModel {
     /// "Before you chat" needs an answer.
     var asksForRules = false
 
-    @ObservationIgnored private var context: UUID?
+    /// Privacy invalidation is independent of account changes: incoming blocks are not exposed
+    /// as IDs, so a new revision must discard every cached page and ask the server again.
+    private struct Context: Equatable {
+        let sessionID: UUID
+        let generation: UUID
+        let privacyRevision: Int
+        let isMember: Bool
+    }
+    @ObservationIgnored private var generation = UUID()
+    @ObservationIgnored private var context: Context?
+    @ObservationIgnored private var authorizedContext: Context?
     @ObservationIgnored private var opening = UUID()
     @ObservationIgnored private var latestRead: ReadFlight?
     @ObservationIgnored private var incrementalRead: ReadFlight?
@@ -66,13 +76,13 @@ final class ChatViewModel {
     /// Each waiter owns its cancellation. Only the last departing waiter cancels the shared read.
     private final class ReadFlight {
         let id = UUID()
-        let session: UUID
+        let session: Context
         let task: Task<[ChatMessage], any Error>
         let reads = SharedReadPool<Int, [ChatMessage]>(resource: "chat")
         var waiters: Set<UUID> = []
         var published = false
 
-        init(session: UUID, fetch: @escaping @MainActor () async throws -> [ChatMessage]) {
+        init(session: Context, fetch: @escaping @MainActor () async throws -> [ChatMessage]) {
             self.session = session
             task = Task { try await fetch() }
         }
@@ -91,7 +101,7 @@ final class ChatViewModel {
     /// Messages and system rows in time order with a row for each new day, then unsent messages.
     /// People you blocked are left out, including ones blocked a moment ago.
     func rows(in store: GameStore, calendar: Calendar = .current) -> [Row] {
-        guard context == nil || context == store.sessionID else { return [] }
+        guard hasAccess(in: store), context == nil || context == currentContext(in: store) else { return [] }
         let visible = messages.filter { !store.isBlocked($0.sender.id) }
         var activity = store.activity(of: gameID)
         // Until the older pages are loaded, system rows from before them would bunch up at the top.
@@ -132,7 +142,8 @@ final class ChatViewModel {
     /// after each connection gap. The same activity channel also keeps the read-only hub current.
     func open(in store: GameStore) async {
         prepare(in: store)
-        let session = store.sessionID
+        let session = currentContext(in: store)
+        guard await authorize(session, in: store) else { return }
         let operation = UUID()
         opening = operation
         defer {
@@ -179,7 +190,7 @@ final class ChatViewModel {
 
     /// Consume a burst while its reads run, retaining a follow-up invalidation rather than
     /// fetching once per buffered broadcast. Neither message nor activity demand can be lost.
-    private func enqueueUpdate(activity: Bool, in store: GameStore, session: UUID, operation: UUID) {
+    private func enqueueUpdate(activity: Bool, in store: GameStore, session: Context, operation: UUID) {
         needsMessages = needsMessages || !activity
         needsActivity = needsActivity || activity
         guard updateRefresh == nil else { return }
@@ -208,7 +219,8 @@ final class ChatViewModel {
     /// Scene gating in GroupChatView cancels this while inactive.
     func poll(in store: GameStore, every interval: Duration = pollInterval) async {
         prepare(in: store)
-        let session = store.sessionID
+        let session = currentContext(in: store)
+        guard await authorize(session, in: store) else { return }
         while !Task.isCancelled, isCurrent(session, in: store) {
             do { try await Task.sleep(for: isConnected ? max(interval, Self.healthyPollInterval) : interval) }
             catch { return }
@@ -221,7 +233,8 @@ final class ChatViewModel {
     func reload(in store: GameStore) async {
         guard !Task.isCancelled else { return }
         prepare(in: store)
-        let session = store.sessionID
+        let session = currentContext(in: store)
+        guard await authorize(session, in: store) else { return }
         let flight: ReadFlight
         if let existing = latestRead, existing.session == session {
             flight = existing
@@ -273,7 +286,8 @@ final class ChatViewModel {
         guard !Task.isCancelled else { return }
         prepare(in: store)
         guard hasLoaded, let newest = messages.last?.createdAt else { return await reload(in: store) }
-        let session = store.sessionID
+        let session = currentContext(in: store)
+        guard await authorize(session, in: store) else { return }
         let flight: ReadFlight
         if let existing = incrementalRead, existing.session == session {
             flight = existing
@@ -305,7 +319,8 @@ final class ChatViewModel {
         guard !Task.isCancelled else { return }
         prepare(in: store)
         guard hasOlder, !isLoadingOlder, let oldest = messages.first else { return }
-        let session = store.sessionID
+        let session = currentContext(in: store)
+        guard await authorize(session, in: store) else { return }
         isLoadingOlder = true
         defer { if isCurrent(session, in: store) { isLoadingOlder = false } }
         do {
@@ -318,9 +333,28 @@ final class ChatViewModel {
         }
     }
 
+    /// Called when a cached screen loses access, even if it no longer renders the timeline.
+    func synchronize(in store: GameStore) {
+        prepare(in: store)
+    }
+
+    private func currentContext(in store: GameStore) -> Context {
+        Context(sessionID: store.sessionID, generation: generation, privacyRevision: store.privacyRevision,
+                isMember: hasAccess(in: store))
+    }
+
+    private func hasAccess(in store: GameStore) -> Bool {
+        !store.isGuest && store.game(gameID)?.isGoing == true
+    }
+
     private func prepare(in store: GameStore) {
-        let session = store.sessionID
-        guard context != session else { return }
+        var next = currentContext(in: store)
+        guard context != next else { return }
+        let firstOpen = context == nil
+        let losesOwnDraft = context?.sessionID != next.sessionID || !next.isMember
+        generation = UUID()
+        next = currentContext(in: store)
+        opening = UUID()
         updateRefresh?.cancel()
         updateRefresh = nil
         needsMessages = false
@@ -331,13 +365,22 @@ final class ChatViewModel {
         incrementalRead?.task.cancel()
         latestRead = nil
         incrementalRead = nil
+        for delivery in sendTasks.values { delivery.task.cancel() }
         sendTasks = [:]
-        if context != nil {
+        if !firstOpen {
             messages = []
-            pending = []
-            draft = ""
-            draftError = nil
-            asksForRules = false
+            if losesOwnDraft {
+                pending = []
+                draft = ""
+                draftError = nil
+                asksForRules = false
+            } else {
+                // Own text is safe to retain while membership survives. A cancelled send may
+                // already have arrived; keep its client ID so an explicit retry cannot duplicate it.
+                for index in pending.indices where pending[index].error == nil {
+                    pending[index].error = .unknown("send_outcome_unknown")
+                }
+            }
             state = .idle
             hasOlder = false
             isLoadingOlder = false
@@ -345,11 +388,26 @@ final class ChatViewModel {
             refreshError = nil
             isConnected = false
         }
-        context = session
+        context = next
+        // The first screen can use the store's loaded membership. A privacy revision needs a
+        // new membership read before any chat page is accepted, even if the game is cached.
+        authorizedContext = firstOpen && next.isMember ? next : nil
     }
 
-    private func isCurrent(_ session: UUID, in store: GameStore) -> Bool {
-        context == session && store.sessionID == session
+    private func authorize(_ session: Context, in store: GameStore) async -> Bool {
+        guard isCurrent(session, in: store) else { return false }
+        if authorizedContext == session { return true }
+        await store.loadGame(gameID)
+        guard !Task.isCancelled, isCurrent(session, in: store) else {
+            prepare(in: store)
+            return false
+        }
+        authorizedContext = session
+        return true
+    }
+
+    private func isCurrent(_ session: Context, in store: GameStore) -> Bool {
+        context == session && currentContext(in: store) == session && session.isMember
     }
 
     private func wait(for flight: ReadFlight, waiter: UUID) async -> Result<[ChatMessage], any Error> {
@@ -378,6 +436,7 @@ final class ChatViewModel {
     /// first, so an obvious refusal never leaves the composer.
     func send(in store: GameStore) {
         prepare(in: store)
+        guard hasAccess(in: store), authorizedContext == context else { return }
         let body = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !body.isEmpty else { return }
         if TextFilter.hasLink(body) {
@@ -397,6 +456,8 @@ final class ChatViewModel {
 
     /// "Tap to retry". The client ID stays the same, so a send that did arrive isn't posted twice.
     func retry(_ id: UUID, in store: GameStore) {
+        prepare(in: store)
+        guard hasAccess(in: store), authorizedContext == context else { return }
         guard let index = pending.firstIndex(where: { $0.id == id }), pending[index].error != nil else { return }
         pending[index].error = nil
         Task { await deliver(id, in: store) }
@@ -409,7 +470,8 @@ final class ChatViewModel {
     /// "Before you chat": I agree. Sends anything that was waiting on it.
     func acceptRules(in store: GameStore) async {
         prepare(in: store)
-        let session = store.sessionID
+        let session = currentContext(in: store)
+        guard await authorize(session, in: store) else { return }
         do {
             try await store.acceptChatRules()
             guard isCurrent(session, in: store) else { return }
@@ -424,14 +486,15 @@ final class ChatViewModel {
     func deliver(_ id: UUID, in store: GameStore) async {
         prepare(in: store)
         guard let message = pending.first(where: { $0.id == id }) else { return }
-        let session = store.sessionID
+        let session = currentContext(in: store)
+        guard await authorize(session, in: store) else { return }
         let delivery: (id: UUID, task: Task<ChatMessage, any Error>)
         if let existing = sendTasks[id] {
             delivery = existing
         } else {
             let repository = store.chat
-            delivery = (UUID(), Task { [gameID] in
-                guard store.sessionID == session, !store.isGuest else { throw CancellationError() }
+            delivery = (UUID(), Task { [weak self, gameID] in
+                guard self?.isCurrent(session, in: store) == true else { throw CancellationError() }
                 return try await repository.sendMessage(gameID: gameID, body: message.body, clientID: id)
             })
             sendTasks[id] = delivery

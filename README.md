@@ -20,7 +20,7 @@ invite-only sign-up with a waitlist, and the beta tester badge. Debug builds use
 | Backend | Supabase (Postgres, RLS, RPCs, Realtime, one edge function). `masuno-dev` for Debug, `masuno-prod` for Release | `supabase/` |
 | Alerts | Report, sign-up and invite alerts post to the team Discord from the database | `supabase/README.md` |
 | Website and waitlist | `masuno-app.github.io` (Privacy & Terms, Support, the waitlist). Its Google Sheet waitlist is mirrored with Supabase's queue by an Apps Script (N38) | SPEC §8, `docs/API.md` (Website waitlist sync) |
-| CI | `ios.yml` builds and runs unit/UI tests on iOS 18.6 and the newest simulator; `database.yml` runs the pgTAP tests; `keep-alive.yml` reads prod daily so the free project doesn't pause | `.github/workflows/` |
+| CI | `ios.yml` builds Release and runs unit/UI tests on pinned iOS 18.6 and 26.5 simulators; `database.yml` runs the pgTAP tests; `keep-alive.yml` reads prod daily so the free project doesn't pause | `.github/workflows/` |
 | Design | Figma file and the 1.0 frames (SPEC §7.7) | Arianna |
 
 ## Setup
@@ -40,7 +40,7 @@ git-ignored too: Debug points at `masuno-dev`, Release at `masuno-prod`.
 Debug builds accept a `-screen` launch argument to jump straight to a screen for design review:
 `popup`, `popup-saved`, `guest`, `guest-popup`, `guest-detail`, `guest-prompt`, `saved`, `add`, `form-error`, `edit`, `picker`, `detail-open|in|full|hosting|ended|cancelled`
 (add `-raceJoin YES` to `detail-open` for the last-spot race; `-mockLocation YES` pins you at Tec), `who`, `who-beta`, `report`, `blocked`, `me`,
-`me-hosting`, `invites`, `profile`, `onboarding-primer|sheet|signup|pending|pending-code|campus|school|review|verified|about|interests|guidelines`, `calendar`, `chat`, `chat-host`, `meetup`, `repost`, `settings`, `update`, `signed-out`, `session-expired`, `suspended`, `gallery`. The full list is in the comment above `openDebugScreen` in `AppViewModel.swift`.
+`me-hosting`, `invites`, `profile`, `onboarding-primer|sheet|signup|pending|pending-code|campus|school|review|verified|about|interests|guidelines`, `calendar`, `chat`, `chat-unavailable`, `chat-host`, `meetup`, `repost`, `settings`, `update`, `signed-out`, `session-expired`, `suspended`, `gallery`. The full list is in the comment above `openDebugScreen` in `AppViewModel.swift`.
 
 A Debug build puts sign-in, games and chat on `masuno-dev` when `Config.xcconfig` has real Debug keys, including when you open it from the home screen after disconnecting from Xcode (launch arguments only exist for Xcode launches, so this is the default, not the argument). It runs on in-memory mocks, where sign-in is faked and everything is forgotten on relaunch, when you pass `-liveAuth NO` or any `-screen` option, or when there are no real keys. Unit tests pass `-liveAuth NO`.
 

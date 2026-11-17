@@ -24,6 +24,7 @@ struct GroupChatView: View {
         let active: Bool
         let messaging: Bool
         let session: UUID
+        let privacyRevision: Int
     }
     @FocusState private var composerIsFocused: Bool
 
@@ -36,13 +37,19 @@ struct GroupChatView: View {
     }
 
     var body: some View {
-        if let event = store.game(eventID) {
-            content(event)
-        } else {
-            ContentUnavailableView("This game isn't available.", systemImage: "bubble.left.and.bubble.right")
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Theme.background)
+        Group {
+            if let event = store.game(eventID), event.isGoing, !store.isGuest {
+                content(event)
+            } else {
+                ContentUnavailableView("This chat isn't available.", systemImage: "bubble.left.and.bubble.right")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Theme.background)
+            }
         }
+        // Cached navigation can outlive membership. Clear the model even when its content
+        // has disappeared, and fence old network responses before they can restore messages.
+        .onChange(of: store.privacyRevision, initial: true) { _, _ in viewModel.synchronize(in: store) }
+        .onChange(of: store.game(eventID)?.isGoing) { _, _ in viewModel.synchronize(in: store) }
     }
 
     private func content(_ event: Game) -> some View {
@@ -134,12 +141,14 @@ struct GroupChatView: View {
         .onDisappear {
             if AppGroupStore.openChatID == eventID.uuidString { AppGroupStore.openChatID = nil }
         }
-        .task(id: Lifecycle(active: scenePhase == .active, messaging: store.isChatEnabled, session: store.sessionID)) {
+        .task(id: Lifecycle(active: scenePhase == .active, messaging: store.isChatEnabled, session: store.sessionID, privacyRevision: store.privacyRevision)) {
             guard scenePhase == .active else { return }
             let session = store.sessionID
+            let privacy = store.privacyRevision
             await load(includeMessages: false)
-            guard !Task.isCancelled, store.sessionID == session else { return }
-            if store.isChatEnabled, event.isChatOpen(), let profile = store.profile, profile.chatRulesAcceptedAt == nil {
+            guard !Task.isCancelled, store.sessionID == session, store.privacyRevision == privacy else { return }
+            guard let current = store.game(eventID), current.isGoing else { return }
+            if store.isChatEnabled, current.isChatOpen(), let profile = store.profile, profile.chatRulesAcceptedAt == nil {
                 viewModel.asksForRules = true
             }
             await withTaskGroup(of: Void.self) { group in
@@ -166,6 +175,14 @@ struct GroupChatView: View {
     }
 
     private func load(includeMessages: Bool) async {
+        let session = store.sessionID
+        let privacy = store.privacyRevision
+        await store.loadGame(eventID)
+        guard !Task.isCancelled, store.sessionID == session, store.privacyRevision == privacy,
+              store.game(eventID)?.isGoing == true else {
+            viewModel.synchronize(in: store)
+            return
+        }
         async let attendees: Void = store.loadAttendees(eventID)
         async let activity: Void = store.loadActivity(eventID)
         if includeMessages, store.isChatEnabled { await viewModel.reload(in: store) }

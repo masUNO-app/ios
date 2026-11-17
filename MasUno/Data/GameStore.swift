@@ -51,6 +51,9 @@ final class GameStore {
     @ObservationIgnored private var attendeeDates: [UUID: Date] = [:]
     @ObservationIgnored private var dirtyAttendees: Set<UUID> = []
     private(set) var attendeeRevision = 0
+    /// A broad refresh may follow a block made on another phone. Chat screens discard cached
+    /// identities when this changes; incoming blocker IDs are deliberately never disclosed.
+    private(set) var privacyRevision = 0
     private var activityByGame: [UUID: [GameActivityEntry]] = [:]
     /// Games whose fetch came back `not_found`, so Event detail can say so.
     private var missingIDs: Set<UUID> = []
@@ -205,13 +208,16 @@ final class GameStore {
         Lineup(game: game, attendees: attendees(of: game.id), me: profile?.summary)
     }
 
-    /// Who's going, minus anyone you just blocked. `goingCount` still includes them.
+    /// Who's going, minus anyone you just blocked. Peer blocks preserve the real going count;
+    /// host/player blocks reconcile the removed RSVP after the server confirms the block.
     func attendees(of id: UUID) -> [Attendee] {
-        (attendeesByGame[id] ?? []).filter { !blockedIDs.contains($0.id) }
+        guard !missingIDs.contains(id), cache[id].map({ visible($0) != nil }) ?? true else { return [] }
+        return (attendeesByGame[id] ?? []).filter { !blockedIDs.contains($0.id) }
     }
 
     func activity(of id: UUID) -> [GameActivityEntry] {
-        (activityByGame[id] ?? []).filter { entry in
+        guard !missingIDs.contains(id), cache[id].map({ visible($0) != nil }) ?? true else { return [] }
+        return (activityByGame[id] ?? []).filter { entry in
             !(entry.actor.map { blockedIDs.contains($0.id) } ?? false)
         }
     }
@@ -246,16 +252,17 @@ final class GameStore {
     private struct ReadStamp {
         let session: UUID
         let epoch: Int
+        let privacy: Int
         let versions: [UUID: Int]
     }
 
     private func stamp() -> ReadStamp {
         readEpoch += 1
-        return ReadStamp(session: sessionID, epoch: readEpoch, versions: mutationVersions)
+        return ReadStamp(session: sessionID, epoch: readEpoch, privacy: privacyRevision, versions: mutationVersions)
     }
 
     private func accepts(_ stamp: ReadStamp, game id: UUID? = nil) -> Bool {
-        guard stamp.session == sessionID, !Task.isCancelled else { return false }
+        guard stamp.session == sessionID, stamp.privacy == privacyRevision, !Task.isCancelled else { return false }
         guard let id else { return true }
         return (stamp.versions[id] ?? 0) == (mutationVersions[id] ?? 0)
             && stamp.epoch >= (publishedEpoch[id] ?? 0)
@@ -366,14 +373,40 @@ final class GameStore {
         if isGuest { _ = await refreshGuestMap(); return }
         guard profile != nil else { return await load() }
         let context = sessionID
+        invalidatePrivacy()
+        let revision = privacyRevision
         async let map: Void = refreshMap()
         async let mine: Void = refreshMyGames()
         async let saved: Void = refreshSaved()
         async let unread: Void = refreshUnread()
-        _ = await (map, mine, saved, unread)
-        guard context == sessionID, !Task.isCancelled else { return }
+        async let blocks: Void = loadBlockedPeople()
+        _ = await (map, mine, saved, unread, blocks)
+        guard context == sessionID, revision == privacyRevision, !Task.isCancelled else { return }
+        // A blocked host's game may vanish from every list while its old detail/saved row is
+        // still held in memory. Reauthorize every cached row, not just games still on the map.
+        await refreshHeldGames(Set(cache.keys), reauthorizing: true)
+        guard context == sessionID, revision == privacyRevision, !Task.isCancelled else { return }
         if offlineResources.isDisjoint(with: ["map", "mine", "saved", "profile"]) { succeeded("general") }
         pruneUnusedGames()
+    }
+
+    private func invalidatePrivacy() {
+        privacyRevision += 1
+        listReads.cancelAll()
+        gameReads.cancelAll()
+        attendeeReads.cancelAll()
+        activityReads.cancelAll()
+        unreadReads.cancelAll()
+        peopleReads.cancelAll()
+        // Keep the loaded keys, so reconciliation also reloads lists that were emptied by
+        // an earlier invalidation whose network requests were interrupted.
+        attendeesByGame = attendeesByGame.mapValues { _ in [] }
+        attendeeCounts = [:]
+        attendeeDates = [:]
+        dirtyAttendees.formUnion(attendeesByGame.keys)
+        activityByGame = activityByGame.mapValues { _ in [] }
+        unreadByGame = [:]
+        attendeeRevision += 1
     }
 
     /// Re-reads when a game or spot on your campus changes on another phone. Opens once per
@@ -438,12 +471,7 @@ final class GameStore {
     private func refresh(after changes: GameChanges) async {
         let context = sessionID
         guard case .games(let ids) = changes else {
-            dirtyAttendees.formUnion(attendeesByGame.keys)
-            attendeeRevision += 1
             await refresh()
-            guard context == sessionID, !isGuest else { return }
-            let extra = savedIDs.union(retainedGameIDs).subtracting(mapIDs)
-            await refreshHeldGames(extra)
             return
         }
         dirtyAttendees.formUnion(ids)
@@ -458,7 +486,7 @@ final class GameStore {
     /// and its people land together, so a leave doesn't draw a dashed spot on the wrong face.
     /// A game that doesn't come back was deleted or is now hidden by a block, so it goes.
     /// - Parameter ids: Games already in the cache.
-    private func refreshHeldGames(_ ids: Set<UUID>) async {
+    private func refreshHeldGames(_ ids: Set<UUID>, reauthorizing: Bool = false) async {
         guard !ids.isEmpty, !isGuest else { return }
         let snapshot = stamp()
         do {
@@ -467,6 +495,14 @@ final class GameStore {
             let fetchedIDs = Set(fetched.map(\.id))
             let needsPeople = ids.filter { attendeesByGame[$0] != nil && fetchedIDs.contains($0) }
             var people: [UUID: [Attendee]] = [:]
+            let needsActivity = ids.filter { activityByGame[$0] != nil && fetchedIDs.contains($0) }
+            let activityTasks = needsActivity.map { id in
+                Task { @MainActor [self] in
+                    let rows = try? await activityReads.value(for: id) { [games] in try await games.fetchActivity(gameID: id) }
+                    return (id, rows)
+                }
+            }
+            var activity: [UUID: [GameActivityEntry]] = [:]
             let peopleTasks = needsPeople.map { id in
                 Task { @MainActor [self] in
                     let list = try? await attendeeReads.value(for: id) { [games] in try await games.fetchAttendees(gameID: id) }
@@ -478,19 +514,31 @@ final class GameStore {
                     let (id, list) = await task.value
                     if let list { people[id] = list }
                 }
+                for task in activityTasks {
+                    let (id, rows) = await task.value
+                    if let rows { activity[id] = rows }
+                }
             } onCancel: {
                 for task in peopleTasks { task.cancel() }
+                for task in activityTasks { task.cancel() }
             }
             guard accepts(snapshot) else { return }
             // Names and count are published in the same main-actor turn.
             publish(fetched, stamp: snapshot)
-            for id in ids.subtracting(fetchedIDs) where accepts(snapshot, game: id) {
+            for id in ids.subtracting(fetchedIDs) where accepts(snapshot, game: id)
+                || (reauthorizing && snapshot.versions[id] == mutationVersions[id]) {
                 cache[id] = nil
                 mapIDs.removeAll { $0 == id }
                 attendeesByGame[id] = nil
                 attendeeCounts[id] = nil
                 attendeeDates[id] = nil
+                activityByGame[id] = nil
+                unreadByGame[id] = nil
+                dirtyAttendees.remove(id)
                 missingIDs.insert(id)
+            }
+            for (id, rows) in activity where accepts(snapshot, game: id) {
+                activityByGame[id] = rows
             }
             for (id, list) in people where accepts(snapshot, game: id) {
                 attendeesByGame[id] = list
@@ -662,6 +710,12 @@ final class GameStore {
             if domainError(error) == .notFound {
                 cache[id] = nil
                 mapIDs.removeAll { $0 == id }
+                attendeesByGame[id] = nil
+                attendeeCounts[id] = nil
+                attendeeDates[id] = nil
+                activityByGame[id] = nil
+                unreadByGame[id] = nil
+                dirtyAttendees.remove(id)
                 missingIDs.insert(id)
             } else { failedRead(error, resource: "game:\(id)") }
         }
@@ -672,9 +726,10 @@ final class GameStore {
         guard !isGuest else { return }
         let context = sessionID
         let version = mutationVersions[id] ?? 0
+        let revision = privacyRevision
         do {
             let fetched = try await attendeeReads.value(for: id) { [games] in try await games.fetchAttendees(gameID: id) }
-            guard context == sessionID, !Task.isCancelled, !isGuest,
+            guard context == sessionID, revision == privacyRevision, !Task.isCancelled, !isGuest,
                   version == (mutationVersions[id] ?? 0), !activeMembershipWrites.contains(id) else { return }
             attendeesByGame[id] = fetched
             attendeeCounts[id] = cache[id]?.goingCount
@@ -714,9 +769,10 @@ final class GameStore {
     func loadActivity(_ id: UUID) async {
         guard !isGuest else { return }
         let context = sessionID
+        let revision = privacyRevision
         do {
             let fetched = try await activityReads.value(for: id) { [games] in try await games.fetchActivity(gameID: id) }
-            guard context == sessionID, !Task.isCancelled, !isGuest else { return }
+            guard context == sessionID, revision == privacyRevision, !Task.isCancelled, !isGuest else { return }
             activityByGame[id] = fetched
             succeeded("activity:\(id)")
         } catch {
@@ -729,11 +785,12 @@ final class GameStore {
     func refreshUnread() async {
         guard isChatEnabled, !isGuest else { return }
         let context = sessionID
+        let revision = privacyRevision
         // Retry acknowledgements first, while retaining optimistic local clearing for failed ones.
         for id in pendingReadAcknowledgements { await markChatRead(id) }
         do {
             let counts = try await unreadReads.value(for: "unread") { [chat] in try await chat.fetchUnreadCounts() }
-            guard context == sessionID, !Task.isCancelled, !isGuest else { return }
+            guard context == sessionID, revision == privacyRevision, !Task.isCancelled, !isGuest else { return }
             unreadByGame = counts.filter { !pendingReadAcknowledgements.contains($0.key) }
             succeeded("unread")
         } catch {
@@ -909,15 +966,22 @@ final class GameStore {
 
     private func changeMembership(_ id: UUID, joining: Bool, before: Game, attendeesBefore: [Attendee]?, context: UUID) async {
         guard context == sessionID, !isGuest else { return }
+        let revision = privacyRevision
         do {
             let game = try await (joining ? games.joinGame(id: id) : games.leaveGame(id: id))
             guard context == sessionID else { return }
+            guard revision == privacyRevision else {
+                activeMembershipWrites.remove(id)
+                mutationVersions[id, default: 0] += 1
+                await loadGame(id)
+                return
+            }
             applyWrite(game)
             if joining { asksForNotificationPrimer = true }
             succeeded("membership:\(id)")
         } catch {
             guard context == sessionID else { return }
-            if !OperationCancellation.isCancellation(error) {
+            if revision == privacyRevision, !OperationCancellation.isCancellation(error) {
                 cache[id] = before
                 attendeesByGame[id] = attendeesBefore
                 failedRead(error, resource: "membership:\(id)")
@@ -975,6 +1039,7 @@ final class GameStore {
         try requireAccount()
         guard !activeHostingWrites.contains(id) else { throw DomainError.notAllowed }
         let context = sessionID
+        let revision = privacyRevision
         activeHostingWrites.insert(id)
         mutationVersions[id, default: 0] += 1
         defer {
@@ -986,6 +1051,11 @@ final class GameStore {
         do {
             let updated = try await games.updateGame(id: id, draft)
             guard context == sessionID else { throw CancellationError() }
+            guard revision == privacyRevision else {
+                activeHostingWrites.remove(id)
+                await loadGame(id)
+                return
+            }
             applyWrite(updated)
             activityByGame[id] = nil
         } catch {
@@ -1008,6 +1078,7 @@ final class GameStore {
     func cancelGame(_ id: UUID) async {
         guard !isGuest, !activeHostingWrites.contains(id) else { return }
         let context = sessionID
+        let revision = privacyRevision
         activeHostingWrites.insert(id)
         mutationVersions[id, default: 0] += 1
         defer {
@@ -1019,6 +1090,11 @@ final class GameStore {
         do {
             let updated = try await games.cancelGame(id: id)
             guard context == sessionID else { return }
+            guard revision == privacyRevision else {
+                activeHostingWrites.remove(id)
+                await loadGame(id)
+                return
+            }
             applyWrite(updated)
             notice = String(localized: "Game cancelled. We let everyone going know.")
         } catch {
@@ -1147,10 +1223,12 @@ final class GameStore {
         }
         guard blockedIDs.contains(person.id) != blocked else { return }
         safetyGeneration += 1
+        let revisionBefore = privacyRevision
         let index = blockedPeople.firstIndex { $0.id == person.id } ?? 0
         if blocked { blockedPeople.insert(person, at: 0) }
         else { blockedPeople.removeAll { $0.id == person.id } }
         let attendeesWithThem = Array(attendeesByGame.filter { $0.value.contains { $0.id == person.id } }.keys)
+        let blockedFlagsBefore = Dictionary(uniqueKeysWithValues: attendeesWithThem.map { ($0, cache[$0]?.hasBlockedAttendee ?? false) })
         if blocked { for id in attendeesWithThem { cache[id]?.hasBlockedAttendee = true } }
         let task = Task { @MainActor [self] in
             defer { if context == sessionID { safetyTasks[person.id] = nil } }
@@ -1159,12 +1237,17 @@ final class GameStore {
                 if blocked { try await safety.block(userID: person.id) }
                 else { try await safety.unblock(userID: person.id) }
                 guard context == sessionID else { return }
-                if !blocked { await refresh() }
+                await refresh()
             } catch {
                 guard context == sessionID else { return }
                 if blocked { blockedPeople.removeAll { $0.id == person.id } }
                 else { blockedPeople.insert(person, at: min(index, blockedPeople.count)) }
-                for id in attendeesWithThem { await loadGame(id) }
+                if revisionBefore == privacyRevision {
+                    for id in attendeesWithThem {
+                        cache[id]?.hasBlockedAttendee = (blockedFlagsBefore[id] ?? false)
+                            || (attendeesByGame[id] ?? []).contains { blockedIDs.contains($0.id) }
+                    }
+                }
                 if !OperationCancellation.isCancellation(error) { fail(domainError(error)) }
             }
         }
@@ -1290,6 +1373,7 @@ final class GameStore {
                     self.bookmarkTasks[id] = nil
                 }
             }
+            let revision = self.privacyRevision
             do {
                 let game: Game
                 switch mutation {
@@ -1299,7 +1383,8 @@ final class GameStore {
                 guard self.bookmarkSession == session else { return }
                 self.confirmedBookmarks[id] = (game.isBookmarked, game.spotAlert)
                 guard self.savedGeneration[id] == generation else { return }
-                self.applyBookmark(game)
+                self.applyBookmark(game, publishGame: revision == self.privacyRevision)
+                if revision != self.privacyRevision { await self.loadGame(id) }
             } catch {
                 guard self.bookmarkSession == session, self.savedGeneration[id] == generation else { return }
                 let state = self.confirmedBookmarks[id] ?? (saved: false, alert: false)
@@ -1319,7 +1404,7 @@ final class GameStore {
     }
 
     /// The bookmark RPCs can add or remove, unlike a map refresh, which only adds.
-    private func applyBookmark(_ game: Game) {
+    private func applyBookmark(_ game: Game, publishGame: Bool = true) {
         if game.isBookmarked {
             savedIDs.insert(game.id)
         } else {
@@ -1332,8 +1417,10 @@ final class GameStore {
         } else {
             spotAlertIDs.remove(game.id)
         }
-        noteSpotOpened(replacing: cache[game.id], with: game)
-        cache[game.id] = game
+        if publishGame {
+            noteSpotOpened(replacing: cache[game.id], with: game)
+            cache[game.id] = game
+        }
         write(savedIDs, forKey: savedKey)
         write(spotAlertIDs, forKey: spotAlertKey)
     }
@@ -1381,6 +1468,7 @@ final class GameStore {
         lastAccess = [:]
         profileWriteGeneration += 1
         safetyGeneration += 1
+        privacyRevision += 1
         pendingReadAcknowledgements = []
         readAcknowledgementGeneration = [:]
         attendeeDates = [:]

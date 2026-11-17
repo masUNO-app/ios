@@ -1,15 +1,31 @@
-# App builds and tests run on iOS 18.6 and the newest installed iPhone simulator.
-# Debug runs on mocks with the template's placeholder keys, so it never calls
-# Supabase; LiveIntegrationTests skip themselves without MASUNO_LIVE_PASSWORD. Make "iOS / test" a
-# required check on main once it's green.
 name: iOS
 
 on:
+  workflow_dispatch:
   pull_request:
-    paths: ["MasUno/**", "MasUnoTests/**", "MasUnoUITests/**", "masUNONotifications/**", "Shared/**", "project.yml", "Config.xcconfig.template", ".github/workflows/ios.yml"]
+    paths:
+      - "MasUno/**"
+      - "MasUnoTests/**"
+      - "MasUnoUITests/**"
+      - "masUNONotifications/**"
+      - "Shared/**"
+      - "project.yml"
+      - "Config.xcconfig.template"
+      - ".github/workflows/ios.yml"
   push:
     branches: [main]
-    paths: ["MasUno/**", "MasUnoTests/**", "MasUnoUITests/**", "masUNONotifications/**", "Shared/**", "project.yml", "Config.xcconfig.template", ".github/workflows/ios.yml"]
+    paths:
+      - "MasUno/**"
+      - "MasUnoTests/**"
+      - "MasUnoUITests/**"
+      - "masUNONotifications/**"
+      - "Shared/**"
+      - "project.yml"
+      - "Config.xcconfig.template"
+      - ".github/workflows/ios.yml"
+
+permissions:
+  contents: read
 
 concurrency:
   group: ios-${{ github.ref }}
@@ -17,69 +33,81 @@ concurrency:
 
 jobs:
   test:
-    # Preserve the existing required check name for the newest-OS job.
-    name: ${{ matrix.ios == 'latest' && 'test' || 'test-ios18' }}
-    runs-on: macos-26
+    # Keep the existing check names. Each runner already includes its exact runtime.
+    name: ${{ matrix.check }}
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
-        ios: [latest, '18.6']
+        include:
+          - check: test-ios18
+            runner: macos-15-intel
+            xcode: "26.3"
+            ios: "18.6"
+            runtime: com.apple.CoreSimulator.SimRuntime.iOS-18-6
+          - check: test
+            runner: macos-26-intel
+            xcode: "26.6"
+            ios: "26.5"
+            runtime: com.apple.CoreSimulator.SimRuntime.iOS-26-5
+    defaults:
+      run:
+        shell: bash
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_${{ matrix.xcode }}.app/Contents/Developer
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+
     steps:
       - uses: actions/checkout@v4
-      - uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: latest-stable
+
+      - name: Verify the build environment
+        run: |
+          mkdir -p artifacts
+          {
+            xcodebuild -version
+            xcrun swiftc --version
+            xcrun simctl list runtimes
+            df -h .
+          } 2>&1 | tee artifacts/environment.log
+
       - name: Generate the project
         run: |
-          brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
+          command -v xcodegen >/dev/null || brew install xcodegen
           cp Config.xcconfig.template Config.xcconfig
           xcodegen generate
-      - name: Install the iOS 18 runtime
-        if: matrix.ios == '18.6'
+
+      - name: Build the Release app and notification extension
         run: |
-          if ! xcrun simctl list runtimes -j | python3 -c '
-          import json, sys
-          available = any(r["version"] == "18.6" and r["isAvailable"] for r in json.load(sys.stdin)["runtimes"])
-          sys.exit(0 if available else 1)
-          '; then
-            xcodebuild -downloadPlatform iOS -buildVersion 18.6
-          fi
-          xcrun simctl create 'iPhone 16 Pro (iOS 18)' \
-            com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro \
-            com.apple.CoreSimulator.SimRuntime.iOS-18-6
-      - name: Pick the test simulator
+          xcodebuild build -quiet -project masUNO.xcodeproj -scheme masUNO \
+            -configuration Release -destination 'generic/platform=iOS' \
+            -derivedDataPath build CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee artifacts/release.log
+
+      - name: Boot iPhone 16 Pro on iOS ${{ matrix.ios }}
+        timeout-minutes: 10
         env:
-          TEST_IOS: ${{ matrix.ios }}
+          SIMULATOR_RUNTIME: ${{ matrix.runtime }}
         run: |
-          udid=$(xcrun simctl list devices available -j | python3 -c '
-          import json, os, re, sys
-          requested = os.environ["TEST_IOS"]
-          best = None
-          for runtime, devices in json.load(sys.stdin)["devices"].items():
-              match = re.search(r"iOS-(\d+)-(\d+)", runtime)
-              if not match:
-                  continue
-              version = tuple(map(int, match.groups()))
-              if requested != "latest" and version != tuple(map(int, requested.split("."))):
-                  continue
-              for device in devices:
-                  if device["name"].startswith("iPhone") and (best is None or version > best[0]):
-                      best = (version, device["udid"], device["name"])
-          if best is None:
-              raise SystemExit(f"No available iPhone simulator for iOS {requested}")
-          print(best[1]); print(best, file=sys.stderr)
-          ')
-          echo "SIMULATOR=$udid" >> "$GITHUB_ENV"
-      - name: Build and test
+          simulator=$(xcrun simctl create 'masUNO CI' \
+            com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro "$SIMULATOR_RUNTIME")
+          echo "SIMULATOR=$simulator" >> "$GITHUB_ENV"
+          xcrun simctl boot "$simulator"
+          xcrun simctl bootstatus "$simulator" -b
+
+      - name: Run all mock unit and UI tests
         run: |
-          set -o pipefail
-          xcodebuild test -project masUNO.xcodeproj -scheme masUNO \
-            -destination "id=$SIMULATOR" -derivedDataPath build \
-            CODE_SIGNING_ALLOWED=NO | tail -n 80
-      - name: Check Release app and extension packaging
-        run: |
-          set -o pipefail
-          xcodebuild build -project masUNO.xcodeproj -scheme masUNO -configuration Release \
-            -destination 'generic/platform=iOS Simulator' -derivedDataPath build \
-            CODE_SIGNING_ALLOWED=NO | tail -n 60
+          xcodebuild test -quiet -project masUNO.xcodeproj -scheme masUNO \
+            -configuration Debug -destination "id=$SIMULATOR" \
+            -derivedDataPath build -resultBundlePath artifacts/tests.xcresult \
+            -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee artifacts/tests.log
+
+      - name: Upload logs, results, and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-test-results-${{ matrix.ios }}
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 7
