@@ -13,6 +13,9 @@ sql_paths = ["./seed.sql"]
 site_url = "masuno://auth-callback"
 additional_redirect_urls = ["masuno://auth-callback"]
 enable_signup = true
+# Matches the app's own check (OnboardingViewModel.minimumPasswordLength). Hosted projects set it in
+# Dashboard → Auth → Providers → Email (README).
+minimum_password_length = 8
 
 # The real sign-up gate (SPEC §8.4). Hosted projects register it in Dashboard → Auth → Hooks.
 [auth.hook.before_user_created]
