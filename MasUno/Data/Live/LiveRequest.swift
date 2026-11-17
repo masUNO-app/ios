@@ -6,6 +6,8 @@ import Supabase
 func liveRequest<Value>(_ body: () async throws -> Value) async throws -> Value {
     do {
         return try await body()
+    } catch let error where OperationCancellation.isCancellation(error) {
+        throw error
     } catch let error as DomainError {
         throw error
     } catch let error as PostgrestError {
