@@ -125,3 +125,7 @@ Placeholders that still need a real answer. Card IDs refer to SPEC §5.
 - [x] 1.0 UI (E27), guest browsing (R7-15), invites and the beta badge (N37), one waitlist (N38)
 - [ ] 1.0: Notify me + synced Saved, notifications, picker drag, Spanish
 - [ ] Post-MVP: organizer approval, profile photos, dark mode
+
+Build 0.9 (2) implements the first optimization pass and the post-create/join primer crash fix.
+CI includes mock iOS tests, primer UI regressions, Release packaging, pgTAP, and pinned Deno/Node
+push-delivery checks. Remaining physical-device checks are listed in [QA.md](docs/QA.md).

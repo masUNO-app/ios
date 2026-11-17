@@ -171,3 +171,21 @@ Push stays off until `app_config.push_enabled` is true. With it on, two phones, 
 - [ ] Chat: the banner uses the sender's initials. Mute hides the next one. Reply sends. Mark as read clears it.
 - [ ] A banner for the game or chat already on screen does not appear. Opening that screen clears it.
 - [ ] Sign out stops this phone's token. The other phone still gets alerts.
+
+## Build 0.9 (2) follow-up
+
+The simulator regression suite covers 313 iOS cases and both create/join primer UI paths.
+Physical-device, two-phone and distribution checks remain below.
+
+- [ ] On TestFlight, create and join with notification permission undetermined; the primer opens
+  and both Not now and drag-dismiss keep the app alive. Repeat with permission already decided.
+- [ ] Refresh empty/nonempty chats, leave during a pull, background during a read, then recover
+  from airplane mode. Real failures remain retryable and cancelled reads show no false popup.
+- [ ] Two phones: same-count attendee replacement, mute, reconnect gap, scroll-up during incoming
+  chat, and read acknowledgement interrupted by network loss.
+- [ ] Physical device: compare idle/covered courts with Reduce Motion/Low Power Mode toggled;
+  inspect energy, navigation memory and frame hitches at 100/500 games.
+- [ ] Compact/landscape/large Dynamic Type: open popup, keyboard, filter/group sheet and location
+  picker; rotate/resume, change timezone across midnight, and confirm expired actions revalidate.
+- [ ] Apply migration 17 in a fresh/dev environment, run the complete database CI suite, then
+  deploy the v2 sender. Observe queue/retry summaries before proceeding to production.
