@@ -1,11 +1,20 @@
 -- Live game lists (1.0 refresh): game and spot changes ping the game's campus with the games' IDs.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(6);
+select plan(8);
+
+-- Hosted dev can contain historic global-topic rows; only new emissions are a regression.
+create temp table previous_global_game_broadcasts as
+select id from realtime.messages where topic = 'games:changes';
 
 create function pg_temp.act_as(p_user uuid) returns void language sql as $$
     select set_config('request.jwt.claim.sub', coalesce(p_user::text, ''), true)
 $$;
+
+select ok(not exists(select 1 from pg_trigger where tgrelid in ('public.games'::regclass, 'public.rsvps'::regclass)
+    and tgname in ('games_broadcast', 'rsvps_broadcast')), 'legacy all-campus triggers are absent');
+select ok(not exists(select 1 from pg_policies where schemaname='realtime' and tablename='messages'
+    and policyname='signed-in users receive game changes'), 'legacy all-campus subscription policy is absent');
 
 select has_trigger('public', 'games', 'games_updated_broadcast', 'changing a game sends a ping');
 select has_trigger('public', 'rsvps', 'rsvps_inserted_broadcast', 'joining sends a ping');
@@ -50,7 +59,8 @@ select ok(
 );
 select ok(
     to_regclass('realtime.messages') is null
-    or not exists (select 1 from realtime.messages where topic = 'games:changes'),
+    or not exists (select 1 from realtime.messages m where topic = 'games:changes'
+        and not exists (select 1 from previous_global_game_broadcasts old where old.id = m.id)),
     'nothing goes out on an all-campus topic'
 );
 
