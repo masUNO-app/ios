@@ -209,4 +209,4 @@ Build Debug and Release with the 18.0 target and run the earliest supported OS w
 - [ ] Home screen icon appears correctly, including dark and tinted home screen styles.
 - [ ] iOS 26+: glass controls, toolbar grouping and detail scrolling keep their existing appearance. iOS 27.1+: also run the iPhone Duo checks above.
 
-CI runs the mock suites on iOS 18.6 and the newest installed simulator and builds Release packaging on both jobs.
+CI runs all mock unit/UI suites on iOS 18.6 with Xcode 26.3 (`macos-15-intel`) and iOS 26.5 with Xcode 26.6 (`macos-26-intel`). Both runtimes are preinstalled on their runner images. Each job builds the Release app and notification extension before testing on a fresh iPhone 16 Pro, and uploads logs, the result bundle, and screenshots even on failure.

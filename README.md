@@ -20,7 +20,7 @@ invite-only sign-up with a waitlist, and the beta tester badge. Debug builds use
 | Backend | Supabase (Postgres, RLS, RPCs, Realtime, one edge function). `masuno-dev` for Debug, `masuno-prod` for Release | `supabase/` |
 | Alerts | Report, sign-up and invite alerts post to the team Discord from the database | `supabase/README.md` |
 | Website and waitlist | `masuno-app.github.io` (Privacy & Terms, Support, the waitlist). Its Google Sheet waitlist is mirrored with Supabase's queue by an Apps Script (N38) | SPEC §8, `docs/API.md` (Website waitlist sync) |
-| CI | `ios.yml` builds and runs unit/UI tests on iOS 18.6 and the newest simulator; `database.yml` runs the pgTAP tests; `keep-alive.yml` reads prod daily so the free project doesn't pause | `.github/workflows/` |
+| CI | `ios.yml` builds Release and runs unit/UI tests on pinned iOS 18.6 and 26.5 simulators; `database.yml` runs the pgTAP tests; `keep-alive.yml` reads prod daily so the free project doesn't pause | `.github/workflows/` |
 | Design | Figma file and the 1.0 frames (SPEC §7.7) | Arianna |
 
 ## Setup
