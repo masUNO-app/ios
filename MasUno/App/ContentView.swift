@@ -159,7 +159,8 @@ struct ContentView: View {
         appViewModel.push?.noteAccount(store.profile?.id)
         // Routing is useful immediately; device registration must not delay a tapped game.
         appViewModel.deliverPushRoute(appViewModel.push?.consumePendingRoute())
-        await appViewModel.push?.refreshRegistration(force: true)
+        // Notification services can be slow or unavailable. Navigation must not wait for them.
+        Task { await appViewModel.push?.refreshRegistration(force: true) }
         await store.markBetaTesterIfNeeded(isTestFlight: await BuildChannel.isTestFlight)
     }
 

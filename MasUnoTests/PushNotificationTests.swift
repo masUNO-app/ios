@@ -81,13 +81,42 @@ struct PushNotificationServiceTests {
     private let backend = MockBackend()
     private let defaults = UserDefaults(suiteName: "PushTests.\(UUID().uuidString)")!
     private let service: PushNotificationService
+    private let system = MockNotificationSystemClient()
 
     init() {
         AppGroupStore.clearAccount()
-        service = PushNotificationService(repository: spy, games: backend, chat: backend, defaults: defaults)
+        service = PushNotificationService(repository: spy, games: backend, chat: backend, defaults: defaults, system: system)
     }
 
     // MARK: Device token
+
+    @Test func authorizedNotificationsRequestAnAPNsToken() async {
+        system.status = .authorized
+        await service.refreshRegistration(force: true)
+        #expect(service.authorizationStatus == .authorized)
+        #expect(system.registrationRequests == 1)
+        #expect(spy.registered.isEmpty)
+    }
+
+    @Test func deniedNotificationsDoNotRequestAnAPNsToken() async {
+        system.status = .denied
+        await service.refreshRegistration(force: true)
+        #expect(service.authorizationStatus == .denied)
+        #expect(system.registrationRequests == 0)
+    }
+
+    @Test func grantingPermissionUpdatesStatusAndRequestsAnAPNsToken() async {
+        #expect(await service.requestPermission())
+        #expect(service.authorizationStatus == .authorized)
+        #expect(system.registrationRequests == 1)
+    }
+
+    @Test func decliningPermissionDoesNotRequestAnAPNsToken() async {
+        system.grantsAuthorization = false
+        #expect(await service.requestPermission() == false)
+        #expect(service.authorizationStatus == .denied)
+        #expect(system.registrationRequests == 0)
+    }
 
     @Test func aNewTokenIsUploadedForThisBuild() async {
         await service.didRegister(token: "ab12cd34ef56ab12cd34ef56")
@@ -108,7 +137,7 @@ struct PushNotificationServiceTests {
 
     @Test func theTokenSurvivesARelaunch() async {
         await service.didRegister(token: "ab12cd34ef56ab12cd34ef56")
-        let relaunched = PushNotificationService(repository: spy, games: backend, chat: backend, defaults: defaults)
+        let relaunched = PushNotificationService(repository: spy, games: backend, chat: backend, defaults: defaults, system: system)
         await relaunched.refreshRegistration(force: true)
         #expect(spy.registered.last?.token == "ab12cd34ef56ab12cd34ef56")
     }
@@ -160,7 +189,7 @@ struct PushNotificationServiceTests {
 
         spy.failUnregister = false
         let relaunchedPush = PushNotificationService(
-            repository: spy, games: backend, chat: backend, defaults: defaults
+            repository: spy, games: backend, chat: backend, defaults: defaults, system: system
         )
         let relaunch = AppViewModel(
             auth: backend, catalog: backend, push: relaunchedPush, defaults: defaults, signOutMarker: marker
@@ -324,7 +353,7 @@ struct PushNotificationServiceTests {
         let model = AppViewModel(auth: backend, catalog: backend, push: service, defaults: defaults)
         await model.deleteAccount(store: store)
         #expect(AppGroupStore.myID == nil)
-        let again = PushNotificationService(repository: spy, games: backend, chat: backend, defaults: defaults)
+        let again = PushNotificationService(repository: spy, games: backend, chat: backend, defaults: defaults, system: system)
         await again.refreshRegistration(force: true)
         #expect(spy.registered.count == 1)
     }
@@ -482,9 +511,9 @@ struct PushNotificationServiceTests {
 
     // MARK: Categories
 
-    @Test func everySampleCategoryIsRegistered() async throws {
+    @Test func everySampleCategoryIsRegistered() throws {
         service.registerCategories()
-        let registered = await UNUserNotificationCenter.current().notificationCategories()
+        let registered = system.categories
         let byID = Dictionary(uniqueKeysWithValues: registered.map { ($0.identifier, $0) })
         for sample in try NotificationSamples.all() {
             guard let category = sample.aps["category"] as? String else { continue }

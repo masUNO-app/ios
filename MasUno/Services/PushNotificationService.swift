@@ -14,6 +14,7 @@ final class PushNotificationService {
     @ObservationIgnored private let games: any GameRepository
     @ObservationIgnored private let chat: any ChatRepository
     @ObservationIgnored private let defaults: UserDefaults
+    @ObservationIgnored private let system: any NotificationSystemClient
     @ObservationIgnored private let logger = Logger(subsystem: "com.masuno.app", category: "Push")
     @ObservationIgnored private var token: String?
     @ObservationIgnored private var lastUploaded: Date?
@@ -37,12 +38,14 @@ final class PushNotificationService {
 
     init(
         repository: any NotificationRepository, games: any GameRepository, chat: any ChatRepository,
-        defaults: UserDefaults = .standard
+        defaults: UserDefaults = .standard,
+        system: any NotificationSystemClient = LiveNotificationSystemClient()
     ) {
         self.repository = repository
         self.games = games
         self.chat = chat
         self.defaults = defaults
+        self.system = system
         token = defaults.string(forKey: Self.tokenKey)
     }
 
@@ -59,7 +62,7 @@ final class PushNotificationService {
         }
         let directions = UNNotificationAction(identifier: Self.directions, title: "Directions", options: [.foreground])
         let reminder = UNNotificationCategory(identifier: "REMINDER", actions: [directions], intentIdentifiers: [], options: [])
-        UNUserNotificationCenter.current().setNotificationCategories(Set([chat, reminder] + joinCategories))
+        system.setCategories(Set([chat, reminder] + joinCategories))
     }
 
     /// Asks iOS, then requests a device token when they allow it.
@@ -67,9 +70,9 @@ final class PushNotificationService {
     @discardableResult
     func requestPermission() async -> Bool {
         do {
-            let granted = try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge])
+            let granted = try await system.requestAuthorization()
             await refreshAuthorization()
-            if granted { UIApplication.shared.registerForRemoteNotifications() }
+            if granted { system.registerForRemoteNotifications() }
             return granted
         } catch {
             logger.error("Permission request failed: \(error.localizedDescription, privacy: .public)")
@@ -78,8 +81,7 @@ final class PushNotificationService {
     }
 
     func refreshAuthorization() async {
-        let settings = await UNUserNotificationCenter.current().notificationSettings()
-        authorizationStatus = settings.authorizationStatus
+        authorizationStatus = await system.authorizationStatus()
     }
 
     /// Launch always uploads. Foreground uploads when the last one was more than an hour ago.
@@ -88,7 +90,7 @@ final class PushNotificationService {
         await refreshAuthorization()
         switch authorizationStatus {
         case .authorized, .provisional, .ephemeral:
-            UIApplication.shared.registerForRemoteNotifications()
+            system.registerForRemoteNotifications()
         default:
             break
         }
