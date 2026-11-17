@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { Buffer } from "node:buffer";
 import test from "node:test";
 import { buildPush, classifyApnsStatus, mapPool } from "./payload.ts";
 import { languageOf, renderAlert } from "./templates.ts";

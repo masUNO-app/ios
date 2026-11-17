@@ -26,6 +26,14 @@ already applied to a shared project; add a new timestamped one. Only deploy prod
 3. To sign in locally, create `official.masuno.app+local1@gmail.com` in Studio (Authentication → Add user, auto confirm on). The hook lets it in because `seed.sql` allowlists it.
 4. `supabase test db` runs the pgTAP tests in `tests/database` (auth hook, game rules, RLS and grants, blocks, bans, reports, account deletion, group chat, invites and the beta badge, the website waitlist sync). CI runs the same on every PR that touches `supabase/` (`.github/workflows/database.yml`). The two-phone last-spot race stays a manual check in `docs/QA.md`.
 
+### Notification test tooling
+
+Use Node 26, matching CI. Run `npm ci --ignore-scripts --prefix supabase/functions`, then
+`npm --prefix supabase/functions run check` and `npm --prefix supabase/functions test`.
+The scoped TypeScript project supplies Node types for the tests and shared helpers, including
+their `node:` imports. Deno Edge entrypoints remain checked separately with
+`deno check --no-lock supabase/functions/send-push/index.ts`.
+
 ## Hosted project checklist (masuno-dev, then masuno-prod)
 
 Migrations don't carry dashboard settings, so do these on each project (B2, B12):

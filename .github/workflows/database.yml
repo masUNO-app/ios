@@ -35,7 +35,11 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.5.6
+      - name: Install test type-checking dependencies
+        run: npm ci --ignore-scripts --prefix supabase/functions
+      - name: Typecheck Node tests and shared helpers
+        run: npm --prefix supabase/functions run check
       - name: Typecheck the Edge entrypoint and delivery helpers
         run: deno check --no-lock supabase/functions/send-push/index.ts
       - name: Test payloads, JWTs and delivery with fake transport
-        run: node --test supabase/functions/send-push/*.test.ts
+        run: npm --prefix supabase/functions test

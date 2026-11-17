@@ -13,6 +13,7 @@ Pods/
 .build/
 .swiftpm/
 Carthage/Build/
+node_modules/
 
 # Release artifacts & signing
 *.ipa
