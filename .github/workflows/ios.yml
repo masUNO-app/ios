@@ -74,12 +74,26 @@ jobs:
       - name: Build and test
         run: |
           set -o pipefail
-          xcodebuild test -project masUNO.xcodeproj -scheme masUNO \
+          if ! xcodebuild test -project masUNO.xcodeproj -scheme masUNO \
             -destination "id=$SIMULATOR" -derivedDataPath build \
-            CODE_SIGNING_ALLOWED=NO | tail -n 80
+            CODE_SIGNING_ALLOWED=NO 2>&1 | tee xcodebuild-test.log | tail -n 80; then
+            # The tail can omit the compiler's source location; retain useful error context.
+            awk '/error:/ { remaining = 12 } remaining > 0 { print; remaining-- }' xcodebuild-test.log
+            exit 1
+          fi
       - name: Check Release app and extension packaging
         run: |
           set -o pipefail
           xcodebuild build -project masUNO.xcodeproj -scheme masUNO -configuration Release \
             -destination 'generic/platform=iOS Simulator' -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO | tail -n 60
+      - name: Upload test results and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-test-results-${{ matrix.ios }}
+          path: |
+            build/Logs/Test/*.xcresult
+            xcodebuild-test.log
+          if-no-files-found: ignore
+          retention-days: 7

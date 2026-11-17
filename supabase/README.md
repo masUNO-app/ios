@@ -19,8 +19,8 @@ already applied to a shared project; add a new timestamped one. Only deploy prod
 
 | `20261116000000_notifications` | Push notifications: device tokens, preferences, synced bookmarks, the outbox, producers, claim and cron. Ships switched off |
 | `20261119000000_security_fixes` | Security review fixes: RSVPs, `has_blocked_attendee` and `join_game` no longer reveal a blocker's games; banned accounts read nothing; allowlisted password sign-ups wait for approval; sign-up alerts mask emails; device tokens bound to their install; signed-out callers limited to `guest_games` and the waitlist RPCs |
-| `20261121000000_block_privacy` | Host/player blocks remove active RSVPs in either direction, old block pairs are reconciled, activity RLS hides blocked actors, and both notification claim protocols recheck all queued identities and current membership |
 | `20261120000000_chat_push_blocks` | Chat pushes no longer name a member who's in a blocked pair with the recipient (`private.chat_others`) |
+| `20261121000000_block_privacy` | Host/player blocks remove active RSVPs in either direction, old block pairs are reconciled, activity RLS hides blocked actors, and both notification claim protocols recheck all queued identities and current membership |
 
 ## Local setup
 

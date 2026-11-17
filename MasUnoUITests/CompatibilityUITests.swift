@@ -80,6 +80,19 @@ final class CompatibilityUITests: XCTestCase {
     }
 
     @MainActor
+    func testNonMemberCannotReadOrSendInChat() {
+        let app = launch(screen: "chat-unavailable")
+        defer { app.terminate() }
+        XCTAssertTrue(app.staticTexts["This chat isn't available."].waitForExistence(timeout: 20))
+        XCTAssertFalse(app.buttons["Send"].exists)
+        XCTAssertFalse(app.buttons["Who's going"].exists)
+        let denied = XCTAttachment(screenshot: app.screenshot())
+        denied.name = "chat-access-denied"
+        denied.lifetime = .keepAlways
+        add(denied)
+    }
+
+    @MainActor
     func testGuestAccountActionContinuesToSignUp() {
         let app = launch(screen: "guest")
         defer { app.terminate() }

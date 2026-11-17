@@ -15,14 +15,19 @@ struct MockBlockPrivacyTests {
         let game = try await backend.fetchGame(id: hosted)
         #expect(game.goingCount == 2)
         #expect(!game.hasBlockedAttendee)
-        #expect(try await backend.fetchAttendees(gameID: hosted).map(\.id) == [backend.me.id, MockFixtures.diego.id])
-        #expect(!(try await backend.fetchActivity(gameID: hosted)).contains { $0.actor?.id == MockFixtures.alex.id })
-        #expect(try await backend.fetchBlockedPeople().isEmpty == incoming)
+        let attendees = try await backend.fetchAttendees(gameID: hosted)
+        let activity = try await backend.fetchActivity(gameID: hosted)
+        let blockedPeople = try await backend.fetchBlockedPeople()
+        #expect(attendees.map(\.id) == [backend.me.id, MockFixtures.diego.id])
+        #expect(!activity.contains { $0.actor?.id == MockFixtures.alex.id })
+        #expect(blockedPeople.isEmpty == incoming)
 
         if incoming { backend.simulateUnblock(by: MockFixtures.alex.id) }
         else { try await backend.unblock(userID: MockFixtures.alex.id) }
-        #expect(try await backend.fetchGame(id: hosted).goingCount == 2)
-        #expect(!(try await backend.fetchAttendees(gameID: hosted)).contains { $0.id == MockFixtures.alex.id })
+        let afterUnblock = try await backend.fetchGame(id: hosted)
+        let attendeesAfterUnblock = try await backend.fetchAttendees(gameID: hosted)
+        #expect(afterUnblock.goingCount == 2)
+        #expect(!attendeesAfterUnblock.contains { $0.id == MockFixtures.alex.id })
     }
 
     @Test(arguments: [false, true])
@@ -31,15 +36,18 @@ struct MockBlockPrivacyTests {
         if incoming { backend.simulateBlock(by: MockFixtures.sam.id) }
         else { try await backend.block(userID: MockFixtures.sam.id) }
         await #expect(throws: DomainError.notFound) { try await backend.fetchGame(id: id) }
-        #expect(!(try await backend.fetchMyGames()).contains { $0.id == id })
-        #expect(try await backend.fetchMessages(gameID: id, before: nil, limit: 50).isEmpty)
+        let myGames = try await backend.fetchMyGames()
+        let messages = try await backend.fetchMessages(gameID: id, before: nil, limit: 50)
+        #expect(!myGames.contains { $0.id == id })
+        #expect(messages.isEmpty)
 
         if incoming { backend.simulateUnblock(by: MockFixtures.sam.id) }
         else { try await backend.unblock(userID: MockFixtures.sam.id) }
         let game = try await backend.fetchGame(id: id)
         #expect(game.myRole == nil)
         #expect(game.goingCount == 4)
-        #expect(!(try await backend.fetchAttendees(gameID: id)).contains { $0.id == backend.me.id })
+        let attendees = try await backend.fetchAttendees(gameID: id)
+        #expect(!attendees.contains { $0.id == backend.me.id })
     }
 
     @Test(arguments: [false, true])
@@ -51,8 +59,10 @@ struct MockBlockPrivacyTests {
         #expect(game.goingCount == 5)
         #expect(game.myRole == .player)
         #expect(game.hasBlockedAttendee == !incoming)
-        #expect(!(try await backend.fetchAttendees(gameID: id)).contains { $0.id == MockFixtures.maya.id })
-        #expect(!(try await backend.fetchActivity(gameID: id)).contains { $0.actor?.id == MockFixtures.maya.id })
+        let attendees = try await backend.fetchAttendees(gameID: id)
+        let activity = try await backend.fetchActivity(gameID: id)
+        #expect(!attendees.contains { $0.id == MockFixtures.maya.id })
+        #expect(!activity.contains { $0.actor?.id == MockFixtures.maya.id })
         let messages = try await backend.fetchMessages(gameID: id, before: nil, limit: 50)
         #expect(!messages.contains { $0.sender.id == MockFixtures.maya.id })
         #expect(messages.contains { $0.sender.id == MockFixtures.sam.id })
@@ -61,10 +71,14 @@ struct MockBlockPrivacyTests {
     @Test func incomingPeerBlockDoesNotBecomeAJoinPresenceOracle() async throws {
         let id = MockFixtures.GameID.open
         backend.simulateBlock(by: MockFixtures.ricardo.id)
-        #expect(try await backend.fetchBlockedPeople().isEmpty)
-        #expect(try await backend.fetchGame(id: id).hasBlockedAttendee == false)
-        #expect(try await backend.joinGame(id: id).myRole == .player)
-        #expect(!(try await backend.fetchAttendees(gameID: id)).contains { $0.id == MockFixtures.ricardo.id })
+        let blockedPeople = try await backend.fetchBlockedPeople()
+        let beforeJoin = try await backend.fetchGame(id: id)
+        let joined = try await backend.joinGame(id: id)
+        let attendees = try await backend.fetchAttendees(gameID: id)
+        #expect(blockedPeople.isEmpty)
+        #expect(!beforeJoin.hasBlockedAttendee)
+        #expect(joined.myRole == .player)
+        #expect(!attendees.contains { $0.id == MockFixtures.ricardo.id })
     }
 
     @Test func blockedHostRemovalKeepsHistoryAndReopensAFullUpcomingGame() async throws {
@@ -74,11 +88,13 @@ struct MockBlockPrivacyTests {
         let game = try await backend.fetchGame(id: hosted)
         #expect(game.goingCount == game.capacity - 1)
         #expect(game.repostedAt == backend.now)
-        #expect(try await backend.fetchMapGames().contains { $0.id == hosted })
+        let map = try await backend.fetchMapGames()
+        #expect(map.contains { $0.id == hosted })
         try await backend.unblock(userID: MockFixtures.alex.id)
         // The completed game remains historical attendance; only active RSVPs are removed.
-        #expect(try await backend.fetchGame(id: MockFixtures.GameID.ended).myRole == .player)
-        #expect(try await backend.fetchGame(id: MockFixtures.GameID.ended).goingCount == 3)
+        let ended = try await backend.fetchGame(id: MockFixtures.GameID.ended)
+        #expect(ended.myRole == .player)
+        #expect(ended.goingCount == 3)
     }
 }
 
