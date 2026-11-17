@@ -114,6 +114,19 @@ final class EventMapViewModel {
         return groups
     }
 
+    /// Face previews are only used by single pins. The settled region avoids starting/cancelling
+    /// requests on every camera frame; selection is always first even during a programmatic pan.
+    func attendeePreviewGames(in store: GameStore, now: Date = .now, mapSize: CGSize) -> [Game] {
+        let singles = pinGroups(in: store, now: now, mapSize: mapSize)
+            .filter { $0.games.count == 1 }
+            .compactMap { $0.games.first }
+        let selected = singles.first { $0.id == selectedID }
+        let visible = singles.filter { game in
+            game.id != selectedID && (settledRegion?.contains(game.coordinate) ?? false)
+        }
+        return selected.map { [$0] + visible } ?? visible
+    }
+
     /// The search list: games with a spot that just opened first, then the soonest.
     func searchResults(in store: GameStore, now: Date = .now) -> [Game] {
         mapEvents(in: store, now: now).sorted {
@@ -237,9 +250,11 @@ final class EventMapViewModel {
     /// Zoom the pins were last grouped at. Only updated once the camera stops, so pins don't
     /// merge and split while you pinch.
     private var settledSpan: MKCoordinateSpan?
+    private var settledRegion: MKCoordinateRegion?
 
     func cameraSettled(on region: MKCoordinateRegion) {
         settledSpan = region.span
+        settledRegion = region
     }
 
     /// Tracks the visible region and closes the popup once its pin leaves the screen.
@@ -271,20 +286,15 @@ final class EventMapViewModel {
     func locate() async {
         guard LocationService.mockCoordinate == nil else { return }
         do {
-            for try await update in CLLocationUpdate.liveUpdates() {
-                if Task.isCancelled { return }
-                if update.authorizationDenied || update.authorizationDeniedGlobally {
-                    isLocationDenied = true
-                    return
-                }
-                guard let location = update.location else { continue }
-                isLocationDenied = false
-                lastFix = location.coordinate
-                centerIfNeeded()
-                return
-            }
+            let location = try await LocationService.currentLocation()
+            try Task.checkCancellation()
+            isLocationDenied = false
+            lastFix = location.coordinate
+            centerIfNeeded()
+        } catch LocationService.Failure.denied {
+            isLocationDenied = true
         } catch {
-            // No fix: the map just stays where it is.
+            // No timely fix: the map stays on campus and remains usable.
         }
     }
 
