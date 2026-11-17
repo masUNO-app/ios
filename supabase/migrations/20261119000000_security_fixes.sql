@@ -238,7 +238,7 @@ end $$;
 
 -- SHA-256 of the app's per-install secret. A token can move to another account only from the
 -- install that registered it, so knowing someone's token isn't enough to take it. Null for rows
--- from builds that don't send one; the next registration from a newer build fills it in.
+-- from builds that don't send one; only the existing owner can bind one on upgrade.
 alter table private.device_tokens add column install_hash bytea;
 
 drop function public.register_device(text, text, text, text);
@@ -275,9 +275,10 @@ begin
     on conflict (token) do nothing;
     if not found then
         select * into v_row from private.device_tokens where token = p_token for update;
+        -- Only the current account can bind an unprotected legacy token. A NULL hash
+        -- is not proof that an unrelated caller owns the install.
         if v_row.user_id = v_id
-           or v_row.install_hash is null
-           or v_row.install_hash = v_install_hash then
+           or (v_row.install_hash is not null and v_row.install_hash = v_install_hash) then
             update private.device_tokens set
                 user_id = v_id,
                 environment = p_environment,

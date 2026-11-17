@@ -1,9 +1,9 @@
--- Security review fixes (20261117000000): blocks hide attendance both ways, bans close reads,
+-- Security review fixes (20261119000000): blocks hide attendance both ways, bans close reads,
 -- allowlisted password sign-ups wait, device tokens stay with their install, Discord gets no emails,
 -- and signed-out callers run only what's meant for them.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(32);
+select plan(39);
 
 create function pg_temp.act_as(p_user uuid) returns void language plpgsql as $$
 begin
@@ -112,6 +112,42 @@ select public.register_device('alicetokenalicetoken', 'sandbox', 'en', '1.0', 'a
 reset role;
 select is((select user_id from private.device_tokens where token = 'alicetokenalicetoken'),
     'b0000000-0000-4000-8000-00000000000b'::uuid, 'signing in to another account on the same install moves it');
+
+-- An unbound legacy token is still owned by its current account during the upgrade.
+set local role authenticated;
+select pg_temp.act_as('a0000000-0000-4000-8000-00000000000a');
+select public.register_device('legacytokenlegacytoken', 'sandbox', 'en', '0.9');
+select pg_temp.act_as('b0000000-0000-4000-8000-00000000000b');
+select public.register_device('legacytokenlegacytoken', 'sandbox', 'es', '1.0', 'attacker-install-secret');
+reset role;
+select is((select user_id from private.device_tokens where token='legacytokenlegacytoken'),
+    'a0000000-0000-4000-8000-00000000000a'::uuid, 'a foreign install cannot take an unbound legacy token');
+select is((select install_hash from private.device_tokens where token='legacytokenlegacytoken'),
+    null::bytea, 'a foreign install cannot bind its own secret to a legacy token');
+set local role authenticated;
+select public.register_device('legacytokenlegacytoken', 'sandbox', 'es', '0.9');
+reset role;
+select is((select user_id from private.device_tokens where token='legacytokenlegacytoken'),
+    'a0000000-0000-4000-8000-00000000000a'::uuid, 'an old client cannot take another account legacy token either');
+set local role authenticated;
+select pg_temp.act_as('a0000000-0000-4000-8000-00000000000a');
+select public.register_device('legacytokenlegacytoken', 'sandbox', 'en', '1.0', 'genuine-install-secret');
+reset role;
+select is((select install_hash from private.device_tokens where token='legacytokenlegacytoken'),
+    extensions.digest('genuine-install-secret','sha256'), 'the current owner can bind the genuine install on upgrade');
+set local role authenticated;
+select pg_temp.act_as('b0000000-0000-4000-8000-00000000000b');
+select public.register_device('legacytokenlegacytoken', 'sandbox', 'es', '1.0', 'attacker-install-secret');
+reset role;
+select is((select user_id from private.device_tokens where token='legacytokenlegacytoken'),
+    'a0000000-0000-4000-8000-00000000000a'::uuid, 'a later takeover attempt still leaves the token with its owner');
+select is((select install_hash from private.device_tokens where token='legacytokenlegacytoken'),
+    extensions.digest('genuine-install-secret','sha256'), 'a later takeover attempt cannot replace the binding');
+set local role authenticated;
+select public.register_device('legacytokenlegacytoken', 'sandbox', 'en', '1.0', 'genuine-install-secret');
+reset role;
+select is((select user_id from private.device_tokens where token='legacytokenlegacytoken'),
+    'b0000000-0000-4000-8000-00000000000b'::uuid, 'the proven install can still switch accounts after upgrading');
 
 -- Signed out, only guest browsing and the website's waitlist RPCs run.
 set local role anon;

@@ -18,7 +18,7 @@ already applied to a shared project; add a new timestamped one. Only deploy prod
 | `20261115000000_waitlist_sync` | One waitlist with the website (N38): `signup_requests.source`, `waitlist_join` and `waitlist_export` for the website's Apps Script (anon, secret-checked), the push to the Sheet on every change, website joins in `waitlist_position()`, and the approval alert when a website email creates its account |
 
 | `20261116000000_notifications` | Push notifications: device tokens, preferences, synced bookmarks, the outbox, producers, claim and cron. Ships switched off |
-| `20261117000000_security_fixes` | Security review fixes: RSVPs, `has_blocked_attendee` and `join_game` no longer reveal a blocker's games; banned accounts read nothing; allowlisted password sign-ups wait for approval; sign-up alerts mask emails; device tokens bound to their install; signed-out callers limited to `guest_games` and the waitlist RPCs |
+| `20261119000000_security_fixes` | Security review fixes: RSVPs, `has_blocked_attendee` and `join_game` no longer reveal a blocker's games; banned accounts read nothing; allowlisted password sign-ups wait for approval; sign-up alerts mask emails; device tokens bound to their install; signed-out callers limited to `guest_games` and the waitlist RPCs |
 
 ## Local setup
 
@@ -129,3 +129,9 @@ stops their unused codes working.
 The Edge Function needs Supabase-managed `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY`. Never put the service-role key, the Entra client secret, the webhook URL or the waitlist sync secret in the iOS app or in source control.
 
 Run the two-session last-spot, RLS/block, suspension and account-deletion checks in `docs/QA.md` before release.
+
+The security migration uses version `20261119000000` because hosted projects already record
+`20261117000000` for delivery fencing and `20261118000000` for host-roster reconciliation.
+Apply it from the combined release history, retaining those previously deployed migration files.
+A legacy device token with no install hash can be bound only by its current account; old clients
+can still refresh their own registration and must unregister before switching accounts.

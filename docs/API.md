@@ -435,9 +435,6 @@ ship off, the same way chat does.
 | --- | --- | --- |
 | `register_device(p_token text, p_environment text, p_locale text, p_app_version text, p_install_id text?)` | `void` | `invalid_input`, `not_authenticated` |
 
-`p_install_id` is a random secret the app keeps per install. A token moves to another account only when
-the install that registered it asks; otherwise the call changes nothing for that token. Builds that
-don't send it still work, and their rows get the secret on the next registration from a newer build.
 | `unregister_device(p_token text)` | `void` | `not_authenticated` |
 | `set_notification_prefs(p_interest_match bool, p_spot_open bool, p_reminders bool, p_hosting bool, p_chat bool, p_winback bool)` | `notification_prefs` | `invalid_input`, `pending_approval`, `not_authenticated` |
 | `set_winback(p_on bool)` | `notification_prefs` | `invalid_input`, `pending_approval`, `not_authenticated` |
@@ -446,6 +443,11 @@ don't send it still work, and their rows get the secret on the next registration
 | `import_bookmarks(p_ids uuid[], p_alert_ids uuid[])` | `void` | `pending_approval` |
 | `set_chat_muted(p_game_id uuid, p_muted bool)` | `void` | `invalid_input`, `not_allowed` |
 | `notification_opened(p_outbox_id bigint)` | `void` | `not_authenticated` |
+
+`p_install_id` is a random secret the app keeps per install. A token moves to another account only when
+the install that registered it asks; otherwise the call changes nothing for that token. For legacy
+rows without a binding, only the existing account can set one when upgrading. Builds that do not
+send it can still refresh their own tokens; sign-out unregisters before another account registers.
 
 `notification_prefs` columns are the flags above, all defaulting on except `winback`. Cancellations,
 changes and approval are not preferences: they always send. `bookmarks.notify` is the spot alert.
