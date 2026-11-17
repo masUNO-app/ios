@@ -87,7 +87,7 @@ struct EventDetailView: View {
         .refreshable { await load() }
         // Nothing dims the court behind the bar's two buttons; the bar only steps in once the
         // sheet's own title has scrolled up under it.
-        .scrollEdgeEffectHidden(!isTitleUnderBar, for: .top)
+        .appScrollEdgeEffectHidden(!isTitleUnderBar, for: .top)
         .navigationTitle(event.title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

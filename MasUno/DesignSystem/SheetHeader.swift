@@ -21,8 +21,14 @@ struct SheetHeader: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            Button(role: .close, action: onClose)
-                .glassCircle()
+            if #available(iOS 26, *) {
+                Button(role: .close, action: onClose)
+                    .glassCircle()
+                    .accessibilityLabel("Close")
+            } else {
+                Button("Close", systemImage: "xmark", action: onClose)
+                    .glassCircle()
+            }
         }
     }
 }

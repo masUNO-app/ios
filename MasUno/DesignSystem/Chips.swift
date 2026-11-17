@@ -13,7 +13,7 @@ struct SportChip: View {
         .foregroundStyle(Theme.ink)
         .padding(.horizontal, 10)
         .frame(height: 28)
-        .glassEffect(.regular.tint(sport.color), in: .capsule)
+        .appGlass(in: .capsule, tint: sport.color)
     }
 }
 
@@ -34,7 +34,7 @@ struct SportToggle: View {
             .foregroundStyle(Theme.ink)
             .padding(.horizontal, 12)
             .frame(height: 32)
-            .glassEffect(isOn ? .regular.tint(sport.color).interactive() : .regular.interactive(), in: .capsule)
+            .appGlass(in: .capsule, tint: isOn ? sport.color : nil, interactive: true)
         }
         .buttonStyle(.plain)
         .sensoryFeedback(.selection, trigger: isOn)

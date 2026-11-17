@@ -1,4 +1,5 @@
 import Foundation
+import Contacts
 import MapKit
 import Testing
 @testable import masUNO
@@ -41,6 +42,43 @@ struct LocationResolutionTests {
     private let oldPlace = Place(name: "Old", address: "", latitude: 25.65, longitude: -100.29)
     private let first = Place(name: "First", address: "", latitude: 25.66, longitude: -100.28)
     private let second = Place(name: "Second", address: "", latitude: 25.67, longitude: -100.27)
+
+    @Test func legacyAddressMappingKeepsExactPinInsteadOfNearbyStreetCoordinate() {
+        let address = CNMutablePostalAddress()
+        address.street = "123 Campus Drive"
+        address.city = "Monterrey"
+        address.country = "Mexico"
+        let nearby = MKPlacemark(
+            coordinate: CLLocationCoordinate2D(latitude: 25.66, longitude: -100.28),
+            postalAddress: address
+        )
+        let requested = CLLocation(latitude: 25.660123, longitude: -100.280456)
+        let place = Place(placemark: nearby, location: requested, fallbackName: "Dropped pin")
+
+        #expect(place.latitude == requested.coordinate.latitude)
+        #expect(place.longitude == requested.coordinate.longitude)
+        #expect(place.address.contains("123 Campus Drive"))
+        #expect(place.address.contains("Monterrey"))
+        #expect(!place.address.contains("\n"))
+    }
+
+    @Test func missingGeocoderResultKeepsFixAndFallbackLabel() {
+        let location = CLLocation(latitude: 25.660123, longitude: -100.280456)
+        let place = Place(placemark: nil, location: location, fallbackName: "Current location")
+        #expect(place.name == "Current location")
+        #expect(place.address.isEmpty)
+        #expect(place.latitude == location.coordinate.latitude)
+        #expect(place.longitude == location.coordinate.longitude)
+    }
+
+    @Test func directionsAndSearchConversionKeepDestinationNameAndCoordinate() {
+        let location = CLLocation(latitude: 25.660123, longitude: -100.280456)
+        let destination = LocationService.mapItem(location: location, name: "Campus court")
+        let place = Place(mapItem: destination, fallbackName: "Search query")
+        #expect(place.name == "Campus court")
+        #expect(place.latitude == location.coordinate.latitude)
+        #expect(place.longitude == location.coordinate.longitude)
+    }
 
     private func model(_ gate: PlaceResolutionGate, clock: PickerClock = PickerClock()) -> LocationPickerViewModel {
         let services = LocationPickerServices(

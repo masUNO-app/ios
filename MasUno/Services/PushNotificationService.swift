@@ -312,8 +312,9 @@ final class PushNotificationService {
     @MainActor
     private func openDirections(_ payload: NotificationPayload) {
         guard let place = payload.place else { return }
-        let item = MKMapItem(location: CLLocation(latitude: place.lat, longitude: place.lng), address: nil)
-        item.name = place.name
+        let item = LocationService.mapItem(
+            location: CLLocation(latitude: place.lat, longitude: place.lng), name: place.name
+        )
         item.openInMaps(launchOptions: [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeWalking])
         deliver(payload.routeURL())
     }

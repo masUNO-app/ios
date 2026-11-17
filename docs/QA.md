@@ -192,3 +192,21 @@ Physical-device, two-phone and distribution checks remain below.
   picker; rotate/resume, change timezone across midnight, and confirm expired actions revalidate.
 - [ ] Apply migration 17 in a fresh/dev environment, run the complete database CI suite, then
   deploy the v2 sender. Observe queue/retry summaries before proceeding to production.
+
+## iOS 18 compatibility
+
+Run the mock unit and UI suites on iPhone 16 Pro / iOS 18.6 and a current iOS simulator.
+The deployment minimum is 18.0; an 18.6 run does not establish behavior on 18.0 itself.
+Build Debug and Release with the 18.0 target and run the earliest supported OS when available.
+
+- [ ] Map: Filter, Add game, Me/Account, Saved and recenter are visible and tappable; recenter does not overlap the avatar.
+- [ ] Filter selections, Reset, disabled buttons, primary actions and Close work on the older themed controls.
+- [ ] Signed-in and guest flows, sheets, large text and the smallest supported screen remain usable.
+- [ ] Location search, current location and dragging a pin resolve the correct coordinate and address. Denied permission stays on campus. Failed address lookup preserves the dropped coordinate; cancelling or selecting another result cannot publish an older result.
+- [ ] Detail and notification Directions open the correct location. Add to calendar is prefilled.
+- [ ] Chat with messaging enabled: composer, keyboard, send, mute and Who’s going work; check the read-only state too.
+- [ ] Physical device: push permission, communication notification rendering, actions and the TestFlight beta badge work.
+- [ ] Home screen icon appears correctly, including dark and tinted home screen styles.
+- [ ] iOS 26+: glass controls, toolbar grouping and detail scrolling keep their existing appearance. iOS 27.1+: also run the iPhone Duo checks above.
+
+CI runs the mock suites on iOS 18.6 and the newest installed simulator and builds Release packaging on both jobs.

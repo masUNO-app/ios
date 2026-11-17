@@ -104,8 +104,7 @@ final class EventDetailViewModel {
 
     func openInAppleMaps(_ event: Game) {
         let location = CLLocation(latitude: event.place.latitude, longitude: event.place.longitude)
-        let item = MKMapItem(location: location, address: nil)
-        item.name = event.place.name
+        let item = LocationService.mapItem(location: location, name: event.place.name)
         item.openInMaps(launchOptions: [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeWalking])
     }
 }

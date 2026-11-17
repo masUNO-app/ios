@@ -38,7 +38,7 @@ struct OfflineBanner: View {
             .foregroundStyle(Theme.ink)
             .padding(.horizontal, 12)
             .padding(.vertical, 7)
-            .glassEffect(.regular, in: .capsule)
+            .appGlass(in: .capsule)
     }
 }
 
