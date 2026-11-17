@@ -32,44 +32,28 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
-    # Keep the existing check names. Each runner already includes its exact runtime.
-    name: ${{ matrix.check }}
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 45
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - check: test-ios18
-            runner: macos-15-intel
-            xcode: "26.3"
-            ios: "18.6"
-            runtime: com.apple.CoreSimulator.SimRuntime.iOS-18-6
-          - check: test
-            runner: macos-26-intel
-            xcode: "26.6"
-            ios: "26.5"
-            runtime: com.apple.CoreSimulator.SimRuntime.iOS-26-5
+  build-release:
+    name: build-release
+    runs-on: macos-26-intel
+    timeout-minutes: 20
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+      HOMEBREW_NO_AUTO_UPDATE: "1"
     defaults:
       run:
         shell: bash
-    env:
-      DEVELOPER_DIR: /Applications/Xcode_${{ matrix.xcode }}.app/Contents/Developer
-      HOMEBREW_NO_AUTO_UPDATE: "1"
-
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verify the build environment
-        run: |
-          mkdir -p artifacts
-          {
-            xcodebuild -version
-            xcrun swiftc --version
-            xcrun simctl list runtimes
-            df -h .
-          } 2>&1 | tee artifacts/environment.log
+      - name: Restore SwiftPM cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/org.swiftpm
+            ~/Library/Developer/Xcode/DerivedData/SourcePackages
+          key: spm-v1-xcode26.6-${{ hashFiles('project.yml') }}
+          restore-keys: |
+            spm-v1-xcode26.6-
 
       - name: Generate the project
         run: |
@@ -79,15 +63,56 @@ jobs:
 
       - name: Build the Release app and notification extension
         run: |
+          mkdir -p artifacts
           xcodebuild build -quiet -project masUNO.xcodeproj -scheme masUNO \
             -configuration Release -destination 'generic/platform=iOS' \
             -derivedDataPath build CODE_SIGNING_ALLOWED=NO \
             2>&1 | tee artifacts/release.log
 
-      - name: Boot iPhone 16 Pro on iOS ${{ matrix.ios }}
+      - name: Upload Release logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-release-${{ github.sha }}
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 7
+
+  test:
+    name: test
+    runs-on: macos-26-intel
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore SwiftPM cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/org.swiftpm
+            ~/Library/Developer/Xcode/DerivedData/SourcePackages
+          key: spm-v1-xcode26.6-${{ hashFiles('project.yml') }}
+          restore-keys: |
+            spm-v1-xcode26.6-
+
+      - name: Generate the project
+        run: |
+          mkdir -p artifacts
+          command -v xcodegen >/dev/null || brew install xcodegen
+          cp Config.xcconfig.template Config.xcconfig
+          xcodegen generate
+
+      - name: Boot iPhone 16 Pro on iOS 26.5
         timeout-minutes: 10
         env:
-          SIMULATOR_RUNTIME: ${{ matrix.runtime }}
+          SIMULATOR_RUNTIME: com.apple.CoreSimulator.SimRuntime.iOS-26-5
         run: |
           simulator=$(xcrun simctl create 'masUNO CI' \
             com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro "$SIMULATOR_RUNTIME")
@@ -100,14 +125,78 @@ jobs:
           xcodebuild test -quiet -project masUNO.xcodeproj -scheme masUNO \
             -configuration Debug -destination "id=$SIMULATOR" \
             -derivedDataPath build -resultBundlePath artifacts/tests.xcresult \
-            -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO \
+            -parallel-testing-enabled YES \
+            -maximum-parallel-testing-workers 2 \
+            CODE_SIGNING_ALLOWED=NO \
             2>&1 | tee artifacts/tests.log
 
       - name: Upload logs, results, and screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ios-test-results-${{ matrix.ios }}
+          name: ios-test-results-26.5
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 7
+
+  test-ios18:
+    name: test-ios18
+    if: github.event_name != 'pull_request'
+    runs-on: macos-15-intel
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore SwiftPM cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/org.swiftpm
+            ~/Library/Developer/Xcode/DerivedData/SourcePackages
+          key: spm-v1-xcode26.3-${{ hashFiles('project.yml') }}
+          restore-keys: |
+            spm-v1-xcode26.3-
+
+      - name: Generate the project
+        run: |
+          mkdir -p artifacts
+          command -v xcodegen >/dev/null || brew install xcodegen
+          cp Config.xcconfig.template Config.xcconfig
+          xcodegen generate
+
+      - name: Boot iPhone 16 Pro on iOS 18.6
+        timeout-minutes: 10
+        env:
+          SIMULATOR_RUNTIME: com.apple.CoreSimulator.SimRuntime.iOS-18-6
+        run: |
+          simulator=$(xcrun simctl create 'masUNO CI' \
+            com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro "$SIMULATOR_RUNTIME")
+          echo "SIMULATOR=$simulator" >> "$GITHUB_ENV"
+          xcrun simctl boot "$simulator"
+          xcrun simctl bootstatus "$simulator" -b
+
+      - name: Run all mock unit and UI tests
+        run: |
+          xcodebuild test -quiet -project masUNO.xcodeproj -scheme masUNO \
+            -configuration Debug -destination "id=$SIMULATOR" \
+            -derivedDataPath build -resultBundlePath artifacts/tests.xcresult \
+            -parallel-testing-enabled YES \
+            -maximum-parallel-testing-workers 2 \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee artifacts/tests.log
+
+      - name: Upload logs, results, and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-test-results-18.6
           path: artifacts/
           if-no-files-found: warn
           retention-days: 7
