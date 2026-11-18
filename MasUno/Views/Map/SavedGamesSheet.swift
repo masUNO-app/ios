@@ -27,12 +27,7 @@ struct SavedGamesSheet: View {
                 }
 
                 ForEach(games) { event in
-                    Button {
-                        open(event)
-                    } label: {
-                        card(event)
-                    }
-                    .buttonStyle(.plain)
+                    card(event)
                 }
             }
             .padding(.horizontal, Theme.gutter)
@@ -47,10 +42,13 @@ struct SavedGamesSheet: View {
     private func card(_ event: Game) -> some View {
         GameCard(
             event: event, lineup: store.lineup(for: event),
-            status: status(for: event), time: EventFormat.cardTime(event)
+            status: status(for: event), time: EventFormat.cardTime(event), onOpen: { open(event) },
+            shortcuts: [GameCardShortcut(name: String.app("Remove bookmark")) { store.toggleSaved(event.id) }]
         ) {
             Button("Remove") { store.toggleSaved(event.id) }
                 .pill(.secondary, expands: false)
+                .accessibilityLabel(String.app("Remove \(event.title)"))
+                .accessibilityInputLabels([Text("Remove")])
             action(for: event)
         }
     }
@@ -69,6 +67,8 @@ struct SavedGamesSheet: View {
         if event.isGoing || event.isCancelled {
             Button("View game") { open(event) }
                 .pill(.primary)
+                .accessibilityLabel(String.app("View game, \(event.title)"))
+                .accessibilityInputLabels([Text("View game")])
         } else if event.isFull {
             let isOn = store.hasSpotAlert(event.id)
             Button(isOn ? "Spot alert is on" : "Alert me") { store.toggleSpotAlert(event.id) }
@@ -81,6 +81,8 @@ struct SavedGamesSheet: View {
                 appViewModel.joinAndOpen(event.id, in: store)
             }
             .pill(.primary)
+            .accessibilityLabel(String.app("Count me in, \(event.title)"))
+            .accessibilityInputLabels([Text("Count me in")])
         }
     }
 

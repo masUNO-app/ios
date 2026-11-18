@@ -38,4 +38,13 @@ final class MeViewModel {
     func chatTitle(unread: Int) -> String {
         unread > 0 ? String.app("Group chat · \(unread) new") : String.app("Group chat")
     }
+
+    /// "Group chat for After-work hoops, 2 new": each card's chat button says whose chat it is.
+    func chatAccessibilityLabel(for title: String, unread: Int) -> String {
+        switch unread {
+        case 0: String.app("Group chat for \(title)")
+        case 1: String.app("Group chat for \(title), 1 new")
+        default: String.app("Group chat for \(title), \(unread) new")
+        }
+    }
 }

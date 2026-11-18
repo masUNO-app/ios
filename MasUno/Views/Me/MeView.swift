@@ -15,7 +15,12 @@ struct MeView: View {
 
     var body: some View {
         @Bindable var viewModel = viewModel
-        let listed = store.goingGames() + store.pastGames() + store.hostedGames()
+        // Each list once per render, against one clock, so they can't disagree about a game ending mid-render.
+        let now = Date.now
+        let going = store.goingGames(now: now)
+        let past = store.pastGames(now: now)
+        let hosted = store.hostedGames(now: now)
+        let listed = going + past + hosted
 
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -32,12 +37,12 @@ struct MeView: View {
                 .frame(maxWidth: 400)
                 .padding(.top, 8)
 
-                list
+                list(going: going, past: past, hosted: hosted)
             }
             .padding(.horizontal, Theme.gutter)
             .padding(.bottom, 24)
             .wideColumn()
-            .animation(.snappy, value: store.goingGames().map(\.id))
+            .animation(.snappy, value: going.map(\.id))
         }
         .background(Theme.background)
         .navigationTitle(String.app("Me"))
@@ -75,7 +80,7 @@ struct MeView: View {
     // MARK: Tabs
 
     @ViewBuilder
-    private var list: some View {
+    private func list(going: [Game], past: [Game], hosted: [Game]) -> some View {
         HStack {
             sectionTitle("Coming up")
             Spacer()
@@ -92,8 +97,8 @@ struct MeView: View {
             RetryCard { await store.refreshMyGames() }
         } else {
             switch viewModel.tab {
-            case .going: goingList
-            case .hosting: hostingList
+            case .going: goingList(going, past: past)
+            case .hosting: hostingList(hosted)
             }
         }
     }
@@ -180,8 +185,7 @@ struct MeView: View {
     // MARK: Lists
 
     @ViewBuilder
-    private var goingList: some View {
-        let events = store.goingGames()
+    private func goingList(_ events: [Game], past: [Game]) -> some View {
         if events.isEmpty, store.myGamesState == .loaded {
             EmptyCard(title: "No games yet", message: "Find one nearby, or start your own. Most games just need one more.") {
                 Button("Find a game") { appViewModel.showMap() }
@@ -194,20 +198,26 @@ struct MeView: View {
         if !events.isEmpty {
             CardGrid {
                 ForEach(events) { event in
-                    NavigationLink(value: Route.game(event.id)) {
-                        if event.isCancelled { cancelledCard(event) } else { goingCard(event) }
-                    }
-                    .buttonStyle(.plain)
+                    if event.isCancelled { cancelledCard(event) } else { goingCard(event) }
                 }
             }
         }
-        earlierSection
+        earlierSection(past)
     }
 
     private func goingCard(_ event: Game) -> some View {
-        GameCard(event: event, lineup: store.lineup(for: event), status: event.goingLine, time: EventFormat.cardTime(event)) {
+        GameCard(
+            event: event, lineup: store.lineup(for: event), status: event.goingLine, time: EventFormat.cardTime(event),
+            onOpen: { open(event) },
+            shortcuts: [
+                GameCardShortcut(name: String.app("Leave")) { viewModel.leaving = event },
+                GameCardShortcut(name: String.app("Open group chat")) { appViewModel.path.append(.chat(event.id)) },
+            ]
+        ) {
             Button("Leave") { viewModel.leaving = event }
                 .pill(.secondary, expands: false)
+                .accessibilityLabel(String.app("Leave \(event.title)"))
+                .accessibilityInputLabels([Text("Leave")])
             chatButton(event)
         }
     }
@@ -216,10 +226,12 @@ struct MeView: View {
     private func cancelledCard(_ event: Game) -> some View {
         GameCard(
             event: event, lineup: store.lineup(for: event), status: event.cancelledLine,
-            time: EventFormat.cancelledTime(event), isMuted: true
+            time: EventFormat.cancelledTime(event), isMuted: true, onOpen: { open(event) }
         ) {
             Button("Remove") { store.dismissCancelled(event.id) }
                 .pill(.secondary, expands: false)
+                .accessibilityLabel(String.app("Remove \(event.title)"))
+                .accessibilityInputLabels([Text("Remove")])
             Button("Find another game") { appViewModel.showMap() }
                 .pill(.primary)
         }
@@ -228,25 +240,25 @@ struct MeView: View {
     /// Games from the last 14 days, so you can still report someone, or get the group back
     /// together. Collapsed, so they don't push what's coming up out of sight.
     @ViewBuilder
-    private var earlierSection: some View {
+    private func earlierSection(_ events: [Game]) -> some View {
         @Bindable var viewModel = viewModel
-        let events = store.pastGames()
         if !events.isEmpty {
             DisclosureGroup(isExpanded: $viewModel.showsEarlier) {
                 CardGrid {
                     ForEach(events) { event in
-                        NavigationLink(value: Route.game(event.id)) {
-                            GameCard(
-                                event: event, lineup: store.lineup(for: event), status: event.playedLine,
-                                time: EventFormat.cardTime(event), isMuted: true
-                            ) {
-                                Button("Report") { viewModel.reportTarget = .game(event.id) }
-                                    .pill(.secondary, expands: false)
-                                Button("Play again") { appViewModel.presentPlayAgain(event.id) }
-                                    .pill(.primary)
-                            }
+                        GameCard(
+                            event: event, lineup: store.lineup(for: event), status: event.playedLine,
+                            time: EventFormat.cardTime(event), isMuted: true, onOpen: { open(event) }
+                        ) {
+                            Button("Report") { viewModel.reportTarget = .game(event.id) }
+                                .pill(.secondary, expands: false)
+                                .accessibilityLabel(String.app("Report, \(event.title)"))
+                                .accessibilityInputLabels([Text("Report")])
+                            Button("Play again") { appViewModel.presentPlayAgain(event.id) }
+                                .pill(.primary)
+                                .accessibilityLabel(String.app("Play again, \(event.title)"))
+                                .accessibilityInputLabels([Text("Play again")])
                         }
-                        .buttonStyle(.plain)
                     }
                 }
                 .padding(.top, 12)
@@ -259,8 +271,7 @@ struct MeView: View {
     }
 
     @ViewBuilder
-    private var hostingList: some View {
-        let events = store.hostedGames()
+    private func hostingList(_ events: [Game]) -> some View {
         if events.isEmpty, store.myGamesState == .loaded {
             EmptyCard(title: "Nothing on the map yet", message: "Host a game in under a minute. Most games just need one more.") {
                 Button("Add a game") { appViewModel.presentGameForm() }
@@ -270,14 +281,17 @@ struct MeView: View {
         if !events.isEmpty {
             CardGrid {
                 ForEach(events) { event in
-                    NavigationLink(value: Route.game(event.id)) {
-                        GameCard(event: event, lineup: store.lineup(for: event), status: hostingStatus(event), time: EventFormat.cardTime(event)) {
-                            Button("Edit") { appViewModel.presentGameForm(editing: event.id) }
-                                .pill(.secondary, expands: false)
-                            chatButton(event)
-                        }
+                    GameCard(
+                        event: event, lineup: store.lineup(for: event), status: hostingStatus(event), time: EventFormat.cardTime(event),
+                        onOpen: { open(event) },
+                        shortcuts: [GameCardShortcut(name: String.app("Open group chat")) { appViewModel.path.append(.chat(event.id)) }]
+                    ) {
+                        Button("Edit") { appViewModel.presentGameForm(editing: event.id) }
+                            .pill(.secondary, expands: false)
+                            .accessibilityLabel(String.app("Edit \(event.title)"))
+                            .accessibilityInputLabels([Text("Edit")])
+                        chatButton(event)
                     }
-                    .buttonStyle(.plain)
                 }
             }
         }
@@ -292,10 +306,18 @@ struct MeView: View {
         return "\(event.hostingLine)\n\(when)"
     }
 
+    /// The game's detail, from a tap on its card.
+    private func open(_ event: Game) {
+        appViewModel.path.append(.game(event.id))
+    }
+
     private func chatButton(_ event: Game) -> some View {
-        NavigationLink(value: Route.chat(event.id)) {
-            Text(verbatim: viewModel.chatTitle(unread: store.unreadCount(event.id)))
+        let unread = store.unreadCount(event.id)
+        return NavigationLink(value: Route.chat(event.id)) {
+            Text(verbatim: viewModel.chatTitle(unread: unread))
         }
         .pill(.primary)
+        .accessibilityLabel(viewModel.chatAccessibilityLabel(for: event.title, unread: unread))
+        .accessibilityInputLabels([Text("Group chat")])
     }
 }

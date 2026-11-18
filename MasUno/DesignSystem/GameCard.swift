@@ -14,13 +14,23 @@ struct GameCard<Accessory: View, Actions: View>: View {
     var isMuted = false
     /// Floating cards (the map popup, sheets) lift off what's behind them.
     var isFloating = false
+    /// Opens the game: a tap anywhere outside the card's buttons, or the summary with VoiceOver.
+    /// Nil on the popup, which has Details. The card itself is never a button, since it holds buttons.
+    var onOpen: (() -> Void)? = nil
+    /// The same as some of the buttons below, as VoiceOver actions on the summary.
+    var shortcuts: [GameCardShortcut] = []
     @ViewBuilder var accessory: Accessory
     @ViewBuilder var actions: Actions
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            header
-            details
+            VStack(spacing: 0) {
+                header
+                details
+            }
+            // One VoiceOver stop for everything above the buttons. It sits behind them so the
+            // accessory (the popup's bookmark) stays its own button.
+            .background { summary }
             if Actions.self != EmptyView.self {
                 RowDivider()
                 HStack(spacing: 10) { actions }
@@ -33,6 +43,31 @@ struct GameCard<Accessory: View, Actions: View>: View {
         .clipShape(.rect(cornerRadius: Theme.Radius.dialog))
         .overlay(RoundedRectangle(cornerRadius: Theme.Radius.dialog).strokeBorder(Theme.separator))
         .shadow(color: Theme.ink.opacity(isFloating ? 0.22 : 0.08), radius: isFloating ? 14 : 5, y: isFloating ? 8 : 2)
+        .modifier(OpensOnTap(action: onOpen))
+        .accessibilityElement(children: .contain)
+    }
+
+    @ViewBuilder
+    private var summary: some View {
+        let element = Color.clear
+            .accessibilityElement()
+            .accessibilityLabel(Text(verbatim: event.cardSummary(status: status, time: time, lineup: lineup)))
+            .accessibilityActions {
+                ForEach(shortcuts) { shortcut in
+                    Button(shortcut.name, action: shortcut.perform)
+                }
+            }
+            .accessibilitySortPriority(1)
+        // Without onOpen it's text: a default action alone would make it read as a button.
+        if let onOpen {
+            element
+                .accessibilityAddTraits(.isButton)
+                .accessibilityHint(Text("Opens the game"))
+                .accessibilityInputLabels([Text(verbatim: event.title)])
+                .accessibilityAction { onOpen() }
+        } else {
+            element
+        }
     }
 
     private var header: some View {
@@ -45,6 +80,7 @@ struct GameCard<Accessory: View, Actions: View>: View {
                     .font(.rounded(.footnote))
                     .lineLimit(1)
             }
+            .accessibilityHidden(true)
 
             HStack(alignment: .center, spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
@@ -57,10 +93,12 @@ struct GameCard<Accessory: View, Actions: View>: View {
                         .lineLimit(2)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityHidden(true)
                 accessory
             }
 
             TokenRow(lineup: lineup, size: 32, openFill: .white.opacity(isMuted ? 0.9 : 0.7))
+                .accessibilityHidden(true)
         }
         .foregroundStyle(Theme.ink)
         .padding(.horizontal, 20)
@@ -90,17 +128,55 @@ struct GameCard<Accessory: View, Actions: View>: View {
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityHidden(true)
+    }
+}
+
+/// A tap anywhere on the card opens it. Buttons inside win over this tap, as they did over the link
+/// or button that used to wrap the card. Without an action the card takes no tap at all, so the
+/// popup's map annotation behaves as before.
+private struct OpensOnTap: ViewModifier {
+    var action: (() -> Void)?
+
+    func body(content: Content) -> some View {
+        if let action {
+            content
+                .contentShape(.rect(cornerRadius: Theme.Radius.dialog))
+                .onTapGesture(perform: action)
+        } else {
+            content
+        }
+    }
+}
+
+/// A VoiceOver action on a card's summary, for a button on the card (A11Y-26).
+struct GameCardShortcut: Identifiable {
+    var name: String
+    var perform: () -> Void
+    var id: String { name }
+}
+
+extension Game {
+    /// A card in one VoiceOver stop: "After-work hoops, Basketball, Hosted by Alex R., Room for 4 more,
+    /// Today, 7:35 PM, starts in 35 min, Tec basketball courts, Alex R., Ricardo T., and 4 open spots".
+    /// Commas instead of the card's "·", which VoiceOver reads without a pause.
+    func cardSummary(status: String, time: String, lineup: Lineup) -> String {
+        [title, hostLine, status, time, place.name, lineup.accessibilityLabel]
+            .map { $0.replacingOccurrences(of: " · ", with: ", ").replacingOccurrences(of: "\n", with: ", ") }
+            .filter { !$0.isEmpty }
+            .joined(separator: ", ")
     }
 }
 
 extension GameCard where Accessory == EmptyView {
     init(
         event: Game, lineup: Lineup, status: String, time: String, isMuted: Bool = false,
-        isFloating: Bool = false, @ViewBuilder actions: () -> Actions
+        isFloating: Bool = false, onOpen: (() -> Void)? = nil, shortcuts: [GameCardShortcut] = [],
+        @ViewBuilder actions: () -> Actions
     ) {
         self.init(
             event: event, lineup: lineup, status: status, time: time, isMuted: isMuted,
-            isFloating: isFloating, accessory: { EmptyView() }, actions: actions
+            isFloating: isFloating, onOpen: onOpen, shortcuts: shortcuts, accessory: { EmptyView() }, actions: actions
         )
     }
 }

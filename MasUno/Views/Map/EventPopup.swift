@@ -13,7 +13,8 @@ struct EventPopup: View {
         VStack(spacing: 0) {
             GameCard(
                 event: event, lineup: store.lineup(for: event),
-                status: event.discoverLine(), time: EventFormat.cardTime(event), isFloating: true
+                status: event.discoverLine(), time: EventFormat.cardTime(event), isFloating: true,
+                shortcuts: shortcuts
             ) {
                 // For a guest it asks them to make an account, like every other account action.
                 BookmarkButton(event: event)
@@ -22,9 +23,13 @@ struct EventPopup: View {
                 if event.isGoing, !event.isHostedByMe {
                     Button("Leave") { leaving = event }
                         .pill(.secondary, expands: false)
+                        .accessibilityLabel(String.app("Leave \(event.title)"))
+                        .accessibilityInputLabels([Text("Leave")])
                 } else {
                     Button("Details") { appViewModel.path.append(.game(event.id)) }
                         .pill(.secondary, expands: false)
+                        .accessibilityLabel(String.app("Details, \(event.title)"))
+                        .accessibilityInputLabels([Text("Details")])
                 }
                 primaryAction
                     .pill(.primary)
@@ -51,8 +56,23 @@ struct EventPopup: View {
             Button("Edit game") { appViewModel.presentGameForm(editing: event.id) }
         } else if event.isGoing {
             Button("View game") { appViewModel.path.append(.game(event.id)) }
+                .accessibilityLabel(String.app("View game, \(event.title)"))
+                .accessibilityInputLabels([Text("View game")])
         } else {
             Button("Count me in") { appViewModel.joinAndOpen(event.id, in: store) }
+                .accessibilityLabel(String.app("Count me in, \(event.title)"))
+                .accessibilityInputLabels([Text("Count me in")])
         }
+    }
+
+    /// VoiceOver actions on the card's summary, for the bookmark and Leave.
+    private var shortcuts: [GameCardShortcut] {
+        var shortcuts = [GameCardShortcut(name: store.isSaved(event.id) ? String.app("Remove bookmark") : String.app("Bookmark")) {
+            BookmarkButton.toggle(event, store: store, appViewModel: appViewModel)
+        }]
+        if event.isGoing, !event.isHostedByMe {
+            shortcuts.append(GameCardShortcut(name: String.app("Leave")) { leaving = event })
+        }
+        return shortcuts
     }
 }
