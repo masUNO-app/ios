@@ -10,10 +10,22 @@ struct NotificationPrimerSheet: View {
     @State private var isWorking = false
 
     var body: some View {
+        // Scrolls only when it doesn't fit (large text sizes), where the buttons would otherwise fall
+        // off a medium sheet. When it fits it stays centered, as before.
+        ViewThatFits(in: .vertical) {
+            content
+            ScrollView { content }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+    }
+
+    private var content: some View {
         VStack(alignment: .leading, spacing: 18) {
             Text("Know when your game changes or a spot opens")
                 .font(.rounded(.title2, .bold))
                 .foregroundStyle(Theme.ink)
+                .accessibilityAddTraits(.isHeader)
             Text("We'll tell you about cancellations, time changes, reminders and spots. You can change this in Settings.")
                 .font(.rounded(.body))
                 .foregroundStyle(Theme.muted)
@@ -31,8 +43,6 @@ struct NotificationPrimerSheet: View {
             }
         }
         .padding(24)
-        .presentationDetents([.medium])
-        .presentationDragIndicator(.visible)
     }
 
     /// Asks iOS, then saves the tips choice. Passing twice, or answering iOS, ends the primer.
