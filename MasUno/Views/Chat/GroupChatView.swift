@@ -19,6 +19,21 @@ struct GroupChatView: View {
     /// The first page is on screen, so from here a new row is news worth animating to.
     @State private var hasShownLatest = false
     @State private var followsLatest = true
+    @State private var isUserScrolling = false
+
+    private static let bottomID = "chat-bottom"
+
+    private struct ScrollMetrics: Equatable {
+        let nearBottom: Bool
+        let viewportHeight: CGFloat
+        let contentHeight: CGFloat
+
+        init(_ geometry: ScrollGeometry) {
+            nearBottom = geometry.visibleRect.maxY >= geometry.contentSize.height - 80
+            viewportHeight = geometry.containerSize.height - geometry.contentInsets.top - geometry.contentInsets.bottom
+            contentHeight = geometry.contentSize.height
+        }
+    }
 
     private struct Lifecycle: Hashable {
         let active: Bool
@@ -76,17 +91,30 @@ struct GroupChatView: View {
                 ForEach(rows) { row in
                     rowView(row, in: event, lastJoin: lastJoin)
                 }
+                Color.clear.frame(height: 1).id(Self.bottomID)
             }
+            .scrollTargetLayout()
             .padding(.horizontal, 19)
             .padding(.vertical, 12)
             .foldColumn()
         }
         .scrollPosition($position)
         .defaultScrollAnchor(.bottom)
-        .onScrollGeometryChange(for: Bool.self) { geometry in
-            geometry.visibleRect.maxY >= geometry.contentSize.height - 80
-        } action: { _, nearBottom in
-            followsLatest = nearBottom
+        .defaultScrollAnchor(followsLatest ? .bottom : nil, for: .sizeChanges)
+        .onScrollPhaseChange { _, phase in
+            isUserScrolling = phase == .interacting || phase == .decelerating
+        }
+        .onScrollGeometryChange(for: ScrollMetrics.self) { ScrollMetrics($0) } action: { old, new in
+            // Keyboard/composer resizing is not a gesture away from the conversation.
+            if isUserScrolling {
+                followsLatest = new.nearBottom
+            } else if followsLatest,
+                      old.viewportHeight != new.viewportHeight || old.contentHeight != new.contentHeight {
+                position.scrollTo(id: Self.bottomID, anchor: .bottom)
+            }
+        }
+        .onChange(of: composerIsFocused) { _, focused in
+            if focused, followsLatest { position.scrollTo(id: Self.bottomID, anchor: .bottom) }
         }
         .scrollDismissesKeyboard(.interactively)
         .safeAreaInset(edge: .top, spacing: 0) {
@@ -174,14 +202,28 @@ struct GroupChatView: View {
         // While the chat is still loading, land on the newest message without a visible scroll.
         .onChange(of: rows.last?.id) {
             let sentHere: Bool = if case .pending = rows.last { true } else { false }
+            if sentHere { followsLatest = true }
             if hasShownLatest {
-                if followsLatest || sentHere { withAnimation { position.scrollTo(edge: .bottom) } }
+                if followsLatest { withAnimation { position.scrollTo(id: Self.bottomID, anchor: .bottom) } }
             } else {
-                position.scrollTo(edge: .bottom)
+                position.scrollTo(id: Self.bottomID, anchor: .bottom)
             }
             if !store.isChatEnabled || viewModel.state == .loaded { hasShownLatest = true }
         }
         #if DEBUG
+        .toolbar {
+            if UserDefaults.standard.bool(forKey: "chatScrollUITest"), let backend = store.chat as? MockBackend {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Receive test message", systemImage: "arrow.down.message") {
+                        backend.now += 1
+                        backend.receiveMessage(from: MockFixtures.sam, in: eventID, body: "New live message")
+                    }
+                    .labelStyle(.iconOnly)
+                    .accessibilityIdentifier("chat-test-receive")
+                    .accessibilityValue(viewModel.messages.last?.body ?? "")
+                }
+            }
+        }
         .onAppear {
             if UserDefaults.standard.string(forKey: "screen") == "meetup" { editsMeetUp = true }
         }
@@ -519,6 +561,7 @@ struct GroupChatView: View {
             }
             HStack(alignment: .bottom, spacing: 12) {
                 TextField("Message", text: $viewModel.draft, axis: .vertical)
+                    .accessibilityIdentifier("chat-composer")
                     .lineLimit(1...5)
                     .font(.rounded(.body))
                     .focused($composerIsFocused)
