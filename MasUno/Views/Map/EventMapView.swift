@@ -44,13 +44,6 @@ struct EventMapView: View {
         let sessionID: UUID
     }
 
-    private var attendeeDemand: AttendeeDemandKey {
-        AttendeeDemandKey(
-            games: viewModel.attendeePreviewGames(in: store, now: presentationTime, mapSize: mapSize),
-            revision: store.attendeeRevision, sessionID: store.sessionID
-        )
-    }
-
     private static let declinedPrimerKey = "declinedLocationPrimer"
     /// The bottom bar's round buttons (Filter).
     private static let mapButtonSize: CGFloat = 48
@@ -67,10 +60,16 @@ struct EventMapView: View {
     private static let avatarOverhang: CGFloat = 5
 
     var body: some View {
-        map(now: presentationTime)
+        // Pins, chip, cards and search all read this one pass over the store.
+        let frame = viewModel.frame(in: store, now: presentationTime, mapSize: mapSize)
+        let attendeeDemand = AttendeeDemandKey(
+            games: frame.attendeeDemand, revision: store.attendeeRevision, sessionID: store.sessionID
+        )
+
+        map(frame, now: presentationTime)
         .overlay { if isSearching { searchScrim } }
         .overlay(alignment: .top) { topBackdrop }
-        .overlay { if !isSearching { emptyOrFailedCard } }
+        .overlay { if !isSearching { emptyOrFailedCard(frame) } }
         .overlay(alignment: .top) {
             VStack(alignment: .leading, spacing: 12) {
                 // The field and its results run the full width up to `searchWidth`: edge to edge
@@ -78,12 +77,12 @@ struct EventMapView: View {
                 // The chip and banners keep a phone's column.
                 if showsSearchRow, !searchInNavigationBar { searchRow.frame(maxWidth: Self.searchWidth) }
                 if isSearching {
-                    searchResults.frame(maxWidth: Self.searchWidth)
+                    searchResults(frame.filtered).frame(maxWidth: Self.searchWidth)
                 } else {
                     Group {
                         // The popup opens right under the search bar, where the chip is.
-                        if viewModel.popupID == nil { nearbyChip }
-                        if store.isOffline, !store.mapGames(now: presentationTime).isEmpty { OfflineBanner() }
+                        if viewModel.popupID == nil { nearbyChip(frame.filtered) }
+                        if store.isOffline, !frame.open.isEmpty { OfflineBanner() }
                         if showsLocationBanner { locationBanner }
                     }
                     .frame(maxWidth: Theme.columnWidth, alignment: .leading)
@@ -184,7 +183,7 @@ struct EventMapView: View {
         .onAppear { focusOnMySportsIfAsked() }
         .onChange(of: appViewModel.focusMapOnMySports) { _, _ in focusOnMySportsIfAsked() }
         .onChange(of: store.profile?.id) { _, _ in focusOnMySportsIfAsked() }
-        .onChange(of: viewModel.mapEvents(in: store, now: presentationTime).map(\.id)) { _, ids in
+        .onChange(of: frame.filtered.map(\.id)) { _, ids in
             if let id = viewModel.selectedID, !ids.contains(id) { viewModel.dropSelection() }
             viewModel.groupedIDs.removeAll { !ids.contains($0) }
         }
@@ -237,7 +236,7 @@ struct EventMapView: View {
         .annotationTitles(.hidden)
     }
 
-    private func map(now: Date) -> some View {
+    private func map(_ frame: EventMapViewModel.MapFrame, now: Date) -> some View {
         @Bindable var viewModel = viewModel
 
         // Native selection: tap a pin to select, tap empty map to dismiss the popup.
@@ -253,7 +252,7 @@ struct EventMapView: View {
                 }
             }
 
-            ForEach(viewModel.pinGroups(in: store, now: now, mapSize: mapSize)) { group in
+            ForEach(frame.groups) { group in
                 if group.games.count == 1, let event = group.games.first {
                     eventPin(event, now: now)
                 } else {
@@ -424,8 +423,8 @@ struct EventMapView: View {
     }
 
     /// Figma "Search results": "Basketball near you" over a card of matching games.
-    private var searchResults: some View {
-        let results = viewModel.searchResults(in: store, now: presentationTime)
+    private func searchResults(_ games: [Game]) -> some View {
+        let results = viewModel.searchResults(from: games, now: presentationTime)
 
         return VStack(alignment: .leading, spacing: 8) {
             Text(verbatim: results.isEmpty ? String.app("No games match that search") : viewModel.resultsTitle(for: results))
@@ -468,8 +467,7 @@ struct EventMapView: View {
     // MARK: Chips and cards
 
     /// Tapping refreshes: a map can't pull to refresh, because dragging pans it.
-    private var nearbyChip: some View {
-        let games = viewModel.mapEvents(in: store, now: presentationTime)
+    private func nearbyChip(_ games: [Game]) -> some View {
         // One dot per sport on the map, in the sports' usual order.
         let sports = Array(Set(games.map(\.activity))).sorted { $0.sortOrder < $1.sortOrder }.prefix(4)
 
@@ -502,12 +500,12 @@ struct EventMapView: View {
 
     /// A failed first load, a map with nothing on it, or filters that hide everything.
     @ViewBuilder
-    private var emptyOrFailedCard: some View {
+    private func emptyOrFailedCard(_ frame: EventMapViewModel.MapFrame) -> some View {
         Group {
             switch store.mapState {
             case .failed:
                 RetryCard { await store.refreshMap() }
-            case .loaded where store.mapGames(now: presentationTime).isEmpty:
+            case .loaded where frame.open.isEmpty:
                 EmptyCard(
                     title: "No games nearby yet",
                     message: store.isGuest
@@ -524,7 +522,7 @@ struct EventMapView: View {
                     Button("Look farther away") { viewModel.lookFartherAway() }
                         .pill(.secondary)
                 }
-            case .loaded where viewModel.mapEvents(in: store, now: presentationTime).isEmpty:
+            case .loaded where frame.filtered.isEmpty:
                 EmptyCard(title: "No games fit those filters", message: "Try another sport or a wider search.") {
                     Button("Reset filters") { withAnimation(.snappy) { viewModel.resetFilters() } }
                         .pill(.primary)

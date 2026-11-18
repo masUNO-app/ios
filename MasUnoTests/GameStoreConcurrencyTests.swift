@@ -3,8 +3,9 @@ import MapKit
 import Testing
 @testable import masUNO
 
+/// Also used by `MapPresentationTests` to put many games on the map.
 @MainActor
-private final class ControlledGames: GameRepository {
+final class ControlledGames: GameRepository {
     let backend: MockBackend
     var mapRead: (() async throws -> [Game])?
     var batchRead: (([UUID]) async throws -> [Game])?
