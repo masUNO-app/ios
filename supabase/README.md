@@ -1,7 +1,8 @@
 # Supabase backend
 
 Migration-first: deploy the schema before pointing a build at it. Never edit a migration that's
-already applied to a shared project; add a new timestamped one. Only deploy production from `main`.
+already applied to a shared project; add a new timestamped one. The sync workflow deploys both
+projects from same-repository PRs and from `main`, as requested for this project.
 
 | Migration | What it adds |
 | --- | --- |
@@ -37,6 +38,30 @@ Use Node 26, matching CI. Run `npm ci --ignore-scripts --prefix supabase/functio
 The scoped TypeScript project supplies Node types for the tests and shared helpers, including
 their `node:` imports. Deno Edge entrypoints remain checked separately with
 `deno check --no-lock supabase/functions/send-push/index.ts`.
+
+## Automatic hosted sync
+
+[Sync Supabase](../.github/workflows/backend-sync.yml) replaces the old keep-awake job.
+It runs on every PR, relevant pushes to `main`, daily at 15:00 UTC, and manual dispatch.
+Database/pgTAP/concurrency tests and Edge Function checks run first. Then it applies pending
+migrations and deploys all local Edge Functions to **masuno-dev, then masuno-prod**. PRs from
+forks run validation only because GitHub does not expose deployment credentials to them.
+The daily database connection also keeps both projects active.
+
+Repository configuration (Settings → Secrets and variables → Actions):
+
+- Secret `SUPABASE_ACCESS_TOKEN`: a Supabase deployment token with access to both projects,
+  including database migration and Edge Function deployment permissions. Store it directly in
+  GitHub; never commit it or put it in a workflow log.
+- Variable `DEV_SUPABASE_PROJECT_REF`: `glpzvcddfezmwnkpfiml`.
+- Variable `PROD_SUPABASE_PROJECT_REF`: `lfgmjurmiyhzfruegeji`.
+
+The workflow serializes runs and stops production deployment if dev fails. It previews migration
+history before applying it and never resets the databases, changes recorded migration history,
+loads seed data, or overwrites hosted Auth/Vault settings. Existing APNs and webhook secrets stay
+in Supabase. Since PRs deploy to the shared projects, keep applied migrations in subsequent PRs
+and merge them promptly: a later checkout missing an already-applied migration fails on history
+drift and requires restoring that migration file, rather than an automatic history repair.
 
 ## Hosted project checklist (masuno-dev, then masuno-prod)
 
@@ -159,10 +184,11 @@ Keep `verify_jwt = true`; the sender also compares the bearer token directly wit
 service-role key.
 
 A v2 claim includes an opaque `claim_token`. Every completion/release includes that token;
-expired or duplicate workers cannot compActual APNs sends have a global cap of 8, a 5-second request/body deadline, and a 25-second
+expired or duplicate workers cannot complete a newer attempt or remove its device tokens.
+Legacy-to-legacy claims retain their earlier limitations, so finish deploying the v2 sender.
+Actual APNs sends have a global cap of 8, a 5-second request/body deadline, and a 25-second
 batch budget. Each phone has a sequential lane; a retry holds its later alerts. The SQL claim
-lease remains ten minutes for worker recovery, with stale attempts fenced by claim tokens. A row succeeds if at least one device succeeds, preserving the previous policy. 10-second request/body deadline, and a 90-second
-batch budget. A row succeeds if at least one device succeeds, preserving the previous policy.
+lease remains ten minutes for worker recovery, with stale attempts fenced by claim tokens. A row succeeds if at least one device succeeds, preserving the previous policy.
 
 The user-authorized activation on 2026-11-16 deployed this protocol to both projects, in dev →
 prod order. Forward migration `20261116000100_align_campus_realtime.sql` first repaired dev's

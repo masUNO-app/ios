@@ -3,6 +3,7 @@
 name: Database
 
 on:
+  workflow_call:
   pull_request:
     paths: ["supabase/**", ".github/workflows/database.yml"]
   push:

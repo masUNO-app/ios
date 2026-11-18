@@ -223,3 +223,5 @@ CI runs all mock unit/UI suites on iOS 18.6 with Xcode 26.3 (`macos-15-intel`) a
 - Send actions in sequence from both phones and across two games. With phones online and outside
   quiet hours, check normal delivery within roughly 20 seconds and chronological submission order.
   Include continuous chat traffic for over a minute to check that merging never postpones a due alert.
+- Verify the Sync Supabase workflow on a same-repository PR and daily/manual run: validation first,
+  migrations before functions, dev before prod. A rerun with no migrations must leave history intact.
