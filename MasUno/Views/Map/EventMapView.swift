@@ -13,6 +13,9 @@ struct EventMapView: View {
     @State private var screenSize: CGSize = .zero
     @State private var showsSaved = false
     @State private var showsFilters = false
+    /// Every game on the map in one list: VoiceOver's "List games" action, for getting through
+    /// the games without hunting pin by pin (A11Y-02).
+    @State private var listsAllGames = false
     /// The map's own frame, full screen, in global coordinates: its size tells how close pins
     /// are on screen.
     @State private var mapFrame: CGRect = .zero
@@ -105,6 +108,14 @@ struct EventMapView: View {
         .sheet(isPresented: $showsFilters) {
             FilterSheet(viewModel: viewModel)
         }
+        .sheet(isPresented: $listsAllGames) {
+            // In the search list's order: spots that just opened, then soonest.
+            let games = viewModel.searchResults(from: frame.filtered, now: presentationTime)
+            PinGroupSheet(
+                gameIDs: games.map(\.id), viewModel: viewModel,
+                title: Text(games.count == 1 ? "1 game nearby" : "\(games.count) games nearby"), subtitle: nil
+            ) { appViewModel.path.append(.game($0)) }
+        }
         .dialog(isPresented: $asksForLocation, isDismissable: false) {
             DialogCard(
                 systemImage: "mappin.and.ellipse", tone: .tinted(Color(.sportVolleyball)),
@@ -120,6 +131,7 @@ struct EventMapView: View {
             case "saved": showsSaved = true
             case "filter": showsFilters = true
             case "search": viewModel.searchText = "hoops"
+            case "all-games": listsAllGames = true
             default: break
             }
             #endif
@@ -232,6 +244,8 @@ struct EventMapView: View {
             GroupPin(games: group.games, isDimmed: viewModel.selectedID != nil)
                 .fontDesign(.rounded)
                 .onTapGesture { viewModel.groupedIDs = group.games.map(\.id) }
+                // VoiceOver's double tap, without relying on its simulated tap reaching the gesture.
+                .accessibilityAction { viewModel.groupedIDs = group.games.map(\.id) }
         }
         .annotationTitles(.hidden)
     }
@@ -264,6 +278,7 @@ struct EventMapView: View {
             // the pin, and the pin's annotation never changes size (which made MapKit swap and
             // cross-fade it). Added last so it draws over the pins.
             if let id = viewModel.popupID, let event = store.game(id) {
+                // Titled, though MapKit then lists the game a second time: untitled, it says "Map pin".
                 Annotation(event.title, coordinate: event.coordinate, anchor: viewModel.popupAnchor(for: event)) {
                     EventPopup(event: event, viewModel: viewModel)
                         .frame(width: popupWidth)
@@ -284,6 +299,7 @@ struct EventMapView: View {
         }
         .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))
         .mapControlVisibility(.hidden)
+        .listGamesAction(frame.filtered) { listsAllGames = true }
         // Closes the popup once its pin scrolls off screen.
         .onMapCameraChange(frequency: .continuous) { context in
             let selected = viewModel.selectedID.flatMap { store.game($0) }
@@ -401,6 +417,8 @@ struct EventMapView: View {
                 .autocorrectionDisabled()
                 .submitLabel(.search)
                 .focused($isSearchFocused)
+                // The scrim that ends search by tap is hidden from VoiceOver (A11Y-20).
+                .accessibilityAction(.escape) { endSearch() }
                 // Opened from the bar's Search button, so start typing right away.
                 .onAppear { if usesVerticalBar { isSearchFocused = true } }
             if isSearching {
@@ -496,6 +514,7 @@ struct EventMapView: View {
         }
         .buttonStyle(.plain)
         .accessibilityHint("Refreshes the map")
+        .listGamesAction(games) { listsAllGames = true }
     }
 
     /// A failed first load, a map with nothing on it, or filters that hide everything.
@@ -625,6 +644,8 @@ struct EventMapView: View {
             .frame(maxHeight: .infinity, alignment: .bottom)
             .padding(.bottom, max(8, clearsAvatar))
             .opacity(avatarFrame == .zero ? 0 : 1)
+            // Not there for VoiceOver either until it shows (A11Y-14).
+            .accessibilityHidden(avatarFrame == .zero)
         }
     }
 
@@ -865,6 +886,15 @@ private extension ToolbarContent {
         #else
         self
         #endif
+    }
+}
+
+private extension View {
+    /// "List games" in VoiceOver's actions, on the chip and the map, while there are games to list.
+    func listGamesAction(_ games: [Game], perform: @escaping () -> Void) -> some View {
+        accessibilityActions {
+            if !games.isEmpty { Button("List games", action: perform) }
+        }
     }
 }
 

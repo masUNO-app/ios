@@ -419,8 +419,9 @@ final class AppViewModel {
     /// map (the map on fixtures, as any value not listed here), me, invites (Me with the Invites sheet open), me-hosting, me-past, me-empty, me-cancelled, me-leave, repost, profile, settings, sign-out, delete-account,
     /// add, add-filled, form-error, edit, cancel-game, play-again, picker, gallery, detail-*,
     /// join, spot-alert, who, who-beta (a game with two beta testers), block, report, report-sent, invite, leave, blocked, calendar, chat, chat-host, chat-rules,
-    /// chat-new, chat-long, meetup, saved, filter, search, location, popup, popup-saved, guest, guest-popup,
-    /// guest-detail, guest-prompt (popup, guest-popup, filter, search and location are handled by the map).
+    /// chat-new, chat-long, meetup, saved, filter, search, all-games (VoiceOver's List games sheet), location, popup,
+    /// popup-saved, guest, guest-popup, guest-detail, guest-prompt (popup, guest-popup, filter, search, all-games
+    /// and location are handled by the map).
     func openDebugScreen(store: GameStore, mock: MockBackend) async {
         typealias IDs = MockFixtures.GameID
         let screen = UserDefaults.standard.string(forKey: "screen") ?? ""

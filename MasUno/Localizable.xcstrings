@@ -2817,6 +2817,26 @@
         }
       }
     },
+    "List games" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ver lista de partidos"
+          }
+        }
+      }
+    },
+    "Lists them" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los muestra en una lista"
+          }
+        }
+      }
+    },
     "Location" : {
       "localizations" : {
         "es" : {
@@ -4465,6 +4485,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Mostrar código QR"
+          }
+        }
+      }
+    },
+    "Shows the game card" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Muestra la tarjeta del partido"
           }
         }
       }

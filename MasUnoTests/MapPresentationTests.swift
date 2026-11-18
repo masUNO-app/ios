@@ -253,4 +253,22 @@ struct MapPresentationTests {
         // Pins: calm ones in the order given, then bumped ones on top.
         #expect(vm.pinOrder(in: store, now: now).map(\.title) == ["A", "C", "F", "B", "D", "E"])
     }
+
+    // MARK: VoiceOver (A11Y-02)
+
+    /// A pin says its tag, room and time after its title, with commas where the card has "·".
+    @Test func pinValueReadsTagRoomAndTime() {
+        let me = MockBackend().me
+        let now = Date.now
+        let bumped = game("A", host: me, startsAt: now.addingTimeInterval(20 * 60), repostedAt: now.addingTimeInterval(-600))
+        let value = EventPin.accessibilityValue(for: bumped, now: now)
+        #expect(value.hasPrefix("Spot open, A spot just opened, room for 4, "))
+        #expect(value.hasSuffix(", starts in 20 min"))
+        #expect(!value.contains("·"))
+
+        let later = game("B", host: me, startsAt: now.addingTimeInterval(5 * 86_400))
+        let calm = EventPin.accessibilityValue(for: later, now: now)
+        #expect(calm.hasPrefix("Room for 4 more, "))
+        #expect(!calm.contains("·") && !calm.contains("Soon"))
+    }
 }

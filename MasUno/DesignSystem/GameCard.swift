@@ -19,6 +19,8 @@ struct GameCard<Accessory: View, Actions: View>: View {
     var onOpen: (() -> Void)? = nil
     /// The same as some of the buttons below, as VoiceOver actions on the summary.
     var shortcuts: [GameCardShortcut] = []
+    /// Moves VoiceOver to the summary when set: the map popup takes focus as it opens.
+    var summaryFocus: AccessibilityFocusState<Bool>.Binding? = nil
     @ViewBuilder var accessory: Accessory
     @ViewBuilder var actions: Actions
 
@@ -58,6 +60,7 @@ struct GameCard<Accessory: View, Actions: View>: View {
                 }
             }
             .accessibilitySortPriority(1)
+            .modifier(FocusesSummary(focus: summaryFocus))
         // Without onOpen it's text: a default action alone would make it read as a button.
         if let onOpen {
             element
@@ -143,6 +146,18 @@ private struct OpensOnTap: ViewModifier {
             content
                 .contentShape(.rect(cornerRadius: Theme.Radius.dialog))
                 .onTapGesture(perform: action)
+        } else {
+            content
+        }
+    }
+}
+
+private struct FocusesSummary: ViewModifier {
+    var focus: AccessibilityFocusState<Bool>.Binding?
+
+    func body(content: Content) -> some View {
+        if let focus {
+            content.accessibilityFocused(focus)
         } else {
             content
         }

@@ -8,13 +8,15 @@ struct EventPopup: View {
     var viewModel: EventMapViewModel
     /// Set when Leave is tapped, so the confirmation can name the game.
     @State private var leaving: Game?
+    /// VoiceOver moves from the pin to the card's summary as the popup opens (A11Y-02).
+    @AccessibilityFocusState private var isSummaryFocused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
             GameCard(
                 event: event, lineup: store.lineup(for: event),
                 status: event.discoverLine(), time: EventFormat.cardTime(event), isFloating: true,
-                shortcuts: shortcuts
+                shortcuts: shortcuts, summaryFocus: $isSummaryFocused
             ) {
                 // For a guest it asks them to make an account, like every other account action.
                 BookmarkButton(event: event)
@@ -46,6 +48,17 @@ struct EventPopup: View {
         .task(id: event.id) {
             guard !event.hidesPeople else { return }
             await store.loadAttendees(event.id)
+        }
+        // The popup is its own annotation, drawn after the pin, so focus would stay on the pin.
+        // Needs checking on a device with VoiceOver, on iOS 18 and 26+: that focus crosses
+        // MapKit's annotation hosting. If it doesn't, announce instead from here, e.g.
+        // `Announce.post("\(event.title) card. Swipe right for Count me in.")` (plan A11Y-02).
+        .task(id: event.id) {
+            // Read directly: annotation content doesn't inherit the map's environment.
+            guard UIAccessibility.isVoiceOverRunning else { return }
+            // After the grow animation (0.4 s).
+            do { try await Task.sleep(for: .milliseconds(450)) } catch { return }
+            isSummaryFocused = true
         }
         .leaveGameDialog($leaving)
     }

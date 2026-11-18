@@ -7,7 +7,7 @@ final class AccessibilityAuditUITests: XCTestCase {
     /// Screens that must pass the audit, grouped so one test stays well under CI's per-test limit and
     /// each group reports its own failures. Add a screen when it's fixed; never remove one.
     private enum Screens {
-        static let map = ["map", "popup", "search", "filter", "saved"]
+        static let map = ["map", "popup", "search", "filter", "saved", "all-games"]
         static let detail = ["detail-open", "detail-in", "detail-full", "detail-hosting", "who", "report"]
         static let form = ["add", "form-error", "picker"]
         static let me = ["chat", "me", "me-hosting", "profile", "invites", "settings", "blocked"]
