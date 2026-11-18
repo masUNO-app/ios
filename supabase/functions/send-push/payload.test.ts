@@ -236,3 +236,17 @@ test("legacy host summaries deduplicate repeated labels", () => {
         joined: ["Ari P.", "Ari P."], left: [],
     }).title, "Ari P. joined");
 });
+
+
+test("communication summaries omit names while plain fallback alerts retain them", () => {
+    for (const [locale, summary] of [["en-US", "3 new messages"], ["es-MX", "3 mensajes nuevos"]]) {
+        const push = buildPush({
+            id: 10, user_id: "user", kind: "chat_message", event_id: "game-1",
+            payload: { count: 3, sender_name: "Ari P.", names: ["Ari P.", "Sam L."] },
+            collapse_id: null, expires_at: "2030-01-01T00:00:00Z", tokens: [], context: game,
+        }, { token: "abc", environment: "sandbox", locale });
+        assert.equal(push.body.body, summary);
+        const aps = push.body.aps as { alert: { body: string } };
+        assert.match(aps.alert.body, /Ari P\./);
+    }
+});

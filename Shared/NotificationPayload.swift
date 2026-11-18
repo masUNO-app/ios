@@ -95,6 +95,19 @@ nonisolated struct NotificationPayload: Codable, Sendable {
         self = decoded
     }
 
+    /// iOS supplies the sender in the communication header. Keep names in the plain
+    /// APNs fallback only, including summaries sent by older server versions.
+    func communicationBody(fallback: String) -> String {
+        let text = body ?? fallback
+        if (count ?? 1) > 1, let separator = text.range(of: " · ", options: .backwards) {
+            return String(text[separator.upperBound...])
+        }
+        if body == nil, let sender, text.hasPrefix("\(sender.name): ") {
+            return String(text.dropFirst(sender.name.count + 2))
+        }
+        return text
+    }
+
     /// Where a tap goes. Signup opens the app as it is. Win-back opens the map.
     /// - Returns: A `masuno` URL, or nil when the tap should only bring the app forward.
     func routeURL() -> URL? {

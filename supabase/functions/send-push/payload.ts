@@ -1,6 +1,6 @@
 // The JSON APNs receives. One object per device, in that device's language.
 
-import { type NotificationContext, type NotificationPayloadData, renderAlert } from "./templates.ts";
+import { chatMessageBody, type NotificationContext, type NotificationPayloadData, renderAlert } from "./templates.ts";
 
 export interface DeviceToken {
     token: string;
@@ -99,7 +99,7 @@ export function buildPush(
             initials: data.sender_initials ?? "",
         };
         body.others = (data.others ?? []).slice(0, 2);
-        body.body = count > 1 ? alert.body : (data.body ?? "");
+        body.body = chatMessageBody(token.locale, data);
         body.count = count;
     }
 

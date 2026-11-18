@@ -68,6 +68,13 @@ export function joinNames(names: string[] | undefined, language: Language): stri
     return `${clean.slice(0, -1).join(", ")} ${conjunction} ${clean[clean.length - 1]}`;
 }
 
+/** The communication header already identifies the sender. */
+export function chatMessageBody(locale: string, payload: NotificationPayloadData): string {
+    const count = payload.count ?? 1;
+    if (count <= 1) return payload.body ?? "";
+    return languageOf(locale) === "es" ? `${count} mensajes nuevos` : `${count} new messages`;
+}
+
 /**
  * Campus-local time in the device's 12/24-hour style. Today and tomorrow are words.
  */
@@ -131,7 +138,7 @@ export function renderAlert(
         const count = payload.count ?? 1;
         const names = joinNames(payload.names?.length ? payload.names : [payload.sender_name ?? ""], language);
         if (count > 1) {
-            const summary = language === "es" ? `${count} mensajes nuevos` : `${count} new messages`;
+            const summary = chatMessageBody(locale, payload);
             return { title: game, body: names ? `${names} · ${summary}` : summary };
         }
         return { title: game, body: `${payload.sender_name ?? names}: ${payload.body ?? ""}`.trim() };
