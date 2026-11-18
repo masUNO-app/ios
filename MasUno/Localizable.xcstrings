@@ -2219,16 +2219,6 @@
         }
       }
     },
-    "Group chat messages" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mensajes del grupo"
-          }
-        }
-      }
-    },
     "Group chat · %lld new" : {
       "localizations" : {
         "es" : {
@@ -2247,6 +2237,16 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "Group chat messages" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mensajes del grupo"
           }
         }
       }
@@ -3664,6 +3664,7 @@
       }
     },
     "Receive test message" : {
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
