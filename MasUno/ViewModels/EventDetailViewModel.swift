@@ -39,6 +39,11 @@ final class EventDetailViewModel {
         }
     }
 
+    /// Said when "Count me in" goes through, since only the headline's color and text change.
+    func joinAnnouncement(from old: GameStatus, to new: GameStatus, for event: Game) -> String? {
+        old == .open && new == .going ? headline(for: event) : nil
+    }
+
     /// "You're in!" and "Your game is live!" are the green ones.
     func isCelebrating(_ event: Game) -> Bool {
         [.going, .hosting].contains(event.status())

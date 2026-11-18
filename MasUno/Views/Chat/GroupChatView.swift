@@ -116,6 +116,11 @@ struct GroupChatView: View {
         .onChange(of: composerIsFocused) { _, focused in
             if focused, followsLatest { position.scrollTo(id: Self.bottomID, anchor: .bottom) }
         }
+        .onChange(of: viewModel.pending) { old, new in
+            if let error = ChatViewModel.newFailure(from: old, to: new) {
+                Announce.post(ChatViewModel.failureText(error), priority: .high)
+            }
+        }
         .scrollDismissesKeyboard(.interactively)
         .safeAreaInset(edge: .top, spacing: 0) {
             pinnedCard(event)
@@ -512,7 +517,7 @@ struct GroupChatView: View {
         VStack(alignment: .trailing, spacing: 3) {
             ownMessage(pending.body, color: color, caption: nil, isFaded: true)
             if let error = pending.error {
-                Label(failureText(error), systemImage: "exclamationmark.circle.fill")
+                Label(ChatViewModel.failureText(error), systemImage: "exclamationmark.circle.fill")
                     .font(.rounded(.caption))
                     .foregroundStyle(Theme.error)
             } else {
@@ -532,16 +537,11 @@ struct GroupChatView: View {
         .accessibilityAddTraits(pending.error == nil ? [] : .isButton)
     }
 
-    /// A lost connection only needs another try; anything else says why.
-    private func failureText(_ error: DomainError) -> String {
-        switch error {
-        case .offline, .unknown: String.app("Not sent · Tap to retry")
-        default: String.app("Not sent · \(error.message)")
-        }
-    }
-
     private func copyButton(_ text: String) -> some View {
-        Button("Copy", systemImage: "doc.on.doc") { UIPasteboard.general.string = text }
+        Button("Copy", systemImage: "doc.on.doc") {
+            UIPasteboard.general.string = text
+            Announce.post(String.app("Copied"))
+        }
     }
 
     // MARK: Composer
@@ -590,7 +590,11 @@ struct GroupChatView: View {
                         }
                         viewModel.draftError = nil
                     }
-                Button("Send", systemImage: "arrow.up") { viewModel.send(in: store) }
+                Button("Send", systemImage: "arrow.up") {
+                    viewModel.send(in: store)
+                    // Refused before it left; the reason shows above the field, out of focus.
+                    if let error = viewModel.draftError { Announce.post(error, priority: .high) }
+                }
                     .labelStyle(.iconOnly)
                     .fontWeight(.bold)
                     .foregroundStyle(Theme.ink)

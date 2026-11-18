@@ -453,6 +453,8 @@ struct EventMapView: View {
                 .shadow(color: Theme.ink.opacity(0.08), radius: 8, y: 3)
             }
         }
+        // The list changes as you type without moving focus (A11Y-03).
+        .announcesChanges(of: viewModel.resultsAnnouncement(for: results))
         .transition(.opacity)
     }
 

@@ -141,6 +141,13 @@ final class EventMapViewModel {
         return String.app("Games near you")
     }
 
+    /// What VoiceOver says when the results change: "Basketball near you, 3 games", or
+    /// "No games match that search".
+    func resultsAnnouncement(for results: [Game]) -> String {
+        guard !results.isEmpty else { return String.app("No games match that search") }
+        return resultsTitle(for: results) + ", " + String.app("\(results.count) games")
+    }
+
     /// "Today, 7:35 PM · 0.4 km · room for 4". The distance is left out when there's nowhere to measure from.
     func resultLine(for game: Game) -> String {
         var parts = [EventFormat.shortDayAndTime(game.startsAt)]

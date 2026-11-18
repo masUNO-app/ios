@@ -60,6 +60,7 @@ private struct InviteCodeRow: View {
                 Button(hasCopied ? "Copied" : "Copy code", systemImage: hasCopied ? "checkmark" : "doc.on.doc") {
                     UIPasteboard.general.string = invite.code
                     hasCopied = true
+                    Announce.post(String.app("Copied"))
                 }
                 .glassCircle()
                 .sensoryFeedback(.success, trigger: hasCopied)

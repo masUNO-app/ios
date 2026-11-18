@@ -202,8 +202,16 @@ struct ContentView: View {
 }
 
 /// Short toast for failed actions and confirmations ("Saved. Find it under bookmarks.").
-private struct NoticeBanner: View {
+struct NoticeBanner: View {
     @Environment(GameStore.self) private var store
+    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    /// Four seconds is too short to hear or read it all with VoiceOver or at the largest text sizes
+    /// (WCAG 2.2.1). Tapping still dismisses it sooner.
+    static func duration(voiceOver: Bool, typeSize: DynamicTypeSize) -> Duration {
+        voiceOver || typeSize.isAccessibilitySize ? .seconds(10) : .seconds(4)
+    }
 
     var body: some View {
         if let notice = store.notice {
@@ -219,7 +227,9 @@ private struct NoticeBanner: View {
                 .onTapGesture { store.notice = nil }
                 .accessibilityAddTraits(.isStaticText)
                 .task(id: notice) {
-                    try? await Task.sleep(for: .seconds(4))
+                    // It appears without taking focus, so VoiceOver would otherwise say nothing.
+                    Announce.post(notice)
+                    do { try await Task.sleep(for: Self.duration(voiceOver: voiceOver, typeSize: typeSize)) } catch { return }
                     store.notice = nil
                 }
         }

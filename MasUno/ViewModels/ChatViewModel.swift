@@ -467,6 +467,21 @@ final class ChatViewModel {
         pending.removeAll { $0.id == id }
     }
 
+    /// A lost connection only needs another try; anything else says why.
+    static func failureText(_ error: DomainError) -> String {
+        switch error {
+        case .offline, .unknown: String.app("Not sent · Tap to retry")
+        default: String.app("Not sent · \(error.message)")
+        }
+    }
+
+    /// The error of the latest message that has just failed, for VoiceOver to say once. Several
+    /// failing together (a dropped connection) are said as one.
+    static func newFailure(from old: [Pending], to new: [Pending]) -> DomainError? {
+        let failedBefore = Set(old.filter { $0.error != nil }.map(\.id))
+        return new.last { $0.error != nil && !failedBefore.contains($0.id) }?.error
+    }
+
     /// "Before you chat": I agree. Sends anything that was waiting on it.
     func acceptRules(in store: GameStore) async {
         prepare(in: store)

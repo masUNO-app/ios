@@ -124,6 +124,9 @@ struct EventDetailView: View {
         .leaveGameDialog($viewModel.leaving)
         .cancelGameDialog($viewModel.cancelling)
         .sensoryFeedback(.success, trigger: state == .going)
+        .onChange(of: state) { old, new in
+            if let message = viewModel.joinAnnouncement(from: old, to: new, for: event) { Announce.post(message) }
+        }
         #if DEBUG
         .onAppear {
             // `-screen who|who-beta|report|invite|calendar|leave`: open a sheet or dialog on this game.
