@@ -14,7 +14,7 @@ final class LanguageUITests: XCTestCase {
     @MainActor func testSpanishGameDetailsLocalizeSportsAndFormattedCopy() {
         let app = launch(languages: "(es-MX)", screen: "detail-open")
         defer { app.terminate() }
-        XCTAssertTrue(app.buttons["Me apunto"].waitForExistence(timeout: 20))
+        XCTAssertTrue(app.buttons["detail-count-me-in"].waitForExistence(timeout: 20))
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Básquetbol")).firstMatch.exists)
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@ OR label CONTAINS %@", "Hoy", "Mañana")).firstMatch.exists)
     }

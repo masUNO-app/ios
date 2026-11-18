@@ -85,6 +85,8 @@ struct GameFormSheet: View {
                         .textInputAutocapitalization(.sentences)
                         .focused($focus, equals: .name)
                 }
+                // On the box, which merges the field and its label into one element for UI tests.
+                .accessibilityIdentifier("game-name-field")
 
                 schedule
 

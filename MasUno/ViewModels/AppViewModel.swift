@@ -416,7 +416,7 @@ final class AppViewModel {
     }
 
     /// Jump straight to a screen for design review, e.g. launch with `-screen me`. Options:
-    /// me, invites (Me with the Invites sheet open), me-hosting, me-past, me-empty, me-cancelled, me-leave, repost, profile, settings, sign-out, delete-account,
+    /// map (the map on fixtures, as any value not listed here), me, invites (Me with the Invites sheet open), me-hosting, me-past, me-empty, me-cancelled, me-leave, repost, profile, settings, sign-out, delete-account,
     /// add, add-filled, form-error, edit, cancel-game, play-again, picker, gallery, detail-*,
     /// join, spot-alert, who, who-beta (a game with two beta testers), block, report, report-sent, invite, leave, blocked, calendar, chat, chat-host, chat-rules,
     /// chat-new, chat-long, meetup, saved, filter, search, location, popup, popup-saved, guest, guest-popup,

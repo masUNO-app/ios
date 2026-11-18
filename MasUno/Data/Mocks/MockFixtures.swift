@@ -134,6 +134,27 @@ enum MockFixtures {
         add(GameID.bumped, "Pickup soccer", "soccer", minutes: 50, duration: 90, capacity: 10,
             roster: [diego, nina, maya, alex], place: Places.stadium, repostedMinutesAgo: 25)
 
+        // `-mockGames 150`: copies of the upcoming games you're not in, spread around campus, so pins,
+        // groups, filters and search have real work when profiling. Nothing changes without it.
+        let extra = UserDefaults.standard.integer(forKey: "mockGames")
+        let templates = games.filter { $0.myRole == nil && !$0.isCancelled && $0.startsAt > now }
+        for index in 0..<max(extra, 0) where !templates.isEmpty {
+            let template = templates[index % templates.count]
+            // A sunflower spiral out to about 2 km, so some pins stand alone and some merge.
+            let radius = 0.018 * (Double(index + 1) / Double(extra)).squareRoot()
+            let angle = Double(index) * 2.39996
+            var place = template.place
+            place.latitude = tec.centerLatitude + radius * sin(angle)
+            place.longitude = tec.centerLongitude + radius * cos(angle)
+            add(
+                UUID(uuidString: String(format: "00000000-0000-0000-0001-%012d", index))!,
+                "\(template.title) \(index + 2)", template.activity.slug,
+                minutes: template.startsAt.timeIntervalSince(now) / 60 + Double(index % 12 * 20),
+                duration: template.durationMinutes, capacity: template.capacity,
+                roster: attendees[template.id]?.map(\.person) ?? [template.host], place: place
+            )
+        }
+
         var messages: [UUID: [ChatMessage]] = [:]
         func say(_ gameID: UUID, _ sender: PersonSummary, _ body: String, minutesAgo: Double) {
             messages[gameID, default: []].append(ChatMessage(

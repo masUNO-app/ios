@@ -18,14 +18,14 @@ final class NotificationRoutingUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Mute chat"].waitForExistence(timeout: 20))
         XCTAssertEqual(app.state, .runningForeground)
         app.navigationBars.buttons.element(boundBy: 0).tap()
-        XCTAssertTrue(app.buttons["Open group chat"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["detail-open-chat"].waitForExistence(timeout: 5))
         XCTAssertEqual(app.state, .runningForeground)
     }
 
     @MainActor func testGameNotificationOpensTheGame() {
         let app = openNotification(screen: "push-game")
         defer { app.terminate() }
-        XCTAssertTrue(app.buttons["Open group chat"].waitForExistence(timeout: 20))
+        XCTAssertTrue(app.buttons["detail-open-chat"].waitForExistence(timeout: 20))
         XCTAssertEqual(app.state, .runningForeground)
     }
 }

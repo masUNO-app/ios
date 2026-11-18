@@ -65,7 +65,8 @@ final class CompatibilityUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Filter · 1"].waitForExistence(timeout: 5))
         assertHittable(addGame)
         addGame.tap()
-        let name = app.textFields["e.g. After-work hoops"]
+        // Any element type: the field box merges the text field with its label.
+        let name = app.descendants(matching: .any)["game-name-field"]
         XCTAssertTrue(name.waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["Create game"].exists)
         app.buttons["Close"].tap()

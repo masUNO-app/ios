@@ -354,11 +354,13 @@ struct EventDetailView: View {
                         }
                     }
                     .pill(.primary)
+                    .accessibilityIdentifier("detail-count-me-in")
                 }
             case .going:
                 PillPair {
                     Button("Open group chat") { appViewModel.path.append(.chat(event.id)) }
                         .pill(.primary)
+                        .accessibilityIdentifier("detail-open-chat")
                     // Hidden until `AppConfig.appStoreID` is set (N27).
                     if canInvite {
                         Button("Invite a friend") { viewModel.showsInvite = true }
@@ -373,6 +375,7 @@ struct EventDetailView: View {
                     } else {
                         Button("Open group chat") { appViewModel.path.append(.chat(event.id)) }
                             .pill(.primary)
+                            .accessibilityIdentifier("detail-open-chat")
                     }
                     Button("Edit game") { appViewModel.presentGameForm(editing: event.id) }
                         .pill(.secondary)
