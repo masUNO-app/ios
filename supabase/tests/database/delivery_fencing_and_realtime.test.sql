@@ -110,6 +110,10 @@ select pg_temp.finish_fenced(id, claim_token, 'retry') from attempt_b;
 select ok((select attempts = 1 and locked_at is null and claim_token is null from private.notification_outbox where merge_key = 'fence:merge'),
     'current retry clears ownership and increments retry accounting once');
 
+-- This completed scenario leaves a retry in backoff. Retire it before testing
+-- legacy compatibility; ordered v2 claims correctly wait behind an earlier retry.
+update private.notification_outbox set dropped = 'fixture_finished' where merge_key = 'fence:merge';
+
 select pg_temp.enqueue_fenced('fence:legacy');
 truncate attempt_a, attempt_b;
 insert into attempt_a select * from private.claim_notifications_v2(100);

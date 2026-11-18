@@ -22,21 +22,37 @@ interface DeliveryOptions {
 // A single invocation stays well below the ten-minute SQL lease and leaves time for completion.
 // This caps actual HTTP requests across all rows/devices, rather than multiplying nested pools.
 export const HTTP_CONCURRENCY = 8;
-export const REQUEST_TIMEOUT_MS = 10_000;
-export const DELIVERY_BUDGET_MS = 90_000;
+export const REQUEST_TIMEOUT_MS = 5_000;
+export const DELIVERY_BUDGET_MS = 25_000;
 
 export async function deliverAll(rows: FencedNotification[], jwt: string, options: DeliveryOptions = {}): Promise<DeliveryResult[]> {
     const now = options.now ?? (() => performance.now());
     const deadline = now() + (options.budgetMs ?? DELIVERY_BUDGET_MS);
-    const targets = rows.flatMap((row, rowIndex) => (row.tokens ?? []).map((device) => ({ row, rowIndex, device })));
+    // One ordered lane per phone. Different phones can send concurrently, but a
+    // later alert must never overtake an earlier request to the same APNs token.
+    const lanes = new Map<string, { row: FencedNotification; rowIndex: number; device: DeviceToken }[]>();
+    rows.forEach((row, rowIndex) => {
+        for (const device of row.tokens ?? []) {
+            const key = `${device.environment}:${device.token}`;
+            const lane = lanes.get(key) ?? [];
+            lane.push({ row, rowIndex, device });
+            lanes.set(key, lane);
+        }
+    });
     const grouped: { device: DeviceToken; outcome: Outcome }[][] = rows.map(() => []);
-    await mapPool(targets, options.concurrency ?? HTTP_CONCURRENCY, async ({ row, rowIndex, device }) => {
-        const remaining = deadline - now();
-        const outcome = remaining <= 0
-            ? { status: "retry" as const, error: "delivery_deadline" }
-            : await post(row, device, jwt, options.fetcher ?? fetch,
-                Math.min(remaining, options.requestTimeoutMs ?? REQUEST_TIMEOUT_MS));
-        grouped[rowIndex].push({ device, outcome });
+    await mapPool([...lanes.values()], options.concurrency ?? HTTP_CONCURRENCY, async (lane) => {
+        let retryEarlier = false;
+        for (const { row, rowIndex, device } of lane) {
+            const remaining = deadline - now();
+            const outcome: Outcome = retryEarlier
+                ? { status: "retry" as const, error: "earlier_notification_pending" }
+                : remaining <= 0
+                    ? { status: "retry" as const, error: "delivery_deadline" }
+                    : await post(row, device, jwt, options.fetcher ?? fetch,
+                        Math.min(remaining, options.requestTimeoutMs ?? REQUEST_TIMEOUT_MS));
+            grouped[rowIndex].push({ device, outcome });
+            retryEarlier ||= outcome.status === "retry";
+        }
     });
     return rows.map((row, index) => {
         const outcomes = grouped[index];

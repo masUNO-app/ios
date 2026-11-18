@@ -210,3 +210,16 @@ Build Debug and Release with the 18.0 target and run the earliest supported OS w
 - [ ] iOS 26+: glass controls, toolbar grouping and detail scrolling keep their existing appearance. iOS 27.1+: also run the iPhone Duo checks above.
 
 CI runs all mock unit/UI suites on iOS 18.6 with Xcode 26.3 (`macos-15-intel`) and iOS 26.5 with Xcode 26.6 (`macos-26-intel`). Both runtimes are preinstalled on their runner images. Each job builds the Release app and notification extension before testing on a fresh iPhone 16 Pro, and uploads logs, the result bundle, and screenshots even on failure.
+
+## Notification tap and delivery regressions
+
+- With two physical phones in the same chat, send one message and confirm the receiving banner
+  shows the sender once, the group title, and message text without a sender prefix. Repeat for a
+  burst/merged summary in English and Spanish.
+- Tap a game alert and a chat alert with the app open, backgrounded, and terminated. Confirm each
+  destination opens, chat Back returns to the game, and notification cleanup does not crash.
+- Repeat while the network is slow and with a game absent from the current map/list cache. The
+  opened-tracking call must not hold navigation; an uncached chat loads its own game.
+- Send actions in sequence from both phones and across two games. With phones online and outside
+  quiet hours, check normal delivery within roughly 20 seconds and chronological submission order.
+  Include continuous chat traffic for over a minute to check that merging never postpones a due alert.

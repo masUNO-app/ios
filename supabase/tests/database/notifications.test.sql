@@ -1,7 +1,7 @@
 -- Push notifications: producers, the send-time rules, and the client RPCs (NOTIF.md §2 and §5).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(71);
+select plan(72);
 
 create function pg_temp.act_as(p_user uuid) returns void language plpgsql as $$
 begin
@@ -117,10 +117,10 @@ select is((select count(*)::int from private.notification_outbox
           'd0000000-0000-4000-8000-00000000000d'
       )),
     0, 'and not the host or people who play something else');
-select ok((select not_before > now() + interval '2 minutes' from private.notification_outbox
+select ok((select not_before between now() and now() + interval '10 seconds' from private.notification_outbox
     where event_id = (select id from game_ids where name = 'main') and kind = 'interest_match'
       and user_id = 'b0000000-0000-4000-8000-00000000000b'),
-    'it waits a few minutes in case the game changes');
+    'new-game batching stays within ten seconds');
 
 -- Host updates, then a game that fills.
 set local role authenticated;
@@ -133,9 +133,9 @@ select is((select count(*)::int from private.notification_outbox
 select is((select user_id from private.notification_outbox
     where event_id = (select id from game_ids where name = 'main') and kind = 'host_update'),
     'a0000000-0000-4000-8000-00000000000a'::uuid, 'and not the person who joined');
-select ok((select not_before > now() + interval '4 minutes' from private.notification_outbox
+select ok((select not_before between now() and now() + interval '10 seconds' from private.notification_outbox
     where event_id = (select id from game_ids where name = 'main') and kind = 'host_update'),
-    'joins in a few minutes merge into one');
+    'roster batching stays within ten seconds');
 
 set local role authenticated;
 select pg_temp.act_as('a0000000-0000-4000-8000-00000000000a');
@@ -196,9 +196,9 @@ reset role;
 select is((select count(*)::int from private.notification_outbox
     where event_id = (select id from game_ids where name = 'main') and kind = 'game_changed' and dropped is null),
     1, 'several edits make one change notification');
-select ok((select not_before > now() + interval '1 minute' from private.notification_outbox
+select ok((select not_before between now() and now() + interval '10 seconds' from private.notification_outbox
     where event_id = (select id from game_ids where name = 'main') and kind = 'game_changed' and dropped is null),
-    'it waits so the last edit wins');
+    'edits merge within the ten-second delivery window');
 
 set local role authenticated;
 select pg_temp.act_as('a0000000-0000-4000-8000-00000000000a');
@@ -238,6 +238,10 @@ select is((select (payload->>'count')::int from private.notification_outbox
     where event_id = (select id from game_ids where name = 'chat') and kind = 'chat_message'
       and user_id = 'b0000000-0000-4000-8000-00000000000b' and dropped is null),
     2, 'two messages a moment apart merge');
+select is((select not_before from private.notification_outbox
+    where event_id = (select id from game_ids where name = 'chat') and kind = 'chat_message'
+      and user_id = 'b0000000-0000-4000-8000-00000000000b' and dropped is null),
+    now(), 'a second message keeps the first immediate deadline');
 update private.notification_outbox set locked_at = now()
 where event_id = (select id from game_ids where name = 'chat') and kind = 'chat_message'
   and user_id = 'b0000000-0000-4000-8000-00000000000b' and dropped is null;

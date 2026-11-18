@@ -46,13 +46,13 @@ copy and the Spanish.
 | # | Kind | Example (en) | To | Sent when | Timing | Setting | Level |
 |---|---|---|---|---|---|---|---|
 | 1 | `game_cancelled` | **Sunday pickup soccer was cancelled** · Sam cancelled it. Find another game? | Everyone going (not the host) | Host cancels | Right away | Always on | Time Sensitive |
-| 2 | `game_changed` | **Sunday pickup soccer changed** · Now 7:30 PM at Estadio Borregos | Everyone going (not the host) | Time, place or meet-up edited | 2 min after the last edit, merged | Always on | Active |
+| 2 | `game_changed` | **Sunday pickup soccer changed** · Now 7:30 PM at Estadio Borregos | Everyone going (not the host) | Time, place or meet-up edited | 10 seconds after the first pending edit, merged | Always on | Active |
 | 3 | `reminder` | **Starts in 30 min** · Volleyball at the arena · Meet by the north bleachers | Everyone going, host too | 25–35 min before start | Cron, every 5 min | Game reminders | Time Sensitive |
-| 4 | `host_update` | **Ricardo G. joined** · Sunday pickup soccer · 2 spots left | Host | Join or leave | Merged per game for 5 min ("Ricardo G. and Maya C. joined") | Updates on games you host | Active |
+| 4 | `host_update` | **Ricardo G. joined** · Sunday pickup soccer · 2 spots left | Host | Join or leave | Merged per game for 10 seconds ("Ricardo G. and Maya C. joined") | Updates on games you host | Active |
 | 5 | `game_full` | **Your game is full** · 10 of 10 going for Sunday pickup soccer | Host | Last spot taken | Replaces 4 for that game | Updates on games you host | Active |
 | 6 | `spot_open` | **A spot opened** · After-work hoops · Today 7:30 PM | People who saved it with "Notify me" | A full game frees a spot, with or without auto-repost | Right away | A spot opens up | Time Sensitive |
-| 7 | `interest_match` | **New basketball game at Tec** · After-work hoops · Today 7:30 PM · room for 4 | People on that campus with that sport in their interests | Game created | 3 min after creation; at most 2 a day | Games that match your sports | Passive |
-| 8 | `chat_message` | *(Messages style)* **Sunday pickup soccer** · Maya C.: I'll bring the ball | Everyone going, except the sender | New message | Right away, then at most 1 per game every 2 min ("3 new messages") | Group chat messages | Active |
+| 7 | `interest_match` | **New basketball game at Tec** · After-work hoops · Today 7:30 PM · room for 4 | People on that campus with that sport in their interests | Game created | 10 seconds after creation; at most 2 a day | Games that match your sports | Passive |
+| 8 | `chat_message` | *(Messages style)* **Sunday pickup soccer** · Maya C.: I'll bring the ball | Everyone going, except the sender | New message | Right away, then a 10-second batching window ("3 new messages") | Group chat messages | Active |
 | 9 | `signup_approved` | **You're in** · Set up your profile and find a game. | The person waiting | `approve_signup` | Right away | Always on (asked for while waiting) | Active |
 | 10 | `winback` | **4 games at Tec this week** · 2 basketball. Room for one more? | Inactive people who opted in | Daily job | 5 PM campus time, Tue–Thu; at most 1 every 14 days | Ideas to play (opt-in) | Passive |
 | 11 | `saved_soon` | **Still room in After-work hoops** · Starts in 2 h · room for 3 | People who saved a game they haven't joined | 2 h before start | Cron | A spot opens up | Passive |
@@ -172,8 +172,8 @@ a group. `shared.myID` comes from the App Group (§6.2).
 ### 3.4 Volume and privacy
 
 - **Throttle:** the first message in a game reaches each member right away. More messages to the
-  same person within 2 minutes merge into one row ("Maya C. and Sam L. · 3 new messages") that
-  goes out when the 2 minutes are up, with `apns-collapse-id = chat:<game>` so it replaces the
+  same person within 10 seconds merge into one row ("Maya C. and Sam L. · 3 new messages") that
+  goes out when the 10 seconds are up, with `apns-collapse-id = chat:<game>` so it replaces the
   earlier banner instead of stacking. Busy chats stay readable without one buzz per message.
 - **Read already?** At send time, skip anyone whose `chat_reads.last_read_at` is after the
   message. They were in the chat.
@@ -221,7 +221,7 @@ Why the pieces:
   real time without calling the function 8,640 times a day for nothing. pg_cron supports
   second-level schedules on Supabase (check the version on both projects). If it doesn't, use a
   1-minute job plus a `net.http_post` "kick" from the chat trigger.
-- **`for update skip locked` and a 2-minute lease** (`locked_at`) let two runs overlap without
+- **`for update skip locked` and a 10-minute lease** (`locked_at`) let two runs overlap without
   sending anything twice.
 
 ---
@@ -314,11 +314,11 @@ into a pending row with the same `merge_key` (adding a name, bumping a count) or
 | Source | Kind | Notes |
 |---|---|---|
 | `game_activity` insert, `cancelled` | `game_cancelled` | Also drops pending rows for that game (reminder, changed, interest, spot, saved_soon) |
-| `game_activity` insert, `time_or_place_changed` / `meet_point_updated` | `game_changed` | `not_before = now() + 2 min`, merge key `changed:<game>:<user>`: several edits make one push with the final values, read at send time |
-| `game_activity` insert, `joined` / `left` | `host_update` | Merge key `host:<game>`, 5 min; one latest action per participant ID. If the join filled the game: `game_full` instead |
-| `game_activity` insert, `created` | `interest_match` | Campus members with the sport in `interests`, minus the host and blocked pairs. `not_before = now() + 3 min`, so a game cancelled or edited right away doesn't go out. The cap is checked at send time |
+| `game_activity` insert, `time_or_place_changed` / `meet_point_updated` | `game_changed` | `not_before = now() + 10 seconds`, merge key `changed:<game>:<user>`: several edits make one push with the final values, read at send time |
+| `game_activity` insert, `joined` / `left` | `host_update` | Merge key `host:<game>`, 10 seconds; one latest action per participant ID. If the join filled the game: `game_full` instead |
+| `game_activity` insert, `created` | `interest_match` | Campus members with the sport in `interests`, minus the host and blocked pairs. `not_before = now() + 10 seconds`, so a game cancelled or edited right away doesn't go out. The cap is checked at send time |
 | `games` update where a full game gains a free seat | `spot_open` | `bookmarks.notify` holders who aren't going, whether or not auto-repost bumps the pin. Clears their `notify` once sent: one alert per "Notify me" |
-| `chat_messages` insert | `chat_message` | Members except the sender, not muted, not blocked. Merge key `chat:<game>:<user>`, `not_before` now for the first, +2 min after that (§3.4) |
+| `chat_messages` insert | `chat_message` | Members except the sender, not muted, not blocked. Merge key `chat:<game>:<user>`, `not_before` now for the first, +10 seconds after that (§3.4) |
 | `private.approve_signup` | `signup_approved` | To every token of that auth user |
 | cron, every 5 min | `reminder`, `saved_soon` | Games starting in 25–35 min (2 h for saved). Dedupe key includes `starts_at`, so a moved game reminds again at its new time |
 | cron, daily | `winback` | `last_seen_at` over 10 days ago, opted in, campus has 2 or more open games in the next 3 days (in their sports, if any). Sent 17:00 campus time, Tue–Thu |
@@ -353,7 +353,7 @@ notifications cannot be rewritten by this queue repair.
 - **HTTP/2:** APNs only speaks HTTP/2. Deno's `fetch` negotiates it with ALPN; that's the first
   thing the 1-hour spike checks (§10, step 1). Fallback: `node:http2` in Deno.
 - **Budgets:** at most 8 actual APNs requests across all rows/devices; each request and its body
-  share a 10-second deadline. Stop starting work after a 90-second batch budget; unattempted
+  share a 5-second deadline. Stop starting work after a 25-second batch budget; unattempted
   devices produce retry results. SQL claims retain the ten-minute recovery lease.
 - **Partial success:** a row is sent when at least one device accepts it, preserving the existing
   policy. Other transient device failures are not separately retried after row success.

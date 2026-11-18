@@ -166,6 +166,34 @@ def stale_v2_completion_waits_for_reclaim_and_cannot_complete_it():
         sql(f"delete from private.notification_outbox where user_id='{USER}';")
 
 
+def ordered_claim_cannot_skip_an_earlier_locked_row():
+    held = None
+    try:
+        sql(enqueue("chat_message", "ordered:first") + enqueue("chat_message", "ordered:second"))
+        # Hold only the older row, before a worker has obtained the recipient lock.
+        # SKIP LOCKED alone would incorrectly let another drain claim the second row.
+        held = session(f"""begin; select id from private.notification_outbox
+            where user_id='{USER}' and merge_key='ordered:first' for update;""",
+            "notification-ordered-first")
+        ready(held)
+        assert sql(f"select count(*) from private.claim_notifications_v2(100) where user_id='{USER}';") == "0"
+        commit(held)
+        held = session("begin; select count(*) from private.claim_notifications_v2(1);",
+                       "notification-ordered-lease")
+        assert ready(held) == "1"
+        assert sql(f"select count(*) from private.claim_notifications_v2(100) where user_id='{USER}';") == "0"
+        commit(held)
+        assert sql(f"select count(*) from private.claim_notifications_v2(100) where user_id='{USER}';") == "0"
+        sql(f"""select private.complete_notifications_v2(jsonb_agg(jsonb_build_object(
+            'id',id,'claim_token',claim_token,'outcome','sent')))
+            from private.notification_outbox where user_id='{USER}' and locked_at is not null;""")
+        assert sql(f"select count(*) from private.claim_notifications_v2(100) where user_id='{USER}';") == "1"
+        print("PASS overlapping v2 drains cannot overtake an earlier row or active lease")
+    finally:
+        stop(held)
+        sql(f"delete from private.notification_outbox where user_id='{USER}';")
+
+
 def main():
     previous_push = sql("select value::text from public.app_config where key='push_enabled';")
     # This script owns only these fixtures and must never remove an existing user's account.
@@ -185,6 +213,7 @@ def main():
             update public.app_config set value='true' where key='push_enabled';
             commit;
         """)
+        ordered_claim_cannot_skip_an_earlier_locked_row()
         overlapping_claims_share_a_budget()
         once_only_unique_violation_does_not_arm_resend()
         stale_v2_completion_waits_for_reclaim_and_cannot_complete_it()

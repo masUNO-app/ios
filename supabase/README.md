@@ -19,6 +19,7 @@ already applied to a shared project; add a new timestamped one. Only deploy prod
 
 | `20261116000000_notifications` | Push notifications: device tokens, preferences, synced bookmarks, the outbox, producers, claim and cron. Ships switched off |
 | `20261119000000_security_fixes` | Security review fixes: RSVPs, `has_blocked_attendee` and `join_game` no longer reveal a blocker's games; banned accounts read nothing; allowlisted password sign-ups wait for approval; sign-up alerts mask emails; device tokens bound to their install; signed-out callers limited to `guest_games` and the waitlist RPCs |
+| `20261122000000_notification_order_and_latency` | Ordered v2 claims and APNs sends per phone, ten-second batching, five/ten-second retries |
 | `20261120000000_chat_push_blocks` | Chat pushes no longer name a member who's in a blocked pair with the recipient (`private.chat_others`) |
 | `20261121000000_block_privacy` | Host/player blocks remove active RSVPs in either direction, old block pairs are reconciled, activity RLS hides blocked actors, and both notification claim protocols recheck all queued identities and current membership |
 
@@ -158,9 +159,9 @@ Keep `verify_jwt = true`; the sender also compares the bearer token directly wit
 service-role key.
 
 A v2 claim includes an opaque `claim_token`. Every completion/release includes that token;
-expired or duplicate workers cannot complete a newer attempt or remove its device tokens.
-Legacy-to-legacy claims retain their earlier limitations, so finish deploying the v2 sender.
-Actual APNs sends have a global cap of 8, a 10-second request/body deadline, and a 90-second
+expired or duplicate workers cannot compActual APNs sends have a global cap of 8, a 5-second request/body deadline, and a 25-second
+batch budget. Each phone has a sequential lane; a retry holds its later alerts. The SQL claim
+lease remains ten minutes for worker recovery, with stale attempts fenced by claim tokens. A row succeeds if at least one device succeeds, preserving the previous policy. 10-second request/body deadline, and a 90-second
 batch budget. A row succeeds if at least one device succeeds, preserving the previous policy.
 
 The user-authorized activation on 2026-11-16 deployed this protocol to both projects, in dev →
@@ -184,3 +185,18 @@ The security migration uses version `20261119000000` because hosted projects alr
 Apply it from the combined release history, retaining those previously deployed migration files.
 A legacy device token with no install hash can be bound only by its current account; old clients
 can still refresh their own registration and must unregister before switching accounts.
+
+## Notification latency and ordering
+
+Migration `20261122000000_notification_order_and_latency.sql` removes the old two-to-five-minute
+batching delays: the first chat notification is immediately eligible; follow-ups, roster summaries,
+game edits, and new-game alerts use at most ten seconds of batching. New messages keep an existing
+pending deadline instead of continually postponing it. The ten-second drain schedule remains the
+fallback for due rows. Retriable APNs errors back off five then ten seconds; unattempted rows behind
+an earlier retry do not consume attempts. Scheduled reminders, quiet hours, preferences, and caps
+retain their existing rules.
+
+V2 claims use recipient locks and check earlier pending rows, preventing overlapping workers from
+submitting later alerts first. Delivery keeps the returned order per device and parallelizes across
+phones. APNs acceptance order is controlled here; arrival timing on a disconnected or sleeping
+phone remains controlled by Apple. Confirm physical-device latency and display order in QA.

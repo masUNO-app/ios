@@ -33,6 +33,36 @@ test("one HTTP limit applies across notification rows and every device", async (
     assert.deepEqual(result.map((r) => r.claim_token), rows.map((r) => r.claim_token));
 });
 
+test("notifications to the same phone wait for the previous APNs response", async () => {
+    const first = row(1);
+    const second = { ...row(2), tokens: first.tokens };
+    const events: string[] = [];
+    const fetcher: typeof fetch = async (_input, init) => {
+        const id = JSON.parse(String(init?.body)).outbox_id;
+        events.push(`start:${id}`);
+        if (id === 1) await new Promise((resolve) => setTimeout(resolve, 10));
+        events.push(`finish:${id}`);
+        return new Response(null, { status: 200 });
+    };
+    await deliverAll([first, second], "test-jwt", { fetcher });
+    assert.deepEqual(events, ["start:1", "finish:1", "start:2", "finish:2"]);
+});
+
+test("a retry holds later alerts for that phone while other phones continue", async () => {
+    const first = row(1);
+    const second = { ...row(2), tokens: first.tokens };
+    const calls: number[] = [];
+    const fetcher: typeof fetch = async (_input, init) => {
+        const id = JSON.parse(String(init?.body)).outbox_id;
+        calls.push(id);
+        return new Response(null, { status: id === 1 ? 503 : 200 });
+    };
+    const result = await deliverAll([first, second, row(3)], "test-jwt", { fetcher });
+    assert.deepEqual(calls.sort(), [1, 3]);
+    assert.deepEqual(result.map((r) => r.outcome), ["retry", "retry", "sent"]);
+    assert.equal(result[1].error, "earlier_notification_pending");
+});
+
 test("a hung transport is aborted and bounded even if it never resolves", async () => {
     let aborted = false;
     const fetcher: typeof fetch = async (_input, init) => {
