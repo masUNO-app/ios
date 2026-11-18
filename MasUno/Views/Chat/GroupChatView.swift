@@ -211,6 +211,18 @@ struct GroupChatView: View {
             if !store.isChatEnabled || viewModel.state == .loaded { hasShownLatest = true }
         }
         #if DEBUG
+        .overlay(alignment: .topLeading) {
+            // Toolbar items don't expose an accessibility value on iOS 27, so the UI tests read the
+            // newest message from here.
+            if UserDefaults.standard.bool(forKey: "chatScrollUITest") {
+                Color.clear
+                    .frame(width: 1, height: 1)
+                    .allowsHitTesting(false)
+                    .accessibilityElement()
+                    .accessibilityIdentifier("chat-test-latest")
+                    .accessibilityValue(Text(verbatim: viewModel.messages.last?.body ?? ""))
+            }
+        }
         .toolbar {
             if UserDefaults.standard.bool(forKey: "chatScrollUITest"), let backend = store.chat as? MockBackend {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -220,7 +232,6 @@ struct GroupChatView: View {
                     }
                     .labelStyle(.iconOnly)
                     .accessibilityIdentifier("chat-test-receive")
-                    .accessibilityValue(viewModel.messages.last?.body ?? "")
                 }
             }
         }

@@ -56,9 +56,9 @@ final class ChatScrollUITests: XCTestCase {
         composer.tap()
         composer.typeText("Replying while reading earlier messages")
         assertVisible(anchor)
-        let receive = app.buttons["chat-test-receive"]
-        receive.tap()
-        let refreshed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "New live message"), object: receive)
+        app.buttons["chat-test-receive"].tap()
+        let latestMessage = app.descendants(matching: .any).matching(identifier: "chat-test-latest").firstMatch
+        let refreshed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "New live message"), object: latestMessage)
         XCTAssertEqual(XCTWaiter.wait(for: [refreshed], timeout: 5), .completed)
         assertVisible(anchor)
         XCTAssertFalse(latest.isHittable, "Receiving must not pull someone away from older messages")
