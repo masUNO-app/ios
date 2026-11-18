@@ -99,11 +99,12 @@ final class ChatViewModel {
     // MARK: Timeline
 
     /// Messages and system rows in time order with a row for each new day, then unsent messages.
-    /// People you blocked are left out, including ones blocked a moment ago.
-    func rows(in store: GameStore, calendar: Calendar = .current) -> [Row] {
+    /// People you blocked are left out, including ones blocked a moment ago. Pass `activity` when
+    /// you already have `store.activity(of:)` for this game.
+    func rows(in store: GameStore, activity: [GameActivityEntry]? = nil, calendar: Calendar = .current) -> [Row] {
         guard hasAccess(in: store), context == nil || context == currentContext(in: store) else { return [] }
         let visible = messages.filter { !store.isBlocked($0.sender.id) }
-        var activity = store.activity(of: gameID)
+        var activity = activity ?? store.activity(of: gameID)
         // Until the older pages are loaded, system rows from before them would bunch up at the top.
         if hasOlder, let oldest = visible.first?.createdAt { activity.removeAll { $0.at < oldest } }
 

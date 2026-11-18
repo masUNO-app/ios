@@ -283,6 +283,26 @@
         }
       }
     },
+    "%@, class of %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, generación %@"
+          }
+        }
+      }
+    },
+    "%@, host: %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, organizador: %@"
+          }
+        }
+      }
+    },
     "%@: %@" : {
       "localizations" : {
         "en" : {
@@ -1025,6 +1045,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Antes de jugar"
+          }
+        }
+      }
+    },
+    "beta" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "beta"
           }
         }
       }
@@ -2393,6 +2423,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ocultar código QR"
+          }
+        }
+      }
+    },
+    "host" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "organizador"
           }
         }
       }
@@ -5089,6 +5129,16 @@
         }
       }
     },
+    "Type a message first" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Escribe un mensaje primero"
+          }
+        }
+      }
+    },
     "Unblock" : {
       "localizations" : {
         "es" : {
@@ -5705,6 +5755,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No verán los partidos ni los mensajes del otro, y no podrán unirse a sus partidos. No le avisaremos a %@."
+          }
+        }
+      }
+    },
+    "You: %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tú: %@"
           }
         }
       }

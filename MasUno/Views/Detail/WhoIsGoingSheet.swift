@@ -70,37 +70,51 @@ struct WhoIsGoingSheet: View {
         let person = attendee.person
         let isMe = person.id == store.profile?.id
 
+        let name = isMe ? String.app("\(store.profile?.fullName ?? person.displayName) (you)") : person.displayName
+        // Lowercase words: the tags are uppercased on screen, which VoiceOver may spell out.
+        var spoken = [name]
+        if attendee.role == .host { spoken.append(String.app("host")) }
+        if person.isBetaTester { spoken.append(String.app("beta")) }
+
         return HStack(spacing: 12) {
-            PersonAvatar(person: person, size: 42, ring: 0)
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(verbatim: isMe ? String.app("\(store.profile?.fullName ?? person.displayName) (you)") : person.displayName)
-                        .font(.rounded(.callout, .bold))
-                        .foregroundStyle(Theme.ink)
-                    if attendee.role == .host {
-                        TagText("Host", color: Theme.accent)
+            // Two stops: the person ("Maya C., host, class of 2027"), then the ••• menu.
+            HStack(spacing: 12) {
+                PersonAvatar(person: person, size: 42, ring: 0)
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text(verbatim: name)
+                            .font(.rounded(.callout, .bold))
+                            .foregroundStyle(Theme.ink)
+                        if attendee.role == .host {
+                            TagText("Host", color: Theme.accent)
+                        }
+                        // Muted, so Host stays the only green tag.
+                        if person.isBetaTester {
+                            TagText("Beta", color: Theme.muted)
+                        }
                     }
-                    // Muted, so Host stays the only green tag.
-                    if person.isBetaTester {
-                        TagText("Beta", color: Theme.muted)
-                    }
+                    // Class year only: interests are private (SPEC §8.8, R7-4).
+                    Text("Class of \(String(person.gradYear))")
+                        .font(.rounded(.footnote))
+                        .foregroundStyle(Theme.muted)
                 }
-                // Class year only: interests are private (SPEC §8.8, R7-4).
-                Text("Class of \(String(person.gradYear))")
-                    .font(.rounded(.footnote))
-                    .foregroundStyle(Theme.muted)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text(verbatim: String.app("\(spoken.joined(separator: ", ")), class of \(String(person.gradYear))")))
+            .accessibilityActions { if !isMe { reportAndBlock(person) } }
 
             if !isMe {
-                Menu("Report or block \(person.displayName)", systemImage: "ellipsis") {
-                    Button("Report \(person.firstName)", systemImage: "exclamationmark.bubble") { reportTarget = .person(person) }
-                    Button("Block \(person.firstName)", systemImage: "nosign", role: .destructive) { blockTarget = person }
-                }
-                .glassCircle()
+                Menu("Report or block \(person.displayName)", systemImage: "ellipsis") { reportAndBlock(person) }
+                    .glassCircle()
             }
         }
         .frame(minHeight: 66)
-        .accessibilityElement(children: .combine)
+    }
+
+    @ViewBuilder
+    private func reportAndBlock(_ person: PersonSummary) -> some View {
+        Button("Report \(person.firstName)", systemImage: "exclamationmark.bubble") { reportTarget = .person(person) }
+        Button("Block \(person.firstName)", systemImage: "nosign", role: .destructive) { blockTarget = person }
     }
 }

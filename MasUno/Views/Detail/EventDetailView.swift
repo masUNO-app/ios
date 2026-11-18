@@ -156,7 +156,7 @@ struct EventDetailView: View {
                     .foregroundStyle(Theme.mutedLarge)
             }
 
-            availability(event)
+            availability(event, state: state)
 
             VStack(alignment: .leading, spacing: 12) {
                 if let notes = event.notes { hostNote(notes, event: event) }
@@ -166,7 +166,7 @@ struct EventDetailView: View {
     }
 
     /// "Room for 4 more" · **Who's going ›**, and the line under it once you're in.
-    private func availability(_ event: Game) -> some View {
+    private func availability(_ event: Game, state: GameStatus) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline) {
                 Text(verbatim: viewModel.headline(for: event))
@@ -193,7 +193,7 @@ struct EventDetailView: View {
                     .transition(.opacity)
             }
         }
-        .animation(.snappy, value: event.status())
+        .animation(.snappy, value: state)
     }
 
     /// "Alex says": the host's note, next to their token.

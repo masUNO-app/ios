@@ -46,7 +46,8 @@ final class ChatScrollUITests: XCTestCase {
         assertVisible(latest, timeout: 20)
         app.scrollViews.firstMatch.swipeDown(velocity: .slow)
         XCTAssertFalse(latest.isHittable)
-        let messages = app.staticTexts.matching(NSPredicate(format: "label MATCHES %@", "Message [0-9]+"))
+        // Bubbles read "Sam L.: Message 12".
+        let messages = app.staticTexts.matching(NSPredicate(format: "label MATCHES %@", ".*: Message [0-9]+"))
         guard let visible = messages.allElementsBoundByIndex.first(where: \.isHittable) else {
             XCTFail("Expected an older message on screen")
             return

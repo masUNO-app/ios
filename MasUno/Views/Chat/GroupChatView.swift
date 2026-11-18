@@ -52,14 +52,16 @@ struct GroupChatView: View {
     }
 
     var body: some View {
-        Group {
-            if let event = store.game(eventID), event.isGoing, !store.isGuest {
+        // Read once: each lookup filters against blocked people.
+        let event = store.game(eventID)
+        return Group {
+            if let event, event.isGoing, !store.isGuest {
                 content(event)
-            } else if store.game(eventID) == nil, !store.isMissing(eventID), !store.isOffline {
+            } else if event == nil, !store.isMissing(eventID), !store.isOffline {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Theme.background)
-            } else if store.game(eventID) == nil, store.isOffline {
+            } else if event == nil, store.isOffline {
                 RetryCard(message: "Couldn't load this game.") { await store.loadGame(eventID) }
                     .padding(.horizontal, Theme.gutter)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -73,7 +75,7 @@ struct GroupChatView: View {
         // Cached navigation can outlive membership. Clear the model even when its content
         // has disappeared, and fence old network responses before they can restore messages.
         .onChange(of: store.privacyRevision, initial: true) { _, _ in viewModel.synchronize(in: store) }
-        .onChange(of: store.game(eventID)?.isGoing) { _, _ in viewModel.synchronize(in: store) }
+        .onChange(of: event?.isGoing) { _, _ in viewModel.synchronize(in: store) }
         .task(id: eventID) {
             // A notification can open a chat that is absent from the cached lists.
             // Do not depend on the detail screen underneath becoming visible first.
@@ -82,8 +84,11 @@ struct GroupChatView: View {
     }
 
     private func content(_ event: Game) -> some View {
-        let rows = store.isChatEnabled ? viewModel.rows(in: store) : store.activity(of: eventID).map(ChatViewModel.Row.activity)
-        let lastJoin = Self.latestJoin(in: store.activity(of: eventID))
+        let state = event.status()
+        let activity = store.activity(of: eventID)
+        let rows = store.isChatEnabled ? viewModel.rows(in: store, activity: activity) : activity.map(ChatViewModel.Row.activity)
+        let lastJoin = Self.latestJoin(in: activity)
+        let newest = Self.newestMessage(in: rows)
 
         return ScrollView {
             LazyVStack(alignment: .leading, spacing: 9) {
@@ -123,7 +128,7 @@ struct GroupChatView: View {
         }
         .scrollDismissesKeyboard(.interactively)
         .safeAreaInset(edge: .top, spacing: 0) {
-            pinnedCard(event)
+            pinnedCard(event, state: state)
                 .background(alignment: .top) { bandCover(event) }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -215,6 +220,13 @@ struct GroupChatView: View {
             }
             if !store.isChatEnabled || viewModel.state == .loaded { hasShownLatest = true }
         }
+        // Read out what others write once the chat is open. Not the first page, your own sends,
+        // or an older message coming back to the end after someone is blocked.
+        .onChange(of: newest) { old, new in
+            guard hasShownLatest, let old, let new, new.createdAt > old.createdAt,
+                  new.sender.id != store.profile?.id else { return }
+            Announce.post(String.app("\(new.sender.displayName): \(new.body)"))
+        }
         #if DEBUG
         .overlay(alignment: .topLeading) {
             // Toolbar items don't expose an accessibility value on iOS 27, so the UI tests read the
@@ -299,7 +311,7 @@ struct GroupChatView: View {
             .clipped()
     }
 
-    private func pinnedCard(_ event: Game) -> some View {
+    private func pinnedCard(_ event: Game, state: GameStatus) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Label {
                 Text(verbatim: EventFormat.dayAndTime(event.startsAt))
@@ -319,7 +331,7 @@ struct GroupChatView: View {
                     Image(systemName: "flag").accessibilityHidden(true)
                 }
                 Spacer(minLength: 8)
-                if event.status() == .hosting {
+                if state == .hosting {
                     Button("Edit") { editsMeetUp = true }
                         .pill(.secondary, expands: false, size: .small)
                 }
@@ -368,6 +380,7 @@ struct GroupChatView: View {
                 .background(Theme.separator, in: .capsule)
                 .frame(maxWidth: .infinity)
                 .padding(.top, 6)
+                .accessibilityAddTraits(.isHeader)
         case .activity(let entry):
             // One pill, for the newest join: a long run of them would bury the conversation.
             if entry.id == lastJoin {
@@ -377,14 +390,23 @@ struct GroupChatView: View {
             }
         case .message(let message, let showsSender):
             if message.sender.id == store.profile?.id {
-                ownMessage(message.body, color: event.activity.color, caption: showsSender ? Text(message.createdAt, format: .dateTime.hour().minute()) : nil)
+                ownMessage(message.body, color: event.activity.color, time: showsSender ? message.createdAt : nil)
                     .contextMenu { copyButton(message.body) }
+                    .accessibilityActions { copyButton(message.body) }
             } else {
                 theirMessage(message, showsSender: showsSender, isHost: message.sender.id == event.host.id)
             }
         case .pending(let pending):
             pendingMessage(pending, color: event.activity.color)
         }
+    }
+
+    /// The newest message on screen, from anyone.
+    private static func newestMessage(in rows: [ChatViewModel.Row]) -> ChatMessage? {
+        for row in rows.reversed() {
+            if case .message(let message, _) = row { return message }
+        }
+        return nil
     }
 
     /// The newest join, if nobody has left since: only that one can say how much room is left now.
@@ -454,7 +476,8 @@ struct GroupChatView: View {
         }
     }
 
-    /// "Maya C. · Host · 5:42 PM" over a white bubble. Touch and hold to report or block.
+    /// "Maya C. · Host · 5:42 PM" over a white bubble. Touch and hold to report or block; with
+    /// VoiceOver, one stop that names the sender on every bubble, with the same choices as actions.
     private func theirMessage(_ message: ChatMessage, showsSender: Bool, isHost: Bool) -> some View {
         HStack(alignment: .bottom, spacing: 8) {
             if showsSender {
@@ -479,22 +502,31 @@ struct GroupChatView: View {
                     .padding(.vertical, 10)
                     .background(Theme.card, in: .rect(cornerRadius: 20))
                     .contentShape(.contextMenuPreview, .rect(cornerRadius: 20))
-                    .contextMenu {
-                        copyButton(message.body)
-                        Button("Report message", systemImage: "exclamationmark.bubble") { reportTarget = .message(message) }
-                        Button("Block \(message.sender.displayName)", systemImage: "nosign", role: .destructive) {
-                            blockTarget = message.sender
-                        }
-                    }
+                    .contextMenu { messageActions(message) }
             }
             Spacer(minLength: 40)
         }
         .padding(.top, showsSender ? 4 : 0)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(verbatim: isHost
+            ? String.app("\(message.sender.displayName), host: \(message.body)")
+            : String.app("\(message.sender.displayName): \(message.body)")))
+        .accessibilityValue(Text(verbatim: EventFormat.time(message.createdAt)))
+        .accessibilityAddTraits(.isStaticText)
+        .accessibilityActions { messageActions(message) }
     }
 
-    /// Your bubble, in the sport's color with ink text; the time sits under it.
-    private func ownMessage(_ body: String, color: Color, caption: Text?, isFaded: Bool = false) -> some View {
+    @ViewBuilder
+    private func messageActions(_ message: ChatMessage) -> some View {
+        copyButton(message.body)
+        Button("Report message", systemImage: "exclamationmark.bubble") { reportTarget = .message(message) }
+        Button("Block \(message.sender.displayName)", systemImage: "nosign", role: .destructive) {
+            blockTarget = message.sender
+        }
+    }
+
+    /// Your bubble, in the sport's color with ink text; the time, if any, sits under it.
+    private func ownMessage(_ body: String, color: Color, time: Date?, isFaded: Bool = false) -> some View {
         VStack(alignment: .trailing, spacing: 3) {
             Text(verbatim: body)
                 .font(.rounded(.callout))
@@ -503,19 +535,25 @@ struct GroupChatView: View {
                 .padding(.vertical, 10)
                 .background(color.opacity(isFaded ? 0.5 : 1), in: .rect(cornerRadius: 20))
                 .contentShape(.contextMenuPreview, .rect(cornerRadius: 20))
-            if let caption {
-                caption.font(.rounded(.caption)).foregroundStyle(Theme.muted)
+            if let time {
+                Text(time, format: .dateTime.hour().minute())
+                    .font(.rounded(.caption))
+                    .foregroundStyle(Theme.muted)
             }
         }
         .frame(maxWidth: .infinity, alignment: .trailing)
         .padding(.leading, 60)
-        .padding(.top, caption == nil ? 0 : 4)
+        .padding(.top, time == nil ? 0 : 4)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(verbatim: String.app("You: \(body)")))
+        .accessibilityValue(Text(verbatim: time.map(EventFormat.time) ?? ""))
+        .accessibilityAddTraits(.isStaticText)
     }
 
     /// Your message on its way, or one that didn't send: "Not sent · Tap to retry".
     private func pendingMessage(_ pending: ChatViewModel.Pending, color: Color) -> some View {
         VStack(alignment: .trailing, spacing: 3) {
-            ownMessage(pending.body, color: color, caption: nil, isFaded: true)
+            ownMessage(pending.body, color: color, time: nil, isFaded: true)
             if let error = pending.error {
                 Label(ChatViewModel.failureText(error), systemImage: "exclamationmark.circle.fill")
                     .font(.rounded(.caption))
@@ -535,6 +573,11 @@ struct GroupChatView: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(pending.error == nil ? [] : .isButton)
+        .accessibilityActions {
+            if pending.error != nil {
+                Button("Delete") { viewModel.discard(pending.id) }
+            }
+        }
     }
 
     private func copyButton(_ text: String) -> some View {
@@ -601,6 +644,7 @@ struct GroupChatView: View {
                     .appProminentCircle(tint: event.activity.color)
                     // Stays in the sport's color; an empty draft just doesn't send.
                     .opacity(viewModel.canSend ? 1 : 0.75)
+                    .accessibilityHint(viewModel.canSend ? Text(verbatim: "") : Text("Type a message first"))
             }
         }
         .padding(.horizontal, 15)
