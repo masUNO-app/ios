@@ -81,15 +81,15 @@ private struct InviteCodeRow: View {
     }
 
     private var status: String {
-        guard invite.isUsed else { return String(localized: "Not used yet") }
-        guard let name = invite.redeemedBy else { return String(localized: "Used") }
-        return String(localized: "Used by \(name)")
+        guard invite.isUsed else { return String(localized: "Not used yet", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale) }
+        guard let name = invite.redeemedBy else { return String(localized: "Used", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale) }
+        return String(localized: "Used by \(name)", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
     }
 
     /// "Skip the masUNO waitlist with my invite code ABCD-EFGH: <App Store link>", without the link
     /// when the app doesn't have one.
     private var shareMessage: String {
-        let message = String(localized: "Skip the masUNO waitlist with my invite code \(invite.displayCode)")
+        let message = String(localized: "Skip the masUNO waitlist with my invite code \(invite.displayCode)", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
         guard let url = AppConfig.inviteURL else { return message + "." }
         return message + ": " + url.absoluteString
     }

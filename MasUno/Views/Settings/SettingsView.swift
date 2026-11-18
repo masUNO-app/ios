@@ -8,6 +8,7 @@ struct SettingsView: View {
     @Environment(AppViewModel.self) private var appViewModel
     @Environment(GameStore.self) private var store
     @Environment(PushNotificationService.self) private var push
+    @Environment(LanguageSettings.self) private var language
     @State private var prefQueue = NotificationPrefQueue()
     @State private var prefsLoaded = false
     @State private var prefsFailed = false
@@ -21,6 +22,29 @@ struct SettingsView: View {
         ScrollView {
             // Side by side in open landscape, stacked otherwise. Spacing 10 keeps phones as they were.
             CardGrid(spacing: 10) {
+                section("Language") {
+                    HStack(spacing: 14) {
+                        IconTile(systemImage: "globe", color: Theme.accentSoft)
+                        Text("App language")
+                            .font(.rounded(.body))
+                            .foregroundStyle(Theme.ink)
+                        Spacer(minLength: 0)
+                        Picker("App language", selection: Bindable(language).preference) {
+                            Text("Device language").tag(LanguageSettings.Preference.system)
+                            Text(verbatim: "English").tag(LanguageSettings.Preference.en)
+                            Text(verbatim: "Español").tag(LanguageSettings.Preference.es)
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.menu)
+                        .tint(Theme.ink)
+                        .font(.rounded(.subheadline))
+                        .accessibilityIdentifier("app-language-picker")
+                    }
+                    .padding(.horizontal, 14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(minHeight: 58)
+                }
+
                 section("Notifications") {
                     if push.authorizationStatus == .denied {
                         Button {
@@ -114,7 +138,7 @@ struct SettingsView: View {
             .wideColumn()
         }
         .background(Theme.background)
-        .navigationTitle("Settings")
+        .navigationTitle(String(localized: "Settings", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale))
         .navigationBarTitleDisplayMode(.large)
         .task {
             await push.refreshAuthorization()
@@ -207,7 +231,7 @@ struct SettingsView: View {
 
     /// Icon tile, title over subtitle, and a chevron (or another symbol, or nothing).
     private func preference(
-        _ title: String, key: WritableKeyPath<NotificationPrefs, Bool>, systemImage: String, color: Color
+        _ title: LocalizedStringKey, key: WritableKeyPath<NotificationPrefs, Bool>, systemImage: String, color: Color
     ) -> some View {
         Toggle(isOn: Binding(
             get: { prefQueue.displayed[keyPath: key] },
@@ -277,7 +301,7 @@ struct CommunityGuidelinesView: View {
             .readableColumn(alignment: .leading)
         }
         .background(Theme.background)
-        .navigationTitle("Community guidelines")
+        .navigationTitle(String(localized: "Community guidelines", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale))
         .navigationBarTitleDisplayMode(.large)
     }
 }

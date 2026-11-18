@@ -225,3 +225,16 @@ CI runs all mock unit/UI suites on iOS 18.6 with Xcode 26.3 (`macos-15-intel`) a
   Include continuous chat traffic for over a minute to check that merging never postpones a due alert.
 - Verify the Sync Supabase workflow on a same-repository PR and daily/manual run: validation first,
   migrations before functions, dev before prod. A rerun with no migrations must leave history intact.
+
+## App language
+
+- A Spanish device starts in Spanish; English and unsupported primary languages start in English,
+  even when Spanish appears later in the device's preferred-language list.
+- In Settings → Language, switch among Device language, English and Español. Check that the
+  navigation title, notification labels, sport names, dates and validation messages use one language.
+  The screen and navigation history should remain in place.
+- Relaunch after selecting an override: it must persist. Return to Device language and change the
+  device language: the next launch follows the new primary language.
+- Review onboarding, filters, game details, creation/editing, chat, profile and reports in Spanish,
+  including long labels and singular/plural counts. User-written names, game titles and messages
+  remain as written. Check the Spanish location permission explanation on a fresh install.

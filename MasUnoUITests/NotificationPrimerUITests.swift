@@ -8,7 +8,7 @@ final class NotificationPrimerUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["-liveAuth", "NO", "-mockLocation", "YES", "-screen", screen,
                                "-notificationSettingsDelay", "60",
-                               "-AppleLanguages", "(en)", "-AppleLocale", "en_US",
+                               "-appLanguage", "system", "-AppleLanguages", "(en)", "-AppleLocale", "en_US",
                                "-notificationDeclines.00000000-0000-0000-0000-000000000099", "0"]
         app.launch()
         defer { app.terminate() }

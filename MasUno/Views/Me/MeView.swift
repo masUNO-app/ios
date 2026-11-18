@@ -40,7 +40,7 @@ struct MeView: View {
             .animation(.snappy, value: store.goingGames().map(\.id))
         }
         .background(Theme.background)
-        .navigationTitle("Me")
+        .navigationTitle(String(localized: "Me", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale))
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -287,8 +287,8 @@ struct MeView: View {
     private func hostingStatus(_ event: Game) -> String {
         guard event.autoRepost, let repostedAt = event.repostedAt else { return event.hostingLine }
         let when = Date.now.timeIntervalSince(repostedAt) < 60
-            ? String(localized: "Reposted just now")
-            : String(localized: "Reposted \(repostedAt.formatted(.relative(presentation: .named)))")
+            ? String(localized: "Reposted just now", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+            : String(localized: "Reposted \(repostedAt.formatted(.relative(presentation: .named).locale(LanguageSettings.shared.locale)))", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
         return "\(event.hostingLine)\n\(when)"
     }
 

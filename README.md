@@ -101,6 +101,13 @@ Built from the green Figma frames (node ids `341:*`) and restyled for 1.0 (SPEC 
 Navigation, the launch gate and app-level sheets live in `ViewModels/AppViewModel.swift`; data in
 `Data/GameStore.swift`; mock content in `Data/Mocks/`. `masuno://game/<id>` opens a game.
 
+The app uses Spanish when the device's primary language is Spanish, and English otherwise.
+Settings → Language offers Device language, English, and Español; an override takes effect immediately
+and stays on that device across launches. Dates, sport names, error messages and push registration
+follow the same choice. Translations live in `MasUno/Localizable.xcstrings`; `InfoPlist.strings` in
+`en.lproj` and `es.lproj` supplies the location permission explanation. Keep formatted copy on
+`String(localized:bundle:locale:)` with `LanguageSettings.shared` so it respects an in-app override.
+
 masUNO launches at Tec, but the app has no campus built in: open campuses come from `open_universities`, and your
 campus from `my_profile`. To change or add a campus, see SPEC §8.10; no release needed.
 

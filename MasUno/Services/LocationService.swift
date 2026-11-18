@@ -51,7 +51,7 @@ enum LocationService {
     static func currentPlace() async throws -> Place {
         let location = try await currentLocation()
         try Task.checkCancellation()
-        let fallbackName = String(localized: "Current location")
+        let fallbackName = String(localized: "Current location", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
         let place = try? await reversePlace(at: location, fallbackName: fallbackName)
         try Task.checkCancellation()
         return place ?? Place(mapItem: nil, location: location, fallbackName: fallbackName)

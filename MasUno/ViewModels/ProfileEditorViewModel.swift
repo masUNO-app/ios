@@ -31,19 +31,19 @@ final class ProfileEditorViewModel {
     /// "Emilio G.": how others see you.
     var previewName: String {
         let name = ProfileInput.previewName(first: firstName, last: lastName)
-        return name.isEmpty ? String(localized: "your first name and last initial") : name
+        return name.isEmpty ? String(localized: "your first name and last initial", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale) : name
     }
 
     // MARK: Validation
 
     func nameError(_ value: String) -> String? {
         guard showsErrors else { return nil }
-        if value.trimmingCharacters(in: .whitespaces).isEmpty { return String(localized: "Add your name.") }
+        if value.trimmingCharacters(in: .whitespaces).isEmpty { return String(localized: "Add your name.", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale) }
         return TextFilter.isFriendly(value) ? nil : TextFilter.message
     }
 
     var interestsError: String? {
-        showsErrors && interests.isEmpty ? String(localized: "Pick at least one sport.") : nil
+        showsErrors && interests.isEmpty ? String(localized: "Pick at least one sport.", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale) : nil
     }
 
     // MARK: Intents
@@ -64,7 +64,8 @@ final class ProfileEditorViewModel {
             firstName: firstName.trimmingCharacters(in: .whitespaces),
             lastName: lastName.trimmingCharacters(in: .whitespaces),
             gradYear: classYear,
-            interests: interests.sorted { $0.sortOrder < $1.sortOrder }
+            interests: interests.sorted { $0.sortOrder < $1.sortOrder },
+            locale: LanguageSettings.shared.language
         )
         do {
             try await store.updateProfile(input)

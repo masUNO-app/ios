@@ -7,7 +7,7 @@ final class ChatScrollUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["-liveAuth", "NO", "-mockLocation", "YES", "-screen", "chat-long",
                                "-chatScrollUITest", "YES",
-                               "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+                               "-appLanguage", "system", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launch()
         return app
     }

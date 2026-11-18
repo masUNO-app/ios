@@ -10,7 +10,7 @@ final class CompatibilityUITests: XCTestCase {
         app.launchArguments = [
             "-liveAuth", "NO", "-mockLocation", "YES", "-screen", screen,
             "-notificationSettingsDelay", "60",
-            "-AppleLanguages", "(en)", "-AppleLocale", "en_US"
+            "-appLanguage", "system", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"
         ]
         app.launch()
         return app

@@ -22,7 +22,7 @@ struct LocationPickerView: View {
             .overlay { pin }
             .overlay(alignment: .top) { searchPanel }
             .safeAreaInset(edge: .bottom, spacing: 0) { selectionBar }
-            .navigationTitle("Where's the game?")
+            .navigationTitle(String(localized: "Where's the game?", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(.visible, for: .navigationBar)
             .dialog(isPresented: Binding(get: { viewModel.errorMessage != nil }, set: { if !$0 { viewModel.errorMessage = nil } })) {

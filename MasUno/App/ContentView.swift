@@ -5,6 +5,7 @@ import SwiftUI
 struct ContentView: View {
     @State private var store: GameStore
     @State private var appViewModel: AppViewModel
+    @State private var language = LanguageSettings.shared
     @Environment(\.scenePhase) private var scenePhase
     private let services: AppServices
     private let notifications: NotificationCenterBridge
@@ -40,6 +41,8 @@ struct ContentView: View {
         .environment(store)
         .environment(appViewModel)
         .environment(services.push)
+        .environment(language)
+        .environment(\.locale, language.locale)
         .environment(\.currentUserID, store.profile?.id)
         .tint(Theme.accent)
         // SF Pro Rounded throughout (SPEC §7.7.2, R7-10).
@@ -59,6 +62,7 @@ struct ContentView: View {
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
+                language.refreshDeviceLanguage()
                 Task {
                     await appViewModel.finishPendingSignOutIfNeeded()
                     guard appViewModel.session == .signedIn || appViewModel.session == .guest else { return }
@@ -68,6 +72,10 @@ struct ContentView: View {
                     }
                 }
             }
+        }
+        .onChange(of: language.language) { _, _ in
+            services.push.registerCategories()
+            Task { await services.push.refreshRegistration(force: true) }
         }
         .sheet(isPresented: Binding(
             get: {

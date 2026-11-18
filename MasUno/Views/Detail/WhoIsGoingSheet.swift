@@ -74,7 +74,7 @@ struct WhoIsGoingSheet: View {
             PersonAvatar(person: person, size: 42, ring: 0)
             VStack(alignment: .leading, spacing: 2) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(verbatim: isMe ? String(localized: "\(store.profile?.fullName ?? person.displayName) (you)") : person.displayName)
+                    Text(verbatim: isMe ? String(localized: "\(store.profile?.fullName ?? person.displayName) (you)", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale) : person.displayName)
                         .font(.rounded(.callout, .bold))
                         .foregroundStyle(Theme.ink)
                     if attendee.role == .host {

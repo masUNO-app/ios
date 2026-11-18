@@ -27,7 +27,7 @@ struct LocationPickerServices {
         currentPlace: { try await LocationService.currentPlace() },
         reverse: { coordinate in
             let location = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
-            return try await LocationService.reversePlace(at: location, fallbackName: String(localized: "Dropped pin"))
+            return try await LocationService.reversePlace(at: location, fallbackName: String(localized: "Dropped pin", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale))
         }
     )
 }
@@ -100,7 +100,7 @@ final class LocationPickerViewModel: NSObject {
             choose(place)
         } catch {
             guard lookup == token, !Task.isCancelled, !(error is CancellationError), (error as? URLError)?.code != .cancelled else { return }
-            errorMessage = String(localized: "Couldn't find that place. Try another search.")
+            errorMessage = String(localized: "Couldn't find that place. Try another search.", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
         }
     }
 
@@ -118,9 +118,9 @@ final class LocationPickerViewModel: NSObject {
         } catch {
             guard lookup == token, !Task.isCancelled, !(error is CancellationError), (error as? URLError)?.code != .cancelled else { return }
             if case LocationService.Failure.denied = error {
-                errorMessage = String(localized: "Turn on location in Settings to use where you are.")
+                errorMessage = String(localized: "Turn on location in Settings to use where you are.", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
             } else {
-                errorMessage = String(localized: "Couldn't get your location. Try searching instead.")
+                errorMessage = String(localized: "Couldn't get your location. Try searching instead.", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
             }
         }
     }
@@ -132,7 +132,7 @@ final class LocationPickerViewModel: NSObject {
         let here = CLLocation(latitude: center.latitude, longitude: center.longitude)
         if let selection, here.distance(from: CLLocation(latitude: selection.latitude, longitude: selection.longitude)) < 15 { return }
         let token = beginResolution()
-        selection = Place(name: String(localized: "Dropped pin"), address: "", latitude: center.latitude, longitude: center.longitude)
+        selection = Place(name: String(localized: "Dropped pin", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale), address: "", latitude: center.latitude, longitude: center.longitude)
         let service = services.reverse
         let task = Task { try await service(center) }
         resolutionTask = task

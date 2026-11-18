@@ -158,7 +158,7 @@ struct EventMapView: View {
             )
         } action: { safeFrame = $0 }
         // Never shown here, but names the back button on pushed screens.
-        .navigationTitle("Map")
+        .navigationTitle(String(localized: "Map", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale))
         // The vertical bar hosts the navigation bar's items (search, saved games), and so does
         // the open iPhone Duo's top row beside the status area (`searchInNavigationBar`); on a
         // phone those controls float over the map instead.
@@ -229,7 +229,7 @@ struct EventMapView: View {
 
     /// Not selectable: tapping lists its games instead of opening a popup.
     private func groupPin(_ group: PinGroup) -> some MapContent {
-        Annotation(String(localized: "\(group.games.count) games here"), coordinate: group.coordinate, anchor: GroupPin.anchor) {
+        Annotation(String(localized: "\(group.games.count) games here", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale), coordinate: group.coordinate, anchor: GroupPin.anchor) {
             GroupPin(games: group.games, isDimmed: viewModel.selectedID != nil)
                 .fontDesign(.rounded)
                 .onTapGesture { viewModel.groupedIDs = group.games.map(\.id) }
@@ -430,7 +430,7 @@ struct EventMapView: View {
         let results = viewModel.searchResults(in: store, now: presentationTime)
 
         return VStack(alignment: .leading, spacing: 8) {
-            Text(verbatim: results.isEmpty ? String(localized: "No games match that search") : viewModel.resultsTitle(for: results))
+            Text(verbatim: results.isEmpty ? String(localized: "No games match that search", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale) : viewModel.resultsTitle(for: results))
                 .font(.rounded(.footnote, .bold))
                 .foregroundStyle(Theme.muted)
                 .padding(.leading, 4)

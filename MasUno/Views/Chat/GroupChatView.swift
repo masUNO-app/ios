@@ -131,7 +131,7 @@ struct GroupChatView: View {
                 VStack(spacing: 1) {
                     Text(verbatim: event.title)
                         .font(.rounded(.headline, .bold))
-                    Text(verbatim: "\(event.activity.emoji) \(event.activity.name) · \(String(localized: "\(event.goingCount) going"))")
+                    Text(verbatim: "\(event.activity.emoji) \(event.activity.name) · \(String(localized: "\(event.goingCount) going", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale))")
                         .font(.rounded(.caption))
                 }
                 .foregroundStyle(Theme.ink)
@@ -293,7 +293,7 @@ struct GroupChatView: View {
             }
             HStack(alignment: .center) {
                 Label {
-                    Text(event.meetPoint ?? String(localized: "No meet-up spot yet"))
+                    Text(event.meetPoint ?? String(localized: "No meet-up spot yet", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale))
                         .fontWeight(.bold)
                 } icon: {
                     Image(systemName: "flag")
@@ -374,17 +374,17 @@ struct GroupChatView: View {
     }
 
     private func name(of entry: GameActivityEntry) -> String {
-        if entry.actor?.id == store.profile?.id { return String(localized: "You") }
-        return entry.actor?.firstName ?? String(localized: "Someone")
+        if entry.actor?.id == store.profile?.id { return String(localized: "You", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale) }
+        return entry.actor?.firstName ?? String(localized: "Someone", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
     }
 
     /// "+1 Emilio took a spot · room for 3 more", or "took the last spot · game is full".
     private func joinPill(_ entry: GameActivityEntry, in event: Game) -> some View {
         let name = name(of: entry)
         let text: String = if event.isFull {
-            String(localized: "\(name) took the last spot · game is full")
+            String(localized: "\(name) took the last spot · game is full", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
         } else {
-            String(localized: "\(name) took a spot · \(event.roomPhrase)")
+            String(localized: "\(name) took a spot · \(event.roomPhrase)", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
         }
 
         return HStack(spacing: 8) {
@@ -423,14 +423,14 @@ struct GroupChatView: View {
     /// "Maya created the chat", "Leo left · a spot opened", "Meet-up spot updated · 5:42 PM".
     private func text(for entry: GameActivityEntry) -> String {
         let name = name(of: entry)
-        let time = entry.at.formatted(date: .omitted, time: .shortened)
+        let time = EventFormat.time(entry.at)
         return switch entry.kind {
-        case .created: String(localized: "\(name) created the chat")
-        case .joined: String(localized: "\(name) took a spot")
-        case .left: String(localized: "\(name) left · a spot opened")
-        case .meetPointUpdated: String(localized: "Meet-up spot updated · \(time)")
-        case .timeOrPlaceChanged: String(localized: "Time or place changed · \(time)")
-        case .cancelled: String(localized: "Game cancelled · Chat closed")
+        case .created: String(localized: "\(name) created the chat", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+        case .joined: String(localized: "\(name) took a spot", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+        case .left: String(localized: "\(name) left · a spot opened", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+        case .meetPointUpdated: String(localized: "Meet-up spot updated · \(time)", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+        case .timeOrPlaceChanged: String(localized: "Time or place changed · \(time)", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+        case .cancelled: String(localized: "Game cancelled · Chat closed", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
         }
     }
 
@@ -447,7 +447,7 @@ struct GroupChatView: View {
                     HStack(spacing: 4) {
                         Text(verbatim: message.sender.displayName)
                         if isHost { Text("· Host") }
-                        Text(verbatim: "· \(message.createdAt.formatted(date: .omitted, time: .shortened))")
+                        Text(verbatim: "· \(EventFormat.time(message.createdAt))")
                     }
                     .font(.rounded(.caption))
                     .foregroundStyle(Theme.muted)
@@ -520,8 +520,8 @@ struct GroupChatView: View {
     /// A lost connection only needs another try; anything else says why.
     private func failureText(_ error: DomainError) -> String {
         switch error {
-        case .offline, .unknown: String(localized: "Not sent · Tap to retry")
-        default: String(localized: "Not sent · \(error.message)")
+        case .offline, .unknown: String(localized: "Not sent · Tap to retry", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+        default: String(localized: "Not sent · \(error.message)", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
         }
     }
 

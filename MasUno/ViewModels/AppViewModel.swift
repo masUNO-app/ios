@@ -40,12 +40,12 @@ final class AppViewModel {
         /// Title on the shared "continue onboarding" card.
         var title: String {
             switch self {
-            case .join: String(localized: "Join with a student account")
-            case .save: String(localized: "Save games with an account")
-            case .host: String(localized: "Host with a student account")
-            case .whosGoing: String(localized: "See who's going")
-            case .me: String(localized: "Your account")
-            case .report: String(localized: "Report with an account")
+            case .join: String(localized: "Join with a student account", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+            case .save: String(localized: "Save games with an account", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+            case .host: String(localized: "Host with a student account", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+            case .whosGoing: String(localized: "See who's going", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+            case .me: String(localized: "Your account", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+            case .report: String(localized: "Report with an account", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
             }
         }
 
@@ -53,17 +53,17 @@ final class AppViewModel {
         var message: String {
             switch self {
             case .join:
-                String(localized: "Create an account with your school email so other players know you're a real student. Takes about a minute.")
+                String(localized: "Create an account with your school email so other players know you're a real student. Takes about a minute.", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
             case .save:
-                String(localized: "Bookmarks and spot alerts stay on your account. Create one with your school email to keep games for later.")
+                String(localized: "Bookmarks and spot alerts stay on your account. Create one with your school email to keep games for later.", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
             case .host:
-                String(localized: "Only verified students can post a game. Create an account with your school email to host.")
+                String(localized: "Only verified students can post a game. Create an account with your school email to host.", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
             case .whosGoing:
-                String(localized: "Names stay with verified students. Create an account with your school email to see who's going.")
+                String(localized: "Names stay with verified students. Create an account with your school email to see who's going.", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
             case .me:
-                String(localized: "Create an account with your school email, or sign in if you already have one.")
+                String(localized: "Create an account with your school email, or sign in if you already have one.", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
             case .report:
-                String(localized: "Reporting needs a student account so we can follow up. Create one with your school email.")
+                String(localized: "Reporting needs a student account so we can follow up. Create one with your school email.", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
             }
         }
     }
