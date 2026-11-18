@@ -395,6 +395,7 @@ struct EventMapView: View {
             Image(systemName: "magnifyingglass")
                 .font(.title3)
                 .foregroundStyle(Theme.muted)
+                .accessibilityHidden(true)
             TextField("Search games", text: $viewModel.searchText)
                 .font(.rounded(.body, isSearching ? .bold : .medium))
                 .textInputAutocapitalization(.never)
@@ -404,10 +405,7 @@ struct EventMapView: View {
                 // Opened from the bar's Search button, so start typing right away.
                 .onAppear { if usesVerticalBar { isSearchFocused = true } }
             if isSearching {
-                Button("Clear search", systemImage: "xmark.circle.fill") { endSearch() }
-                    .labelStyle(.iconOnly)
-                    .foregroundStyle(Theme.muted.opacity(0.6))
-                    .buttonStyle(.plain)
+                ClearFieldButton { endSearch() }
             }
         }
         .padding(.horizontal, 14)
@@ -586,8 +584,8 @@ struct EventMapView: View {
         Button {
             if CLLocationManager().authorizationStatus == .notDetermined {
                 asksForLocation = true
-            } else if let url = URL(string: UIApplication.openSettingsURLString) {
-                openURL(url)
+            } else {
+                openURL(UIApplication.openSettingsURL)
             }
         } label: {
             Label("Turn on location to see how far games are", systemImage: "location.slash")

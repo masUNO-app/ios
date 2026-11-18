@@ -22,7 +22,7 @@ struct GameCard<Accessory: View, Actions: View>: View {
             header
             details
             if Actions.self != EmptyView.self {
-                Theme.separator.frame(height: 1)
+                RowDivider()
                 HStack(spacing: 10) { actions }
                     .padding(.horizontal, 20)
                     .padding(.top, 16)
@@ -75,7 +75,7 @@ struct GameCard<Accessory: View, Actions: View>: View {
             Label {
                 Text(verbatim: time)
             } icon: {
-                Image(systemName: "clock")
+                Image(systemName: "clock").accessibilityHidden(true)
             }
             Label {
                 Text(verbatim: event.place.name)

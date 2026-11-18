@@ -296,7 +296,11 @@ struct GroupChatView: View {
 
     private func pinnedCard(_ event: Game) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label(EventFormat.dayAndTime(event.startsAt), systemImage: "calendar")
+            Label {
+                Text(verbatim: EventFormat.dayAndTime(event.startsAt))
+            } icon: {
+                Image(systemName: "calendar").accessibilityHidden(true)
+            }
             Label {
                 Text(verbatim: event.place.name)
             } icon: {
@@ -307,7 +311,7 @@ struct GroupChatView: View {
                     Text(event.meetPoint ?? String.app("No meet-up spot yet"))
                         .fontWeight(.bold)
                 } icon: {
-                    Image(systemName: "flag")
+                    Image(systemName: "flag").accessibilityHidden(true)
                 }
                 Spacer(minLength: 8)
                 if event.status() == .hosting {

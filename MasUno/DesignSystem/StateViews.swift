@@ -33,12 +33,16 @@ struct RetryCard: View {
 /// Shown over old data when the last load couldn't reach the server.
 struct OfflineBanner: View {
     var body: some View {
-        Label("You're offline — showing the last games we loaded.", systemImage: "wifi.slash")
-            .font(.rounded(.footnote, .bold))
-            .foregroundStyle(Theme.ink)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 7)
-            .appGlass(in: .capsule)
+        Label {
+            Text("You're offline — showing the last games we loaded.")
+        } icon: {
+            Image(systemName: "wifi.slash").accessibilityHidden(true)
+        }
+        .font(.rounded(.footnote, .bold))
+        .foregroundStyle(Theme.ink)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
+        .appGlass(in: .capsule)
     }
 }
 
@@ -77,7 +81,7 @@ struct SafetyNote: View {
         Label {
             Text(text)
         } icon: {
-            Image(systemName: "checkmark.shield")
+            Image(systemName: "checkmark.shield").accessibilityHidden(true)
         }
         .labelStyle(IconRowLabelStyle(iconWidth: 18, spacing: 8))
         .font(.rounded(.footnote))

@@ -241,7 +241,7 @@ private struct PendingStep: View {
                 Label {
                     Text("#\(position) in line")
                 } icon: {
-                    Image(systemName: "person.3.fill")
+                    Image(systemName: "person.3.fill").accessibilityHidden(true)
                 }
                 .labelStyle(IconRowLabelStyle(iconWidth: 24, spacing: 10))
                 .font(.rounded(.title3, .bold))
@@ -362,9 +362,7 @@ struct SchoolRow: View {
                     Text(verbatim: school.emailDomain).font(.rounded(.footnote)).foregroundStyle(Theme.muted)
                 }
                 Spacer(minLength: 4)
-                Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(Theme.muted.opacity(0.6))
+                RowAccessory()
             }
             .padding(.horizontal, 14)
             .frame(minHeight: 66)
@@ -596,27 +594,5 @@ private struct CourtPage<Content: View, Footer: View>: View {
                     .readableColumn()
                     .background(Theme.background)
             }
-    }
-}
-
-/// The green pill, with a spinner while a request is out.
-struct WorkingButton: View {
-    var title: LocalizedStringKey
-    var isWorking = false
-    var action: () -> Void
-
-    init(_ title: LocalizedStringKey, isWorking: Bool = false, action: @escaping () -> Void) {
-        self.title = title
-        self.isWorking = isWorking
-        self.action = action
-    }
-
-    var body: some View {
-        Button(action: action) {
-            if isWorking { ProgressView().tint(Theme.onAccent) } else { Text(title) }
-        }
-        // The steps are tinted ink for the back button; this stays green.
-        .pill(.primary)
-        .disabled(isWorking)
     }
 }

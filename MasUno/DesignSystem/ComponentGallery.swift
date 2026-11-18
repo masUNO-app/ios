@@ -86,7 +86,7 @@ struct ComponentGallery: View {
                             IconTile(systemImage: "mappin.and.ellipse", color: Color(.sportVolleyball).opacity(0.45))
                         }
                         HStack(spacing: 12) {
-                            VerifiedBadge().padding(8).background(Theme.you, in: .capsule)
+                            ProfileBadge("Verified student", systemImage: "checkmark.seal.fill").padding(8).background(Theme.you, in: .capsule)
                             OptionalTag()
                         }
                     }

@@ -30,7 +30,7 @@ struct WhoIsGoingSheet: View {
                     VStack(spacing: 0) {
                         ForEach(people) { attendee in
                             row(attendee)
-                            Theme.separator.frame(height: 1)
+                            RowDivider()
                         }
                         if !event.isFull, !event.isCancelled, !event.hasEnded() {
                             HStack(spacing: 12) {
@@ -78,19 +78,11 @@ struct WhoIsGoingSheet: View {
                         .font(.rounded(.callout, .bold))
                         .foregroundStyle(Theme.ink)
                     if attendee.role == .host {
-                        Text("Host")
-                            .textCase(.uppercase)
-                            .font(.rounded(.caption2, .heavy))
-                            .tracking(0.4)
-                            .foregroundStyle(Theme.accent)
+                        TagText("Host", color: Theme.accent)
                     }
                     // Muted, so Host stays the only green tag.
                     if person.isBetaTester {
-                        Text("Beta")
-                            .textCase(.uppercase)
-                            .font(.rounded(.caption2, .heavy))
-                            .tracking(0.4)
-                            .foregroundStyle(Theme.muted)
+                        TagText("Beta", color: Theme.muted)
                     }
                 }
                 // Class year only: interests are private (SPEC §8.8, R7-4).

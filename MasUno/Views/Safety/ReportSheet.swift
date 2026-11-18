@@ -94,14 +94,9 @@ struct ReportSheet: View {
                         .foregroundStyle(Theme.error)
                 }
 
-                Button {
-                    Task { await send() }
-                } label: {
-                    if isSending { ProgressView().tint(Theme.onAccent) } else { Text("Send report") }
-                }
-                .pill(.primary)
-                .disabled(reason == nil || isSending)
-                .padding(.top, 8)
+                WorkingButton("Send report", isWorking: isSending) { Task { await send() } }
+                    .disabled(reason == nil)
+                    .padding(.top, 8)
             }
             .padding(.horizontal, Theme.gutter)
             .padding(.top, 22)

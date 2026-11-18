@@ -321,11 +321,7 @@ final class EventMapViewModel {
     }
 
     func toggleSport(_ sport: Activity) {
-        if sportFilter.contains(sport) {
-            sportFilter.remove(sport)
-        } else {
-            sportFilter.insert(sport)
-        }
+        sportFilter.toggle(sport)
     }
 
     /// Filter games › Reset.

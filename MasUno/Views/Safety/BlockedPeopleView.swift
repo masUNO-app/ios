@@ -17,7 +17,7 @@ struct BlockedPeopleView: View {
                 } else {
                     VStack(spacing: 0) {
                         ForEach(Array(store.blockedPeople.enumerated()), id: \.element.id) { index, person in
-                            if index > 0 { Theme.separator.frame(height: 1).padding(.leading, 64) }
+                            if index > 0 { RowDivider().padding(.leading, 64) }
                             HStack(spacing: 12) {
                                 PersonAvatar(person: person, size: 36, ring: 0)
                                 Text(verbatim: person.displayName)

@@ -58,9 +58,7 @@ struct GameListRow: View {
             }
             .lineLimit(1)
             .frame(maxWidth: .infinity, alignment: .leading)
-            Image(systemName: "chevron.right")
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(Theme.muted.opacity(0.6))
+            RowAccessory()
         }
         .padding(.horizontal, 14)
         .frame(height: 68)

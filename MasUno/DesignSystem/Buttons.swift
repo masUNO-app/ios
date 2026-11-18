@@ -115,6 +115,98 @@ private struct CapsuleActionStyle: ButtonStyle {
     }
 }
 
+/// The green pill, with a spinner while a request is out. VoiceOver keeps the title while it spins
+/// and says "Working" (A11Y-10); a bare `ProgressView` reads as "In progress" with no name.
+struct WorkingButton: View {
+    var title: Text
+    var isWorking = false
+    var action: () -> Void
+
+    init(_ title: LocalizedStringKey, isWorking: Bool = false, action: @escaping () -> Void) {
+        self.init(title: Text(title), isWorking: isWorking, action: action)
+    }
+
+    /// For a title that's already localized.
+    init(verbatim title: String, isWorking: Bool = false, action: @escaping () -> Void) {
+        self.init(title: Text(verbatim: title), isWorking: isWorking, action: action)
+    }
+
+    private init(title: Text, isWorking: Bool, action: @escaping () -> Void) {
+        self.title = title
+        self.isWorking = isWorking
+        self.action = action
+    }
+
+    var body: some View {
+        Button(action: action) {
+            if isWorking { ProgressView().tint(Theme.onAccent) } else { title }
+        }
+        // The onboarding steps are tinted ink for the back button; this stays green.
+        .pill(.primary)
+        .disabled(isWorking)
+        .accessibilityLabel(title)
+        .accessibilityValue(isWorking ? Text("Working") : Text(verbatim: ""))
+    }
+}
+
+/// Two pills side by side in equal widths, or stacked when a label would wrap (the folded iPhone
+/// Duo, large text).
+struct PillPair<Content: View>: View {
+    var spacing: CGFloat = 10
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            EqualWidthRow(spacing: spacing) { content }
+            VStack(spacing: spacing) { content }
+        }
+    }
+}
+
+/// Buttons side by side in equal widths, like an `HStack` of flexible pills. Its ideal width is
+/// the widest label's times the count, so `ViewThatFits` only picks it when no label would wrap:
+/// an `HStack` fits on the sum of its labels, then splits the space evenly and wraps the longer one.
+private struct EqualWidthRow: Layout {
+    var spacing: CGFloat
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        guard !subviews.isEmpty else { return .zero }
+        let gaps = spacing * CGFloat(subviews.count - 1)
+        let width: CGFloat
+        if let proposed = proposal.width, proposed.isFinite {
+            width = proposed
+        } else {
+            let widest = subviews.map { $0.sizeThatFits(.unspecified).width }.max() ?? 0
+            width = widest * CGFloat(subviews.count) + gaps
+        }
+        let column = ProposedViewSize(width: (width - gaps) / CGFloat(subviews.count), height: proposal.height)
+        let height = subviews.map { $0.sizeThatFits(column).height }.max() ?? 0
+        return CGSize(width: width, height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let gaps = spacing * CGFloat(subviews.count - 1)
+        let column = (bounds.width - gaps) / CGFloat(subviews.count)
+        var x = bounds.minX
+        for subview in subviews {
+            subview.place(at: CGPoint(x: x, y: bounds.midY), anchor: .leading, proposal: ProposedViewSize(width: column, height: bounds.height))
+            x += column + spacing
+        }
+    }
+}
+
+/// The grey ⓧ at the end of a search field.
+struct ClearFieldButton: View {
+    var action: () -> Void
+
+    var body: some View {
+        Button("Clear search", systemImage: "xmark.circle.fill", action: action)
+            .labelStyle(.iconOnly)
+            .foregroundStyle(Theme.muted.opacity(0.6))
+            .buttonStyle(.plain)
+    }
+}
+
 /// Radio row in its own card: report reasons, the location setting.
 struct OptionRow: View {
     var title: String

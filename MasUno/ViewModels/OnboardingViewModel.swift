@@ -168,10 +168,7 @@ final class OnboardingViewModel {
         return error.message
     }
 
-    var classYears: [Int] {
-        let year = Calendar.current.component(.year, from: .now)
-        return Array(year...(year + 6))
-    }
+    var classYears: [Int] { ProfileInput.classYears() }
 
     /// "Others see Emilio G. and your class year."
     var previewLine: String {
@@ -381,13 +378,15 @@ final class OnboardingViewModel {
     /// Checks the name before anything goes to the server. Returns whether it's fine.
     private func validateName() -> Bool {
         for name in [firstName, lastName] {
-            if name.trimmingCharacters(in: .whitespaces).isEmpty {
+            switch ProfileInput.nameProblem(name) {
+            case .missing:
                 aboutError = String.app("Add your first and last name.")
                 return false
-            }
-            if !TextFilter.isFriendly(name) {
+            case .unfriendly:
                 aboutError = TextFilter.message
                 return false
+            case nil:
+                continue
             }
         }
         aboutError = nil
@@ -395,7 +394,7 @@ final class OnboardingViewModel {
     }
 
     func toggle(_ sport: Activity) {
-        if interests.contains(sport) { interests.remove(sport) } else { interests.insert(sport) }
+        interests.toggle(sport)
     }
 
     /// **Let's play** on Make it yours: name, class year and at least one sport.

@@ -22,11 +22,7 @@ final class ProfileEditorViewModel {
         interests = Set(profile.interests)
     }
 
-    /// This year through six years out.
-    var classYears: [Int] {
-        let year = Calendar.current.component(.year, from: .now)
-        return Array(year...(year + 6))
-    }
+    var classYears: [Int] { ProfileInput.classYears() }
 
     /// "Emilio G.": how others see you.
     var previewName: String {
@@ -38,8 +34,11 @@ final class ProfileEditorViewModel {
 
     func nameError(_ value: String) -> String? {
         guard showsErrors else { return nil }
-        if value.trimmingCharacters(in: .whitespaces).isEmpty { return String.app("Add your name.") }
-        return TextFilter.isFriendly(value) ? nil : TextFilter.message
+        switch ProfileInput.nameProblem(value) {
+        case .missing: return String.app("Add your name.")
+        case .unfriendly: return TextFilter.message
+        case nil: return nil
+        }
     }
 
     var interestsError: String? {
@@ -49,7 +48,7 @@ final class ProfileEditorViewModel {
     // MARK: Intents
 
     func toggle(_ sport: Activity) {
-        if interests.contains(sport) { interests.remove(sport) } else { interests.insert(sport) }
+        interests.toggle(sport)
     }
 
     /// Returns true when saved (`complete_profile`).

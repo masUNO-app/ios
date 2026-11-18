@@ -63,9 +63,7 @@ struct FieldBox<Content: View>: View {
             }
             if showsChevron {
                 Spacer(minLength: isCompact ? 2 : 4)
-                Image(systemName: "chevron.down")
-                    .font((isCompact ? Font.caption2 : .footnote).weight(.semibold))
-                    .foregroundStyle(Theme.muted)
+                RowAccessory(systemImage: "chevron.down", font: (isCompact ? Font.caption2 : .footnote).weight(.semibold), color: Theme.muted)
             }
         }
         .padding(.horizontal, isCompact ? 11 : 14)

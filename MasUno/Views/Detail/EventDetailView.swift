@@ -176,7 +176,7 @@ struct EventDetailView: View {
                 } label: {
                     HStack(spacing: 4) {
                         Text("Who's going")
-                        Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(Theme.ink)
+                        RowAccessory(font: .caption.weight(.bold), color: Theme.ink)
                     }
                     .font(.rounded(.subheadline, .bold))
                     .foregroundStyle(Theme.accent)
@@ -282,6 +282,7 @@ struct EventDetailView: View {
             }
             .foregroundStyle(Theme.ink)
             .frame(width: 20, height: 22)
+            .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) { text() }
                 .multilineTextAlignment(.leading)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -355,7 +356,7 @@ struct EventDetailView: View {
                     .pill(.primary)
                 }
             case .going:
-                buttonPair {
+                PillPair {
                     Button("Open group chat") { appViewModel.path.append(.chat(event.id)) }
                         .pill(.primary)
                     // Hidden until `AppConfig.appStoreID` is set (N27).
@@ -365,7 +366,7 @@ struct EventDetailView: View {
                     }
                 }
             case .hosting:
-                buttonPair {
+                PillPair {
                     if canInvite {
                         Button("Share game") { viewModel.showsInvite = true }
                             .pill(.primary)
@@ -405,15 +406,6 @@ struct EventDetailView: View {
         .animation(.snappy, value: state)
     }
 
-    /// Side by side, or stacked when a label would wrap (the folded iPhone Duo, large text).
-    private func buttonPair(@ViewBuilder buttons: () -> some View) -> some View {
-        let buttons = buttons()
-        return ViewThatFits(in: .horizontal) {
-            EqualWidthRow(spacing: 10) { buttons }
-            VStack(spacing: 10) { buttons }
-        }
-    }
-
     private func barColumn(caption: LocalizedStringKey, @ViewBuilder button: () -> some View) -> some View {
         VStack(spacing: 8) {
             button()
@@ -421,38 +413,6 @@ struct EventDetailView: View {
                 .font(.rounded(.footnote))
                 .foregroundStyle(Theme.mutedLarge)
                 .multilineTextAlignment(.center)
-        }
-    }
-}
-
-/// Buttons side by side in equal widths, like an `HStack` of flexible pills. Its ideal width is
-/// the widest label's times the count, so `ViewThatFits` only picks it when no label would wrap:
-/// an `HStack` fits on the sum of its labels, then splits the space evenly and wraps the longer one.
-private struct EqualWidthRow: Layout {
-    var spacing: CGFloat
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        guard !subviews.isEmpty else { return .zero }
-        let gaps = spacing * CGFloat(subviews.count - 1)
-        let width: CGFloat
-        if let proposed = proposal.width, proposed.isFinite {
-            width = proposed
-        } else {
-            let widest = subviews.map { $0.sizeThatFits(.unspecified).width }.max() ?? 0
-            width = widest * CGFloat(subviews.count) + gaps
-        }
-        let column = ProposedViewSize(width: (width - gaps) / CGFloat(subviews.count), height: proposal.height)
-        let height = subviews.map { $0.sizeThatFits(column).height }.max() ?? 0
-        return CGSize(width: width, height: height)
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let gaps = spacing * CGFloat(subviews.count - 1)
-        let column = (bounds.width - gaps) / CGFloat(subviews.count)
-        var x = bounds.minX
-        for subview in subviews {
-            subview.place(at: CGPoint(x: x, y: bounds.midY), anchor: .leading, proposal: ProposedViewSize(width: column, height: bounds.height))
-            x += column + spacing
         }
     }
 }

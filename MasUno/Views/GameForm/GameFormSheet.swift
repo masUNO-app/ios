@@ -129,13 +129,7 @@ struct GameFormSheet: View {
         .background(Theme.background)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 10) {
-                Button {
-                    save()
-                } label: {
-                    if viewModel.isSaving { ProgressView().tint(Theme.onAccent) } else { Text(viewModel.saveButtonTitle) }
-                }
-                .disabled(viewModel.isSaving)
-                .pill(.primary)
+                WorkingButton(verbatim: viewModel.saveButtonTitle, isWorking: viewModel.isSaving) { save() }
 
                 if let editing = viewModel.editing {
                     Button("Cancel game") { cancelling = editing }

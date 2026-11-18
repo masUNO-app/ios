@@ -48,7 +48,7 @@ struct SettingsView: View {
                 section("Notifications") {
                     if push.authorizationStatus == .denied {
                         Button {
-                            if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
+                            openURL(UIApplication.openSettingsURL)
                         } label: {
                             row(
                                 "Notifications are off in iOS Settings",
@@ -94,7 +94,7 @@ struct SettingsView: View {
                 section("Privacy & safety") {
                     // iOS owns the setting, so the row goes straight to it.
                     Button {
-                        if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
+                        openURL(UIApplication.openSettingsURL)
                     } label: {
                         row(
                             "Location", subtitle: Text(locationSubtitle), systemImage: "mappin.and.ellipse",
@@ -115,10 +115,12 @@ struct SettingsView: View {
                     Link(destination: appViewModel.config.privacyURL) {
                         row("Privacy & Terms", subtitle: Text("Opens our website"), systemImage: "hand.raised", color: Theme.you.opacity(0.6), trailing: "arrow.up.forward")
                     }
+                    .accessibilityHint("Opens in Safari")
                     if let mail = appViewModel.config.supportMailURL {
                         Link(destination: mail) {
                             row("Contact us", subtitle: Text(verbatim: appViewModel.config.supportEmail), systemImage: "envelope", color: Color(.person1).opacity(0.5), trailing: "arrow.up.forward")
                         }
+                        .accessibilityHint("Opens Mail")
                     }
                     row("Version", subtitle: Text(verbatim: "\(AppConfig.currentVersion) (\(buildNumber))"), systemImage: "info", color: Theme.separator, trailing: nil)
                 }
@@ -272,9 +274,7 @@ struct SettingsView: View {
             .lineLimit(1)
             .frame(maxWidth: .infinity, alignment: .leading)
             if let trailing {
-                Image(systemName: trailing)
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(Theme.muted.opacity(0.6))
+                RowAccessory(systemImage: trailing)
             }
         }
         .padding(.horizontal, 14)

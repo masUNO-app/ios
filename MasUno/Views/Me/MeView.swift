@@ -151,8 +151,8 @@ struct MeView: View {
                     .foregroundStyle(Theme.ink)
                 // O4: "Tec verified" if staff turn out to share the student domain.
                 FlowLayout(spacing: 6) {
-                    VerifiedBadge()
-                    if profile.isBetaTester { BetaBadge() }
+                    ProfileBadge("Verified student", systemImage: "checkmark.seal.fill")
+                    if profile.isBetaTester { ProfileBadge("Beta tester", systemImage: "testtube.2") }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)

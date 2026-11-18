@@ -21,6 +21,7 @@ struct CommunityRules: View {
                     Image(systemName: "checkmark")
                         .font(.footnote.weight(.bold))
                         .foregroundStyle(Theme.accent)
+                        .accessibilityHidden(true)
                 }
                 .labelStyle(IconRowLabelStyle(iconWidth: 16, spacing: 12))
             }

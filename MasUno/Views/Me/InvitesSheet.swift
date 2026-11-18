@@ -21,7 +21,7 @@ struct InvitesSheet: View {
                     VStack(spacing: 0) {
                         ForEach(store.invites) { invite in
                             InviteCodeRow(invite: invite)
-                            if invite.id != store.invites.last?.id { Theme.separator.frame(height: 1) }
+                            if invite.id != store.invites.last?.id { RowDivider() }
                         }
                     }
                     .padding(.vertical, 4)

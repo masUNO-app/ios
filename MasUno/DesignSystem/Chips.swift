@@ -5,15 +5,10 @@ struct SportChip: View {
     var sport: Activity
 
     var body: some View {
-        HStack(spacing: 4) {
-            Text(sport.emoji)
-            Text(sport.name)
-        }
-        .font(.rounded(.footnote, .bold))
-        .foregroundStyle(Theme.ink)
-        .padding(.horizontal, 10)
-        .frame(height: 28)
-        .appGlass(in: .capsule, tint: sport.color)
+        SportLabel(sport: sport)
+            .padding(.horizontal, 10)
+            .frame(height: 28)
+            .appGlass(in: .capsule, tint: sport.color)
     }
 }
 
@@ -26,19 +21,28 @@ struct SportToggle: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 4) {
-                Text(sport.emoji)
-                Text(sport.name)
-            }
-            .font(.rounded(.footnote, .bold))
-            .foregroundStyle(Theme.ink)
-            .padding(.horizontal, 12)
-            .frame(height: 32)
-            .appGlass(in: .capsule, tint: isOn ? sport.color : nil, interactive: true)
+            SportLabel(sport: sport)
+                .padding(.horizontal, 12)
+                .frame(height: 32)
+                .appGlass(in: .capsule, tint: isOn ? sport.color : nil, interactive: true)
         }
         .buttonStyle(.plain)
         .sensoryFeedback(.selection, trigger: isOn)
         .accessibilityAddTraits(isOn ? .isSelected : [])
+    }
+}
+
+/// "🏀 Basketball", the inside of `SportChip` and `SportToggle`.
+private struct SportLabel: View {
+    var sport: Activity
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Text(sport.emoji)
+            Text(sport.name)
+        }
+        .font(.rounded(.footnote, .bold))
+        .foregroundStyle(Theme.ink)
     }
 }
 
@@ -78,10 +82,19 @@ struct IconTile: View {
     }
 }
 
-/// "Verified student" on the Me card: a green seal on a light capsule.
-struct VerifiedBadge: View {
+/// A green symbol and a title on a light capsule, on the Me card: "Verified student", and "Beta
+/// tester" for people on TestFlight builds (it grants nothing, it's a thank-you).
+struct ProfileBadge: View {
+    var title: LocalizedStringKey
+    var systemImage: String
+
+    init(_ title: LocalizedStringKey, systemImage: String) {
+        self.title = title
+        self.systemImage = systemImage
+    }
+
     var body: some View {
-        Label("Verified student", systemImage: "checkmark.seal.fill")
+        Label(title, systemImage: systemImage)
             .labelStyle(BadgeLabelStyle())
             .font(.rounded(.footnote, .bold))
             .foregroundStyle(Theme.ink)
@@ -91,17 +104,22 @@ struct VerifiedBadge: View {
     }
 }
 
-/// "Beta tester" next to "Verified student" on the Me card, for people on TestFlight builds. Same
-/// capsule as `VerifiedBadge`; it grants nothing, it's a thank-you.
-struct BetaBadge: View {
+/// Small uppercase tag after a name: "HOST", "BETA" (Who's going).
+struct TagText: View {
+    var title: LocalizedStringKey
+    var color: Color
+
+    init(_ title: LocalizedStringKey, color: Color) {
+        self.title = title
+        self.color = color
+    }
+
     var body: some View {
-        Label("Beta tester", systemImage: "testtube.2")
-            .labelStyle(BadgeLabelStyle())
-            .font(.rounded(.footnote, .bold))
-            .foregroundStyle(Theme.ink)
-            .padding(.horizontal, 9)
-            .frame(height: 24)
-            .background(.white.opacity(0.75), in: .capsule)
+        Text(title)
+            .textCase(.uppercase)
+            .font(.rounded(.caption2, .heavy))
+            .tracking(0.4)
+            .foregroundStyle(color)
     }
 }
 

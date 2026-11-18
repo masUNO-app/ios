@@ -84,7 +84,7 @@ struct LocationPickerView: View {
 
         return VStack(spacing: 10) {
             HStack(spacing: 10) {
-                Image(systemName: "magnifyingglass").foregroundStyle(Theme.muted)
+                Image(systemName: "magnifyingglass").foregroundStyle(Theme.muted).accessibilityHidden(true)
                 TextField("Search for a court, field or address", text: $viewModel.query)
                     .font(.rounded(.body))
                     .focused($isSearchFocused)
@@ -93,10 +93,7 @@ struct LocationPickerView: View {
                 if viewModel.isResolving {
                     ProgressView()
                 } else if !viewModel.query.isEmpty {
-                    Button("Clear search", systemImage: "xmark.circle.fill") { viewModel.query = "" }
-                        .labelStyle(.iconOnly)
-                        .foregroundStyle(Theme.muted.opacity(0.6))
-                        .buttonStyle(.plain)
+                    ClearFieldButton { viewModel.query = "" }
                 }
             }
             .padding(.horizontal, 16)
@@ -136,7 +133,7 @@ struct LocationPickerView: View {
                 Task { await viewModel.useCurrentLocation() }
             }
             ForEach(viewModel.suggestions) { suggestion in
-                Theme.separator.frame(height: 1)
+                RowDivider()
                 row(title: Text(verbatim: suggestion.title), subtitle: suggestion.subtitle, systemImage: nil) {
                     Task { await viewModel.select(suggestion) }
                 }
@@ -163,6 +160,7 @@ struct LocationPickerView: View {
                 .foregroundStyle(Theme.ink)
                 .frame(width: 32, height: 32)
                 .background(Theme.accentSoft, in: .circle)
+                .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 1) {
                     title.font(.rounded(.callout, .bold)).foregroundStyle(Theme.ink)
                     if let subtitle, !subtitle.isEmpty {
