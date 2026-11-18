@@ -146,40 +146,58 @@ struct OnboardingFlow: View {
 private struct SignUpStep: View {
     @Bindable var viewModel: OnboardingViewModel
     @FocusState private var focus: Int?
+    @AccessibilityFocusState private var errorFocus: OnboardingViewModel.Field?
 
     var body: some View {
         OnboardingPage(title: "Create your account", message: viewModel.signUpMessage) {
-            FieldBox("School email", error: viewModel.signUpError, isFocused: focus == 0) {
-                TextField(viewModel.emailPlaceholder, text: $viewModel.email)
+            FieldBox(
+                "School email", text: $viewModel.email, prompt: Text(verbatim: viewModel.emailPlaceholder),
+                error: viewModel.signUpError, isFocused: focus == 0
+            ) { field in
+                field
                     .keyboardType(.emailAddress)
                     .textContentType(.username)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .focused($focus, equals: 0)
+                    .accessibilityFocused($errorFocus, equals: .email)
             }
-            FieldBox("Password", error: viewModel.passwordError, isFocused: focus == 1) {
-                SecureField("At least 8 characters", text: $viewModel.password)
+            FieldBox(
+                "Password", text: $viewModel.password, prompt: Text("At least 8 characters"),
+                error: viewModel.passwordError, isFocused: focus == 1, secure: true
+            ) { field in
+                field
                     .textContentType(.newPassword)
                     .focused($focus, equals: 1)
-                    .onSubmit { Task { await viewModel.submitSignUp() } }
+                    .accessibilityFocused($errorFocus, equals: .password)
+                    .onSubmit { submit() }
             }
-            FieldBox("Invite code (optional)", isFocused: focus == 2) {
-                TextField("ABCD-EFGH", text: $viewModel.inviteCode)
+            FieldBox("Invite code (optional)", text: $viewModel.inviteCode, prompt: Text("ABCD-EFGH"), isFocused: focus == 2) { field in
+                field
                     .textInputAutocapitalization(.characters)
                     .autocorrectionDisabled()
                     .focused($focus, equals: 2)
-                    .onSubmit { Task { await viewModel.submitSignUp() } }
+                    .onSubmit { submit() }
             }
             Text("Have a code from a friend? You'll skip the waitlist.")
                 .font(.rounded(.footnote))
                 .foregroundStyle(Theme.muted)
         } footer: {
             VStack(spacing: 10) {
-                WorkingButton("Create account", isWorking: viewModel.isWorking) { Task { await viewModel.submitSignUp() } }
+                WorkingButton("Create account", isWorking: viewModel.isWorking) { submit() }
                     .disabled(viewModel.email.isEmpty || viewModel.password.isEmpty)
                 Button("I already have an account") { viewModel.path = [.signIn] }
                     .pill(.quiet)
             }
+        }
+    }
+
+    /// On a problem, VoiceOver moves to the field and says what's wrong.
+    private func submit() {
+        Task {
+            await viewModel.submitSignUp()
+            if let field = viewModel.firstInvalidField(on: .signUp) { errorFocus = field }
+            if let summary = viewModel.errorSummary(on: .signUp) { Announce.post(summary, priority: .high) }
         }
     }
 }
@@ -189,22 +207,27 @@ private struct SignInStep: View {
     @Environment(AppViewModel.self) private var appViewModel
     @Bindable var viewModel: OnboardingViewModel
     @FocusState private var focus: Int?
+    @AccessibilityFocusState private var errorFocus: OnboardingViewModel.Field?
 
     var body: some View {
         OnboardingPage(title: "Sign in", message: "Welcome back. Use the email and password you signed up with.") {
-            FieldBox("Email", isFocused: focus == 0) {
-                TextField(viewModel.emailPlaceholder, text: $viewModel.email)
+            FieldBox("Email", text: $viewModel.email, prompt: Text(verbatim: viewModel.emailPlaceholder), isFocused: focus == 0) { field in
+                field
                     .keyboardType(.emailAddress)
                     .textContentType(.username)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .focused($focus, equals: 0)
             }
-            FieldBox("Password", error: viewModel.signInError, isFocused: focus == 1) {
-                SecureField("Password", text: $viewModel.password)
+            FieldBox(
+                "Password", text: $viewModel.password, prompt: Text("Password"),
+                error: viewModel.signInError, isFocused: focus == 1, secure: true
+            ) { field in
+                field
                     .textContentType(.password)
                     .focused($focus, equals: 1)
-                    .onSubmit { Task { await viewModel.submitSignIn() } }
+                    .accessibilityFocused($errorFocus, equals: .password)
+                    .onSubmit { submit() }
             }
             // No reset email yet: the team resets a password by hand.
             if let mail = appViewModel.config.supportMailURL {
@@ -214,11 +237,20 @@ private struct SignInStep: View {
             }
         } footer: {
             VStack(spacing: 10) {
-                WorkingButton("Sign in", isWorking: viewModel.isWorking) { Task { await viewModel.submitSignIn() } }
+                WorkingButton("Sign in", isWorking: viewModel.isWorking) { submit() }
                     .disabled(viewModel.email.isEmpty || viewModel.password.isEmpty)
                 Button("Create an account") { viewModel.path = [.signUp] }
                     .pill(.quiet)
             }
+        }
+    }
+
+    /// On a problem, VoiceOver moves to the field and says what's wrong.
+    private func submit() {
+        Task {
+            await viewModel.submitSignIn()
+            if let field = viewModel.firstInvalidField(on: .signIn) { errorFocus = field }
+            if let summary = viewModel.errorSummary(on: .signIn) { Announce.post(summary, priority: .high) }
         }
     }
 }
@@ -230,6 +262,7 @@ private struct PendingStep: View {
     @Environment(PushNotificationService.self) private var push
     @Bindable var viewModel: OnboardingViewModel
     @FocusState private var isCodeFocused: Bool
+    @AccessibilityFocusState private var errorFocus: OnboardingViewModel.Field?
 
     var body: some View {
         OnboardingPage(
@@ -251,14 +284,18 @@ private struct PendingStep: View {
                 .background(Theme.accentSoft, in: .rect(cornerRadius: Theme.Radius.card))
             }
 
-            FieldBox("Invite code", error: viewModel.inviteError, isFocused: isCodeFocused) {
-                TextField("ABCD-EFGH", text: $viewModel.inviteCode)
+            FieldBox(
+                "Invite code", text: $viewModel.inviteCode, prompt: Text("ABCD-EFGH"),
+                error: viewModel.inviteError, isFocused: isCodeFocused
+            ) { field in
+                field
                     .textInputAutocapitalization(.characters)
                     .autocorrectionDisabled()
                     .focused($isCodeFocused)
-                    .onSubmit { Task { await viewModel.redeemInviteWhileWaiting() } }
+                    .accessibilityFocused($errorFocus, equals: .inviteCode)
+                    .onSubmit { redeem() }
             }
-            Button("Use invite code") { Task { await viewModel.redeemInviteWhileWaiting() } }
+            Button("Use invite code") { redeem() }
                 .pill(.secondary)
                 .disabled(Invite.normalized(viewModel.inviteCode).isEmpty || viewModel.isWorking)
 
@@ -273,7 +310,7 @@ private struct PendingStep: View {
                     Button("Want a heads-up when you're in?") { Task { await push.requestPermission() } }
                         .pill(.primary)
                 }
-                WorkingButton("Check again", isWorking: viewModel.isWorking) { Task { await viewModel.checkApproval() } }
+                WorkingButton("Check again", isWorking: viewModel.isWorking) { checkAgain() }
                 Button("Sign out") { Task { await viewModel.signOutWhilePending() } }
                     .pill(.quiet)
             }
@@ -285,6 +322,23 @@ private struct PendingStep: View {
                 await viewModel.checkApproval(quietly: true)
                 await viewModel.loadWaitlistPosition()
             }
+        }
+    }
+
+    /// On a refused code, VoiceOver moves to the field and says why.
+    private func redeem() {
+        Task {
+            await viewModel.redeemInviteWhileWaiting()
+            if let field = viewModel.firstInvalidField(on: .pending) { errorFocus = field }
+            if let summary = viewModel.errorSummary(on: .pending) { Announce.post(summary, priority: .high) }
+        }
+    }
+
+    /// Only this check's own error: an earlier refused code stays on its field.
+    private func checkAgain() {
+        Task {
+            await viewModel.checkApproval()
+            if let error = viewModel.pendingError { Announce.post(error, priority: .high) }
         }
     }
 }
@@ -303,8 +357,8 @@ private struct FindSchoolStep: View {
             } else if viewModel.isLoadingSchools {
                 ProgressView().frame(maxWidth: .infinity).padding(.vertical, 24)
             } else {
-                FieldBox("Search schools") {
-                    TextField("Search your school", text: $viewModel.schoolSearch)
+                FieldBox("Search schools", text: $viewModel.schoolSearch, prompt: Text("Search your school")) { field in
+                    field
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                 }
@@ -447,6 +501,7 @@ private struct VerifiedStep: View {
 /// Figma "Make it yours": your token, name, class year and what you play, on one screen.
 private struct ProfileStep: View {
     @Bindable var viewModel: OnboardingViewModel
+    @AccessibilityFocusState private var errorFocus: ProfileInput.Field?
 
     var body: some View {
         OnboardingPage(title: "Make it yours", message: nil) {
@@ -459,7 +514,8 @@ private struct ProfileStep: View {
 
             ProfileFields(
                 firstName: $viewModel.firstName, lastName: $viewModel.lastName, classYear: $viewModel.classYear,
-                classYears: viewModel.classYears
+                classYears: viewModel.classYears,
+                errorFocus: $errorFocus
             )
             if let error = viewModel.aboutError {
                 Text(verbatim: error).font(.rounded(.caption)).foregroundStyle(Theme.error)
@@ -476,13 +532,23 @@ private struct ProfileStep: View {
             }
             if let error = viewModel.profileError {
                 Text(verbatim: error).font(.rounded(.caption)).foregroundStyle(Theme.error)
+                    .accessibilityFocused($errorFocus, equals: .interests)
             } else {
                 Text("Pick as many as you like. We'll show these first.")
                     .font(.rounded(.footnote))
                     .foregroundStyle(Theme.muted)
             }
         } footer: {
-            WorkingButton("Let's play", isWorking: viewModel.isWorking) { Task { await viewModel.submitProfile() } }
+            WorkingButton("Let's play", isWorking: viewModel.isWorking) { submit() }
+        }
+    }
+
+    /// On a problem, VoiceOver moves to it and says what's wrong.
+    private func submit() {
+        Task {
+            await viewModel.submitProfile()
+            if let field = viewModel.firstInvalidProfileField { errorFocus = field }
+            if let summary = viewModel.errorSummary(on: .about) { Announce.post(summary, priority: .high) }
         }
     }
 }

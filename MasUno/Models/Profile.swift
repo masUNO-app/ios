@@ -44,6 +44,11 @@ extension ProfileInput {
         case unfriendly
     }
 
+    /// The parts of Make it yours and Edit profile that can have a problem, in screen order.
+    enum Field: Hashable, CaseIterable {
+        case firstName, lastName, interests
+    }
+
     /// Class years to pick from: this year through six years out.
     static func classYears(now: Date = .now) -> [Int] {
         let year = Calendar.current.component(.year, from: now)

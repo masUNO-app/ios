@@ -5,6 +5,11 @@ import Observation
 /// The same rules are enforced by the server (`create_game` / `update_game`, §8.5).
 @Observable
 final class GameFormViewModel {
+    /// The fields that can have a problem, in the order the form shows them.
+    enum Field: Hashable, CaseIterable {
+        case name, time, place, meetUp, notes
+    }
+
     var sport: Activity
     var name: String { didSet { if name.count > GameDraft.titleLimit { name = String(name.prefix(GameDraft.titleLimit)) } } }
     var day: Date
@@ -65,6 +70,16 @@ final class GameFormViewModel {
     /// Editing can't go below the number already going.
     var minimumPlayers: Int {
         max(Self.playerRange.lowerBound, editing?.goingCount ?? 1)
+    }
+
+    /// What the stepper allows.
+    var playersRange: ClosedRange<Int> {
+        minimumPlayers...Self.playerRange.upperBound
+    }
+
+    /// One step up or down, for VoiceOver's swipe; stays in `playersRange`.
+    func stepPlayers(by step: Int) {
+        players = min(max(players + step, playersRange.lowerBound), playersRange.upperBound)
     }
 
     /// "6 players".
@@ -140,6 +155,29 @@ final class GameFormViewModel {
 
     var placeError: String? {
         showsErrors && place == nil ? String.app("Pick where the game is.") : nil
+    }
+
+    func error(for field: Field) -> String? {
+        switch field {
+        case .name: nameError
+        case .time: timeError
+        case .place: placeError
+        case .meetUp: meetUpError
+        case .notes: notesError
+        }
+    }
+
+    /// Where VoiceOver goes after a failed Create/Save: the first field with a problem.
+    var firstInvalidField: Field? {
+        Field.allCases.first { error(for: $0) != nil }
+    }
+
+    /// What VoiceOver says after a failed Create/Save: the first problem, and how many there are,
+    /// or the server's message when no field has one.
+    var errorSummary: String? {
+        let errors = Field.allCases.compactMap(error(for:))
+        guard let first = errors.first else { return formError }
+        return errors.count == 1 ? first : String.app("\(errors.count) things to fix. \(first)")
     }
 
     private var isValid: Bool {

@@ -18,8 +18,8 @@ struct GuestCampusStep: View {
                 ProgressView().frame(maxWidth: .infinity).padding(.vertical, 24)
             } else {
                 if viewModel.guestCampusesNeedSearch {
-                    FieldBox("Search campuses") {
-                        TextField("Search campuses", text: $viewModel.schoolSearch)
+                    FieldBox("Search campuses", text: $viewModel.schoolSearch, prompt: Text("Search campuses")) { field in
+                        field
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
                     }

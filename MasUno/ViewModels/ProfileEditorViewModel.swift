@@ -45,6 +45,27 @@ final class ProfileEditorViewModel {
         showsErrors && interests.isEmpty ? String.app("Pick at least one sport.") : nil
     }
 
+    func error(for field: ProfileInput.Field) -> String? {
+        switch field {
+        case .firstName: nameError(firstName)
+        case .lastName: nameError(lastName)
+        case .interests: interestsError
+        }
+    }
+
+    /// Where VoiceOver goes after a failed Save: the first part with a problem.
+    var firstInvalidField: ProfileInput.Field? {
+        ProfileInput.Field.allCases.first { error(for: $0) != nil }
+    }
+
+    /// What VoiceOver says after a failed Save: the first problem and how many there are, or the
+    /// server's message.
+    var errorSummary: String? {
+        let errors = ProfileInput.Field.allCases.compactMap(error(for:))
+        guard let first = errors.first else { return saveError }
+        return errors.count == 1 ? first : String.app("\(errors.count) things to fix. \(first)")
+    }
+
     // MARK: Intents
 
     func toggle(_ sport: Activity) {

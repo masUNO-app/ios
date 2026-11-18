@@ -24,6 +24,11 @@ final class OnboardingViewModel {
         }
     }
 
+    /// The account fields a step can send VoiceOver to after a failed submit.
+    enum Field: Hashable {
+        case email, password, inviteCode
+    }
+
     var path: [Step] = []
     var isSignInSheetPresented = false
 
@@ -175,6 +180,38 @@ final class OnboardingViewModel {
         let name = ProfileInput.previewName(first: firstName, last: lastName)
         if name.isEmpty { return String.app("Others see your first name, last initial and class year.") }
         return String.app("Others see \(name) and your class year.")
+    }
+
+    // MARK: Errors after a submit
+
+    /// Where VoiceOver goes after a failed submit on `step`: the first field with a problem, in
+    /// the order the step shows them. Each error shows on the field named here.
+    func firstInvalidField(on step: Step) -> Field? {
+        switch step {
+        case .signUp: signUpError != nil ? .email : passwordError != nil ? .password : nil
+        case .signIn: signInError != nil ? .password : nil
+        case .pending: inviteError != nil ? .inviteCode : nil
+        default: nil
+        }
+    }
+
+    /// The same on Make it yours, whose name error shows under both name fields.
+    var firstInvalidProfileField: ProfileInput.Field? {
+        if aboutError != nil {
+            return ProfileInput.nameProblem(firstName) == nil && ProfileInput.nameProblem(lastName) != nil ? .lastName : .firstName
+        }
+        return profileError != nil ? .interests : nil
+    }
+
+    /// What VoiceOver says after a failed submit on `step`, field or not.
+    func errorSummary(on step: Step) -> String? {
+        switch step {
+        case .signUp: signUpError ?? passwordError
+        case .signIn: signInError
+        case .pending: inviteError ?? pendingError
+        case .about: aboutError ?? profileError
+        default: nil
+        }
     }
 
     // MARK: Intents

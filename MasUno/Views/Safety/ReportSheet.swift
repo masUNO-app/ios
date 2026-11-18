@@ -163,7 +163,9 @@ struct ReportSheet: View {
             isSent = true
         } catch {
             guard !OperationCancellation.isCancellation(error) else { return }
-            errorMessage = (error as? DomainError ?? .offline).message
+            let message = (error as? DomainError ?? .offline).message
+            errorMessage = message
+            Announce.post(message, priority: .high)
         }
     }
 }

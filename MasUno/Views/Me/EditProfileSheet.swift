@@ -5,6 +5,8 @@ struct EditProfileSheet: View {
     @Environment(GameStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     @State private var viewModel: ProfileEditorViewModel
+    /// Where VoiceOver goes when Save finds a problem.
+    @AccessibilityFocusState private var errorFocus: ProfileInput.Field?
 
     init(profile: Profile) {
         _viewModel = State(initialValue: ProfileEditorViewModel(profile: profile))
@@ -25,7 +27,8 @@ struct EditProfileSheet: View {
                     firstName: $viewModel.firstName, lastName: $viewModel.lastName, classYear: $viewModel.classYear,
                     classYears: viewModel.classYears,
                     firstNameError: viewModel.nameError(viewModel.firstName),
-                    lastNameError: viewModel.nameError(viewModel.lastName)
+                    lastNameError: viewModel.nameError(viewModel.lastName),
+                    errorFocus: $errorFocus
                 )
 
                 Text("Plays")
@@ -39,16 +42,15 @@ struct EditProfileSheet: View {
                 }
                 if let error = viewModel.interestsError ?? viewModel.saveError {
                     Text(verbatim: error).font(.rounded(.caption)).foregroundStyle(Theme.error)
+                        .accessibilityFocused($errorFocus, equals: .interests)
                 } else {
                     Text("Only you see what you play.").font(.rounded(.footnote)).foregroundStyle(Theme.muted)
                 }
 
-                Button("Save") {
-                    Task { if await viewModel.save(in: store) { dismiss() } }
-                }
-                .disabled(viewModel.isSaving)
-                .pill(.primary)
-                .padding(.top, 8)
+                Button("Save") { save() }
+                    .disabled(viewModel.isSaving)
+                    .pill(.primary)
+                    .padding(.top, 8)
             }
             .padding(.horizontal, Theme.gutter)
             .padding(.top, 22)
@@ -57,6 +59,15 @@ struct EditProfileSheet: View {
         .scrollDismissesKeyboard(.interactively)
         .scrollBounceBehavior(.basedOnSize)
         .sheetChrome(detents: [.height(500), .large])
+    }
+
+    /// On a problem, VoiceOver moves to the first one and says it.
+    private func save() {
+        Task {
+            if await viewModel.save(in: store) { return dismiss() }
+            if let first = viewModel.firstInvalidField { errorFocus = first }
+            if let summary = viewModel.errorSummary { Announce.post(summary, priority: .high) }
+        }
     }
 }
 
@@ -70,17 +81,21 @@ struct ProfileFields: View {
     var classYears: [Int]
     var firstNameError: String?
     var lastNameError: String?
+    /// Moved by the screen when Save finds a problem.
+    var errorFocus: AccessibilityFocusState<ProfileInput.Field?>.Binding
 
     var body: some View {
         VStack(spacing: 12) {
             HStack(alignment: .top, spacing: 10) {
-                FieldBox("First name", error: firstNameError) {
-                    TextField("First name", text: $firstName)
+                FieldBox("First name", text: $firstName, prompt: Text("First name"), error: firstNameError) { field in
+                    field
                         .textContentType(.givenName)
+                        .accessibilityFocused(errorFocus, equals: .firstName)
                 }
-                FieldBox("Last name", error: lastNameError) {
-                    TextField("Last name", text: $lastName)
+                FieldBox("Last name", text: $lastName, prompt: Text("Last name"), error: lastNameError) { field in
+                    field
                         .textContentType(.familyName)
+                        .accessibilityFocused(errorFocus, equals: .lastName)
                 }
             }
 

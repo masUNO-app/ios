@@ -115,9 +115,7 @@ struct ComponentGallery: View {
 
                 section("Fields") {
                     VStack(spacing: 12) {
-                        FieldBox("Game name") {
-                            TextField(text: $name) { Text(verbatim: "e.g. After-work hoops") }
-                        }
+                        FieldBox("Game name", text: $name, prompt: Text(verbatim: "e.g. After-work hoops"))
                         FieldBox("Game name", error: "Add a name so people know what they're joining.") {
                             Text(verbatim: "e.g. After-work hoops").foregroundStyle(Theme.muted)
                         }

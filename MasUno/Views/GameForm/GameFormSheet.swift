@@ -11,10 +11,10 @@ struct GameFormSheet: View {
     @State private var picksLocation = false
     @State private var picksTime = false
     @FocusState private var focus: Field?
+    /// Where VoiceOver goes when Create/Save finds a problem.
+    @AccessibilityFocusState private var errorFocus: Field?
 
-    private enum Field: Hashable {
-        case name, meetUp, notes
-    }
+    private typealias Field = GameFormViewModel.Field
 
     init(editing: Game? = nil, template: Game? = nil) {
         let viewModel = GameFormViewModel(editing: editing, template: template)
@@ -80,21 +80,28 @@ struct GameFormSheet: View {
                     }
                 }
 
-                FieldBox("Game name", error: viewModel.nameError, isFocused: focus == .name) {
-                    TextField("e.g. After-work hoops", text: $viewModel.name)
+                FieldBox(
+                    "Game name", text: $viewModel.name, prompt: Text("e.g. After-work hoops"),
+                    error: viewModel.nameError, isFocused: focus == .name
+                ) { field in
+                    field
                         .textInputAutocapitalization(.sentences)
                         .focused($focus, equals: .name)
+                        .accessibilityFocused($errorFocus, equals: .name)
+                        .accessibilityIdentifier("game-name-field")
                 }
-                // On the box, which merges the field and its label into one element for UI tests.
-                .accessibilityIdentifier("game-name-field")
 
                 schedule
 
                 locationCard
 
-                FieldBox("Meet-up spot (optional)", error: viewModel.meetUpError, isFocused: focus == .meetUp) {
-                    TextField("e.g. By the north court bleachers", text: $viewModel.meetUpSpot)
+                FieldBox(
+                    "Meet-up spot (optional)", text: $viewModel.meetUpSpot, prompt: Text("e.g. By the north court bleachers"),
+                    error: viewModel.meetUpError, isFocused: focus == .meetUp
+                ) { field in
+                    field
                         .focused($focus, equals: .meetUp)
+                        .accessibilityFocused($errorFocus, equals: .meetUp)
                 }
 
                 playersCard
@@ -171,6 +178,9 @@ struct GameFormSheet: View {
                     }
                 }
                 .buttonStyle(.plain)
+                // The row's error belongs to Start time.
+                .accessibilityHint(Text(verbatim: viewModel.timeError ?? ""))
+                .accessibilityFocused($errorFocus, equals: .time)
                 .popover(isPresented: $picksTime) {
                     DatePicker("Start time", selection: $viewModel.time, displayedComponents: .hourAndMinute)
                         .datePickerStyle(.wheel)
@@ -193,6 +203,8 @@ struct GameFormSheet: View {
                     .font(.rounded(.caption))
                     .foregroundStyle(Theme.error)
                     .padding(.leading, 4)
+                    // Read as Start time's hint.
+                    .accessibilityHidden(true)
             }
         }
     }
@@ -221,6 +233,8 @@ struct GameFormSheet: View {
                         .foregroundStyle(Theme.ink)
                     if let error = viewModel.placeError {
                         Text(verbatim: error).font(.rounded(.caption)).foregroundStyle(Theme.error)
+                            // Read as Choose's hint.
+                            .accessibilityHidden(true)
                     }
                 }
             }
@@ -233,6 +247,8 @@ struct GameFormSheet: View {
                 picksLocation = true
             }
             .pill(.secondary, expands: false, size: .regular)
+            .accessibilityHint(Text(verbatim: viewModel.placeError ?? ""))
+            .accessibilityFocused($errorFocus, equals: .place)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
@@ -263,13 +279,23 @@ struct GameFormSheet: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            Stepper("Players", value: $viewModel.players.animation(.snappy), in: viewModel.minimumPlayers...GameFormViewModel.playerRange.upperBound)
+            Stepper("Players", value: $viewModel.players.animation(.snappy), in: viewModel.playersRange)
                 .labelsHidden()
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
         .cardSurface(radius: Theme.Radius.field)
-        .accessibilityElement(children: .combine)
+        // One adjustable element: swipe up or down to change the count (A11Y-14).
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text("Players"))
+        .accessibilityValue(Text(verbatim: "\(viewModel.playersLabel), \(viewModel.playersHint)"))
+        .accessibilityAdjustableAction { direction in
+            switch direction {
+            case .increment: withAnimation(.snappy) { viewModel.stepPlayers(by: 1) }
+            case .decrement: withAnimation(.snappy) { viewModel.stepPlayers(by: -1) }
+            @unknown default: break
+            }
+        }
     }
 
     /// "What would help someone new say yes?", with one-tap suggestions that add to the note.
@@ -292,8 +318,12 @@ struct GameFormSheet: View {
                     .font(.rounded(.callout))
                     .foregroundStyle(Theme.ink)
                     .focused($focus, equals: .notes)
+                    .accessibilityHint(Text(verbatim: viewModel.notesError ?? ""))
+                    .accessibilityFocused($errorFocus, equals: .notes)
                 if let error = viewModel.notesError {
                     Text(verbatim: error).font(.rounded(.caption)).foregroundStyle(Theme.error)
+                        // Read as the note's hint.
+                        .accessibilityHidden(true)
                 }
             }
             .padding(.horizontal, 14)
@@ -331,8 +361,13 @@ struct GameFormSheet: View {
         return isFocused ? Theme.accent : Theme.hairline
     }
 
+    /// On a problem, VoiceOver moves to the first field with one and says what's wrong.
     private func save() {
         focus = nil
-        Task { if await viewModel.save(in: store) { dismiss() } }
+        Task {
+            if await viewModel.save(in: store) { return dismiss() }
+            if let first = viewModel.firstInvalidField { errorFocus = first }
+            if let summary = viewModel.errorSummary { Announce.post(summary, priority: .high) }
+        }
     }
 }

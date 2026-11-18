@@ -621,6 +621,16 @@
         }
       }
     },
+    "%lld things to fix. %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hay %lld cosas por corregir. %@"
+          }
+        }
+      }
+    },
     "1 day" : {
       "localizations" : {
         "es" : {

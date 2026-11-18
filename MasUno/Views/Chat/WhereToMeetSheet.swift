@@ -11,6 +11,7 @@ struct WhereToMeetSheet: View {
     @State private var errorMessage: String?
     @State private var isSaving = false
     @FocusState private var isFocused: Bool
+    @AccessibilityFocusState private var isErrorFocused: Bool
     private static let limit = GameDraft.meetPointLimit
 
     init(event: Game) {
@@ -27,9 +28,13 @@ struct WhereToMeetSheet: View {
                     subtitle: Text("Pinned at the top of the chat so nobody has to ask.")
                 ) { dismiss() }
 
-                FieldBox("Meet-up spot", error: errorMessage, isFocused: isFocused) {
-                    TextField("e.g. By the north court bleachers", text: $spot)
+                FieldBox(
+                    "Meet-up spot", text: $spot, prompt: Text("e.g. By the north court bleachers"),
+                    error: errorMessage, isFocused: isFocused
+                ) { field in
+                    field
                         .focused($isFocused)
+                        .accessibilityFocused($isErrorFocused)
                         .submitLabel(.done)
                         .onChange(of: spot) { if spot.count > Self.limit { spot = String(spot.prefix(Self.limit)) } }
                 }
@@ -39,10 +44,7 @@ struct WhereToMeetSheet: View {
                     .foregroundStyle(Theme.muted)
 
                 Button("Save") {
-                    guard TextFilter.isFriendly(spot) else {
-                        errorMessage = TextFilter.message
-                        return
-                    }
+                    guard TextFilter.isFriendly(spot) else { return showError(TextFilter.message) }
                     Task { await save() }
                 }
                 .disabled(isSaving)
@@ -66,7 +68,14 @@ struct WhereToMeetSheet: View {
             dismiss()
         } catch {
             guard !OperationCancellation.isCancellation(error) else { return }
-            errorMessage = (error as? DomainError ?? .offline).message
+            showError((error as? DomainError ?? .offline).message)
         }
+    }
+
+    /// Under the field, and VoiceOver moves there and says it.
+    private func showError(_ message: String) {
+        errorMessage = message
+        isErrorFocused = true
+        Announce.post(message, priority: .high)
     }
 }
