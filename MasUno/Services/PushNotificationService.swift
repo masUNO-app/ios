@@ -185,6 +185,8 @@ final class PushNotificationService {
     /// A tap or a long-press action. Runs with the stored session.
     func handle(action: String, payload: NotificationPayload?, reply: String?) async {
         guard let payload else { return }
+        // Navigation must not wait for analytics (or a network timeout).
+        if action == UNNotificationDefaultActionIdentifier { deliver(payload.routeURL()) }
         if let outboxID = payload.outboxID {
             do {
                 try await repository.markOpened(outboxID)
@@ -193,6 +195,8 @@ final class PushNotificationService {
             }
         }
         switch action {
+        case UNNotificationDefaultActionIdentifier:
+            break
         case Self.reply:
             await sendReply(reply, in: payload)
         case Self.markRead:
@@ -214,8 +218,10 @@ final class PushNotificationService {
     }
 
     /// Removes delivered notifications for one thread, such as `game:<id>` or `chat:<id>`.
-    static func clearDelivered(thread: String) {
-        UNUserNotificationCenter.current().getDeliveredNotifications { notifications in
+    nonisolated static func clearDelivered(thread: String) {
+        // UserNotifications invokes this on its own queue. A main-actor-inherited
+        // completion traps when opening a game or chat under Swift 6 isolation checks.
+        UNUserNotificationCenter.current().getDeliveredNotifications { @Sendable notifications in
             let identifiers = notifications
                 .filter { $0.request.content.threadIdentifier == thread }
                 .map(\.request.identifier)

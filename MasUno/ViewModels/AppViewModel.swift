@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import UserNotifications
 
 /// Root presentation state (SPEC §7.3): the launch gate, the navigation path and
 /// app-level sheets. Sheets that open on top of a screen or another sheet
@@ -269,7 +270,10 @@ final class AppViewModel {
     /// A notification tap, including one that waited through onboarding.
     /// A nil URL opens a link that was stored earlier.
     func deliverPushRoute(_ url: URL?) {
-        if let url { handle(url) }
+        if let url {
+            pendingLink = nil
+            handle(url)
+        }
         openPendingLink()
     }
 
@@ -439,6 +443,12 @@ final class AppViewModel {
         case "edit": presentGameForm(editing: IDs.hosting)
         case "gallery": path = [.gallery]
         case "chat": path = [.chat(IDs.going)]
+        case "push-chat", "push-game":
+            await push?.handle(
+                action: UNNotificationDefaultActionIdentifier,
+                payload: NotificationPayload(kind: screen == "push-chat" ? "chat_message" : "reminder", gameID: IDs.going),
+                reply: nil
+            )
         case "chat-unavailable": path = [.chat(IDs.open)]
         case "chat-rules":
             // First time in a chat: "Before you chat" comes up over it.

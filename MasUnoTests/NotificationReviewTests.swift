@@ -169,6 +169,17 @@ struct NotificationReviewTests {
         #expect(model.path == [.game(id)])
     }
 
+    @Test func theLatestTapSupersedesAnOlderQueuedLink() async throws {
+        let auth = MockBackend(state: .signedOut(expired: false))
+        let model = AppViewModel(auth: auth, catalog: auth)
+        model.deliverPushRoute(URL(string: "masuno://game/\(UUID().uuidString)"))
+        try await auth.signIn(email: MockFixtures.reviewEmail, password: MockFixtures.reviewPassword)
+        let id = UUID()
+        model.deliverPushRoute(URL(string: "masuno://game/\(id.uuidString)/chat"))
+        #expect(model.path == [.game(id), .chat(id)])
+        #expect(model.pendingLink == nil)
+    }
+
     @Test func aBackgroundTapRestoresTheSessionBeforeItRuns() async {
         let box = ServiceBox()
         let backend = MockBackend()

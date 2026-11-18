@@ -45,6 +45,7 @@ private final class SpyNotificationRepository: NotificationRepository {
     var winback: [Bool] = []
     var failUnregister = false
     var failMarkOpened = false
+    var beforeMarkOpened: (() async -> Void)?
     var beforeUnregister: (() async -> Void)?
     var currentUserID = UUID()
     var serverTokens: [String: UUID] = [:]
@@ -68,6 +69,7 @@ private final class SpyNotificationRepository: NotificationRepository {
     func setChatMuted(gameID: UUID, muted: Bool) async throws {}
 
     func markOpened(_ outboxID: Int64) async throws {
+        await beforeMarkOpened?()
         opened.append(outboxID)
         if failMarkOpened { throw DomainError.offline }
     }
@@ -431,6 +433,22 @@ struct PushNotificationServiceTests {
         spy.failMarkOpened = true
         await service.handle(action: UNNotificationDefaultActionIdentifier, payload: NotificationPayload(kind: "winback", outboxID: 7), reply: nil)
         #expect(opened == [URL(string: "masuno://map")])
+    }
+
+    @Test func aTapRoutesBeforeASlowOpenedRequestFinishes() async {
+        let gate = NotificationTestGate()
+        spy.beforeMarkOpened = { await gate.wait() }
+        var opened: [URL?] = []
+        service.onOpen = { opened.append($0) }
+        let task = Task {
+            await service.handle(action: UNNotificationDefaultActionIdentifier,
+                payload: NotificationPayload(kind: "winback", outboxID: 7), reply: nil)
+        }
+        await gate.waitUntilEntered()
+        #expect(opened == [URL(string: "masuno://map")])
+        gate.open()
+        await task.value
+        #expect(spy.opened == [7])
     }
 
     @Test func aTapBeforeTheInterfaceIsReadyWaitsOnce() async {

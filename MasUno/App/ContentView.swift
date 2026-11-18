@@ -130,7 +130,7 @@ struct ContentView: View {
     private func launch() async {
         store.onSessionProblem = { [auth = appViewModel.auth] in Task { await auth.restoreSession() } }
         appViewModel.push?.onOpen = { url in
-            if let url { appViewModel.handle(url) }
+            appViewModel.deliverPushRoute(url)
         }
         appViewModel.push?.onRefreshGame = { id in Task { await store.loadGame(id) } }
         await appViewModel.start()

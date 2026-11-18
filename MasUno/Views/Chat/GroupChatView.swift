@@ -40,6 +40,15 @@ struct GroupChatView: View {
         Group {
             if let event = store.game(eventID), event.isGoing, !store.isGuest {
                 content(event)
+            } else if store.game(eventID) == nil, !store.isMissing(eventID), !store.isOffline {
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Theme.background)
+            } else if store.game(eventID) == nil, store.isOffline {
+                RetryCard(message: "Couldn't load this game.") { await store.loadGame(eventID) }
+                    .padding(.horizontal, Theme.gutter)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Theme.background)
             } else {
                 ContentUnavailableView("This chat isn't available.", systemImage: "bubble.left.and.bubble.right")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -50,6 +59,11 @@ struct GroupChatView: View {
         // has disappeared, and fence old network responses before they can restore messages.
         .onChange(of: store.privacyRevision, initial: true) { _, _ in viewModel.synchronize(in: store) }
         .onChange(of: store.game(eventID)?.isGoing) { _, _ in viewModel.synchronize(in: store) }
+        .task(id: eventID) {
+            // A notification can open a chat that is absent from the cached lists.
+            // Do not depend on the detail screen underneath becoming visible first.
+            if store.game(eventID) == nil { await store.loadGame(eventID) }
+        }
     }
 
     private func content(_ event: Game) -> some View {
