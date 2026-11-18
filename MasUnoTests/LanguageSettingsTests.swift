@@ -52,6 +52,34 @@ struct LanguageSettingsTests {
         #expect(String(localized: "Settings", bundle: settings.bundle, locale: settings.locale) == "Settings")
     }
 
+    @Test func bundleAndLocaleFollowThePreference() {
+        let settings = LanguageSettings(defaults: defaults, preferredLanguages: ["en-US"])
+        #expect(settings.bundle.bundlePath.hasSuffix("en.lproj"))
+        #expect(settings.locale.language.languageCode?.identifier == "en")
+        settings.preference = .es
+        #expect(settings.bundle.bundlePath.hasSuffix("es.lproj"))
+        #expect(settings.locale.language.languageCode?.identifier == "es")
+        settings.preference = .en
+        #expect(settings.bundle.bundlePath.hasSuffix("en.lproj"))
+        #expect(settings.locale.language.languageCode?.identifier == "en")
+    }
+
+    @Test func systemPreferenceFollowsTheDeviceLanguage() {
+        let settings = LanguageSettings(defaults: defaults, preferredLanguages: ["en-US"])
+        settings.refreshDeviceLanguage(preferredLanguages: ["es-MX"])
+        #expect(settings.bundle.bundlePath.hasSuffix("es.lproj"))
+        #expect(settings.locale.language.languageCode?.identifier == "es")
+        // The region comes from the device, not from the language list.
+        #expect(settings.locale.region == Locale.autoupdatingCurrent.region ?? Locale.Region("US"))
+    }
+
+    @Test func overrideOnAStoredChoiceResolvesAtLaunch() {
+        defaults.set(LanguageSettings.Preference.es.rawValue, forKey: LanguageSettings.preferenceKey)
+        let settings = LanguageSettings(defaults: defaults, preferredLanguages: ["en-US"])
+        #expect(settings.bundle.bundlePath.hasSuffix("es.lproj"))
+        #expect(String(localized: "Settings", bundle: settings.bundle, locale: settings.locale) == "Ajustes")
+    }
+
     @Test func everyCatalogEntryHasSpanishAndPreservesFormatArguments() throws {
         let root = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
         let data = try Data(contentsOf: root.appending(path: "MasUno/Localizable.xcstrings"))

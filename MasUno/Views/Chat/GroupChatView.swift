@@ -214,7 +214,7 @@ struct GroupChatView: View {
         .toolbar {
             if UserDefaults.standard.bool(forKey: "chatScrollUITest"), let backend = store.chat as? MockBackend {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Receive test message", systemImage: "arrow.down.message") {
+                    Button(String("Receive test message"), systemImage: "arrow.down.message") {
                         backend.now += 1
                         backend.receiveMessage(from: MockFixtures.sam, in: eventID, body: "New live message")
                     }

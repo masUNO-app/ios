@@ -96,7 +96,12 @@ enum Theme {
 extension UIFont {
     /// SF Pro Rounded at a text style's size, following Dynamic Type.
     static func rounded(_ style: UIFont.TextStyle, weight: UIFont.Weight) -> UIFont {
-        let base = UIFont.systemFont(ofSize: UIFont.preferredFont(forTextStyle: style).pointSize, weight: weight)
+        // `scaledFont(for:)` scales from the default size (Large), so start there; the current
+        // size's font would be scaled twice at any other text size.
+        let defaultSize = UIFont.preferredFont(
+            forTextStyle: style, compatibleWith: UITraitCollection(preferredContentSizeCategory: .large)
+        ).pointSize
+        let base = UIFont.systemFont(ofSize: defaultSize, weight: weight)
         let descriptor = base.fontDescriptor.withDesign(.rounded) ?? base.fontDescriptor
         return UIFontMetrics(forTextStyle: style).scaledFont(for: UIFont(descriptor: descriptor, size: 0))
     }

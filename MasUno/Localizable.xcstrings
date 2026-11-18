@@ -3663,17 +3663,6 @@
         }
       }
     },
-    "Receive test message" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Recibir mensaje de prueba"
-          }
-        }
-      }
-    },
     "Refreshes the map" : {
       "localizations" : {
         "es" : {
