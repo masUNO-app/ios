@@ -67,6 +67,28 @@ targets:
     configFiles:
       Debug: Config.xcconfig
       Release: Config.xcconfig
+    preBuildScripts:
+      - name: Verify archive backend configuration
+        basedOnDependencyAnalysis: false
+        showEnvVars: false
+        script: |
+          #!/bin/sh
+          # CI may compile with placeholders, but an archive must connect to a real backend.
+          if [ "${ACTION:-}" != "install" ]; then exit 0; fi
+          case "${SUPABASE_URL:-}" in
+            *YOUR-*|*"\$("* )
+              echo 'error: Archive requires a real Release SUPABASE_URL in Config.xcconfig.'
+              exit 1 ;;
+            https://?*) ;;
+            *)
+              echo 'error: Archive requires an HTTPS Release SUPABASE_URL in Config.xcconfig.'
+              exit 1 ;;
+          esac
+          case "${SUPABASE_ANON_KEY:-}" in
+            ''|*YOUR-*|*"\$("* )
+              echo 'error: Archive requires a real Release SUPABASE_ANON_KEY in Config.xcconfig.'
+              exit 1 ;;
+          esac
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.masuno.app
@@ -84,7 +106,7 @@ targets:
         SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
         SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD: NO
         MARKETING_VERSION: "0.9"
-        CURRENT_PROJECT_VERSION: "3"
+        CURRENT_PROJECT_VERSION: "4"
         CODE_SIGN_STYLE: Automatic
         LOCALIZATION_PREFERS_STRING_CATALOGS: YES
         SWIFT_EMIT_LOC_STRINGS: YES
@@ -128,7 +150,7 @@ targets:
         SUPPORTED_PLATFORMS: "iphoneos iphonesimulator"
         SUPPORTS_MACCATALYST: NO
         MARKETING_VERSION: "0.9"
-        CURRENT_PROJECT_VERSION: "3"
+        CURRENT_PROJECT_VERSION: "4"
         CODE_SIGN_STYLE: Automatic
         SKIP_INSTALL: YES
   masUNOTests:

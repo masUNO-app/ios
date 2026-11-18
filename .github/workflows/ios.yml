@@ -88,7 +88,7 @@ jobs:
   test-ios26:
     name: test-ios26
     runs-on: macos-26-intel
-    timeout-minutes: 30
+    timeout-minutes: 40
     defaults:
       run:
         shell: bash

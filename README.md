@@ -37,6 +37,10 @@ open masUNO.xcodeproj                          # run the masUNO scheme on a simu
 re-run `xcodegen generate` after pulling or adding files. `Config.xcconfig` is
 git-ignored too: Debug points at `masuno-dev`, Release at `masuno-prod`.
 
+Before archiving for TestFlight, fill in the real **Release** values in `Config.xcconfig`.
+Archives reject missing or placeholder backend settings. CI's unsigned Release compile uses
+the template and verifies compilation; it does not verify production configuration or sign-in.
+
 Debug builds accept a `-screen` launch argument to jump straight to a screen for design review:
 `popup`, `popup-saved`, `guest`, `guest-popup`, `guest-detail`, `guest-prompt`, `saved`, `add`, `form-error`, `edit`, `picker`, `detail-open|in|full|hosting|ended|cancelled`
 (add `-raceJoin YES` to `detail-open` for the last-spot race; `-mockLocation YES` pins you at Tec), `who`, `who-beta`, `report`, `blocked`, `me`,
