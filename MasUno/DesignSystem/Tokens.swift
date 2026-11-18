@@ -218,12 +218,12 @@ struct Lineup: Equatable {
 
     /// "Alex R., Ricardo T. and 4 open spots", for VoiceOver.
     var accessibilityLabel: String {
-        var parts = people.map { $0.id == myID ? String(localized: "You", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale) : $0.displayName }
+        var parts = people.map { $0.id == myID ? String.app("You") : $0.displayName }
         if unlisted > 0 {
             // With nobody named (a guest's view), "2 more" has nothing to add to.
-            parts.append(people.isEmpty ? String(localized: "\(unlisted) going", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale) : String(localized: "\(unlisted) more", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale))
+            parts.append(people.isEmpty ? String.app("\(unlisted) going") : String.app("\(unlisted) more"))
         }
-        if open > 0 { parts.append(open == 1 ? String(localized: "1 open spot", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale) : String(localized: "\(open) open spots", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)) }
+        if open > 0 { parts.append(open == 1 ? String.app("1 open spot") : String.app("\(open) open spots")) }
         return parts.formatted(.list(type: .and))
     }
 }

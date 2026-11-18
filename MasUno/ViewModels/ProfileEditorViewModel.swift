@@ -31,19 +31,19 @@ final class ProfileEditorViewModel {
     /// "Emilio G.": how others see you.
     var previewName: String {
         let name = ProfileInput.previewName(first: firstName, last: lastName)
-        return name.isEmpty ? String(localized: "your first name and last initial", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale) : name
+        return name.isEmpty ? String.app("your first name and last initial") : name
     }
 
     // MARK: Validation
 
     func nameError(_ value: String) -> String? {
         guard showsErrors else { return nil }
-        if value.trimmingCharacters(in: .whitespaces).isEmpty { return String(localized: "Add your name.", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale) }
+        if value.trimmingCharacters(in: .whitespaces).isEmpty { return String.app("Add your name.") }
         return TextFilter.isFriendly(value) ? nil : TextFilter.message
     }
 
     var interestsError: String? {
-        showsErrors && interests.isEmpty ? String(localized: "Pick at least one sport.", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale) : nil
+        showsErrors && interests.isEmpty ? String.app("Pick at least one sport.") : nil
     }
 
     // MARK: Intents

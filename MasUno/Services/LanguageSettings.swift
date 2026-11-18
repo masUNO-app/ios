@@ -62,3 +62,11 @@ final class LanguageSettings {
         Locale(identifier: identifier ?? "en").language.languageCode?.identifier == "es" ? "es" : "en"
     }
 }
+
+extension String {
+    /// `String(localized:)` in the app's language (Settings › Language), not just the device's.
+    /// Use this for every formatted string built outside a `Text`.
+    static func app(_ value: String.LocalizationValue) -> String {
+        String(localized: value, bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+    }
+}

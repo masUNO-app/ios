@@ -136,8 +136,8 @@ struct ReportSheet: View {
     private var thanks: some View {
         let person = target.person
         let message = person.map {
-            String(localized: "Only the masUNO team sees reports. We'll look into it within a day, and \($0.firstName) won't know it was you.", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
-        } ?? String(localized: "Only the masUNO team sees reports. We'll look into it within a day.", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+            String.app("Only the masUNO team sees reports. We'll look into it within a day, and \($0.firstName) won't know it was you.")
+        } ?? String.app("Only the masUNO team sees reports. We'll look into it within a day.")
 
         return DialogCard(
             systemImage: "checkmark.shield",

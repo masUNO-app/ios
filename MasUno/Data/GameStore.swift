@@ -907,7 +907,7 @@ final class GameStore {
     private func noteSpotOpened(replacing previous: Game?, with game: Game) {
         let watched = savedIDs.contains(game.id) || spotAlertIDs.contains(game.id)
         guard let previous, previous.isFull, watched, !game.isFull, !game.isCancelled, !game.hasEnded(), !game.isGoing else { return }
-        notice = String(localized: "A spot just opened in \(game.title).", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+        notice = String.app("A spot just opened in \(game.title).")
         if !mapIDs.contains(game.id) { mapIDs.insert(game.id, at: 0) }
     }
 
@@ -1096,7 +1096,7 @@ final class GameStore {
                 return
             }
             applyWrite(updated)
-            notice = String(localized: "Game cancelled. We let everyone going know.", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+            notice = String.app("Game cancelled. We let everyone going know.")
         } catch {
             guard context == sessionID, !OperationCancellation.isCancellation(error) else { return }
             fail(domainError(error))
@@ -1265,7 +1265,7 @@ final class GameStore {
         let generation = savedGeneration[id] ?? 0
         if saved {
             savedIDs.insert(id)
-            notice = String(localized: "Saved. Find it under bookmarks.", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+            notice = String.app("Saved. Find it under bookmarks.")
         } else {
             savedIDs.remove(id)
             spotAlertIDs.remove(id)

@@ -17,7 +17,7 @@ struct CalendarEditor: UIViewControllerRepresentable {
         entry.location = "\(event.place.name), \(event.place.address)"
         entry.url = URL(string: "masuno://game/\(event.id.uuidString)")
         entry.notes = [
-            event.meetPoint.map { String(localized: "Meet-up spot: \($0)", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale) },
+            event.meetPoint.map { String.app("Meet-up spot: \($0)") },
             event.notes,
         ]
         .compactMap { $0 }

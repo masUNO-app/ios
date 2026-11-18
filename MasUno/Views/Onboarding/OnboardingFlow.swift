@@ -404,7 +404,7 @@ private struct VerifiedStep: View {
                             .background(Theme.accentSoft, in: .rect(cornerRadius: Theme.Radius.tile))
                     }
                     if let name = viewModel.verifiedName {
-                        row(title: Text(verbatim: name), subtitle: String(localized: "Others only see your first name and last initial", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)) {
+                        row(title: Text(verbatim: name), subtitle: String.app("Others only see your first name and last initial")) {
                             Text(verbatim: PersonToken.initials(of: name))
                                 .font(.rounded(size: 13))
                                 .foregroundStyle(Theme.ink)

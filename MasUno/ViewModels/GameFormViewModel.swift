@@ -52,9 +52,9 @@ final class GameFormViewModel {
     // MARK: Presentation
 
     var isEditing: Bool { editing != nil }
-    var title: String { isEditing ? String(localized: "Edit game", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale) : String(localized: "Add game", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale) }
-    var subtitle: String { isEditing ? String(localized: "Changes are shared with everyone going.", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale) : String(localized: "Get a game going nearby.", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale) }
-    var saveButtonTitle: String { isEditing ? String(localized: "Save changes", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale) : String(localized: "Create game", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale) }
+    var title: String { isEditing ? String.app("Edit game") : String.app("Add game") }
+    var subtitle: String { isEditing ? String.app("Changes are shared with everyone going.") : String.app("Get a game going nearby.") }
+    var saveButtonTitle: String { isEditing ? String.app("Save changes") : String.app("Create game") }
 
     /// Today through 6 days out (games start within 7 days).
     var dayOptions: [Date] {
@@ -69,13 +69,13 @@ final class GameFormViewModel {
 
     /// "6 players".
     var playersLabel: String {
-        String(localized: "\(players) players", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+        String.app("\(players) players")
     }
 
     /// Under the count: "Including you", or "3 joined" once people have.
     var playersHint: String {
-        guard let editing, editing.joinedCount > 0 else { return String(localized: "Including you", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale) }
-        return String(localized: "\(editing.joinedCount) joined", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+        guard let editing, editing.joinedCount > 0 else { return String.app("Including you") }
+        return String.app("\(editing.joinedCount) joined")
     }
 
     /// "5:30 PM", for the Start time field.
@@ -86,9 +86,9 @@ final class GameFormViewModel {
     /// One-tap answers to "What would help someone new say yes?" (SPEC §7.7.3).
     var suggestions: [String] {
         [
-            String(localized: "I have an extra ball", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale),
-            String(localized: "Coming alone is fine", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale),
-            String(localized: "Come for part of it", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale),
+            String.app("I have an extra ball"),
+            String.app("Coming alone is fine"),
+            String.app("Come for part of it"),
         ]
         .filter { !notes.localizedCaseInsensitiveContains($0) }
     }
@@ -119,7 +119,7 @@ final class GameFormViewModel {
     var nameError: String? {
         guard showsErrors else { return nil }
         if name.trimmingCharacters(in: .whitespaces).isEmpty {
-            return String(localized: "Add a name so people know what they're joining.", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+            return String.app("Add a name so people know what they're joining.")
         }
         return TextFilter.isFriendly(name) ? nil : TextFilter.message
     }
@@ -135,11 +135,11 @@ final class GameFormViewModel {
     var timeError: String? {
         guard showsErrors, start <= .now, editing?.startsAt != start else { return nil }
         let time = start.formatted(date: .omitted, time: .shortened)
-        return String(localized: "\(time) has already passed today. Pick a later time.", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+        return String.app("\(time) has already passed today. Pick a later time.")
     }
 
     var placeError: String? {
-        showsErrors && place == nil ? String(localized: "Pick where the game is.", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale) : nil
+        showsErrors && place == nil ? String.app("Pick where the game is.") : nil
     }
 
     private var isValid: Bool {

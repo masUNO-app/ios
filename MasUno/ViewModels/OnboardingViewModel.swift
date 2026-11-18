@@ -129,13 +129,13 @@ final class OnboardingViewModel {
     /// "Welcome to masUNO, Emilio." when the school told us a name; otherwise just the welcome.
     var verifiedWelcome: String {
         let first = firstName.trimmingCharacters(in: .whitespaces)
-        return first.isEmpty ? String(localized: "Welcome to masUNO.", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale) : String(localized: "Welcome to masUNO, \(first).", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+        return first.isEmpty ? String.app("Welcome to masUNO.") : String.app("Welcome to masUNO, \(first).")
     }
 
     /// "Tec de Monterrey · school account", under "Verified student".
     var verifiedSchoolLine: String {
-        guard let school = selectedSchool ?? campus else { return String(localized: "School account", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale) }
-        return String(localized: "\(school.name) · school account", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+        guard let school = selectedSchool ?? campus else { return String.app("School account") }
+        return String.app("\(school.name) · school account")
     }
 
     /// The name from the school's sign-in, if it gave one.
@@ -151,11 +151,11 @@ final class OnboardingViewModel {
 
     /// The rate limit on codes is per hour, so it says so; the chat's "too fast" wording doesn't fit here.
     private func inviteMessage(for error: DomainError) -> String {
-        error == .rateLimited ? String(localized: "Too many tries. Wait an hour and try again.", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale) : message(for: error)
+        error == .rateLimited ? String.app("Too many tries. Wait an hour and try again.") : message(for: error)
     }
 
     var emailPlaceholder: String {
-        campus.map { "you@\($0.emailDomain)" } ?? String(localized: "School email", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+        campus.map { "you@\($0.emailDomain)" } ?? String.app("School email")
     }
 
     private var trimmedEmail: String { email.trimmingCharacters(in: .whitespaces).lowercased() }
@@ -163,7 +163,7 @@ final class OnboardingViewModel {
     /// Names the campus in the "not allowed" message when there's only one to name.
     private func message(for error: DomainError) -> String {
         if error == .emailNotAllowed, let campus {
-            return String(localized: "masUNO is just for \(campus.shortName) students right now. Use your \(campus.shortName) school account.", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+            return String.app("masUNO is just for \(campus.shortName) students right now. Use your \(campus.shortName) school account.")
         }
         return error.message
     }
@@ -176,8 +176,8 @@ final class OnboardingViewModel {
     /// "Others see Emilio G. and your class year."
     var previewLine: String {
         let name = ProfileInput.previewName(first: firstName, last: lastName)
-        if name.isEmpty { return String(localized: "Others see your first name, last initial and class year.", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale) }
-        return String(localized: "Others see \(name) and your class year.", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+        if name.isEmpty { return String.app("Others see your first name, last initial and class year.") }
+        return String.app("Others see \(name) and your class year.")
     }
 
     // MARK: Intents
@@ -228,7 +228,7 @@ final class OnboardingViewModel {
             } else if let campus = open.first {
                 await app.browseAsGuest(campus: campus, store: store)
             } else {
-                guestBrowseError = String(localized: "Browsing isn't open on any campus yet. Create an account to join the wait.", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+                guestBrowseError = String.app("Browsing isn't open on any campus yet. Create an account to join the wait.")
             }
         } catch {
             guestBrowseError = (error as? DomainError ?? .offline).message
@@ -382,7 +382,7 @@ final class OnboardingViewModel {
     private func validateName() -> Bool {
         for name in [firstName, lastName] {
             if name.trimmingCharacters(in: .whitespaces).isEmpty {
-                aboutError = String(localized: "Add your first and last name.", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+                aboutError = String.app("Add your first and last name.")
                 return false
             }
             if !TextFilter.isFriendly(name) {
@@ -403,7 +403,7 @@ final class OnboardingViewModel {
         profileError = nil
         guard validateName() else { return }
         guard !interests.isEmpty else {
-            profileError = String(localized: "Pick at least one sport.", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+            profileError = String.app("Pick at least one sport.")
             return
         }
         let input = ProfileInput(

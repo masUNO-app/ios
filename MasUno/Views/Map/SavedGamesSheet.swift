@@ -60,8 +60,8 @@ struct SavedGamesSheet: View {
         if event.isGoing { return event.isHostedByMe ? event.hostingLine : event.goingLine }
         guard event.isFull else { return event.discoverLine() }
         return store.hasSpotAlert(event.id)
-            ? String(localized: "Full · we'll tell you if a spot opens", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
-            : String(localized: "Full", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+            ? String.app("Full · we'll tell you if a spot opens")
+            : String.app("Full")
     }
 
     @ViewBuilder

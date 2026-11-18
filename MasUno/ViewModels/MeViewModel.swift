@@ -25,17 +25,17 @@ final class MeViewModel {
     }
 
     func classLine(for profile: Profile) -> String {
-        String(localized: "Class of \(String(profile.gradYear)) · \(profile.university.name)", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+        String.app("Class of \(String(profile.gradYear)) · \(profile.university.name)")
     }
 
     /// "Invite friends · 2 left" while there are codes to give; plain "Invite friends" otherwise.
     func inviteTitle(for invites: [Invite]) -> String {
         let left = invites.filter { !$0.isUsed }.count
-        return left > 0 ? String(localized: "Invite friends · \(left) left", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale) : String(localized: "Invite friends", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+        return left > 0 ? String.app("Invite friends · \(left) left") : String.app("Invite friends")
     }
 
     /// "Group chat · 2 new", or just "Group chat".
     func chatTitle(unread: Int) -> String {
-        unread > 0 ? String(localized: "Group chat · \(unread) new", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale) : String(localized: "Group chat", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+        unread > 0 ? String.app("Group chat · \(unread) new") : String.app("Group chat")
     }
 }

@@ -138,7 +138,7 @@ struct SettingsView: View {
             .wideColumn()
         }
         .background(Theme.background)
-        .navigationTitle(String(localized: "Settings", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale))
+        .navigationTitle(String.app("Settings"))
         .navigationBarTitleDisplayMode(.large)
         .task {
             await push.refreshAuthorization()
@@ -301,7 +301,7 @@ struct CommunityGuidelinesView: View {
             .readableColumn(alignment: .leading)
         }
         .background(Theme.background)
-        .navigationTitle(String(localized: "Community guidelines", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale))
+        .navigationTitle(String.app("Community guidelines"))
         .navigationBarTitleDisplayMode(.large)
     }
 }

@@ -45,6 +45,6 @@ struct BlockedPeopleView: View {
             .animation(.default, value: store.blockedPeople)
         }
         .background(Theme.background)
-        .navigationTitle(String(localized: "Blocked people", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale))
+        .navigationTitle(String.app("Blocked people"))
     }
 }

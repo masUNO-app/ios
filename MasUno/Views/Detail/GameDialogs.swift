@@ -58,9 +58,9 @@ private struct CancelGameDialog: ViewModifier {
 
     private func message(for game: Game) -> String {
         switch game.joinedCount {
-        case 0: String(localized: "Nobody has joined yet. It comes off the map and the group chat closes.", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
-        case 1: String(localized: "We'll let the 1 person who joined know it's cancelled and close the group chat.", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
-        default: String(localized: "We'll let the \(game.joinedCount) people who joined know it's cancelled and close the group chat.", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+        case 0: String.app("Nobody has joined yet. It comes off the map and the group chat closes.")
+        case 1: String.app("We'll let the 1 person who joined know it's cancelled and close the group chat.")
+        default: String.app("We'll let the \(game.joinedCount) people who joined know it's cancelled and close the group chat.")
         }
     }
 }

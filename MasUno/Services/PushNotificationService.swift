@@ -52,16 +52,16 @@ final class PushNotificationService {
     /// Categories exist before the person allows notifications, so a later push already has actions.
     func registerCategories() {
         let reply = UNTextInputNotificationAction(
-            identifier: Self.reply, title: String(localized: "Reply", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale), options: [],
-            textInputButtonTitle: String(localized: "Send", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale), textInputPlaceholder: String(localized: "Message", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+            identifier: Self.reply, title: String.app("Reply"), options: [],
+            textInputButtonTitle: String.app("Send"), textInputPlaceholder: String.app("Message")
         )
-        let markRead = UNNotificationAction(identifier: Self.markRead, title: String(localized: "Mark as read", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale), options: [])
+        let markRead = UNNotificationAction(identifier: Self.markRead, title: String.app("Mark as read"), options: [])
         let chat = UNNotificationCategory(identifier: "CHAT", actions: [reply, markRead], intentIdentifiers: [INSendMessageIntentIdentifier], options: [])
-        let countMeIn = UNNotificationAction(identifier: Self.countMeIn, title: String(localized: "Count me in", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale), options: [.authenticationRequired])
+        let countMeIn = UNNotificationAction(identifier: Self.countMeIn, title: String.app("Count me in"), options: [.authenticationRequired])
         let joinCategories = ["SPOT_OPEN", "INTEREST", "SAVED_SOON"].map {
             UNNotificationCategory(identifier: $0, actions: [countMeIn], intentIdentifiers: [], options: [])
         }
-        let directions = UNNotificationAction(identifier: Self.directions, title: String(localized: "Directions", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale), options: [.foreground])
+        let directions = UNNotificationAction(identifier: Self.directions, title: String.app("Directions"), options: [.foreground])
         let reminder = UNNotificationCategory(identifier: "REMINDER", actions: [directions], intentIdentifiers: [], options: [])
         system.setCategories(Set([chat, reminder] + joinCategories))
     }
@@ -307,8 +307,8 @@ final class PushNotificationService {
 
     private func announceSpotTaken() async {
         let content = UNMutableNotificationContent()
-        content.title = String(localized: "Someone beat you to it", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
-        content.body = String(localized: "That game just filled up.", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+        content.title = String.app("Someone beat you to it")
+        content.body = String.app("That game just filled up.")
         content.sound = .default
         let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
         do {

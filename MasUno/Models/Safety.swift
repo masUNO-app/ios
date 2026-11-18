@@ -22,19 +22,19 @@ nonisolated enum ReportReason: String, CaseIterable, Identifiable, Hashable, Sen
     @MainActor func title(for target: ReportTarget) -> String {
         if case .person = target {
             switch self {
-            case .unsafe: return String(localized: "Made me feel unsafe", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
-            case .harassment: return String(localized: "Harassment or hateful language", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
-            case .inappropriate: return String(localized: "Pushed me to share personal info", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
-            case .spam: return String(localized: "Fake profile or not a student", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
-            case .other: return String(localized: "Something else", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+            case .unsafe: return String.app("Made me feel unsafe")
+            case .harassment: return String.app("Harassment or hateful language")
+            case .inappropriate: return String.app("Pushed me to share personal info")
+            case .spam: return String.app("Fake profile or not a student")
+            case .other: return String.app("Something else")
             }
         }
         switch self {
-        case .unsafe: return String(localized: "Made me feel unsafe", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
-        case .harassment: return String(localized: "Harassment or hateful language", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
-        case .inappropriate: return String(localized: "Inappropriate content", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
-        case .spam: return String(localized: "Spam or fake", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
-        case .other: return String(localized: "Something else", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+        case .unsafe: return String.app("Made me feel unsafe")
+        case .harassment: return String.app("Harassment or hateful language")
+        case .inappropriate: return String.app("Inappropriate content")
+        case .spam: return String.app("Spam or fake")
+        case .other: return String.app("Something else")
         }
     }
 

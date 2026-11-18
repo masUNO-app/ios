@@ -28,14 +28,14 @@ final class EventDetailViewModel {
     func headline(for event: Game) -> String {
         switch event.status() {
         case .open: event.roomLine
-        case .going: String(localized: "You're in!", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+        case .going: String.app("You're in!")
         case .full: event.fullLine
-        case .hosting: String(localized: "Your game is live!", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
-        case .ended: String(localized: "This game has ended", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+        case .hosting: String.app("Your game is live!")
+        case .ended: String.app("This game has ended")
         case .cancelled:
             event.isHostedByMe
-                ? String(localized: "You cancelled this game", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
-                : String(localized: "\(event.host.firstName) cancelled this game", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+                ? String.app("You cancelled this game")
+                : String.app("\(event.host.firstName) cancelled this game")
         }
     }
 
@@ -49,20 +49,20 @@ final class EventDetailViewModel {
         switch event.status() {
         case .going:
             chatEnabled
-                ? String(localized: "\(event.host.firstName) knows you're coming. Say hi in the group chat, or just show up.", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+                ? String.app("\(event.host.firstName) knows you're coming. Say hi in the group chat, or just show up.")
                 // Read-only group chat (SPEC N14).
-                : String(localized: "\(event.host.firstName) knows you're coming. Check where to meet and who's going.", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+                : String.app("\(event.host.firstName) knows you're coming. Check where to meet and who's going.")
         case .hosting:
             event.isFull
-                ? String(localized: "Every spot is taken. See you on the court.", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
-                : String(localized: "It's on the map now with \(event.roomPhrase).", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+                ? String.app("Every spot is taken. See you on the court.")
+                : String.app("It's on the map now with \(event.roomPhrase).")
         default: nil
         }
     }
 
     /// "Alex says" over the host's note; "You said" on your own game.
     func noteLabel(for event: Game) -> String {
-        event.isHostedByMe ? String(localized: "You said", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale) : String(localized: "\(event.host.firstName) says", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+        event.isHostedByMe ? String.app("You said") : String.app("\(event.host.firstName) says")
     }
 
     // MARK: Intents
@@ -76,9 +76,9 @@ final class EventDetailViewModel {
     /// With an unused invite code of yours, it adds "Use my invite code ABCD-EFGH to skip the waitlist."
     /// so a friend still waiting can get in.
     static func inviteMessage(for event: Game, invites: [Invite] = []) -> String {
-        let message = String(localized: "Join me for \(event.title) — \(EventFormat.dayAndTime(event.startsAt)) at \(event.place.name). \(event.roomLine) on masUNO:", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+        let message = String.app("Join me for \(event.title) — \(EventFormat.dayAndTime(event.startsAt)) at \(event.place.name). \(event.roomLine) on masUNO:")
         guard let code = invites.first(where: { !$0.isUsed }) else { return message }
-        return message + " " + String(localized: "Use my invite code \(code.displayCode) to skip the waitlist.", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+        return message + " " + String.app("Use my invite code \(code.displayCode) to skip the waitlist.")
     }
 
     /// Walking directions. Offers Google Maps too when it's installed (E19).

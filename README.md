@@ -105,8 +105,8 @@ The app uses Spanish when the device's primary language is Spanish, and English 
 Settings → Language offers Device language, English, and Español; an override takes effect immediately
 and stays on that device across launches. Dates, sport names, error messages and push registration
 follow the same choice. Translations live in `MasUno/Localizable.xcstrings`; `InfoPlist.strings` in
-`en.lproj` and `es.lproj` supplies the location permission explanation. Keep formatted copy on
-`String(localized:bundle:locale:)` with `LanguageSettings.shared` so it respects an in-app override.
+`en.lproj` and `es.lproj` supplies the location permission explanation. Build formatted copy outside a
+`Text` with `String.app("…")` (in `LanguageSettings.swift`) so it respects an in-app override.
 
 masUNO launches at Tec, but the app has no campus built in: open campuses come from `open_universities`, and your
 campus from `my_profile`. To change or add a campus, see SPEC §8.10; no release needed.

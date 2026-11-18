@@ -14,9 +14,9 @@ final class EventMapViewModel {
 
         var label: String {
             switch self {
-            case .anyTime: String(localized: "Any day this week", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
-            case .today: String(localized: "Today, any time", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
-            case .tomorrow: String(localized: "Tomorrow, any time", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+            case .anyTime: String.app("Any day this week")
+            case .today: String.app("Today, any time")
+            case .tomorrow: String.app("Tomorrow, any time")
             }
         }
     }
@@ -29,9 +29,9 @@ final class EventMapViewModel {
 
         var label: String {
             switch self {
-            case .anywhere: String(localized: "Any distance", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
-            case .walking: String(localized: "Walking distance · 20 min", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
-            case .biking: String(localized: "Biking distance · 20 min", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+            case .anywhere: String.app("Any distance")
+            case .walking: String.app("Walking distance · 20 min")
+            case .biking: String.app("Biking distance · 20 min")
             }
         }
 
@@ -137,15 +137,15 @@ final class EventMapViewModel {
     /// "Basketball near you" when every result is one sport; otherwise "Games near you".
     func resultsTitle(for results: [Game]) -> String {
         let sports = Set(results.map(\.activity))
-        if sports.count == 1, let sport = sports.first { return String(localized: "\(sport.name) near you", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale) }
-        return String(localized: "Games near you", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+        if sports.count == 1, let sport = sports.first { return String.app("\(sport.name) near you") }
+        return String.app("Games near you")
     }
 
     /// "Today, 7:35 PM · 0.4 km · room for 4". The distance is left out when there's nowhere to measure from.
     func resultLine(for game: Game) -> String {
         var parts = [EventFormat.shortDayAndTime(game.startsAt)]
         if let origin = userCoordinate { parts.append(EventFormat.distance(from: origin, to: game.coordinate)) }
-        parts.append(String(localized: "room for \(game.spotsLeft)", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale))
+        parts.append(String.app("room for \(game.spotsLeft)"))
         return parts.joined(separator: " · ")
     }
 
@@ -155,7 +155,7 @@ final class EventMapViewModel {
     }
 
     var filterLabel: String {
-        activeFilterCount == 0 ? String(localized: "Filter", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale) : String(localized: "Filter · \(activeFilterCount)", bundle: LanguageSettings.shared.bundle, locale: LanguageSettings.shared.locale)
+        activeFilterCount == 0 ? String.app("Filter") : String.app("Filter · \(activeFilterCount)")
     }
 
     /// Where you are, if the phone has said: the mocked spot in design review, otherwise the last fix.
