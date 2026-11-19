@@ -17,6 +17,7 @@ struct SettingsView: View {
     @State private var locationStatus = CLLocationManager().authorizationStatus
     @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
         ScrollView {
@@ -25,22 +26,18 @@ struct SettingsView: View {
                 section("Language") {
                     HStack(spacing: 14) {
                         IconTile(systemImage: "globe", color: Theme.accentSoft)
-                        Text("App language")
-                            .font(.rounded(.body))
-                            .foregroundStyle(Theme.ink)
-                        Spacer(minLength: 0)
-                        Picker("App language", selection: Bindable(language).preference) {
-                            Text("Device language").tag(LanguageSettings.Preference.system)
-                            Text(verbatim: "English").tag(LanguageSettings.Preference.en)
-                            Text(verbatim: "Español").tag(LanguageSettings.Preference.es)
+                        // The picker goes under the title at accessibility sizes (A11Y-06).
+                        languageLayout {
+                            Text("App language")
+                                .font(.rounded(.body))
+                                .foregroundStyle(Theme.ink)
+                            if !typeSize.isAccessibilitySize { Spacer(minLength: 0) }
+                            languagePicker
                         }
-                        .labelsHidden()
-                        .pickerStyle(.menu)
-                        .tint(Theme.ink)
-                        .font(.rounded(.subheadline))
-                        .accessibilityIdentifier("app-language-picker")
                     }
                     .padding(.horizontal, 14)
+                    // Room around the stacked picker at accessibility sizes; smaller sizes keep the row.
+                    .padding(.vertical, typeSize.isAccessibilitySize ? 8 : 0)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .frame(minHeight: 58)
                 }
@@ -187,6 +184,25 @@ struct SettingsView: View {
         }
     }
 
+    private var languageLayout: AnyLayout {
+        typeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
+            : AnyLayout(HStackLayout(spacing: 14))
+    }
+
+    private var languagePicker: some View {
+        Picker("App language", selection: Bindable(language).preference) {
+            Text("Device language").tag(LanguageSettings.Preference.system)
+            Text(verbatim: "English").tag(LanguageSettings.Preference.en)
+            Text(verbatim: "Español").tag(LanguageSettings.Preference.es)
+        }
+        .labelsHidden()
+        .pickerStyle(.menu)
+        .tint(Theme.ink)
+        .font(.rounded(.subheadline))
+        .accessibilityIdentifier("app-language-picker")
+    }
+
     private func loadPrefs() async {
         prefsFailed = false
         do {
@@ -254,6 +270,8 @@ struct SettingsView: View {
         }
         .tint(Theme.accent)
         .padding(.horizontal, 14)
+        // Room around wrapped titles at accessibility sizes; smaller sizes keep their rows.
+        .padding(.vertical, typeSize.isAccessibilitySize ? 8 : 0)
         .frame(minHeight: 58)
     }
 
@@ -271,13 +289,15 @@ struct SettingsView: View {
                     .font(.rounded(.footnote))
                     .foregroundStyle(Theme.muted)
             }
-            .lineLimit(1)
+            // Wraps at accessibility sizes, where one line would cut most of it off (A11Y-06).
+            .lineLimit(typeSize.isAccessibilitySize ? nil : 1)
             .frame(maxWidth: .infinity, alignment: .leading)
             if let trailing {
                 RowAccessory(systemImage: trailing)
             }
         }
         .padding(.horizontal, 14)
+        .padding(.vertical, typeSize.isAccessibilitySize ? 8 : 0)
         .frame(minHeight: 58)
         .contentShape(.rect)
     }

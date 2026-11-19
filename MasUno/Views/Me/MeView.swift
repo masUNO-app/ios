@@ -6,6 +6,7 @@ struct MeView: View {
     @Environment(GameStore.self) private var store
     @Environment(AppViewModel.self) private var appViewModel
     @State private var viewModel: MeViewModel
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     init(tab: MeViewModel.Tab = .going, editsProfile: Bool = false) {
         let viewModel = MeViewModel(tab: tab)
@@ -145,7 +146,12 @@ struct MeView: View {
     }
 
     private func profileHeader(_ profile: Profile) -> some View {
-        HStack(spacing: 14) {
+        // The token goes above the name at accessibility sizes, so the text gets the card's width.
+        let layout = typeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 14))
+            : AnyLayout(HStackLayout(spacing: 14))
+
+        return layout {
             MeToken(name: profile.fullName, size: 72, ring: 4)
             VStack(alignment: .leading, spacing: 4) {
                 Text(verbatim: profile.fullName)

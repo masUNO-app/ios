@@ -43,9 +43,15 @@ struct InvitesSheet: View {
 private struct InviteCodeRow: View {
     var invite: Invite
     @State private var hasCopied = false
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
-        HStack(spacing: 12) {
+        // Copy and Share go under the code at accessibility sizes (A11Y-06).
+        let layout = typeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 10))
+            : AnyLayout(HStackLayout(spacing: 12))
+
+        layout {
             VStack(alignment: .leading, spacing: 2) {
                 Text(verbatim: invite.displayCode)
                     .font(.system(.title3, design: .rounded, weight: .bold).monospaced())
@@ -57,28 +63,34 @@ private struct InviteCodeRow: View {
             .frame(maxWidth: .infinity, alignment: .leading)
 
             if !invite.isUsed {
-                Button(hasCopied ? "Copied" : "Copy code", systemImage: hasCopied ? "checkmark" : "doc.on.doc") {
-                    UIPasteboard.general.string = invite.code
-                    hasCopied = true
-                    Announce.post(String.app("Copied"))
-                }
-                .glassCircle()
-                .sensoryFeedback(.success, trigger: hasCopied)
-                .task(id: hasCopied) {
-                    guard hasCopied else { return }
-                    try? await Task.sleep(for: .seconds(2))
-                    hasCopied = false
-                }
-
-                ShareLink(item: shareMessage) {
-                    Label("Share code", systemImage: "square.and.arrow.up")
-                }
-                .glassCircle()
+                HStack(spacing: 12) { actions }
             }
         }
         .padding(.horizontal, 14)
+        .padding(.vertical, typeSize.isAccessibilitySize ? 12 : 0)
         .frame(minHeight: 66)
         .accessibilityElement(children: invite.isUsed ? .combine : .contain)
+    }
+
+    @ViewBuilder
+    private var actions: some View {
+        Button(hasCopied ? "Copied" : "Copy code", systemImage: hasCopied ? "checkmark" : "doc.on.doc") {
+            UIPasteboard.general.string = invite.code
+            hasCopied = true
+            Announce.post(String.app("Copied"))
+        }
+        .glassCircle()
+        .sensoryFeedback(.success, trigger: hasCopied)
+        .task(id: hasCopied) {
+            guard hasCopied else { return }
+            try? await Task.sleep(for: .seconds(2))
+            hasCopied = false
+        }
+
+        ShareLink(item: shareMessage) {
+            Label("Share code", systemImage: "square.and.arrow.up")
+        }
+        .glassCircle()
     }
 
     private var status: String {

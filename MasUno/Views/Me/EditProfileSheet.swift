@@ -83,10 +83,16 @@ struct ProfileFields: View {
     var lastNameError: String?
     /// Moved by the screen when Save finds a problem.
     var errorFocus: AccessibilityFocusState<ProfileInput.Field?>.Binding
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
+        // The name fields stack at accessibility sizes, where half the width cuts them off (A11Y-06).
+        let names = typeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(spacing: 12))
+            : AnyLayout(HStackLayout(alignment: .top, spacing: 10))
+
         VStack(spacing: 12) {
-            HStack(alignment: .top, spacing: 10) {
+            names {
                 FieldBox("First name", text: $firstName, prompt: Text("First name"), error: firstNameError) { field in
                     field
                         .textContentType(.givenName)
