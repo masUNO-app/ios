@@ -457,7 +457,7 @@ These are the tokens in the asset catalog today (0.5 and 0.6). The 1.0 tokens ar
 | `background` | `#F5F4F7` | Screens and sheets. |
 | `card` | `#FDFCFE` | Cards, grouped rows, popups. |
 | `ink` | `#1F2638` | Titles and body. |
-| `muted` | `#5F5C68` / `#73707B` | Secondary text; `#73707B` only for ≥ 18 pt or ≥ 14 pt bold. |
+| `muted` | `#5F5C68` / `#73707B` | Secondary text. In the 1.0 catalog the lighter one (`mutedLarge`, `#676877`) passes AA at any size on every surface. |
 | `pin` | `#2F6FE0` | Map pins only. |
 | `destructive` | `#C23B34` | Cancel game, Sign out, Delete account. |
 | `error` | `#CB3D3D` | Field errors. |
@@ -644,6 +644,8 @@ Source of truth: the Figma file "masuno figma" (rows 1–8, §7.4) and `DESIGN.m
 | `surface-2` | — | `#F5F4F7` | Composer tray, secondary fills |
 | `ink` / `ink-2` | `#1F2638` / `#5F5C68` | same | Text; ink on every colored fill except `primary` |
 | `danger` (was `destructive`) | `#C23B34` | `#C42B2B` | Sign out, Cancel game, Delete account |
+| `accentText` | — | `#0F7A54` | Green **text** only: Who's going, the Host tag, "Add a meet-up spot…", the celebrating headline (4.79:1 on `bg`). Fills stay `primary` (A11Y-15) |
+| `error` | `#CB3D3D` | `#C43535` | Field errors (4.82:1 on `bg`, was 4.40) |
 | `pin` | `#2F6FE0` | *(removed)* | Pins use the sport color |
 | `chipSport` | `#DCE4F4` | *(removed)* | Chips use the sport color |
 | Sport colors | — | Basketball `#F2853A` · Tennis `#C7D93D` · Soccer `#3DB26F` · Volleyball `#A99CF6` · Padel `#56BDE8` | That sport's pin, court header, chat band, my bubbles, send button, chip, settings tile |
@@ -652,7 +654,7 @@ Source of truth: the Figma file "masuno figma" (rows 1–8, §7.4) and `DESIGN.m
 | Radii | 16–20 | Cards 22 · sheets 34–38 · pills/inputs/chips fully rounded · tiles 12 | |
 | Type | SF Pro | **SF Pro Rounded** in the app (`.fontDesign(.rounded)`), heavier weights; Nunito in Figma and on the web (R7-10) | |
 
-Light mode only, as before. Contrast: ink on every sport color and `#74C0F5`; white only on `primary`.
+Light mode only, as before. Contrast: ink on every sport color and `#74C0F5`; white only on `primary`. With Increase Contrast on, the asset catalog's High Contrast variants darken `muted`, `mutedLarge`, `primary`, `accentText`, `error`, the row separator and the hairline (text about 7:1), and opacity-based fills go solid (`contrastOpacity`).
 
 #### 7.7.3 Components
 - **Avatar / person token:** initials on the person's pastel, 2 px white ring in stacks, "+N" bubble. Sizes 26 / 30 / 36–42 / 72.
@@ -985,6 +987,16 @@ Alert in team chat → on-call person (Ricardo or Arianna) checks the report in 
 ---
 
 ## 12. Decisions
+
+### Accessibility and optimization pass (Nov 19) — waiting on the people named
+
+| # | Decision | Default |
+| - | --- | --- |
+| AX-1 | A11Y-15 — green text uses a darker `accentText` (`#0F7A54`); fills, toggles and icons keep `primary` (`#12825A`, white on it 4.81:1). The other option was darkening `primary` everywhere (white on it 5.34:1) | Built text-only (Nov 19); ⚑ Arianna reviews it with the High Contrast colors |
+| AX-2 | A11Y-25 — how VoiceOver says "masUNO" in English and Spanish | Unchanged; ⚑ Ricardo and Arianna listen. If English is wrong, the Welcome wordmark gets the label "más uno" |
+| AX-3 | A11Y-28 — portrait-only on phones (WCAG 1.3.4 counts it against us unless essential) | Portrait for 1.0; ⚑ Ricardo decides if landscape is worth its QA (popup placement, the court, chat) |
+| AX-4 | OPT-15 — the unused school SSO path (`FindSchoolStep`, `.findSchool`, `continueWithSchool()`, the Entra error mapping; `SchoolRow` is used) | Kept (README); ⚑ Ethan and Ricardo: keep, or remove and recover from git if Tec IT approves |
+| AX-5 | OPT-13 — link only the Supabase products the app uses. Storage is unused and adds about 342 KB to the Release binary (measured Nov 19, above the plan's 300 KB line); dropping it means rebuilding the session sharing `SupabaseClient` gives | Keep the umbrella product for 1.0; ⚑ Emilio decides after launch |
 
 ### Rev. 7 — sign off at the Fri Nov 6 go/no-go (R7-1 and R7-2 in the team chat tonight)
 
