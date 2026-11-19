@@ -240,8 +240,12 @@ missing, the app shows the read-only chat with no composer, and `send_message` a
 ### `game_messages` → `ChatMessage`
 
 `id`, `event_id`, `sender_id`, `sender_first_name`, `sender_last_initial`, `sender_grad_year`, `body`,
-`client_id`, `created_at`. Only people in the game can read its rows, and leaving the game closes it.
-Messages from a sender in a blocked pair with the reader, and messages a moderator hid, are left out.
+`client_id`, `created_at`, `mentions uuid[]` (1.0, `20261123000000_chat_mentions`; `ChatMessage.mentions`).
+Only people in the game can read its rows, and leaving the game closes it. Messages from a sender in a
+blocked pair with the reader, and messages a moderator hid, are left out. `mentions` is the people the
+message mentions, in the order the sender picked them, minus anyone in a blocked pair with the reader;
+`[]` when there are none. The app finds each one's "@First L." in `body` to highlight it. Older builds
+ignore the column.
 
 | Method | PostgREST query |
 | --- | --- |
@@ -257,7 +261,7 @@ chat. Games with none have no row.
 
 | RPC | Returns | Errors |
 | --- | --- | --- |
-| `send_message(p_game_id uuid, p_body text, p_client_id uuid)` | `game_messages` | `not_found`, `not_allowed`, `chat_disabled`, `cancelled`, `ended`, `chat_rules_required`, `invalid_text`, `rate_limited`, `invalid_input` |
+| `send_message(p_game_id uuid, p_body text, p_client_id uuid, p_mentions uuid[] default '{}')` | `game_messages` | `not_found`, `not_allowed`, `chat_disabled`, `cancelled`, `ended`, `chat_rules_required`, `invalid_text`, `rate_limited`, `invalid_input` |
 | `accept_chat_rules()` | `void` | — |
 | `mark_chat_read(p_game_id uuid)` | `void` | — |
 | `report_message(p_message_id uuid, p_reason text, p_note text)` | `void` | `invalid_input` |
@@ -266,6 +270,14 @@ chat. Games with none have no row.
   one that ended more than 24 hours ago (`ended`). The body is trimmed and goes through the same text filter
   as titles, which also refuses links; the limit is 1000 characters. `p_client_id` is the app's own ID for the
   send: sending it again returns the first message, so a retry never posts twice.
+- **`p_mentions`** (1.0) is the people the message mentions. It replaces the three-argument function,
+  and its default keeps calls from older builds working. The server looks at the first 50 IDs and
+  keeps, once each and at most 10, those that are a current member (host or going), not the sender,
+  not in a blocked pair with the sender, and whose "@First L." is in the trimmed body. Others are
+  dropped without an error. The app sends `p_mentions` only when there are some, so a message without
+  mentions still sends to a server before the migration. Each mention notifies that person even with
+  chat notifications off or the game muted (`NOTIF.md` §3.5). `@everyone` and `@here` are still
+  `invalid_text`.
 - **`mark_chat_read`** does nothing if you aren't in the game.
 - **`report_message`** files a report against the sender with the message text copied in. You can't report
   your own message or one you can't see. Reasons are the same as `report`.

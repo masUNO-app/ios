@@ -23,13 +23,14 @@ projects from same-repository PRs and from `main`, as requested for this project
 | `20261122000000_notification_order_and_latency` | Ordered v2 claims and APNs sends per phone, ten-second batching, five/ten-second retries |
 | `20261120000000_chat_push_blocks` | Chat pushes no longer name a member who's in a blocked pair with the recipient (`private.chat_others`) |
 | `20261121000000_block_privacy` | Host/player blocks remove active RSVPs in either direction, old block pairs are reconciled, activity RLS hides blocked actors, and both notification claim protocols recheck all queued identities and current membership |
+| `20261123000000_chat_mentions` | Group chat @mentions: `chat_messages.mentions`, `send_message(…, p_mentions)` (old signature replaced, defaulted), `mentions` on `game_messages`, and the `chat_mention` push, which ignores the chat switch, mute and quiet hours but not blocks, membership, `chat_enabled` or reads (NOTIF §3.5) |
 
 ## Local setup
 
 1. Install the Supabase CLI and Docker, then run `supabase start`.
 2. `supabase db reset` applies the migrations and `seed.sql` (Tec test hosts and games).
 3. To sign in locally, create `official.masuno.app+local1@gmail.com` in Studio (Authentication → Add user, auto confirm on). The hook lets it in because `seed.sql` allowlists it.
-4. `supabase test db` runs the pgTAP tests in `tests/database` (auth hook, game rules, RLS and grants, blocks, bans, reports, account deletion, group chat, invites and the beta badge, the website waitlist sync). CI runs the same on every PR that touches `supabase/` (`.github/workflows/database.yml`). The two-phone last-spot race stays a manual check in `docs/QA.md`.
+4. `supabase test db` runs the pgTAP tests in `tests/database` (auth hook, game rules, RLS and grants, blocks, bans, reports, account deletion, group chat and mentions, invites and the beta badge, the website waitlist sync). CI runs the same on every PR that touches `supabase/` (`.github/workflows/database.yml`). The two-phone last-spot race stays a manual check in `docs/QA.md`.
 
 ### Notification test tooling
 

@@ -200,7 +200,7 @@ N1 builds at each demo day, 0.5 before Demo Day #3, 1.0 after it, launch Dec 16 
 - Spanish localization (strings, dates, sport names, notification text).
 - Location picker drag-to-adjust (the map pans under a fixed pin). "Happening now" and the "changed since you joined" banner are cut (Nov 19): the "game changed" push and the chat's change row already tell players.
 - "A spot opened" push to people who saved a game (pairs with auto-repost).
-- Group chat messaging, if it missed 0.5 (B20, E26, Appendix A).
+- Group chat messaging, if it missed 0.5 (B20, E26, Appendix A), with **@mentions** (Nov 19): a mentioned member is notified even with group chat notifications off or the game muted (§7.6.9, NOTIF §3.5).
 - Full accessibility pass; metrics view; fixes from 0.5 feedback.
 - **Guest browse (R7-15):** map and game details without names; an account for join, save, host and Who's going.
 
@@ -615,6 +615,7 @@ Map with no games: "No open games right now. Start one?" Failed loads show a ret
 - Timeline: messages ("Maya C. · Host · 5:42 PM") and system rows — created, joined, left ("1 spot open"), meet-up updated, time/place changed, cancelled ("Chat closed").
 - Composer (when `chat_enabled` is on): text filter, no links, ≤ 1000 characters; touch and hold a message to copy, report or block; a message that didn't send says "Not sent · Tap to retry". The chat closes when the game is cancelled and 24 hours after it ends.
 - With messaging only (E26): "Before you chat" rules sheet once per account; opening marks the chat read ("Group chat · N new"). The read-only chat has neither.
+- **Mentions (1.0):** typing "@" in the composer lists the game's people (host and going, not you, not anyone you blocked), filtered by the first name you type; picking one writes "@Maya C. " and records the mention. Deleting or changing that text drops it. A mention of you is bold in the accent text color; other mentions are bold. VoiceOver reads the message as written. Mentions are user IDs on the message (`send_message(…, p_mentions)`); the server keeps up to 10 current members outside any block with the sender whose name is in the text. A mention always notifies, right away (NOTIF §3.5); Settings says so under "Group chat messages". `@everyone` and `@here` stay refused.
 - **Submission rule:** if messaging isn't live on prod by the Sun Nov 8 RC, the submitted build ships the **read-only fallback**: pinned card + system rows only, no composer, and the "Before you go" copy reverts (§7.2). System rows come from `game_activity`, an append-only table the RPCs write to (B3, N30).
 
 #### 7.6.10 Saved (N15, E17)
@@ -862,6 +863,7 @@ notification_outbox (id bigserial pk, user_id uuid, kind text, event_id uuid, pa
 | [game] changed | Everyone going | Time/place/meet-up edit | Always on |
 | [game] was cancelled | Everyone going | Host cancels | Always on |
 | Ricardo G. joined · 2 spots left | Host | Join/leave | Updates on games you host |
+| Maya C. mentioned you: … | The person mentioned in group chat | Message sent | Always on (NOTIF §3.5) |
 
 ### 8.8 Privacy & data
 Your phone's location never leaves the phone. The school's sign-in gives us your name, school email and the account ID sign-in needs, and nothing else. Email stays in Supabase Auth and is never shown to anyone; Supabase Auth also keeps the name from sign-in, and both go when the account is deleted. Others see first name, last initial and class year; interests are private. Reports are kept for moderation; deleted accounts are removed right away (reports stay, without the reporter). No analytics SDK; crashes come from Xcode Organizer.

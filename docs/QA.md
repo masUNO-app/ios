@@ -100,6 +100,7 @@ With `chat_enabled` on (0.6, E26). Phone A hosts, Phone B joined:
 - [ ] Airplane mode on Phone B: a sent message says "Not sent · Tap to retry". Back online, tapping it sends it once.
 - [ ] A message with a filtered word or a link never leaves the composer, and says why.
 - [ ] A third account that isn't in the game can't open the chat.
+- [ ] Mentions (1.0): on Phone A type "@", pick Phone B's person and send. Phone B sees its name bold in green. With Phone B's "Group chat messages" off, the game muted and a Focus on that allows mentions, Phone B still gets "… mentioned you: …" at once, with the Messages look; with that chat open on Phone B, no banner. Delete a letter of the inserted name before sending: no mention push.
 - [ ] Touch and hold Phone A's message on Phone B: **Report message** sends, and the team-chat alert says "chat message". **Block** hides Phone A's messages at once.
 - [ ] Phone A cancels the game: both chats lose the composer and say the chat is closed.
 - [ ] Set `chat_enabled` back to `false`: after a relaunch the composer and messages are gone, with no error.
