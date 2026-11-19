@@ -36,10 +36,7 @@ struct GameCard<Accessory: View, Actions: View>: View {
             .background { summary }
             if Actions.self != EmptyView.self {
                 RowDivider()
-                // Stacked at accessibility sizes, each the card's width: side by side, the
-                // labels would wrap or cut off (A11Y-06).
-                actionLayout { actions }
-                    .environment(\.pillsExpand, typeSize.isAccessibilitySize)
+                actionRow
                     .padding(.horizontal, 20)
                     .padding(.top, 16)
                     .padding(.bottom, 20)
@@ -53,8 +50,19 @@ struct GameCard<Accessory: View, Actions: View>: View {
         .accessibilityElement(children: .contain)
     }
 
-    private var actionLayout: AnyLayout {
-        typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(spacing: 10)) : AnyLayout(HStackLayout(spacing: 10))
+    /// At accessibility sizes, side by side only while both labels fit on one line; otherwise
+    /// stacked, each the card's width, rather than wrapped or cut off (A11Y-06).
+    @ViewBuilder
+    private var actionRow: some View {
+        if typeSize.isAccessibilitySize {
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 10) { actions }
+                VStack(spacing: 10) { actions }
+                    .environment(\.pillsExpand, true)
+            }
+        } else {
+            HStack(spacing: 10) { actions }
+        }
     }
 
     @ViewBuilder

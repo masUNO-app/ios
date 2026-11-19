@@ -60,6 +60,8 @@ struct FieldBox<Content: View>: View {
                     // then it wraps, since shrinking would undo the size someone chose (A11Y-06).
                     .lineLimit(typeSize.isAccessibilitySize ? nil : 1)
                     .minimumScaleFactor(typeSize.isAccessibilitySize ? 1 : 0.75)
+                    // A menu's label centers wrapped lines.
+                    .multilineTextAlignment(.leading)
                 if let error {
                     Text(verbatim: error)
                         .font(.rounded(.caption))

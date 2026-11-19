@@ -591,6 +591,7 @@ struct OnboardingPage<Content: View, Footer: View>: View {
     var message: LocalizedStringKey?
     @ViewBuilder var content: Content
     @ViewBuilder var footer: Footer
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     init(
         systemImage: String? = nil, title: LocalizedStringKey, message: LocalizedStringKey?,
@@ -627,6 +628,9 @@ struct OnboardingPage<Content: View, Footer: View>: View {
                     }
                 }
                 content
+                // At accessibility sizes a pinned footer would cover half the screen, so the
+                // buttons come after the text instead (A11Y-06).
+                if typeSize.isAccessibilitySize { footer.padding(.top, 8) }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, Theme.gutter)
@@ -637,12 +641,14 @@ struct OnboardingPage<Content: View, Footer: View>: View {
         .scrollDismissesKeyboard(.interactively)
         .background(Theme.background)
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            footer
-                .padding(.horizontal, Theme.gutter)
-                .padding(.top, 10)
-                .padding(.bottom, 8)
-                .readableColumn()
-                .background(Theme.background)
+            if !typeSize.isAccessibilitySize {
+                footer
+                    .padding(.horizontal, Theme.gutter)
+                    .padding(.top, 10)
+                    .padding(.bottom, 8)
+                    .readableColumn()
+                    .background(Theme.background)
+            }
         }
     }
 }
@@ -654,10 +660,19 @@ private struct CourtPage<Content: View, Footer: View>: View {
     @ViewBuilder var content: Content
     @ViewBuilder var footer: Footer
 
+    @Environment(\.dynamicTypeSize) private var typeSize
+
     var body: some View {
-        CourtScaffold(activity: Activity.builtIn[0], lineup: lineup, capacity: 6) { content }
-            .scrollBounceBehavior(.basedOnSize)
-            .safeAreaInset(edge: .bottom, spacing: 0) {
+        CourtScaffold(activity: Activity.builtIn[0], lineup: lineup, capacity: 6) {
+            VStack(alignment: .leading, spacing: 0) {
+                content
+                // After the text at accessibility sizes, as on `OnboardingPage` (A11Y-06).
+                if typeSize.isAccessibilitySize { footer.padding(.top, 18) }
+            }
+        }
+        .scrollBounceBehavior(.basedOnSize)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if !typeSize.isAccessibilitySize {
                 footer
                     .padding(.horizontal, Theme.gutter)
                     .padding(.top, 10)
@@ -665,5 +680,6 @@ private struct CourtPage<Content: View, Footer: View>: View {
                     .readableColumn()
                     .background(Theme.background)
             }
+        }
     }
 }

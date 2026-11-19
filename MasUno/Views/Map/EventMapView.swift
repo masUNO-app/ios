@@ -299,7 +299,15 @@ struct EventMapView: View {
                         .environment(appViewModel)
                         .environment(\.currentUserID, store.profile?.id)
                         .fontDesign(.rounded)
-                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { viewModel.popupHeight = $0 }
+                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height in
+                            let grew = height > viewModel.popupHeight + 1
+                            viewModel.popupHeight = height
+                            // At accessibility sizes the card is much taller than the height the
+                            // first pan allowed for, so pan again once it's measured (A11Y-06).
+                            if grew, typeSize.isAccessibilitySize {
+                                viewModel.reveal(event, mapSize: mapSize, area: popupArea, popupWidth: popupWidth)
+                            }
+                        }
                         // Grows out of / shrinks into the pin. Annotation content is hosted outside
                         // this view's transactions, so the animation is declared in here.
                         .scaleEffect(viewModel.isPopupShown ? 1 : 0.1, anchor: .bottom)

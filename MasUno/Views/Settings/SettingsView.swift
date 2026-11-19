@@ -31,6 +31,8 @@ struct SettingsView: View {
                             Text("App language")
                                 .font(.rounded(.body))
                                 .foregroundStyle(Theme.ink)
+                                // The menu picker under it would otherwise squeeze it to "…".
+                                .fixedSize(horizontal: false, vertical: typeSize.isAccessibilitySize)
                             if !typeSize.isAccessibilitySize { Spacer(minLength: 0) }
                             languagePicker
                         }
@@ -190,17 +192,46 @@ struct SettingsView: View {
             : AnyLayout(HStackLayout(spacing: 14))
     }
 
+    @ViewBuilder
     private var languagePicker: some View {
-        Picker("App language", selection: Bindable(language).preference) {
-            Text("Device language").tag(LanguageSettings.Preference.system)
-            Text(verbatim: "English").tag(LanguageSettings.Preference.en)
-            Text(verbatim: "Español").tag(LanguageSettings.Preference.es)
+        let picker = Picker("App language", selection: Bindable(language).preference) {
+            ForEach(LanguageSettings.Preference.allCases) { languageName($0).tag($0) }
         }
-        .labelsHidden()
-        .pickerStyle(.menu)
-        .tint(Theme.ink)
-        .font(.rounded(.subheadline))
-        .accessibilityIdentifier("app-language-picker")
+        if typeSize.isAccessibilitySize {
+            // The menu picker's own button cuts a wrapped choice to one line, so at accessibility
+            // sizes the same choices hang off a label that wraps (A11Y-06).
+            Menu {
+                picker
+            } label: {
+                HStack(spacing: 6) {
+                    languageName(language.preference)
+                        .multilineTextAlignment(.leading)
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.footnote.weight(.semibold))
+                        .accessibilityHidden(true)
+                }
+                .font(.rounded(.subheadline))
+                .foregroundStyle(Theme.ink)
+            }
+            .accessibilityLabel(Text("App language"))
+            .accessibilityValue(languageName(language.preference))
+            .accessibilityIdentifier("app-language-picker")
+        } else {
+            picker
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .tint(Theme.ink)
+                .font(.rounded(.subheadline))
+                .accessibilityIdentifier("app-language-picker")
+        }
+    }
+
+    private func languageName(_ preference: LanguageSettings.Preference) -> Text {
+        switch preference {
+        case .system: Text("Device language")
+        case .en: Text(verbatim: "English")
+        case .es: Text(verbatim: "Español")
+        }
     }
 
     private func loadPrefs() async {
