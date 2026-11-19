@@ -96,43 +96,7 @@ struct GroupChatView: View {
         let newest = Self.newestMessage(in: rows)
         let names = mentionNames()
 
-        return ScrollView {
-            LazyVStack(alignment: .leading, spacing: 9) {
-                if store.isChatEnabled { olderMessages }
-                ForEach(rows) { row in
-                    rowView(row, in: event, lastJoin: lastJoin, names: names)
-                }
-                Color.clear.frame(height: 1).id(Self.bottomID)
-            }
-            .scrollTargetLayout()
-            .padding(.horizontal, 19)
-            .padding(.vertical, 12)
-            .foldColumn()
-        }
-        .scrollPosition($position)
-        .defaultScrollAnchor(.bottom)
-        .defaultScrollAnchor(followsLatest ? .bottom : nil, for: .sizeChanges)
-        .onScrollPhaseChange { _, phase in
-            isUserScrolling = phase == .interacting || phase == .decelerating
-        }
-        .onScrollGeometryChange(for: ScrollMetrics.self) { ScrollMetrics($0) } action: { old, new in
-            // Keyboard/composer resizing is not a gesture away from the conversation.
-            if isUserScrolling {
-                followsLatest = new.nearBottom
-            } else if followsLatest,
-                      old.viewportHeight != new.viewportHeight || old.contentHeight != new.contentHeight {
-                position.scrollTo(id: Self.bottomID, anchor: .bottom)
-            }
-        }
-        .onChange(of: composerIsFocused) { _, focused in
-            if focused, followsLatest { position.scrollTo(id: Self.bottomID, anchor: .bottom) }
-        }
-        .onChange(of: viewModel.pending) { old, new in
-            if let error = ChatViewModel.newFailure(from: old, to: new) {
-                Announce.post(ChatViewModel.failureText(error), priority: .high)
-            }
-        }
-        .scrollDismissesKeyboard(.interactively)
+        let chat = messageList(event, rows: rows, names: names, lastJoin: lastJoin)
         .safeAreaInset(edge: .top, spacing: 0) {
             pinnedCard(event, state: state)
                 .background(alignment: .top) { bandCover(event) }
@@ -142,44 +106,7 @@ struct GroupChatView: View {
         }
         .background { band(event) }
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                VStack(spacing: 1) {
-                    Text(verbatim: event.title)
-                        .font(.rounded(.headline, .bold))
-                    Text(verbatim: "\(event.activity.emoji) \(event.activity.name) · \(String.app("\(event.goingCount) going"))")
-                        .font(.rounded(.caption))
-                }
-                .foregroundStyle(Theme.ink)
-                .lineLimit(1)
-                // One stop, without the emoji next to the sport's name (A11Y-11).
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(Text(verbatim: "\(event.title), \(event.activity.name), \(String.app("\(event.goingCount) going"))"))
-                // The bar keeps its text small; a long press shows the title big (A11Y-24).
-                .accessibilityShowsLargeContentViewer { Text(verbatim: event.title) }
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                Button(event.chatMuted ? "Unmute chat" : "Mute chat", systemImage: event.chatMuted ? "bell.slash" : "bell") {
-                    Task { await store.setChatMuted(event.id, muted: !event.chatMuted) }
-                }
-                .labelStyle(.iconOnly)
-                .tint(.black)
-            }
-            .appSharedBackgroundVisibility(.visible)
-            ToolbarItem(placement: .topBarTrailing) {
-                Button { showsWhoIsGoing = true } label: {
-                    let people = store.lineup(for: event)
-                    TokenStack(
-                        people: Array(people.people.prefix(3)),
-                        extra: event.goingCount - min(people.people.count, 3),
-                        maxVisible: 3, size: 30, ring: 2
-                    )
-                }
-                .accessibilityLabel("Who's going")
-                .accessibilityShowsLargeContentViewer { Label("Who's going", systemImage: "person.2") }
-            }
-            .appSharedBackgroundVisibility(.hidden)
-        }
+        .toolbar { chatToolbar(event) }
         // The bar sits on the band's sport color, so its title, buttons and glass stay light in
         // dark mode, with ink on the band as everywhere else.
         .toolbarColorScheme(.light, for: .navigationBar)
@@ -247,6 +174,98 @@ struct GroupChatView: View {
             Announce.post(String.app("\(new.sender.displayName): \(new.body)"))
         }
         #if DEBUG
+        return debugHooks(chat)
+        #else
+        return chat
+        #endif
+    }
+
+    /// The conversation and how it follows the newest message. Split out of `content(_:)` so each
+    /// part type-checks in reasonable time on older compilers (the iOS 18 job).
+    private func messageList(_ event: Game, rows: [ChatViewModel.Row], names: [UUID: String], lastJoin: UUID?) -> some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 9) {
+                if store.isChatEnabled { olderMessages }
+                ForEach(rows) { row in
+                    rowView(row, in: event, lastJoin: lastJoin, names: names)
+                }
+                Color.clear.frame(height: 1).id(Self.bottomID)
+            }
+            .scrollTargetLayout()
+            .padding(.horizontal, 19)
+            .padding(.vertical, 12)
+            .foldColumn()
+        }
+        .scrollPosition($position)
+        .defaultScrollAnchor(.bottom)
+        .defaultScrollAnchor(followsLatest ? .bottom : nil, for: .sizeChanges)
+        .onScrollPhaseChange { _, phase in
+            isUserScrolling = phase == .interacting || phase == .decelerating
+        }
+        .onScrollGeometryChange(for: ScrollMetrics.self) { ScrollMetrics($0) } action: { old, new in
+            // Keyboard/composer resizing is not a gesture away from the conversation.
+            if isUserScrolling {
+                followsLatest = new.nearBottom
+            } else if followsLatest,
+                      old.viewportHeight != new.viewportHeight || old.contentHeight != new.contentHeight {
+                position.scrollTo(id: Self.bottomID, anchor: .bottom)
+            }
+        }
+        .onChange(of: composerIsFocused) { _, focused in
+            if focused, followsLatest { position.scrollTo(id: Self.bottomID, anchor: .bottom) }
+        }
+        .onChange(of: viewModel.pending) { old, new in
+            if let error = ChatViewModel.newFailure(from: old, to: new) {
+                Announce.post(ChatViewModel.failureText(error), priority: .high)
+            }
+        }
+        .scrollDismissesKeyboard(.interactively)
+    }
+
+    @ToolbarContentBuilder
+    private func chatToolbar(_ event: Game) -> some ToolbarContent {
+        ToolbarItem(placement: .principal) {
+            VStack(spacing: 1) {
+                Text(verbatim: event.title)
+                    .font(.rounded(.headline, .bold))
+                Text(verbatim: "\(event.activity.emoji) \(event.activity.name) · \(String.app("\(event.goingCount) going"))")
+                    .font(.rounded(.caption))
+            }
+            .foregroundStyle(Theme.ink)
+            .lineLimit(1)
+            // One stop, without the emoji next to the sport's name (A11Y-11).
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text(verbatim: "\(event.title), \(event.activity.name), \(String.app("\(event.goingCount) going"))"))
+            // The bar keeps its text small; a long press shows the title big (A11Y-24).
+            .accessibilityShowsLargeContentViewer { Text(verbatim: event.title) }
+        }
+        ToolbarItem(placement: .topBarTrailing) {
+            Button(event.chatMuted ? "Unmute chat" : "Mute chat", systemImage: event.chatMuted ? "bell.slash" : "bell") {
+                Task { await store.setChatMuted(event.id, muted: !event.chatMuted) }
+            }
+            .labelStyle(.iconOnly)
+            .tint(.black)
+        }
+        .appSharedBackgroundVisibility(.visible)
+        ToolbarItem(placement: .topBarTrailing) {
+            Button { showsWhoIsGoing = true } label: {
+                let people = store.lineup(for: event)
+                TokenStack(
+                    people: Array(people.people.prefix(3)),
+                    extra: event.goingCount - min(people.people.count, 3),
+                    maxVisible: 3, size: 30, ring: 2
+                )
+            }
+            .accessibilityLabel("Who's going")
+            .accessibilityShowsLargeContentViewer { Label("Who's going", systemImage: "person.2") }
+        }
+        .appSharedBackgroundVisibility(.hidden)
+    }
+
+    #if DEBUG
+    /// Test and screenshot hooks.
+    private func debugHooks(_ content: some View) -> some View {
+        content
         .overlay(alignment: .topLeading) {
             // Toolbar items don't expose an accessibility value on iOS 27, so the UI tests read the
             // newest message from here.
@@ -278,8 +297,8 @@ struct GroupChatView: View {
             // `-chatDraft "…"`: a typed draft, for screenshots of the send button ready to send.
             if let draft = UserDefaults.standard.string(forKey: "chatDraft") { viewModel.draft = draft }
         }
-        #endif
     }
+    #endif
 
     private func load(includeMessages: Bool) async {
         let session = store.sessionID
