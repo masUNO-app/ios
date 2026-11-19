@@ -8,6 +8,7 @@ struct LocationPickerView: View {
     @Binding var place: Place?
     var sport: Activity
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var typeSize
     @State private var viewModel: LocationPickerViewModel
     @FocusState private var isSearchFocused: Bool
 
@@ -64,7 +65,8 @@ struct LocationPickerView: View {
                 .font(.rounded(.footnote, .bold))
                 .foregroundStyle(Theme.ink)
                 .padding(.horizontal, 12)
-                .frame(height: 28)
+                .padding(.vertical, typeSize.isAccessibilitySize ? 4 : 0)
+                .frame(minHeight: 28)
                 .background(Theme.card, in: .capsule)
                 .shadow(color: Theme.ink.opacity(0.12), radius: 4, y: 2)
             PinMarker(color: sport.color) {
@@ -97,7 +99,8 @@ struct LocationPickerView: View {
                 }
             }
             .padding(.horizontal, 16)
-            .frame(height: 48)
+            .padding(.vertical, typeSize.isAccessibilitySize ? 8 : 0)
+            .frame(minHeight: 48)
             .background(Theme.card, in: .capsule)
             .overlay(Capsule().strokeBorder(isSearchFocused ? Theme.accent : Theme.hairline, lineWidth: isSearchFocused ? 1.5 : 1))
             .shadow(color: Theme.ink.opacity(0.08), radius: 6, y: 2)
@@ -167,10 +170,12 @@ struct LocationPickerView: View {
                         Text(verbatim: subtitle).font(.rounded(.footnote)).foregroundStyle(Theme.muted)
                     }
                 }
-                .lineLimit(1)
+                // Wraps at accessibility sizes, where one line would cut most of it off (A11Y-06).
+                .lineLimit(typeSize.isAccessibilitySize ? nil : 1)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(.horizontal, 14)
+            .padding(.vertical, typeSize.isAccessibilitySize ? 8 : 0)
             .frame(minHeight: 60)
             .contentShape(.rect)
         }
@@ -188,7 +193,7 @@ struct LocationPickerView: View {
                     Text("Search, or drag the map under the pin.").font(.rounded(.footnote)).foregroundStyle(Theme.muted)
                 }
             }
-            .lineLimit(1)
+            .lineLimit(typeSize.isAccessibilitySize ? nil : 1)
             Button("Set location") {
                 guard viewModel.canConfirm else { return }
                 place = viewModel.selection

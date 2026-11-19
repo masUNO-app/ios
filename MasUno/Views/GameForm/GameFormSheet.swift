@@ -13,6 +13,8 @@ struct GameFormSheet: View {
     @FocusState private var focus: Field?
     /// Where VoiceOver goes when Create/Save finds a problem.
     @AccessibilityFocusState private var errorFocus: Field?
+    /// At accessibility sizes, rows of side-by-side pieces stack (A11Y-06).
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     private typealias Field = GameFormViewModel.Field
 
@@ -158,7 +160,7 @@ struct GameFormSheet: View {
         @Bindable var viewModel = viewModel
 
         return VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 8) {
+            stacksAt(spacing: 8) {
                 Menu {
                     Picker("Date", selection: $viewModel.day) {
                         ForEach(viewModel.dayOptions, id: \.self) { option in
@@ -169,25 +171,31 @@ struct GameFormSheet: View {
                     FieldBox("Date", showsChevron: true, isCompact: true) { Text(viewModel.dayLabel(viewModel.day)) }
                 }
 
-                Button {
-                    focus = nil
-                    picksTime = true
-                } label: {
-                    FieldBox("Start time", isInvalid: viewModel.timeError != nil, showsChevron: true, isCompact: true) {
-                        Text(verbatim: viewModel.timeLabel)
+                if typeSize.isAccessibilitySize {
+                    startTimePicker
+                } else {
+                    Button {
+                        focus = nil
+                        picksTime = true
+                    } label: {
+                        FieldBox("Start time", isInvalid: viewModel.timeError != nil, showsChevron: true, isCompact: true) {
+                            Text(verbatim: viewModel.timeLabel)
+                        }
                     }
-                }
-                .buttonStyle(.plain)
-                // The row's error belongs to Start time.
-                .accessibilityHint(Text(verbatim: viewModel.timeError ?? ""))
-                .accessibilityFocused($errorFocus, equals: .time)
-                .popover(isPresented: $picksTime) {
-                    DatePicker("Start time", selection: $viewModel.time, displayedComponents: .hourAndMinute)
-                        .datePickerStyle(.wheel)
-                        .labelsHidden()
-                        .frame(width: 250, height: 180)
-                        .padding(.horizontal, 8)
-                        .presentationCompactAdaptation(.popover)
+                    .buttonStyle(.plain)
+                    // The row's error belongs to Start time.
+                    .accessibilityHint(Text(verbatim: viewModel.timeError ?? ""))
+                    .accessibilityFocused($errorFocus, equals: .time)
+                    .popover(isPresented: $picksTime) {
+                        DatePicker("Start time", selection: $viewModel.time, displayedComponents: .hourAndMinute)
+                            .datePickerStyle(.wheel)
+                            .labelsHidden()
+                            // The popover asks for its ideal size; the compact picker above
+                            // replaces it at accessibility sizes.
+                            .frame(minWidth: 250, idealWidth: 250, minHeight: 180, idealHeight: 180)
+                            .padding(.horizontal, 8)
+                            .presentationCompactAdaptation(.popover)
+                    }
                 }
 
                 Menu {
@@ -209,9 +217,46 @@ struct GameFormSheet: View {
         }
     }
 
-    /// Location card: map thumbnail, place, address and **Change**.
+    /// At accessibility sizes the wheel in a popover would be cut off, so the field is the
+    /// system's compact picker, which opens its own.
+    private var startTimePicker: some View {
+        @Bindable var viewModel = viewModel
+        let isInvalid = viewModel.timeError != nil
+
+        return VStack(alignment: .leading, spacing: 4) {
+            Text("Start time")
+                .font(.rounded(.caption))
+                .foregroundStyle(Theme.muted)
+                .accessibilityHidden(true)
+            DatePicker("Start time", selection: $viewModel.time, displayedComponents: .hourAndMinute)
+                .datePickerStyle(.compact)
+                .labelsHidden()
+                .tint(Theme.accent)
+                .accessibilityHint(Text(verbatim: viewModel.timeError ?? ""))
+                .accessibilityFocused($errorFocus, equals: .time)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 9)
+        .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
+        .background(Theme.card, in: .rect(cornerRadius: Theme.Radius.field))
+        .overlay {
+            RoundedRectangle(cornerRadius: Theme.Radius.field)
+                .strokeBorder(isInvalid ? Theme.error : Theme.hairline, lineWidth: isInvalid ? 1.5 : 1)
+        }
+    }
+
+    /// Side by side, or stacked and leading-aligned at accessibility sizes.
+    private func stacksAt(spacing: CGFloat, @ViewBuilder content: () -> some View) -> some View {
+        let layout = typeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: spacing))
+            : AnyLayout(HStackLayout(spacing: spacing))
+        return layout(content)
+    }
+
+    /// Location card: map thumbnail, place, address and **Change**, which goes under the text at
+    /// accessibility sizes.
     private var locationCard: some View {
-        HStack(spacing: 12) {
+        stacksAt(spacing: 12) {
             if let coordinate = viewModel.place?.coordinate ?? store.campus?.center {
                 MapThumbnail(coordinate: coordinate)
             }
@@ -239,7 +284,7 @@ struct GameFormSheet: View {
                 }
             }
             // Two lines, so a long name or address still reads next to Change on a narrow screen.
-            .lineLimit(2)
+            .lineLimit(typeSize.isAccessibilitySize ? nil : 2)
             .frame(maxWidth: .infinity, alignment: .leading)
 
             Button(viewModel.place == nil ? "Choose" : "Change") {
@@ -260,11 +305,12 @@ struct GameFormSheet: View {
         }
     }
 
-    /// "6 players" with a stepper; "Including you", or "3 joined" when editing.
+    /// "6 players" with a stepper; "Including you", or "3 joined" when editing. The stepper goes
+    /// under the text at accessibility sizes.
     private var playersCard: some View {
         @Bindable var viewModel = viewModel
 
-        return HStack(spacing: 12) {
+        return stacksAt(spacing: 12) {
             VStack(alignment: .leading, spacing: 1) {
                 Text("Players")
                     .font(.rounded(.caption))
@@ -303,14 +349,8 @@ struct GameFormSheet: View {
         @Bindable var viewModel = viewModel
 
         return VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("What would help someone new say yes?")
-                    .font(.rounded(.footnote, .bold))
-                    .foregroundStyle(Theme.ink)
-                Spacer()
-                OptionalTag()
-            }
-            .padding(.top, 2)
+            OptionalQuestion("What would help someone new say yes?")
+                .padding(.top, 2)
 
             VStack(alignment: .leading, spacing: 4) {
                 TextField("Casual 3-on-3. I have an extra ball.", text: $viewModel.notes, axis: .vertical)
@@ -346,7 +386,8 @@ struct GameFormSheet: View {
                                 .font(.rounded(.footnote, .bold))
                                 .foregroundStyle(Theme.ink)
                                 .padding(.horizontal, 11)
-                                .frame(height: 30)
+                                .padding(.vertical, typeSize.isAccessibilitySize ? 5 : 0)
+                                .frame(minHeight: 30)
                                 .background(Theme.accentSoft, in: .capsule)
                         }
                         .buttonStyle(.plain)

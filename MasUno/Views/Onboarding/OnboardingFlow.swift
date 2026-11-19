@@ -11,6 +11,8 @@ struct OnboardingFlow: View {
     @Environment(AppViewModel.self) private var appViewModel
     @Environment(GameStore.self) private var store
     @State private var viewModel: OnboardingViewModel
+    /// Welcome's "masUNO": 44 pt at the default size, growing with Dynamic Type (A11Y-06).
+    @ScaledMetric(relativeTo: .largeTitle) private var wordmarkSize: CGFloat = 44
 
     init(auth: any AuthService, catalog: any AppConfigRepository, campus: University?) {
         _viewModel = State(initialValue: OnboardingViewModel(auth: auth, catalog: catalog, campus: campus))
@@ -70,7 +72,7 @@ struct OnboardingFlow: View {
         CourtPage(lineup: .welcome()) {
             VStack(alignment: .leading, spacing: 10) {
                 Text(verbatim: "masUNO")
-                    .font(.system(size: 44, weight: .bold, design: .rounded))
+                    .font(.system(size: wordmarkSize, weight: .bold, design: .rounded))
                     .foregroundStyle(Theme.ink)
                     .accessibilityAddTraits(.isHeader)
                 Text("We're looking for you.")
@@ -432,6 +434,7 @@ struct SchoolRow: View {
 /// Figma "You're verified!": you, on the court, and what happens next.
 private struct VerifiedStep: View {
     var viewModel: OnboardingViewModel
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
         CourtPage(lineup: .welcome(includesYou: true)) {
@@ -488,11 +491,13 @@ private struct VerifiedStep: View {
                 title.font(.rounded(.body)).foregroundStyle(Theme.ink)
                 Text(verbatim: subtitle).font(.rounded(.footnote)).foregroundStyle(Theme.muted)
             }
-            .lineLimit(1)
-            .minimumScaleFactor(0.8)
+            // Wraps at accessibility sizes instead of shrinking, which would undo the size (A11Y-06).
+            .lineLimit(typeSize.isAccessibilitySize ? nil : 1)
+            .minimumScaleFactor(typeSize.isAccessibilitySize ? 1 : 0.8)
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 14)
+        .padding(.vertical, typeSize.isAccessibilitySize ? 8 : 0)
         .frame(minHeight: 58)
         .accessibilityElement(children: .combine)
     }
