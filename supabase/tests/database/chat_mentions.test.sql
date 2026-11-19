@@ -24,6 +24,8 @@ insert into people values
 insert into people
 select ('23000000-0000-4000-8000-0000000000' || (30 + n)::text)::uuid, 'Member', chr(64 + n)
 from generate_series(1,12) n;
+-- The cap check builds its mention list from here while acting as a member.
+grant select on people to authenticated;
 insert into auth.users(id,email) select id, lower(fname || lname) || '@mention.invalid' from people;
 insert into public.profiles(id,university_id,first_name,last_name,grad_year,guidelines_accepted_at,chat_rules_accepted_at)
 select id,'23000000-0000-4000-8000-000000000001',fname,lname,2027,now(),now() from people;
