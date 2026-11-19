@@ -136,7 +136,7 @@ Placeholders that still need a real answer. Card IDs refer to SPEC §5.
 
 ### Later
 - [x] 1.0 UI (E27), guest browsing (R7-15), invites and the beta badge (N37), one waitlist (N38)
-- [ ] 1.0: Notify me + synced Saved, notifications, picker drag, Spanish
+- [x] 1.0: Notify me + synced Saved, notifications, picker drag, Spanish ("Happening now" and the changed banner are cut)
 - [ ] Post-MVP: organizer approval, profile photos, dark mode
 
 Build 0.9 (2) implements the first optimization pass and the post-create/join primer crash fix.

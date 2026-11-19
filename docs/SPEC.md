@@ -198,7 +198,7 @@ N1 builds at each demo day, 0.5 before Demo Day #3, 1.0 after it, launch Dec 16 
 - Notifications: a spot opened (Saved games), game changed, game cancelled, 30-min reminder, new game matching your interests, host updates; Notifications section in Settings; permission asked after the first join or hosted game.
 - Saved synced to the account (B15), "Notify me if a spot opens" on full games.
 - Spanish localization (strings, dates, sport names, notification text).
-- Location picker drag-to-adjust; "Happening now" state; "changed since you joined" banner.
+- Location picker drag-to-adjust (the map pans under a fixed pin). "Happening now" and the "changed since you joined" banner are cut (Nov 19): the "game changed" push and the chat's change row already tell players.
 - "A spot opened" push to people who saved a game (pairs with auto-repost).
 - Group chat messaging, if it missed 0.5 (B20, E26, Appendix A).
 - Full accessibility pass; metrics view; fixes from 0.5 feedback.
@@ -210,7 +210,7 @@ Chat push and retention, profile photos, calendar sync, name-visibility setting,
 ### Cut order if we slip
 - **0.5 → 0.6**, decided at the Sat Nov 7 evening check and again at the Sun Nov 8 noon go/no-go: (1) Edit profile & interests; (2) group chat — first fall back to read-only (drop the composer and mock messages), then hide its entry points if even that isn't live; (3) Invite a friend; (4) Past games; (5) sport filter; (6) map search; (7) offline banner (keep retry). Hide cut features in the Release build — never ship a button that does nothing.
 - **If sign-in, join or delete account isn't live on prod by Sun Nov 8 noon:** don't submit a mock build. Keep going and submit the day they're live (aim Tue–Wed Nov 10–11); hard backstop Mon Nov 16 together with 0.6. Demo Day #2 then shows the TestFlight build, labelled as beta. If only allowlisted accounts can sign in by then, R7-14 applies.
-- **1.0** — (1) form suggestion chips and join animation (§7.7); (2) Google Maps option; (3) drag-to-adjust; (4) "changed since you joined" banner; (5) host-update notifications; (6) court art simplified to a plain sport-color band with the lineup tokens (keeps the rest of the 1.0 UI).
+- **1.0** — (1) form suggestion chips and join animation (§7.7); (2) Google Maps option; (3) drag-to-adjust; (4) ~~"changed since you joined" banner~~ (cut Nov 19); (5) host-update notifications; (6) court art simplified to a plain sport-color band with the lineup tokens (keeps the rest of the 1.0 UI).
 - **Never cut** anything on the App Review checklist.
 
 ---
@@ -270,7 +270,7 @@ Program weeks shown; the Wednesday Team Session doubles as our weekly sync.
 | **Wk 8** (Nov 9–15) · **submit 0.5 Thu** | Merge B7; RC Wed; submit 0.5 Thu (E15); answer review; chat messaging (E26) and 0.6 fixes; start 1.0 UI (E27: tokens, pins, popup, Me cards) | SSO spike (B21), tenant check (B22), report webhook, backups; fixes from review; chat backend (B20) for 0.6 | Resolve 1.0 conflicts (D12) Wed; start 1.0 frames for missing screens (D2/D8) | Beta testers once Beta App Review clears (O8); moderation (O11) |
 | **Wk 9** (Nov 16–22) · submit 0.6 Mon · DD2 Thu | Submit 0.6 Mon; 1.0 UI: court headers, detail, chat, Who's going (E27) | 1.0 backend start: notification backend (B13) | DD2 deck (D5); 1.0 frames for missing screens (D2/D8) by Sun; 1.0 tokens as Figma variables (D13) | Beta + real games (O8, O9); DD2 numbers (O10) |
 | **Wk 10** (Nov 23–29) · Thanksgiving | 1.0: notification screens (E16), Saved sync (E17), restyle onboarding/safety/states from D2 frames (E27) | `send-push` (B14), Saved backend (B15), `NotificationService` (B16) | Design QA of 0.x release | Spanish translation (O12); beta feedback summary (O8) |
-| **Wk 11** (Nov 30–Dec 6) · DD3 Thu | 1.0 beta Tue; Spanish (E18), picker drag + banner (E20), 0.x fixes | Metrics (B17), Spanish notifications (B18), 0.x fixes | DD3 deck (D5); 1.0 design QA (D6); Spanish layout check (D9) | DD3 story + numbers (O10) |
+| **Wk 11** (Nov 30–Dec 6) · DD3 Thu | 1.0 beta Tue; Spanish (E18), picker drag (E20), 0.x fixes | Metrics (B17), Spanish notifications (B18), 0.x fixes | DD3 deck (D5); 1.0 design QA (D6); Spanish layout check (D9) | DD3 story + numbers (O10) |
 | **Wk 12** (Dec 7–13) | Accessibility + tests (E22); submit 1.0 Tue (E23) | Notification tests, prod checks (B19) | 1.0 screenshots (D7); launch deck (D5) | Launch-week games (O9); PR/FAQ final; launch plan (O13) |
 | **Wk 13** (Dec 14–16) | Release 1.0 Mon | On call | Product Launch | Waitlist email + launch posts (O13); on call |
 
@@ -355,7 +355,7 @@ For 0.5, everything in Swift is Ethan's (screens and the data layer); everything
 | E27 | **1.0 UI pass** (§7.7, N23): 1.0 tokens + rounded type (2 h); sport colors on pins, popup with tail, "+1" tokens (2 h); court/field headers ×5 with the lineup and "Room for N more" (4 h); Me cards + profile band (1.5 h); chat sport band, bubbles, join pill (1.5 h); Who's going rows, Settings icon tiles, form suggestion chips, copy (1 h); restyle onboarding/safety/states from D2 frames. | 1.0 | 12 h | Tue Dec 1 (start Nov 10) | **Built** (Nov 14): screens match §7.7; design QA (screenshots vs Figma) still open | 1.0 beta matches the 1.0 frames (or differences noted by Arianna). |
 | E16 | Notification screens. | 1.0 | 3.5 h | Nov 29 | — | Tapping each notification type opens the right game. |
 | E18 | Spanish. | 1.0 | 2 h | Dec 4 | — | Whole app readable in Spanish. |
-| E20 | Picker drag + "Happening now" + changed banner. | 1.0 | 3.5 h | Dec 5 | — | Drag sets a spot; banner shows after a host edit. |
+| E20 | Picker drag. "Happening now" and the changed banner are cut (Nov 19). | 1.0 | 1.5 h | Dec 5 | Built (pan under a fixed pin) | Drag sets a spot. |
 | E22 | Accessibility + UI tests. | 1.0 | 4 h | Dec 7 | — | Core loop with VoiceOver at XXL text. |
 | E23 | 0.x fixes + 1.0 submission. | 1.0 | 3 h | Dec 8 | — | 1.0 submitted. |
 | | **Ethan remaining** | | **0.5 ~7 h · 0.6 ~4 h (E26) · 1.0 ~30 h · ≈ 41 h** | | | |
@@ -403,7 +403,7 @@ For 0.5, everything in Swift is Ethan's (screens and the data layer); everything
 | D6 | **Design QA**: 0.5 RC against the green `341:*` frames and §7 (Sun Nov 8); 1.0 beta against §7.7 frames (Dec 2); Trello bugs with screenshots; screenshot review in UI PRs. | All | 1.5 per build | Nov 8, Dec 2 | — |
 | D7 | **App Store screenshots** (6.9") from the release candidate — 0.5 UI for 0.5; redo in the 1.0 UI for 1.0. Real Monterrey venues only (no San Francisco map or "[Padel venue near Tec]" placeholders). | 0.5 / 1.0 | 3 | ~~Sun Nov 8~~ → **Wed Nov 11** / Dec 8 | To do |
 | D12 | **Resolve 1.0 conflicts** (§7.7.6): agree defaults for R7-4…R7-10 and R7-15 with Ricardo and update the Figma (e.g. Who's going rows, Settings rows, "Cancel game", no "· Read", no mic glyph). | 1.0 | 1 | Wed Nov 11 | To do |
-| D2 + D8 | **1.0-style frames for screens the Figma doesn't have yet** (N25): onboarding (Welcome → Location primer → Sign in to join (sheet) → Find your school → School sign-in (system web sheet; iOS and the school own it, so it's in the flow but not drawn) → You're verified → Set up profile → (1.0) Notification primer) + update-required + suspended; Event detail Full / Hosting / Ended / Cancelled; report sheet, block dialog, Blocked people; empty/error/offline; group chat read-only variant; Saved list + empty state; Notifications settings; Notify me; "Happening now"; "changed since you joined" banner; picker drag; **auto-repost toggle, hosting-card line and bumped pin (D11)**. | 1.0 | 8 | **Sun Nov 22** | In progress: Sign in to join and Find your school are drawn |
+| D2 + D8 | **1.0-style frames for screens the Figma doesn't have yet** (N25): onboarding (Welcome → Location primer → Sign in to join (sheet) → Find your school → School sign-in (system web sheet; iOS and the school own it, so it's in the flow but not drawn) → You're verified → Set up profile → (1.0) Notification primer) + update-required + suspended; Event detail Full / Hosting / Ended / Cancelled; report sheet, block dialog, Blocked people; empty/error/offline; group chat read-only variant; Saved list + empty state; Notifications settings; Notify me; picker drag; **auto-repost toggle, hosting-card line and bumped pin (D11)**. | 1.0 | 8 | **Sun Nov 22** | In progress: Sign in to join and Find your school are drawn |
 | D13 | **1.0 tokens as Figma variables** + hand-off table for E27 (sport colors, person colors, radii, glass recipes — §7.7.2). | 1.0 | 1 | Fri Nov 20 | Partly done (in `DESIGN.md`) |
 | D9 | Spanish layout check: long strings, truncation, buttons. | 1.0 | 1 | Dec 4 | — |
 | D10 | *Optional:* small SwiftUI PRs (spacing/color tweaks found in design QA), reviewed by Ethan. | — | — | Any time | — |
@@ -538,7 +538,7 @@ Frames: `https://www.figma.com/design/5eKA3f0I90VVABrAuNMFD2/masuno-figma?node-i
 | 6 · Padel | 408:3324, 408:4374, 408:6057, 408:5042 | E27 |
 | 7 · Group chat | Basketball 341:1791, Tennis 413:9386, Soccer 413:9479, Volleyball 413:9576, Padel 413:9670; Who's going 341:2309; Chat rules 341:2420; Edit meet-up 341:2507 | E27 (+ E26 messaging if it missed 0.5) |
 | 8 · Me and settings | Me Going 341:2165, Me Hosting 341:2240, Edit game 341:2703, Cancel game 341:2840, Settings 341:2144 | E27 · E16 (notification toggles) |
-| *Not drawn yet* | Onboarding other than Sign in to join and Find your school, detail states, safety sheets, states, Saved, notifications, Happening now, banner, picker drag, auto-repost | D2 + D8 by Sun Nov 22 |
+| *Not drawn yet* | Onboarding other than Sign in to join and Find your school, detail states, safety sheets, states, Saved, notifications, picker drag, auto-repost | D2 + D8 by Sun Nov 22 |
 
 ### 7.5 Onboarding & sign-in (E5 screens · B5 `AuthService` · 1.0 frames in D2)
 
@@ -683,7 +683,7 @@ Light mode only, as before. Contrast: ink on every sport color and `#74C0F5`; wh
 | Me | Profile band, Plays chips, sport-colored cards with token rows |
 | Settings | Icon tiles; 1.0 notification rows (E16) |
 | Add / Edit game | Field cards, suggestion chips, spots stepper copy |
-| Not drawn yet | Onboarding other than Sign in to join and Find your school, detail states, safety sheets, empty/error/offline, Saved, notification primer, Happening now, changed banner, picker drag, auto-repost → D2 + D8 (Nov 22) |
+| Not drawn yet | Onboarding other than Sign in to join and Find your school, detail states, safety sheets, empty/error/offline, Saved, notification primer, picker drag, auto-repost → D2 + D8 (Nov 22) |
 
 #### 7.7.5 Copy changes in 1.0 (String Catalog keys stay; values change)
 
