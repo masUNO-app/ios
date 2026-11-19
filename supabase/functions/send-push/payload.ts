@@ -1,6 +1,6 @@
 // The JSON APNs receives. One object per device, in that device's language.
 
-import { chatMessageBody, type NotificationContext, type NotificationPayloadData, renderAlert } from "./templates.ts";
+import { chatMessageBody, mentionBody, type NotificationContext, type NotificationPayloadData, renderAlert } from "./templates.ts";
 
 export interface DeviceToken {
     token: string;
@@ -22,6 +22,8 @@ export interface ClaimedNotification {
 
 const TIME_SENSITIVE = new Set(["game_cancelled", "reminder", "spot_open"]);
 const PASSIVE = new Set(["interest_match", "winback", "saved_soon"]);
+/** Both redrawn by the extension as Messages-style chat. */
+const CHAT = new Set(["chat_message", "chat_mention"]);
 
 export function interruptionLevel(kind: string): "time-sensitive" | "passive" | "active" {
     if (TIME_SENSITIVE.has(kind)) return "time-sensitive";
@@ -44,6 +46,7 @@ export function category(kind: string): string | undefined {
         case "reminder":
             return "REMINDER";
         case "chat_message":
+        case "chat_mention":
             return "CHAT";
         default:
             return undefined;
@@ -52,7 +55,7 @@ export function category(kind: string): string | undefined {
 
 export function threadID(kind: string, eventID: string | null): string | undefined {
     if (!eventID) return undefined;
-    return kind === "chat_message" ? `chat:${eventID}` : `game:${eventID}`;
+    return CHAT.has(kind) ? `chat:${eventID}` : `game:${eventID}`;
 }
 
 /**
@@ -72,26 +75,29 @@ export function buildPush(
         alert: { title: alert.title, body: alert.body },
         sound: "default",
         "interruption-level": interruptionLevel(row.kind),
-        "relevance-score": TIME_SENSITIVE.has(row.kind) ? 0.9 : PASSIVE.has(row.kind) ? 0.3 : 0.6,
+        "relevance-score": TIME_SENSITIVE.has(row.kind) || row.kind === "chat_mention" ? 0.9 : PASSIVE.has(row.kind) ? 0.3 : 0.6,
     };
     if (thread) {
         aps["thread-id"] = thread;
         aps["target-content-id"] = thread;
     }
     if (group) aps.category = group;
-    if (row.kind === "chat_message") aps["mutable-content"] = 1;
+    if (CHAT.has(row.kind)) aps["mutable-content"] = 1;
 
+    // A mention reaches the phone as chat with "mention": true, so builds without mentions still
+    // draw it, route it to the chat and hide it while that chat is open.
     const body: Record<string, unknown> = {
         aps,
-        kind: row.kind,
+        kind: row.kind === "chat_mention" ? "chat_message" : row.kind,
         outbox_id: row.id,
     };
+    if (row.kind === "chat_mention") body.mention = true;
     if (row.event_id) body.game_id = row.event_id;
     if (typeof context.lat === "number" && typeof context.lng === "number") {
         body.place = { name: context.place ?? "", lat: context.lat, lng: context.lng };
     }
-    if (row.kind === "chat_message") {
-        const count = data.count ?? 1;
+    if (CHAT.has(row.kind)) {
+        const count = row.kind === "chat_mention" ? 1 : data.count ?? 1;
         body.game = { title: context.title ?? "", sport: context.sport ?? "" };
         body.sender = {
             id: data.sender_id ?? data.actor_id ?? "",
@@ -99,7 +105,7 @@ export function buildPush(
             initials: data.sender_initials ?? "",
         };
         body.others = (data.others ?? []).slice(0, 2);
-        body.body = chatMessageBody(token.locale, data);
+        body.body = row.kind === "chat_mention" ? mentionBody(token.locale, data) : chatMessageBody(token.locale, data);
         body.count = count;
     }
 

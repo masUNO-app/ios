@@ -63,6 +63,65 @@ test("merged chat names the senders and the count", () => {
     assert.equal(one.body, "Maya C.: Llevo el balón");
 });
 
+test("a mention names the sender in english and spanish", () => {
+    const payload = { sender_name: "Maya C.", body: "@Sam L. bring the ball", count: 1 };
+    const english = renderAlert("chat_mention", "en-US", game, payload);
+    assert.equal(english.title, "Sunday pickup soccer");
+    assert.equal(english.body, "Maya C. mentioned you: @Sam L. bring the ball");
+    const spanish = renderAlert("chat_mention", "es-MX", game, payload);
+    assert.equal(spanish.title, "Sunday pickup soccer");
+    assert.equal(spanish.body, "Maya C. te mencionó: @Sam L. bring the ball");
+});
+
+test("a mention reaches the phone as chat the extension redraws", () => {
+    const row = {
+        id: 11,
+        user_id: "user",
+        kind: "chat_mention",
+        event_id: "game-1",
+        payload: {
+            sender_id: "a21b",
+            sender_name: "Maya C.",
+            sender_initials: "MC",
+            message_id: "m-1",
+            body: "@Sam L. bring the ball",
+            count: 1,
+            others: [{ id: "c9d0", name: "Nina P." }],
+        },
+        collapse_id: "mention:m-1",
+        expires_at: "2026-11-16T19:30:00-06:00",
+        tokens: [],
+        context: game,
+    };
+    const english = buildPush(row, { token: "abc", environment: "production", locale: "en-US" });
+    const aps = english.body.aps as {
+        alert: { title: string; body: string };
+        category: string;
+        "thread-id": string;
+        "mutable-content": number;
+        "interruption-level": string;
+    };
+    assert.equal(english.body.kind, "chat_message");
+    assert.equal(english.body.mention, true);
+    assert.equal(aps.category, "CHAT");
+    assert.equal(aps["thread-id"], "chat:game-1");
+    assert.equal(aps["mutable-content"], 1);
+    assert.equal(aps["interruption-level"], "active");
+    assert.equal(aps.alert.body, "Maya C. mentioned you: @Sam L. bring the ball");
+    assert.equal(english.body.body, "Mentioned you: @Sam L. bring the ball");
+    assert.deepEqual(english.body.sender, { id: "a21b", name: "Maya C.", initials: "MC" });
+    assert.equal(english.body.count, 1);
+    assert.equal(english.headers["apns-collapse-id"], "mention:m-1");
+
+    const spanish = buildPush(row, { token: "abc", environment: "production", locale: "es-MX" });
+    assert.equal((spanish.body.aps as { alert: { body: string } }).alert.body, "Maya C. te mencionó: @Sam L. bring the ball");
+    assert.equal(spanish.body.body, "Te mencionó: @Sam L. bring the ball");
+
+    const chat = buildPush({ ...row, kind: "chat_message", collapse_id: "chat:game-1" },
+        { token: "abc", environment: "production", locale: "en-US" });
+    assert.equal(chat.body.mention, undefined);
+});
+
 test("a spot alert is time-sensitive and carries the game", () => {
     const message = buildPush({
         id: 4812,

@@ -38,6 +38,8 @@ export interface NotificationPayloadData {
     body?: string;
     count?: number;
     message_at?: string;
+    /** A mention's message (`chat_mention`). */
+    message_id?: string;
     others?: { id: string; name: string }[];
     games?: number;
     campus?: string;
@@ -73,6 +75,12 @@ export function chatMessageBody(locale: string, payload: NotificationPayloadData
     const count = payload.count ?? 1;
     if (count <= 1) return payload.body ?? "";
     return languageOf(locale) === "es" ? `${count} mensajes nuevos` : `${count} new messages`;
+}
+
+/** A mention, under the sender's name in the Messages-style banner: "Mentioned you: …". */
+export function mentionBody(locale: string, payload: NotificationPayloadData): string {
+    const text = payload.body ?? "";
+    return languageOf(locale) === "es" ? `Te mencionó: ${text}` : `Mentioned you: ${text}`;
 }
 
 /**
@@ -133,6 +141,13 @@ export function renderAlert(
     const room = spots(context, payload);
     const capacity = payload.capacity ?? context.capacity ?? 0;
     const going = payload.going ?? context.going_count ?? capacity;
+
+    if (kind === "chat_mention") {
+        const sender = payload.sender_name ?? "";
+        const text = payload.body ?? "";
+        const body = language === "es" ? `${sender} te mencionó: ${text}` : `${sender} mentioned you: ${text}`;
+        return { title: game, body: body.trim() };
+    }
 
     if (kind === "chat_message") {
         const count = payload.count ?? 1;
