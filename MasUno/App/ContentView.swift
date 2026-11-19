@@ -79,21 +79,17 @@ struct ContentView: View {
             services.push.registerCategories()
             Task { await services.push.refreshRegistration(force: true) }
         }
-        .sheet(isPresented: Binding(
+        // The same dialog card as the location primer. It needs an answer: Turn on and Not now
+        // record themselves, so closing only ends this ask.
+        .dialog(isPresented: Binding(
             get: {
                 store.asksForNotificationPrimer && appViewModel.push?.shouldOfferPrimer(accountID: store.profile?.id) == true
             },
             set: { presented in
-                guard !presented else { return }
-                // A drag-away is the same as Not now. Turn on sets the accepted flag first.
-                appViewModel.push?.recordPrimerClose(
-                    accepted: store.notificationPrimerAccepted, accountID: store.profile?.id
-                )
-                store.notificationPrimerAccepted = false
-                store.asksForNotificationPrimer = false
+                if !presented { store.asksForNotificationPrimer = false }
             }
-        )) {
-            NotificationPrimerSheet()
+        ), isDismissable: false) {
+            NotificationPrimerDialog()
                 .environment(store)
                 .environment(services.push)
         }
