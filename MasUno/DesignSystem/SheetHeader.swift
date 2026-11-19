@@ -19,6 +19,8 @@ struct SheetHeader: View {
                     .font(.rounded(.subheadline))
                     .foregroundStyle(Theme.muted)
             }
+            // Never squeezed into "…" by a list under it in a short sheet (A11Y-06).
+            .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, alignment: .leading)
 
             if #available(iOS 26, *) {
@@ -37,9 +39,20 @@ extension View {
     /// The look every 1.0 sheet shares: page background and a grabber. The corners are the
     /// system's, which follow the screen's own curve; a fixed radius clips against it.
     func sheetChrome(detents: Set<PresentationDetent> = [.large], background: Color = Theme.background) -> some View {
-        presentationDetents(detents)
+        modifier(SheetChrome(detents: detents))
             .presentationDragIndicator(.visible)
             .presentationBackground(background)
+    }
+}
+
+/// At accessibility sizes every sheet opens full height: a part-height one shows a few lines
+/// of text (A11Y-06).
+private struct SheetChrome: ViewModifier {
+    var detents: Set<PresentationDetent>
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    func body(content: Content) -> some View {
+        content.presentationDetents(typeSize.isAccessibilitySize ? [.large] : detents)
     }
 }
 

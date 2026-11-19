@@ -21,6 +21,7 @@ struct FieldBox<Content: View>: View {
     /// An input box: the text field carries the caption, error and hint, so they're hidden here.
     private(set) var isInput = false
     @ViewBuilder var content: Content
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     init(
         _ label: LocalizedStringKey?,
@@ -49,14 +50,16 @@ struct FieldBox<Content: View>: View {
                     Text(label)
                         .font(.rounded(.caption))
                         .foregroundStyle(Theme.muted)
-                        .lineLimit(1)
+                        .lineLimit(typeSize.isAccessibilitySize ? nil : 1)
                         .accessibilityHidden(isInput)
                 }
                 content
                     .font(.rounded(isCompact ? .subheadline : .body, .bold))
                     .foregroundStyle(Theme.ink)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
+                    // One line, shrinking a little to fit, until the text is too big for that:
+                    // then it wraps, since shrinking would undo the size someone chose (A11Y-06).
+                    .lineLimit(typeSize.isAccessibilitySize ? nil : 1)
+                    .minimumScaleFactor(typeSize.isAccessibilitySize ? 1 : 0.75)
                 if let error {
                     Text(verbatim: error)
                         .font(.rounded(.caption))

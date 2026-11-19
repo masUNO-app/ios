@@ -40,6 +40,8 @@ struct EventMapView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.openURL) private var openURL
+    /// Room around wrapped text in the overlays at accessibility sizes; smaller sizes keep their heights.
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     private struct AttendeeDemandKey: Hashable {
         let games: [Game]
@@ -61,6 +63,11 @@ struct EventMapView: View {
     private static let navigationRowReserve: CGFloat = 20 + 221 + 10
     /// How far the avatar draws past the room its label claims in the bottom bar.
     private static let avatarOverhang: CGFloat = 5
+    /// The field, chip and banners float over the map and stop growing here: at the largest
+    /// sizes the field alone would cover a third of the map (A11Y-06). Arianna picks the cap.
+    private static let overlayTypeCap = DynamicTypeSize.accessibility2
+    /// A search result's height at the default text size; rows grow with the text.
+    @ScaledMetric(relativeTo: .body) private var resultRowHeight: CGFloat = 68
 
     var body: some View {
         // Pins, chip, cards and search all read this one pass over the store.
@@ -78,7 +85,11 @@ struct EventMapView: View {
                 // The field and its results run the full width up to `searchWidth`: edge to edge
                 // on a phone and the open iPhone Duo in portrait, not across a landscape screen.
                 // The chip and banners keep a phone's column.
-                if showsSearchRow, !searchInNavigationBar { searchRow.frame(maxWidth: Self.searchWidth) }
+                if showsSearchRow, !searchInNavigationBar {
+                    searchRow
+                        .frame(maxWidth: Self.searchWidth)
+                        .dynamicTypeSize(...Self.overlayTypeCap)
+                }
                 if isSearching {
                     searchResults(frame.filtered).frame(maxWidth: Self.searchWidth)
                 } else {
@@ -89,6 +100,7 @@ struct EventMapView: View {
                         if showsLocationBanner { locationBanner }
                     }
                     .frame(maxWidth: Theme.columnWidth, alignment: .leading)
+                    .dynamicTypeSize(...Self.overlayTypeCap)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -426,7 +438,8 @@ struct EventMapView: View {
             }
         }
         .padding(.horizontal, 14)
-        .frame(height: 48)
+        .padding(.vertical, typeSize.isAccessibilitySize ? 8 : 0)
+        .frame(minHeight: 48)
         .appGlass(in: .capsule, interactive: true)
         .foregroundStyle(Theme.ink)
     }
@@ -465,7 +478,7 @@ struct EventMapView: View {
                     }
                 }
                 .scrollBounceBehavior(.basedOnSize)
-                .frame(maxHeight: min(CGFloat(results.count) * 68, max(screenSize.height * 0.5, 204)))
+                .frame(maxHeight: min(CGFloat(results.count) * resultRowHeight, max(screenSize.height * 0.5, 204)))
                 .background(Theme.card, in: .rect(cornerRadius: Theme.Radius.card))
                 .shadow(color: Theme.ink.opacity(0.08), radius: 8, y: 3)
             }
@@ -509,7 +522,8 @@ struct EventMapView: View {
             .font(.rounded(.footnote))
             .foregroundStyle(Theme.muted)
             .padding(.horizontal, 12)
-            .frame(height: 32)
+            .padding(.vertical, typeSize.isAccessibilitySize ? 6 : 0)
+            .frame(minHeight: 32)
             .appGlass(in: .capsule, interactive: true)
         }
         .buttonStyle(.plain)
@@ -610,8 +624,10 @@ struct EventMapView: View {
             Label("Turn on location to see how far games are", systemImage: "location.slash")
                 .font(.rounded(.footnote, .bold))
                 .foregroundStyle(Theme.ink)
+                .multilineTextAlignment(.leading)
                 .padding(.horizontal, 12)
-                .frame(height: 32)
+                .padding(.vertical, typeSize.isAccessibilitySize ? 6 : 0)
+                .frame(minHeight: 32, alignment: .leading)
                 .appGlass(in: .capsule, interactive: true)
         }
         .buttonStyle(.plain)
@@ -639,6 +655,8 @@ struct EventMapView: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Show my location")
+            // Its symbol stays this size, so a long press shows it big (A11Y-24).
+            .accessibilityShowsLargeContentViewer { Label("Show my location", systemImage: "location") }
             .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { locationButtonWidth = $0 }
             .offset(x: avatarFrame.midX - container.minX - locationButtonWidth / 2)
             .frame(maxHeight: .infinity, alignment: .bottom)
@@ -774,6 +792,10 @@ struct EventMapView: View {
             // Count of active filters, since the icon button has no room for text.
             .badge(viewModel.activeFilterCount)
             .accessibilityLabel(viewModel.filterLabel)
+            // Toolbar items don't grow with the text size; a long press shows them big (A11Y-24).
+            .accessibilityShowsLargeContentViewer {
+                Label(viewModel.filterLabel, systemImage: "line.3.horizontal.decrease")
+            }
             .tint(Theme.ink)
     }
 
@@ -793,6 +815,7 @@ struct EventMapView: View {
             // screens, and beside a vertical bar.
             .frame(width: isWideLayout || usesVerticalBar ? nil : addButtonWidth)
         }
+        .accessibilityShowsLargeContentViewer { Label("Add game", systemImage: "plus") }
         if #available(iOS 26, *) {
             button
                 .buttonStyle(.glassProminent)
@@ -829,6 +852,9 @@ struct EventMapView: View {
         // sits in a pill. The circle follows the token.
         .modifier(MapProfileSizing())
         .accessibilityLabel(store.isGuest ? "Account" : "Me")
+        .accessibilityShowsLargeContentViewer {
+            Label(store.isGuest ? "Account" : "Me", systemImage: "person.crop.circle")
+        }
         #if DEBUG
         .contextMenu {
             Button(String("Component gallery"), systemImage: "swatchpalette") { appViewModel.path.append(.gallery) }

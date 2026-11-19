@@ -45,6 +45,7 @@ struct PinGroupSheet: View {
 struct GameListRow: View {
     var event: Game
     var line: String
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
         HStack(spacing: 14) {
@@ -57,12 +58,14 @@ struct GameListRow: View {
                     .font(.rounded(.footnote))
                     .foregroundStyle(Theme.muted)
             }
-            .lineLimit(1)
+            // One line each, until the text is too big to fit anything on one line (A11Y-06).
+            .lineLimit(typeSize.isAccessibilitySize ? nil : 1)
             .frame(maxWidth: .infinity, alignment: .leading)
             RowAccessory()
         }
         .padding(.horizontal, 14)
-        .frame(height: 68)
+        .padding(.vertical, 8)
+        .frame(minHeight: 68)
         .contentShape(.rect)
     }
 }

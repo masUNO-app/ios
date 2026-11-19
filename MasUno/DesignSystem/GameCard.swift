@@ -23,6 +23,7 @@ struct GameCard<Accessory: View, Actions: View>: View {
     var summaryFocus: AccessibilityFocusState<Bool>.Binding? = nil
     @ViewBuilder var accessory: Accessory
     @ViewBuilder var actions: Actions
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -35,7 +36,10 @@ struct GameCard<Accessory: View, Actions: View>: View {
             .background { summary }
             if Actions.self != EmptyView.self {
                 RowDivider()
-                HStack(spacing: 10) { actions }
+                // Stacked at accessibility sizes, each the card's width: side by side, the
+                // labels would wrap or cut off (A11Y-06).
+                actionLayout { actions }
+                    .environment(\.pillsExpand, typeSize.isAccessibilitySize)
                     .padding(.horizontal, 20)
                     .padding(.top, 16)
                     .padding(.bottom, 20)
@@ -47,6 +51,10 @@ struct GameCard<Accessory: View, Actions: View>: View {
         .shadow(color: Theme.ink.opacity(isFloating ? 0.22 : 0.08), radius: isFloating ? 14 : 5, y: isFloating ? 8 : 2)
         .modifier(OpensOnTap(action: onOpen))
         .accessibilityElement(children: .contain)
+    }
+
+    private var actionLayout: AnyLayout {
+        typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(spacing: 10)) : AnyLayout(HStackLayout(spacing: 10))
     }
 
     @ViewBuilder
@@ -81,7 +89,7 @@ struct GameCard<Accessory: View, Actions: View>: View {
                     .saturation(isMuted ? 0 : 1)
                 Text(verbatim: event.hostLine)
                     .font(.rounded(.footnote))
-                    .lineLimit(1)
+                    .lineLimit(lineLimit(1))
             }
             .accessibilityHidden(true)
 
@@ -89,11 +97,12 @@ struct GameCard<Accessory: View, Actions: View>: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(verbatim: event.title)
                         .font(.rounded(.title2, .bold))
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.8)
+                        .lineLimit(lineLimit(2))
+                        // Shrinking would undo the text size someone chose.
+                        .minimumScaleFactor(typeSize.isAccessibilitySize ? 1 : 0.8)
                     Text(verbatim: status)
                         .font(.rounded(.subheadline))
-                        .lineLimit(2)
+                        .lineLimit(lineLimit(2))
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .accessibilityHidden(true)
@@ -127,11 +136,18 @@ struct GameCard<Accessory: View, Actions: View>: View {
         .font(.rounded(.subheadline))
         .foregroundStyle(Theme.ink)
         .labelStyle(IconRowLabelStyle())
-        .lineLimit(1)
+        .lineLimit(lineLimit(1))
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityHidden(true)
+    }
+}
+
+extension GameCard {
+    /// `lines` at most, until the text is too big to fit anything in so few (A11Y-06).
+    fileprivate func lineLimit(_ lines: Int) -> Int? {
+        typeSize.isAccessibilitySize ? nil : lines
     }
 }
 

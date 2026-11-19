@@ -60,6 +60,9 @@ struct EventPopup: View {
             do { try await Task.sleep(for: .milliseconds(450)) } catch { return }
             isSummaryFocused = true
         }
+        // Stops growing here, so the card still fits above its pin; Game details has the full
+        // text at any size (A11Y-06). Arianna picks the cap. Before the dialog, which isn't capped.
+        .dynamicTypeSize(...DynamicTypeSize.accessibility1)
         .leaveGameDialog($leaving)
     }
 

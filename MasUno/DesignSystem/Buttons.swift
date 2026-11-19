@@ -39,14 +39,22 @@ extension View {
     }
 }
 
+extension EnvironmentValues {
+    /// Every pill fills the width it's given, whatever its call site asked for: set where pills
+    /// stack, so a narrow "Leave" doesn't sit alone above a full-width "Group chat" (A11Y-06).
+    @Entry var pillsExpand = false
+}
+
 private struct PillModifier: ViewModifier {
     var style: PillStyle
     var expands: Bool
     var size: ControlSize
+    @Environment(\.pillsExpand) private var pillsExpand
 
     func body(content: Content) -> some View {
+        let expands = expands || pillsExpand
         if #available(iOS 26, *) {
-            modern(content: content)
+            modern(content: content, expands: expands)
         } else {
             content
                 .font(.rounded(size == .large ? .headline : .subheadline, .bold))
@@ -56,7 +64,7 @@ private struct PillModifier: ViewModifier {
 
     @available(iOS 26, *)
     @ViewBuilder
-    private func modern(content: Content) -> some View {
+    private func modern(content: Content, expands: Bool) -> some View {
         let sized = content
             .controlSize(size)
             .buttonSizing(expands ? .flexible : .automatic)
@@ -233,6 +241,30 @@ struct OptionRow: View {
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+}
+
+/// A field's question with the Optional tag at the end of the line, or under it at accessibility
+/// sizes, where both wouldn't fit on one (A11Y-06).
+struct OptionalQuestion: View {
+    var title: LocalizedStringKey
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    init(_ title: LocalizedStringKey) {
+        self.title = title
+    }
+
+    var body: some View {
+        let layout = typeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 6))
+            : AnyLayout(HStackLayout())
+        layout {
+            Text(title)
+                .font(.rounded(.footnote, .bold))
+                .foregroundStyle(Theme.ink)
+            if !typeSize.isAccessibilitySize { Spacer() }
+            OptionalTag()
+        }
     }
 }
 

@@ -49,6 +49,19 @@ struct DialogCard<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
+        // Scrolls only when it doesn't fit, as at the largest text sizes (A11Y-06).
+        ViewThatFits(in: .vertical) {
+            card
+            ScrollView { card }
+                .scrollBounceBehavior(.basedOnSize)
+                .clipShape(.rect(cornerRadius: Theme.Radius.dialog))
+        }
+        .frame(maxWidth: 354, alignment: .leading)
+        .background(Theme.card, in: .rect(cornerRadius: Theme.Radius.dialog))
+        .shadow(color: Theme.shadow, radius: 24, y: 8)
+    }
+
+    private var card: some View {
         VStack(alignment: .leading, spacing: 12) {
             Image(systemName: systemImage)
                 .font(.title3.weight(.medium))
@@ -89,9 +102,7 @@ struct DialogCard<Content: View>: View {
         }
         .multilineTextAlignment(.leading)
         .padding(22)
-        .frame(maxWidth: 354, alignment: .leading)
-        .background(Theme.card, in: .rect(cornerRadius: Theme.Radius.dialog))
-        .shadow(color: Theme.shadow, radius: 24, y: 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

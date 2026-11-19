@@ -7,7 +7,8 @@ struct SportChip: View {
     var body: some View {
         SportLabel(sport: sport)
             .padding(.horizontal, 10)
-            .frame(height: 28)
+            .padding(.vertical, 4)
+            .frame(minHeight: 28)
             .appGlass(in: .capsule, tint: sport.color)
     }
 }
@@ -23,7 +24,8 @@ struct SportToggle: View {
         Button(action: action) {
             SportLabel(sport: sport)
                 .padding(.horizontal, 12)
-                .frame(height: 32)
+                .padding(.vertical, 6)
+                .frame(minHeight: 32)
                 .appGlass(in: .capsule, tint: isOn ? sport.color : nil, interactive: true)
         }
         .buttonStyle(.plain)
@@ -87,6 +89,7 @@ struct IconTile: View {
 struct ProfileBadge: View {
     var title: LocalizedStringKey
     var systemImage: String
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     init(_ title: LocalizedStringKey, systemImage: String) {
         self.title = title
@@ -99,7 +102,8 @@ struct ProfileBadge: View {
             .font(.rounded(.footnote, .bold))
             .foregroundStyle(Theme.ink)
             .padding(.horizontal, 9)
-            .frame(height: 24)
+            .padding(.vertical, typeSize.isAccessibilitySize ? 2 : 0)
+            .frame(minHeight: 24)
             .background(.white.opacity(0.75), in: .capsule)
     }
 }
