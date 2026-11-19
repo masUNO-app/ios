@@ -28,9 +28,6 @@ struct BlockedPeopleView: View {
                                         .foregroundStyle(Theme.ink)
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                 }
-                                // One element over the token too, so its initials aren't text
-                                // outside any element.
-                                .accessibilityElement(children: .combine)
                                 Button("Unblock") { Task { await store.unblock(person) } }
                                     .pill(.secondary, expands: false, size: .regular)
                                     .accessibilityLabel(String.app("Unblock \(person.displayName)"))

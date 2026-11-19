@@ -168,8 +168,6 @@ struct MeView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        // Name, class and badges in one stop, over the token too (A11Y-13).
-        .accessibilityElement(children: .combine)
         .padding(18)
     }
 

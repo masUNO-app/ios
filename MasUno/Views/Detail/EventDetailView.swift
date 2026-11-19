@@ -224,11 +224,12 @@ struct EventDetailView: View {
                     .foregroundStyle(Theme.ink)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            // "Alex says" and the note in one stop (A11Y-13). The token stays out: combined, its
+            // fixed-size initials would join the element.
+            .accessibilityElement(children: .combine)
         }
         .padding(14)
         .background(.white, in: .rect(cornerRadius: 18))
-        // "Alex says" and the note in one stop (A11Y-13).
-        .accessibilityElement(children: .combine)
     }
 
     private func detailsCard(_ event: Game, state: GameStatus) -> some View {
