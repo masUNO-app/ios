@@ -19,9 +19,13 @@ struct BookmarkButton: View {
                 .contentTransition(.symbolEffect(.replace))
                 .frame(width: 36, height: 36)
                 .appGlass(in: .circle, interactive: true)
-                .contentShape(.circle)
+                // A 44 pt target around the 36 pt circle; the padding below takes the room back,
+                // so nothing moves (A11Y-19).
+                .frame(width: 44, height: 44)
+                .contentShape(.rect)
         }
         .buttonStyle(.plain)
+        .padding(-4)
         .accessibilityLabel(isSaved ? "Remove bookmark" : "Bookmark")
         .sensoryFeedback(.selection, trigger: isSaved)
     }

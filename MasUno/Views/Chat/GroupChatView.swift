@@ -8,6 +8,7 @@ struct GroupChatView: View {
     @Environment(GameStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let eventID: UUID
 
     @State private var viewModel: ChatViewModel
@@ -221,7 +222,8 @@ struct GroupChatView: View {
             let sentHere: Bool = if case .pending = rows.last { true } else { false }
             if sentHere { followsLatest = true }
             if hasShownLatest {
-                if followsLatest { withAnimation { position.scrollTo(id: Self.bottomID, anchor: .bottom) } }
+                // A jump under Reduce Motion (A11Y-18).
+                if followsLatest { withAnimation(reduceMotion ? nil : .default) { position.scrollTo(id: Self.bottomID, anchor: .bottom) } }
             } else {
                 position.scrollTo(id: Self.bottomID, anchor: .bottom)
             }
@@ -584,6 +586,8 @@ struct GroupChatView: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(pending.error == nil ? [] : .isButton)
+        // Retries without relying on a simulated tap (A11Y-20).
+        .accessibilityAction { viewModel.retry(pending.id, in: store) }
         .accessibilityActions {
             if pending.error != nil {
                 Button("Delete") { viewModel.discard(pending.id) }

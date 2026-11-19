@@ -350,6 +350,8 @@ struct CourtHeader: View {
         .accessibilityLabel(Text(verbatim: lineup.accessibilityLabel))
         .accessibilityAddTraits(.isButton)
         .accessibilityHint(tapHint)
+        // Its own action rather than a simulated tap on the middle of the court (A11Y-20).
+        .accessibilityAction { onTap() }
     }
 
     /// One spot on the court. People keep their identity as others come and go, and an open

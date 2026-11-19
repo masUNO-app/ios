@@ -203,6 +203,7 @@ struct LocationPickerView: View {
             }
             .disabled(!viewModel.canConfirm)
             .pill(.primary)
+            .keyboardShortcut(.defaultAction) // Return on a hardware keyboard (A11Y-20).
         }
         .padding(.horizontal, Theme.gutter)
         .padding(.top, 18)

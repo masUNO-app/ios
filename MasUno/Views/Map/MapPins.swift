@@ -11,6 +11,7 @@ struct EventPin: View {
     var now: Date
     var isSelected: Bool
     var isDimmed: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private static let tagHeight: CGFloat = 26
     private static let markerSize = CGSize(width: 48, height: 60)
@@ -55,7 +56,8 @@ struct EventPin: View {
                 .opacity(isSelected ? 0 : 1)
         }
         .opacity(isDimmed ? 0.45 : 1)
-        .animation(.snappy, value: isSelected)
+        // Under Reduce Motion the selected pin still grows (it says which one), just at once (A11Y-18).
+        .animation(reduceMotion ? nil : .snappy, value: isSelected)
         .animation(.snappy, value: isDimmed)
         .contentShape(.rect)
         .accessibilityElement()

@@ -29,8 +29,11 @@ struct SportToggle: View {
                 .padding(.vertical, 6)
                 .frame(minHeight: 32)
                 .appGlass(in: .capsule, tint: isOn ? sport.color : nil, interactive: true)
+                // 44 pt tall to tap; the rows don't move apart (A11Y-19).
+                .tapTarget(.vertical, 6)
         }
         .buttonStyle(.plain)
+        .padding(.vertical, -6)
         .sensoryFeedback(.selection, trigger: isOn)
         .accessibilityAddTraits(isOn ? .isSelected : [])
     }

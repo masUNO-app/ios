@@ -101,9 +101,11 @@ struct OnboardingFlow: View {
                         .foregroundStyle(Theme.error)
                         .multilineTextAlignment(.center)
                 }
-                Link("Privacy & Terms", destination: appViewModel.config.privacyURL)
-                    .font(.rounded(.footnote))
-                    .foregroundStyle(Theme.mutedLarge)
+                Link(destination: appViewModel.config.privacyURL) {
+                    Text("Privacy & Terms").buttonShapeUnderline()
+                }
+                .font(.rounded(.footnote))
+                .foregroundStyle(Theme.mutedLarge)
             }
         }
         .toolbar(.hidden, for: .navigationBar)
@@ -233,9 +235,15 @@ private struct SignInStep: View {
             }
             // No reset email yet: the team resets a password by hand.
             if let mail = appViewModel.config.supportMailURL {
-                Link("Forgot your password? Contact us", destination: mail)
-                    .font(.rounded(.footnote))
-                    .foregroundStyle(Theme.mutedLarge)
+                Link(destination: mail) {
+                    Text("Forgot your password? Contact us")
+                        .buttonShapeUnderline()
+                        .tapTarget(.vertical, 15)
+                }
+                .font(.rounded(.footnote))
+                .foregroundStyle(Theme.mutedLarge)
+                // 44 pt tall to tap, in the same place: the 16 pt gaps above and below take it (A11Y-19).
+                .padding(.vertical, -15)
             }
         } footer: {
             VStack(spacing: 10) {

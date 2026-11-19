@@ -23,13 +23,16 @@ struct SheetHeader: View {
             .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, alignment: .leading)
 
+            // Esc on a hardware keyboard closes the sheet (A11Y-20).
             if #available(iOS 26, *) {
                 Button(role: .close, action: onClose)
                     .glassCircle()
+                    .keyboardShortcut(.cancelAction)
                     .accessibilityLabel("Close")
             } else {
                 Button("Close", systemImage: "xmark", action: onClose)
                     .glassCircle()
+                    .keyboardShortcut(.cancelAction)
             }
         }
     }

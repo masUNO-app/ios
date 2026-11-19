@@ -418,7 +418,7 @@ final class AppViewModel {
     /// Jump straight to a screen for design review, e.g. launch with `-screen me`. Options:
     /// map (the map on fixtures, as any value not listed here), me, invites (Me with the Invites sheet open), me-hosting, me-past, me-empty, me-cancelled, me-leave, repost, profile, settings, sign-out, delete-account,
     /// add, add-filled, form-error, edit, cancel-game, play-again, picker, gallery, detail-*,
-    /// join, spot-alert, who, who-beta (a game with two beta testers), block, report, report-sent, invite, leave, blocked, calendar, chat, chat-host, chat-rules,
+    /// join, spot-alert, who, who-beta (a game with two beta testers), block, report, report-sent, invite, invite-code (with its QR code shown), leave, blocked, calendar, chat, chat-host, chat-rules,
     /// chat-new, chat-long, meetup, saved, filter, search, all-games (VoiceOver's List games sheet), location, popup,
     /// popup-saved, guest, guest-popup, guest-detail, guest-prompt (popup, guest-popup, filter, search, all-games
     /// and location are handled by the map).
@@ -471,7 +471,7 @@ final class AppViewModel {
             path = [.me()]
         case "chat-host", "meetup": path = [.chat(IDs.hosting)]
         case "who-beta": path = [.game(IDs.lastSpot)]
-        case "who", "report", "report-sent", "block", "invite": path = [.game(IDs.open)]
+        case "who", "report", "report-sent", "block", "invite", "invite-code": path = [.game(IDs.open)]
         case "leave": path = [.game(IDs.going)]
         case "me-leave", "me-past": path = [.me()]
         case "me-empty":

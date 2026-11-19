@@ -280,7 +280,7 @@ final class EventMapViewModel {
             center.longitude -= shift.dx * span.longitudeDelta / mapSize.width
             center.latitude += shift.dy * span.latitudeDelta / mapSize.height
         }
-        withAnimation(.smooth) { position = .region(MKCoordinateRegion(center: center, span: span)) }
+        withAnimation(.cameraMove) { position = .region(MKCoordinateRegion(center: center, span: span)) }
     }
 
     /// How far to move a pin at `pin` so its popup, centered above it, lands inside `area`:
@@ -391,7 +391,7 @@ final class EventMapViewModel {
             latitudeDelta: min(region.span.latitudeDelta * 3, 1.5),
             longitudeDelta: min(region.span.longitudeDelta * 3, 1.5)
         )
-        withAnimation(.smooth) { position = .region(MKCoordinateRegion(center: region.center, span: span)) }
+        withAnimation(.cameraMove) { position = .region(MKCoordinateRegion(center: region.center, span: span)) }
     }
 
     #if DEBUG

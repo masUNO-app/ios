@@ -57,9 +57,12 @@ private struct PillModifier: ViewModifier {
         if #available(iOS 26, *) {
             modern(content: content, expands: expands)
         } else {
+            // A small pill is 38 pt; its target reaches 44 (A11Y-19). iOS 26's glass pills already
+            // take taps a few points past their edge.
             content
                 .font(.rounded(size == .large ? .headline : .subheadline, .bold))
                 .buttonStyle(CapsuleActionStyle(style: style, expands: expands, size: size))
+                .padding(.vertical, -CapsuleActionStyle.slop(for: size))
         }
     }
 
@@ -108,9 +111,15 @@ private struct CapsuleActionStyle: ButtonStyle {
             .background(background, in: .capsule)
             .overlay(Capsule().strokeBorder(Theme.hairline, lineWidth: 0.5))
             .contentShape(.capsule)
+            .tapTarget(.vertical, Self.slop(for: size))
             .opacity(isEnabled ? (configuration.isPressed ? 0.75 : 1) : 0.45)
             .scaleEffect(configuration.isPressed && !reduceMotion ? 0.98 : 1)
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+
+    /// Taken back outside the style, so the pill keeps its place.
+    static func slop(for size: ControlSize) -> CGFloat {
+        size == .large ? 0 : 3
     }
 
     private var foreground: Color {
@@ -216,11 +225,40 @@ struct ClearFieldButton: View {
     var action: () -> Void
 
     var body: some View {
-        Button("Clear search", systemImage: "xmark.circle.fill", action: action)
-            .labelStyle(.iconOnly)
-            .foregroundStyle(Theme.muted)
-            .contrastOpacity(0.8)
-            .buttonStyle(.plain)
+        Button(action: action) {
+            Label("Clear search", systemImage: "xmark.circle.fill")
+                .labelStyle(.iconOnly)
+                .foregroundStyle(Theme.muted)
+                .contrastOpacity(0.8)
+                .tapTarget(.all, Self.slop)
+        }
+        .buttonStyle(.plain)
+        .padding(-Self.slop)
+    }
+
+    /// The symbol is about 17 pt; this makes the target 44 or more inside the 48 pt field (A11Y-19).
+    private static let slop: CGFloat = 14
+}
+
+extension View {
+    /// Underlines a plain text button or link while Button Shapes is on (A11Y-23). System and pill
+    /// buttons draw their own shapes.
+    func buttonShapeUnderline() -> some View {
+        modifier(ButtonShapeUnderline())
+    }
+
+    /// Pads a button's label out to a bigger tap target (A11Y-19). Take the padding back with a
+    /// negative one on the button, so the look and everything around it stay where they were.
+    func tapTarget(_ edges: Edge.Set, _ length: CGFloat) -> some View {
+        padding(edges, length).contentShape(.rect)
+    }
+}
+
+private struct ButtonShapeUnderline: ViewModifier {
+    @Environment(\.accessibilityShowButtonShapes) private var showsButtonShapes
+
+    func body(content: Content) -> some View {
+        content.underline(showsButtonShapes)
     }
 }
 

@@ -90,6 +90,7 @@ struct ReportSheet: View {
 
                 WorkingButton("Send report", isWorking: isSending) { Task { await send() } }
                     .disabled(reason == nil)
+                    .keyboardShortcut(.defaultAction) // Return on a hardware keyboard (A11Y-20).
                     .padding(.top, 8)
             }
             .padding(.horizontal, Theme.gutter)

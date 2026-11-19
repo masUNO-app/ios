@@ -191,7 +191,7 @@ struct EventMapView: View {
         // Without a title the navigation bar collapses, leaving the map full height.
         .toolbar(removing: showsNavigationBar ? .title : nil)
         .toolbarTitleDisplayMode(showsNavigationBar ? .inline : .automatic)
-        .animation(.spring(duration: 0.4, bounce: 0.22), value: viewModel.selectedID)
+        .motionAwareAnimation(.spring(duration: 0.4, bounce: 0.22), value: viewModel.selectedID)
         .animation(.snappy, value: isSearching)
         #if DEBUG
         .onAppear { viewModel.openDebugPopup(in: store) }
@@ -312,11 +312,11 @@ struct EventMapView: View {
                             remeasuresPopup = nil
                             if grew { viewModel.reveal(event, mapSize: mapSize, area: popupArea, popupWidth: popupWidth) }
                         }
-                        // Grows out of / shrinks into the pin. Annotation content is hosted outside
-                        // this view's transactions, so the animation is declared in here.
-                        .scaleEffect(viewModel.isPopupShown ? 1 : 0.1, anchor: .bottom)
-                        .opacity(viewModel.isPopupShown ? 1 : 0)
-                        .animation(.spring(duration: 0.4, bounce: 0.22), value: viewModel.isPopupShown)
+                        // Grows out of / shrinks into the pin; fades under Reduce Motion (A11Y-18).
+                        // Annotation content is hosted outside this view's transactions, so the
+                        // animation is declared in here.
+                        .motionAwareScale(isShown: viewModel.isPopupShown, from: 0.1, anchor: .bottom)
+                        .motionAwareAnimation(.spring(duration: 0.4, bounce: 0.22), value: viewModel.isPopupShown)
                 }
                 .annotationTitles(.hidden)
             }
@@ -537,8 +537,11 @@ struct EventMapView: View {
             .padding(.vertical, typeSize.isAccessibilitySize ? 6 : 0)
             .frame(minHeight: 32)
             .appGlass(in: .capsule, interactive: true)
+            // 44 pt tall to tap, without moving (A11Y-19).
+            .tapTarget(.vertical, 6)
         }
         .buttonStyle(.plain)
+        .padding(.vertical, -6)
         .accessibilityHint("Refreshes the map")
         .listGamesAction(games) { listsAllGames = true }
     }

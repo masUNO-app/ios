@@ -37,7 +37,7 @@ struct ContentView: View {
             NoticeBanner()
                 .padding(.bottom, showsNoticeAtBottom ? 84 : 0)
         }
-        .animation(.snappy, value: store.notice)
+        .motionAwareAnimation(.snappy, value: store.notice)
         .environment(store)
         .environment(appViewModel)
         .environment(services.push)
@@ -223,7 +223,7 @@ struct NoticeBanner: View {
                 .padding(.vertical, 13)
                 .appGlass(in: .capsule)
                 .padding(.horizontal, Theme.gutter)
-                .transition(.scale(scale: 0.9).combined(with: .opacity))
+                .motionAwareTransition(scale: 0.9)
                 .onTapGesture { store.notice = nil }
                 .accessibilityAddTraits(.isStaticText)
                 .task(id: notice) {

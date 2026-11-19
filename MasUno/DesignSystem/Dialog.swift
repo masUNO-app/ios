@@ -92,6 +92,8 @@ struct DialogCard<Content: View>: View {
                 if let cancel {
                     Button(cancel.title) { closeDialog(cancel.perform) }
                         .pill(.secondary)
+                        // Esc picks it, as in a system alert (A11Y-20).
+                        .keyboardShortcut(.cancelAction)
                 }
                 if let tertiary {
                     Button(tertiary.title) { closeDialog(tertiary.perform) }
@@ -183,6 +185,7 @@ private struct DialogPresenter<Item: Identifiable, Card: View>: ViewModifier {
     /// What the cover shows. Trails `item` so the card can animate out before the cover goes.
     @State private var presented: Item?
     @State private var isShown = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func body(content: Content) -> some View {
         content
@@ -199,19 +202,21 @@ private struct DialogPresenter<Item: Identifiable, Card: View>: ViewModifier {
                         card(item)
                             .environment(\.closeDialog, CloseDialogAction { close($0) })
                             .padding(.horizontal, 24)
-                            .scaleEffect(isShown ? 1 : 0.92)
-                            .opacity(isShown ? 1 : 0)
+                            // Only fades under Reduce Motion (A11Y-18).
+                            .motionAwareScale(isShown: isShown, from: 0.92)
                             // One modal container. The trait on the card alone lands on each of
                             // its elements, and each modal element hides the others from
                             // VoiceOver, so only the last button ("Not now") could be reached.
                             .accessibilityElement(children: .contain)
                             .accessibilityAddTraits(.isModal)
+                            // VoiceOver's two-finger scrub, like a tap on the scrim (A11Y-20).
+                            .accessibilityAction(.escape) { if isDismissable { close {} } }
                             .padding(Self.insets(avoiding: proxy.activeFold, in: proxy.size))
                     }
                     .frame(width: proxy.size.width, height: proxy.size.height)
                 }
                 .presentationBackground(.clear)
-                .onAppear { withAnimation(.spring(duration: 0.3, bounce: 0.2)) { isShown = true } }
+                .onAppear { withAnimation(.motionAware(.spring(duration: 0.3, bounce: 0.2), reduceMotion: reduceMotion)) { isShown = true } }
             }
             .onChange(of: item?.id, initial: true) {
                 if let item {

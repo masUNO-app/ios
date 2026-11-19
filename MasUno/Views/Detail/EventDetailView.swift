@@ -139,11 +139,11 @@ struct EventDetailView: View {
         }
         #if DEBUG
         .onAppear {
-            // `-screen who|who-beta|report|invite|calendar|leave`: open a sheet or dialog on this game.
+            // `-screen who|who-beta|report|invite|invite-code|calendar|leave`: open a sheet or dialog on this game.
             switch UserDefaults.standard.string(forKey: "screen") {
             case "who", "who-beta", "block": viewModel.showsWhoIsGoing = true
             case "report", "report-sent": viewModel.reportTarget = .person(event.host)
-            case "invite": viewModel.showsInvite = true
+            case "invite", "invite-code": viewModel.showsInvite = true
             case "calendar": viewModel.addsToCalendar = true
             case "leave": viewModel.leaving = event
             default: break
@@ -194,12 +194,16 @@ struct EventDetailView: View {
                 } label: {
                     HStack(spacing: 4) {
                         Text("Who's going")
+                            .buttonShapeUnderline()
                         RowAccessory(font: .caption.weight(.bold), color: Theme.ink)
                     }
                     .font(.rounded(.subheadline, .bold))
                     .foregroundStyle(Theme.accentText)
+                    // 44 pt tall to tap, without moving the line (A11Y-19).
+                    .tapTarget(.vertical, 13)
                 }
                 .buttonStyle(.plain)
+                .padding(.vertical, -13)
             }
             if let detail = viewModel.detail(for: event, chatEnabled: store.isChatEnabled) {
                 Text(verbatim: detail)
@@ -272,6 +276,7 @@ struct EventDetailView: View {
                     appViewModel.presentGameForm(editing: event.id)
                 } label: {
                     Label("Add a meet-up spot so people know where to find you", systemImage: "flag")
+                        .buttonShapeUnderline()
                         .labelStyle(IconRowLabelStyle(iconWidth: 20, spacing: 12))
                         .font(.rounded(.subheadline, .bold))
                         .foregroundStyle(Theme.accentText)

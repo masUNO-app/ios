@@ -145,6 +145,7 @@ struct GameFormSheet: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 10) {
                 WorkingButton(verbatim: viewModel.saveButtonTitle, isWorking: viewModel.isSaving) { save() }
+                    .keyboardShortcut(.defaultAction) // Return on a hardware keyboard (A11Y-20).
 
                 if let editing = viewModel.editing {
                     Button("Cancel game") { cancelling = editing }

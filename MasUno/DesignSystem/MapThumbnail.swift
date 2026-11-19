@@ -16,7 +16,9 @@ struct MapThumbnail: View {
             .fill(Theme.accentSoft)
             .overlay {
                 if let image, renderedRequest == request {
+                    // A map photo, which Smart Invert would turn into a negative (A11Y-27).
                     Image(uiImage: image).resizable().scaledToFill()
+                        .accessibilityIgnoresInvertColors()
                 }
             }
             .overlay {

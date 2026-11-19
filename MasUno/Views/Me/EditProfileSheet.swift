@@ -51,6 +51,7 @@ struct EditProfileSheet: View {
                 Button("Save") { save() }
                     .disabled(viewModel.isSaving)
                     .pill(.primary)
+                    .keyboardShortcut(.defaultAction) // Return on a hardware keyboard (A11Y-20).
                     .padding(.top, 8)
             }
             .padding(.horizontal, Theme.gutter)
