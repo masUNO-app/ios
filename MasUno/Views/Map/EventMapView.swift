@@ -594,7 +594,7 @@ struct EventMapView: View {
         if UserDefaults.standard.string(forKey: "screen") == "location" { return asksForLocation = true }
         #endif
         guard LocationService.mockCoordinate == nil, locationSession == nil else { return }
-        switch CLLocationManager().authorizationStatus {
+        switch LocationService.authorizationStatus {
         case .notDetermined:
             if !declinedLocationPrimer, !isDesignReview { asksForLocation = true }
         default:
@@ -630,7 +630,7 @@ struct EventMapView: View {
     /// Location off: the map stays on campus (SPEC §7.6.1).
     private var locationBanner: some View {
         Button {
-            if CLLocationManager().authorizationStatus == .notDetermined {
+            if LocationService.authorizationStatus == .notDetermined {
                 asksForLocation = true
             } else {
                 openURL(UIApplication.openSettingsURL)

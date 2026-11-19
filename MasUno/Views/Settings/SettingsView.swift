@@ -14,7 +14,7 @@ struct SettingsView: View {
     @State private var prefsFailed = false
     @State private var confirmsSignOut = false
     @State private var confirmsDelete = false
-    @State private var locationStatus = CLLocationManager().authorizationStatus
+    @State private var locationStatus = LocationService.authorizationStatus
     @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -149,7 +149,7 @@ struct SettingsView: View {
             await loadPrefs()
         }
         .onAppear {
-            locationStatus = CLLocationManager().authorizationStatus
+            locationStatus = LocationService.authorizationStatus
             #if DEBUG
             switch UserDefaults.standard.string(forKey: "screen") {
             case "sign-out": confirmsSignOut = true
@@ -160,7 +160,7 @@ struct SettingsView: View {
         }
         // Back from iPhone Settings: show the new answer.
         .onChange(of: scenePhase) {
-            locationStatus = CLLocationManager().authorizationStatus
+            locationStatus = LocationService.authorizationStatus
             if scenePhase == .active {
                 Task {
                     await push.refreshAuthorization()

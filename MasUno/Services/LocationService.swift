@@ -19,6 +19,10 @@ enum LocationService {
         #endif
     }
 
+    /// Reading the status doesn't need a manager of its own; one shared instance is enough.
+    private static let statusReader = CLLocationManager()
+    static var authorizationStatus: CLAuthorizationStatus { statusReader.authorizationStatus }
+
     /// Asks for When-In-Use permission if needed, then returns the first location fix.
     static func currentLocation(timeout: Duration = .seconds(15)) async throws -> CLLocation {
         if let mock = mockCoordinate {

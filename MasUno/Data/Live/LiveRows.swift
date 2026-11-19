@@ -173,14 +173,22 @@ nonisolated struct SignInFailure: Hashable, Sendable {
 /// Postgres `timestamptz` as PostgREST sends it: ISO 8601 with up to microseconds and an offset.
 /// Rows parse it themselves, so they decode the same with any `JSONDecoder`.
 nonisolated enum ServerTime {
+    private static let fractional = Date.ISO8601FormatStyle(includingFractionalSeconds: true)
+    private static let whole = Date.ISO8601FormatStyle()
+
+    /// PostgREST drops the fraction when it's zero, so try the style the text looks like first.
+    /// The other one stays as a fallback, so odd input parses as before.
     static func date(from text: String) -> Date? {
-        (try? Date.ISO8601FormatStyle(includingFractionalSeconds: true).parse(text))
-            ?? (try? Date.ISO8601FormatStyle().parse(text))
+        // The fraction always follows the seconds as "."; nothing else in this format has one.
+        let hasFraction = text.contains(".")
+        let first = hasFraction ? fractional : whole
+        let second = hasFraction ? whole : fractional
+        return (try? first.parse(text)) ?? (try? second.parse(text))
     }
 
     /// What RPC parameters and filters send: UTC with milliseconds.
     static func string(from date: Date) -> String {
-        date.formatted(Date.ISO8601FormatStyle(includingFractionalSeconds: true))
+        date.formatted(fractional)
     }
 }
 
