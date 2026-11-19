@@ -24,6 +24,8 @@ struct GameCard<Accessory: View, Actions: View>: View {
     @ViewBuilder var accessory: Accessory
     @ViewBuilder var actions: Actions
     @Environment(\.dynamicTypeSize) private var typeSize
+    /// The sport emoji in the header: 18 pt at the default size, growing with the host line.
+    @ScaledMetric(relativeTo: .footnote) private var emojiSize: CGFloat = 18
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -93,7 +95,7 @@ struct GameCard<Accessory: View, Actions: View>: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 Text(event.activity.emoji)
-                    .font(.system(size: 18))
+                    .font(.system(size: emojiSize))
                     .saturation(isMuted ? 0 : 1)
                 Text(verbatim: event.hostLine)
                     .font(.rounded(.footnote))

@@ -16,6 +16,8 @@ struct EventMapView: View {
     /// Every game on the map in one list: VoiceOver's "List games" action, for getting through
     /// the games without hunting pin by pin (A11Y-02).
     @State private var listsAllGames = false
+    /// A popup just opened at an accessibility size: pan again once its real height is known.
+    @State private var remeasuresPopup: UUID?
     /// The map's own frame, full screen, in global coordinates: its size tells how close pins
     /// are on screen.
     @State private var mapFrame: CGRect = .zero
@@ -197,6 +199,7 @@ struct EventMapView: View {
         // Make room for the popup above a newly selected pin, like a map callout.
         .onChange(of: viewModel.selectedID) { _, id in
             viewModel.selectionChanged(to: id)
+            remeasuresPopup = typeSize.isAccessibilitySize ? id : nil
             guard let id, let event = store.game(id) else { return }
             viewModel.reveal(event, mapSize: mapSize, area: popupArea, popupWidth: popupWidth)
         }
@@ -304,9 +307,10 @@ struct EventMapView: View {
                             viewModel.popupHeight = height
                             // At accessibility sizes the card is much taller than the height the
                             // first pan allowed for, so pan again once it's measured (A11Y-06).
-                            if grew, typeSize.isAccessibilitySize {
-                                viewModel.reveal(event, mapSize: mapSize, area: popupArea, popupWidth: popupWidth)
-                            }
+                            // Only as it opens: a later change (the text size) leaves the map be.
+                            guard remeasuresPopup == event.id else { return }
+                            remeasuresPopup = nil
+                            if grew { viewModel.reveal(event, mapSize: mapSize, area: popupArea, popupWidth: popupWidth) }
                         }
                         // Grows out of / shrinks into the pin. Annotation content is hosted outside
                         // this view's transactions, so the animation is declared in here.

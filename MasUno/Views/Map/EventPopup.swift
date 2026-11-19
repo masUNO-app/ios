@@ -36,6 +36,8 @@ struct EventPopup: View {
                 primaryAction
                     .pill(.primary)
             }
+            // Its own height, whatever MapKit offers: squeezed, the host line cut to "…".
+            .fixedSize(horizontal: false, vertical: true)
 
             CalloutTail()
                 .fill(Theme.card)
