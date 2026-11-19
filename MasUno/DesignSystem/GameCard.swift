@@ -47,7 +47,7 @@ struct GameCard<Accessory: View, Actions: View>: View {
         .background(Theme.card)
         .clipShape(.rect(cornerRadius: Theme.Radius.dialog))
         .overlay(RoundedRectangle(cornerRadius: Theme.Radius.dialog).strokeBorder(Theme.separator))
-        .shadow(color: Theme.ink.opacity(isFloating ? 0.22 : 0.08), radius: isFloating ? 14 : 5, y: isFloating ? 8 : 2)
+        .shadow(color: Theme.shadowInk.opacity(isFloating ? 0.22 : 0.08), radius: isFloating ? 14 : 5, y: isFloating ? 8 : 2)
         .modifier(OpensOnTap(action: onOpen))
         .accessibilityElement(children: .contain)
     }
@@ -128,6 +128,8 @@ struct GameCard<Accessory: View, Actions: View>: View {
         .padding(.bottom, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(isMuted ? Theme.separator : event.activity.color)
+        // The grey header follows dark mode; the sport color keeps its ink.
+        .inkOnColor(!isMuted)
     }
 
     private var details: some View {

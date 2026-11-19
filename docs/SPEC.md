@@ -133,7 +133,7 @@ N1 builds at each demo day, 0.5 before Demo Day #3, 1.0 after it, launch Dec 16 
 | C16 | Minimum-version gate in 0.5. | Lets 1.0 force an update if needed. | — |
 | C17 | `supabase/` lives in the `ios` repo. | One PR can change client and database together. | — |
 
-**Still locked from rev. 2:** Supabase; Tec school-account SSO only (Microsoft Entra via Supabase Azure provider, N33), no consumer social login or public sign-up; sports only (Basketball, Tennis, Soccer, Volleyball, Padel — N19); no organizer approval; launching at Tec de Monterrey (N32); English first with strings externalized; venue search + pin + current location; 7-day posting window; light mode only; sign-in gates the app; no skill level; soft cancel; separate dev and prod projects.
+**Still locked from rev. 2:** Supabase; Tec school-account SSO only (Microsoft Entra via Supabase Azure provider, N33), no consumer social login or public sign-up; sports only (Basketball, Tennis, Soccer, Volleyball, Padel — N19); no organizer approval; launching at Tec de Monterrey (N32); English first with strings externalized; venue search + pin + current location; 7-day posting window; light mode only (dark mode since build 9, §7.7.2); sign-in gates the app; no skill level; soft cancel; separate dev and prod projects.
 
 ---
 
@@ -145,7 +145,7 @@ N1 builds at each demo day, 0.5 before Demo Day #3, 1.0 after it, launch Dec 16 
 3. Pass App Review's user-generated-content rules: agree to guidelines, text filter, report, block, act on reports within 24 h, contact info in the app, in-app account deletion.
 4. Numbers for each demo day: beta testers, verified sign-ups, games hosted, joins, games that filled.
 
-**Not in scope during the program:** photos, calendar sync, dark mode, Android/web, organizer approval, recurring games, non-sport activities, opening a second campus (the app is ready for it, N32), our own domain or branded email.
+**Not in scope during the program:** photos, calendar sync, Android/web, organizer approval, recurring games, non-sport activities, opening a second campus (the app is ready for it, N32), our own domain or branded email.
 
 **Release criteria for 0.5 and 1.0**
 - Core loop works on two physical phones against `masuno-prod`, including two people racing for the last spot.
@@ -205,7 +205,7 @@ N1 builds at each demo day, 0.5 before Demo Day #3, 1.0 after it, launch Dec 16 
 - **Guest browse (R7-15):** map and game details without names; an account for join, save, host and Who's going.
 
 ### After the program (§13)
-Chat push and retention, profile photos, calendar sync, name-visibility setting, dark mode, links that open a specific game, organizer approval, recurring games, non-sport activities, new campuses, own domain/email.
+Chat push and retention, profile photos, calendar sync, name-visibility setting, links that open a specific game, organizer approval, recurring games, non-sport activities, new campuses, own domain/email.
 
 ### Cut order if we slip
 - **0.5 → 0.6**, decided at the Sat Nov 7 evening check and again at the Sun Nov 8 noon go/no-go: (1) Edit profile & interests; (2) group chat — first fall back to read-only (drop the composer and mock messages), then hide its entry points if even that isn't live; (3) Invite a friend; (4) Past games; (5) sport filter; (6) map search; (7) offline banner (keep retry). Hide cut features in the Release build — never ship a button that does nothing.
@@ -463,7 +463,7 @@ These are the tokens in the asset catalog today (0.5 and 0.6). The 1.0 tokens ar
 | `error` | `#CB3D3D` | Field errors. |
 | `chipSport` | `#DCE4F4` | Interest chips. |
 
-Cards 16–20 pt radius with hairline border; pill buttons ~50 pt; boxed fields with caption labels; Liquid Glass on floating controls. SF Pro, sentence case, light mode only.
+Cards 16–20 pt radius with hairline border; pill buttons ~50 pt; boxed fields with caption labels; Liquid Glass on floating controls. SF Pro, sentence case, light mode only (1.0 adds dark mode, §7.7.2).
 
 ### 7.2 Copy & voice
 
@@ -601,6 +601,7 @@ Card: initials, your full name, "Class of 2029 · Tec de Monterrey", "Verified s
 
 #### 7.6.7 Settings (E13; Notifications E16)
 - *[1.0]* Notifications: Games that match your interests · A spot opens up · Game reminders · Updates on games you host.
+- *[1.0]* Language: Device language · English · Español. Appearance (build 9): System · Light · Dark, applied at once and kept across launches.
 - Privacy & safety: Location (opens iOS Settings) · Blocked people · Community guidelines.
 - About: Privacy & Terms (website) · Contact us (team Gmail) · Version.
 - Account: Sign out · **Delete account** ("We'll cancel games you're hosting, remove you from games you joined, and delete your profile. This can't be undone.").
@@ -635,26 +636,26 @@ Source of truth: the Figma file "masuno figma" (rows 1–8, §7.4) and `DESIGN.m
 
 #### 7.7.2 Tokens (replace §7.1 in 1.0)
 
-| Token | 0.5 (built) | 1.0 | Use |
-| --- | --- | --- | --- |
-| `primary` (was `accent`) | `#12815A` | `#12825A` | The one action color: primary buttons, toggles, Host/You labels |
-| `mint` (was `accentSoft`) | `#DDF1E8` | `#DDF1E8` | Secondary buttons ("Not now", "Keep game", "+ Add game") |
-| `bg` (was `background`) | `#F5F4F7` | `#F2F2F7` | Screens |
-| `surface` (was `card`) | `#FDFCFE` | `#FDFCFE` | Cards, popups, sheets, others' chat bubbles |
-| `surface-2` | — | `#F5F4F7` | Composer tray, secondary fills |
-| `ink` / `ink-2` | `#1F2638` / `#5F5C68` | same | Text; ink on every colored fill except `primary` |
-| `danger` (was `destructive`) | `#C23B34` | `#C42B2B` | Sign out, Cancel game, Delete account |
-| `accentText` | — | `#0F7A54` | Green **text** only: Who's going, the Host tag, "Add a meet-up spot…", the celebrating headline (4.79:1 on `bg`). Fills stay `primary` (A11Y-15) |
-| `error` | `#CB3D3D` | `#C43535` | Field errors (4.82:1 on `bg`, was 4.40) |
-| `pin` | `#2F6FE0` | *(removed)* | Pins use the sport color |
-| `chipSport` | `#DCE4F4` | *(removed)* | Chips use the sport color |
-| Sport colors | — | Basketball `#F2853A` · Tennis `#C7D93D` · Soccer `#3DB26F` · Volleyball `#A99CF6` · Padel `#56BDE8` | That sport's pin, court header, chat band, my bubbles, send button, chip, settings tile |
-| Person colors | `accentSoft` initials | Pastels: `#FFD15C` `#B59CF7` `#FF9F80` `#7FD8A0` `#FF9CC2` `#5FD6C8` `#F2B56B` | Assigned from the user ID so a person keeps one color everywhere |
-| You | — | `#74C0F5` | The current user, always (keep it out of the others' palette) |
-| Radii | 16–20 | Cards 22 · sheets 34–38 · pills/inputs/chips fully rounded · tiles 12 | |
-| Type | SF Pro | **SF Pro Rounded** in the app (`.fontDesign(.rounded)`), heavier weights; Nunito in Figma and on the web (R7-10) | |
+| Token | 0.5 (built) | 1.0 | Dark (build 9) | Use |
+| --- | --- | --- | --- | --- |
+| `primary` (was `accent`) | `#12815A` | `#12825A` | `#12825A` (`#107C56` HC) | The one action color: primary buttons, toggles, Host/You labels |
+| `mint` (was `accentSoft`) | `#DDF1E8` | `#DDF1E8` | `#1E3A2F` | Secondary buttons ("Not now", "Keep game", "+ Add game") |
+| `bg` (was `background`) | `#F5F4F7` | `#F2F2F7` | `#000000` | Screens |
+| `surface` (was `card`) | `#FDFCFE` | `#FDFCFE` | `#1C1C1E` | Cards, popups, sheets, others' chat bubbles |
+| `surface-2` | — | `#F5F4F7` | `#000000` | Composer tray, secondary fills |
+| `ink` / `ink-2` | `#1F2638` / `#5F5C68` | same | `#F2F2F7` / `#A3A3AB` (`mutedLarge` `#A0A0A9`; `#D0D0D6` / `#C8C8CF` HC) | Text; ink on every colored fill except `primary` |
+| `danger` (was `destructive`) | `#C23B34` | `#C42B2B` | `#C42B2B` fill; `#FF7D75` as text (`destructiveText`) | Sign out, Cancel game, Delete account |
+| `accentText` | — | `#0F7A54` | `#3CC08A` (`#7ADBA8` HC) | Green **text** only: Who's going, the Host tag, "Add a meet-up spot…", the celebrating headline (4.79:1 on `bg`). Fills stay `primary` (A11Y-15) |
+| `error` | `#CB3D3D` | `#C43535` | `#FF7D75` (`#FF9C94` HC) | Field errors (4.82:1 on `bg`, was 4.40) |
+| `pin` | `#2F6FE0` | *(removed)* | — | Pins use the sport color |
+| `chipSport` | `#DCE4F4` | *(removed)* | — | Chips use the sport color |
+| Sport colors | — | Basketball `#F2853A` · Tennis `#C7D93D` · Soccer `#3DB26F` · Volleyball `#A99CF6` · Padel `#56BDE8` | same | That sport's pin, court header, chat band, my bubbles, send button, chip, settings tile |
+| Person colors | `accentSoft` initials | Pastels: `#FFD15C` `#B59CF7` `#FF9F80` `#7FD8A0` `#FF9CC2` `#5FD6C8` `#F2B56B` | same | Assigned from the user ID so a person keeps one color everywhere |
+| You | — | `#74C0F5` | same | The current user, always (keep it out of the others' palette) |
+| Radii | 16–20 | Cards 22 · sheets 34–38 · pills/inputs/chips fully rounded · tiles 12 | same | |
+| Type | SF Pro | **SF Pro Rounded** in the app (`.fontDesign(.rounded)`), heavier weights; Nunito in Figma and on the web (R7-10) | same | |
 
-Light mode only, as before. Contrast: ink on every sport color and `#74C0F5`; white only on `primary`. With Increase Contrast on, the asset catalog's High Contrast variants darken `muted`, `mutedLarge`, `primary`, `accentText`, `error`, the row separator and the hairline (text about 7:1), and opacity-based fills go solid (`contrastOpacity`).
+Light and dark (build 9): the app follows the phone, or Settings › Appearance (System, Light, Dark); `-appearance dark` forces it for tests and screenshots. Every color set has a dark variant, derived to iOS's dark grouped colors (all text pairs at least 4.5:1, ⚑ Arianna reviews them, AX-6): row separator `#38383A` (`#48484A` HC), hairline white at 14% (`#8A8A90` HC), and shadows and the dialog scrim turn black (`shadowInk`, `scrim`), so shadows all but vanish. Sport, person and You colors keep their values and their ink: content on them stays light-mode (`inkOnColor()`), and so does the chat's bar over its band. The court art, the map pins and the QR code (dark on white, to scan) don't change; the map and its thumbnails follow the scheme, and the fade behind the map's search bar uses `mapFade`, the dark map's slate `#344458` (the background's color in light mode). Chat's send button is a solid sport-color circle in dark mode, where tinted glass comes out darker. Contrast: ink on every sport color and `#74C0F5`; white only on `primary` and the `danger` fill. With Increase Contrast on, the asset catalog's High Contrast variants strengthen `muted`, `mutedLarge`, `primary`, `accentText`, `error`, the row separator and the hairline (text about 7:1), in both modes, and opacity-based fills go solid (`contrastOpacity`).
 
 #### 7.7.3 Components
 - **Avatar / person token:** initials on the person's pastel, 2 px white ring in stacks, "+N" bubble. Sizes 26 / 30 / 36–42 / 72.
@@ -996,6 +997,7 @@ Alert in team chat → on-call person (Ricardo or Arianna) checks the report in 
 | AX-2 | A11Y-25 — how VoiceOver says "masUNO" in English and Spanish | Unchanged; ⚑ Ricardo and Arianna listen. If English is wrong, the Welcome wordmark gets the label "más uno" |
 | AX-3 | A11Y-28 — portrait-only on phones (WCAG 1.3.4 counts it against us unless essential) | Portrait for 1.0; ⚑ Ricardo decides if landscape is worth its QA (popup placement, the court, chat) |
 | AX-4 | OPT-15 — the unused school SSO path (`FindSchoolStep`, `.findSchool`, `continueWithSchool()`, the Entra error mapping; `SchoolRow` is used) | Kept (README); ⚑ Ethan and Ricardo: keep, or remove and recover from git if Tec IT approves |
+| AX-6 | Dark mode, built in build 9 with derived colors (§7.7.2): iOS dark grouped backgrounds, near-white ink, lighter green text and error red, the same sport, person and You fills with dark ink on them, a white label on `primary` and the `danger` fill | Built (Nov 19); ⚑ Arianna reviews the colors, with their High Contrast variants |
 | AX-5 | OPT-13 — link only the Supabase products the app uses. Storage is unused and adds about 342 KB to the Release binary (measured Nov 19, above the plan's 300 KB line); dropping it means rebuilding the session sharing `SupabaseClient` gives | Keep the umbrella product for 1.0; ⚑ Emilio decides after launch |
 
 ### Rev. 7 — sign off at the Fri Nov 6 go/no-go (R7-1 and R7-2 in the team chat tonight)
@@ -1053,7 +1055,7 @@ Alert in team chat → on-call person (Ricardo or Arianna) checks the report in 
 | --- | --- |
 | January 2027 | Chat push and retention (Appendix A items 8–9) if not done, profile photos with moderation, calendar sync, name-visibility setting, links that open a specific game |
 | Start of Tec's Feb–Jun semester | Campus launch (Ricardo): club hosts, recurring games, posters; own domain + email provider if the team wants them; Supabase Pro for backups |
-| Later | Organizer approval, non-sport activities, IIT/UIC (new `universities` rows and their sign-in, §8.10), dark mode, meet-up photo, pin clustering |
+| Later | Organizer approval, non-sport activities, IIT/UIC (new `universities` rows and their sign-in, §8.10), meet-up photo, pin clustering |
 
 ---
 

@@ -476,6 +476,7 @@ private struct VerifiedStep: View {
                                 .foregroundStyle(Theme.ink)
                                 .frame(width: 36, height: 36)
                                 .background(Theme.you, in: .rect(cornerRadius: Theme.Radius.tile))
+                                .inkOnColor()
                         }
                     }
                 }
@@ -522,7 +523,7 @@ private struct ProfileStep: View {
     var body: some View {
         OnboardingPage(title: "Make it yours", message: nil) {
             MeToken(name: "\(viewModel.firstName) \(viewModel.lastName)", size: 80, ring: 4)
-                .shadow(color: Theme.ink.opacity(0.08), radius: 6, y: 2)
+                .shadow(color: Theme.shadowInk.opacity(0.08), radius: 6, y: 2)
 
             Text(verbatim: viewModel.previewLine)
                 .font(.rounded(.subheadline))

@@ -6,6 +6,7 @@ struct SportChip: View {
 
     var body: some View {
         SportLabel(sport: sport)
+            .inkOnColor()
             .padding(.horizontal, 10)
             .padding(.vertical, 4)
             .frame(minHeight: 28)
@@ -25,6 +26,8 @@ struct SportToggle: View {
     var body: some View {
         Button(action: action) {
             SportLabel(sport: sport, showsCheckmark: isOn && differentiateWithoutColor)
+                // Off, it's plain glass that follows dark mode.
+                .inkOnColor(isOn)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
                 .frame(minHeight: 32)

@@ -20,7 +20,7 @@ struct DialogCard<Content: View>: View {
         var icon: Color {
             switch self {
             case .friendly: Theme.accent
-            case .destructive: Theme.destructive
+            case .destructive: Theme.destructiveText
             case .tinted: Theme.ink
             }
         }

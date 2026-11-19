@@ -973,6 +973,16 @@
         }
       }
     },
+    "Appearance" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apariencia"
+          }
+        }
+      }
+    },
     "Apple Maps" : {
       "localizations" : {
         "es" : {
@@ -1789,6 +1799,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ubicación actual"
+          }
+        }
+      }
+    },
+    "Dark" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Oscuro"
           }
         }
       }
@@ -2833,6 +2853,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Vamos a jugar"
+          }
+        }
+      }
+    },
+    "Light" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claro"
+          }
+        }
+      }
+    },
+    "Light or dark" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claro u oscuro"
           }
         }
       }
@@ -4801,6 +4841,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Seguir en el partido"
+          }
+        }
+      }
+    },
+    "System" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sistema"
           }
         }
       }

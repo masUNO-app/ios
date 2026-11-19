@@ -112,6 +112,9 @@ struct EventDetailView: View {
             }
             ToolbarItem(placement: .topBarTrailing) { overflowMenu(event, state: state).tint(Theme.ink) }
         }
+        // Over the court the bar's glass buttons keep ink on the sport color in dark mode; over
+        // the sheet they follow it.
+        .toolbarColorScheme(isTitleUnderBar ? nil : .light, for: .navigationBar)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             actionBar(event, state: state)
         }
@@ -233,7 +236,7 @@ struct EventDetailView: View {
             .accessibilityElement(children: .combine)
         }
         .padding(14)
-        .background(.white, in: .rect(cornerRadius: 18))
+        .background(Theme.paper, in: .rect(cornerRadius: 18))
     }
 
     private func detailsCard(_ event: Game, state: GameStatus) -> some View {

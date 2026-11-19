@@ -9,6 +9,7 @@ struct GroupChatView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
     let eventID: UUID
 
     @State private var viewModel: ChatViewModel
@@ -177,6 +178,9 @@ struct GroupChatView: View {
             }
             .appSharedBackgroundVisibility(.hidden)
         }
+        // The bar sits on the band's sport color, so its title, buttons and glass stay light in
+        // dark mode, with ink on the band as everywhere else.
+        .toolbarColorScheme(.light, for: .navigationBar)
         .sheet(isPresented: $showsWhoIsGoing) { WhoIsGoingSheet(eventID: eventID) }
         .sheet(isPresented: $editsMeetUp) { WhereToMeetSheet(event: event) }
         .sheet(item: $reportTarget) { ReportSheet(target: $0) }
@@ -267,6 +271,8 @@ struct GroupChatView: View {
         }
         .onAppear {
             if UserDefaults.standard.string(forKey: "screen") == "meetup" { editsMeetUp = true }
+            // `-chatDraft "…"`: a typed draft, for screenshots of the send button ready to send.
+            if let draft = UserDefaults.standard.string(forKey: "chatDraft") { viewModel.draft = draft }
         }
         #endif
     }
@@ -360,7 +366,7 @@ struct GroupChatView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Theme.card, in: .rect(cornerRadius: 16))
         .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Theme.separator))
-        .shadow(color: Theme.ink.opacity(0.06), radius: 6, y: 2)
+        .shadow(color: Theme.shadowInk.opacity(0.06), radius: 6, y: 2)
         .padding(.horizontal, 15)
         .padding(.top, 4)
         .padding(.bottom, 8)
@@ -464,6 +470,7 @@ struct GroupChatView: View {
                         .foregroundStyle(Theme.ink)
                 }
                 .frame(width: 26, height: 26)
+                .inkOnColor()
                 .accessibilityHidden(true)
             Text(verbatim: text)
                 .font(.rounded(.footnote, .bold))
@@ -561,6 +568,9 @@ struct GroupChatView: View {
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
                 .background(color.opacity(isFaded ? 0.5 : 1), in: .rect(cornerRadius: 20))
+                // Faded over the light page even in dark mode, so the ink on it still reads.
+                .background { if isFaded { RoundedRectangle(cornerRadius: 20).fill(Theme.surface2) } }
+                .inkOnColor()
                 .contentShape(.contextMenuPreview, .rect(cornerRadius: 20))
             if let time {
                 Text(time, format: .dateTime.hour().minute())
@@ -670,9 +680,13 @@ struct GroupChatView: View {
                     .labelStyle(.iconOnly)
                     .fontWeight(.bold)
                     .foregroundStyle(Theme.ink)
-                    .appProminentCircle(tint: event.activity.color)
+                    // The exact sport color in dark mode too, as on the band and the bubbles.
+                    .appProminentCircle(tint: event.activity.color, solid: colorScheme == .dark)
+                    .inkOnColor()
                     // Stays in the sport's color; an empty draft just doesn't send.
                     .opacity(viewModel.canSend ? 1 : 0.75)
+                    // Faded over the light tray in dark mode too, so the ink arrow still shows.
+                    .background { Circle().fill(Theme.surface2).inkOnColor() }
                     .accessibilityHint(viewModel.canSend ? Text(verbatim: "") : Text("Type a message first"))
             }
         }

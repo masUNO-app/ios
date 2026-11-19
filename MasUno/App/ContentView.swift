@@ -6,6 +6,7 @@ struct ContentView: View {
     @State private var store: GameStore
     @State private var appViewModel: AppViewModel
     @State private var language = LanguageSettings.shared
+    @State private var appearance = AppearanceSettings.shared
     @Environment(\.scenePhase) private var scenePhase
     private let services: AppServices
     private let notifications: NotificationCenterBridge
@@ -42,13 +43,14 @@ struct ContentView: View {
         .environment(appViewModel)
         .environment(services.push)
         .environment(language)
+        .environment(appearance)
         .environment(\.locale, language.locale)
         .environment(\.currentUserID, store.profile?.id)
         .tint(Theme.accent)
         // SF Pro Rounded throughout (SPEC §7.7.2, R7-10).
         .fontDesign(.rounded)
-        // Light mode only (SPEC §7.1).
-        .preferredColorScheme(.light)
+        // The phone's light or dark, unless Settings › Appearance picks one (SPEC §7.7.2).
+        .onAppear { appearance.apply() }
         .onOpenURL { appViewModel.handle($0) }
         .onChange(of: appViewModel.path, initial: true) { _, _ in retainNavigationGames() }
         .onChange(of: appViewModel.sheet) { _, _ in retainNavigationGames() }

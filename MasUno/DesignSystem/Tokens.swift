@@ -20,6 +20,8 @@ struct PersonToken: View {
             }
             .overlay { Circle().strokeBorder(.white, lineWidth: ring) }
             .frame(width: size, height: size)
+            // Pastels in dark mode too, with dark initials.
+            .inkOnColor()
             .accessibilityHidden(true)
     }
 
@@ -68,6 +70,7 @@ struct MeToken: View {
                         .accessibilityHidden(true)
                 }
             }
+            .inkOnColor()
     }
 }
 
@@ -132,6 +135,8 @@ struct OpenSpotToken: View {
                     .geometryGroup()
             }
             .frame(width: size, height: size)
+            // On its white the "+1" stays ink in dark mode; a clear one follows the surface.
+            .inkOnColor(fill != .clear)
             .accessibilityHidden(true)
             .onAppear { isTurning = isLive && !reduceMotion && decorationRuns }
             .onDisappear { isTurning = false }

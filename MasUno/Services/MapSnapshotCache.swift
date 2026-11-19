@@ -9,9 +9,11 @@ nonisolated struct MapSnapshotRequest: Hashable, Sendable {
     var size: Double
     var scale: Double
     var regionMeters: Double = 400
+    /// Dark map tiles for dark mode: a light snapshot would be a bright square on a dark card.
+    var isDark = false
 
     var cacheKey: NSString {
-        "\(latitude.bitPattern):\(longitude.bitPattern):\(size.bitPattern):\(scale.bitPattern):\(regionMeters.bitPattern):light-standard-no-poi" as NSString
+        "\(latitude.bitPattern):\(longitude.bitPattern):\(size.bitPattern):\(scale.bitPattern):\(regionMeters.bitPattern):\(isDark ? "dark" : "light")-standard-no-poi" as NSString
     }
 }
 
@@ -95,7 +97,7 @@ final class MapSnapshotCache: NSObject {
         options.size = CGSize(width: request.size, height: request.size)
         options.scale = request.scale
         options.pointOfInterestFilter = .excludingAll
-        options.traitCollection = UITraitCollection(userInterfaceStyle: .light)
+        options.traitCollection = UITraitCollection(userInterfaceStyle: request.isDark ? .dark : .light)
         let snapshotter = MKMapSnapshotter(options: options)
         let cancellation = SnapshotCancellation { snapshotter.cancel() }
         return try await withTaskCancellationHandler {

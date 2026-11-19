@@ -1,8 +1,8 @@
 import XCTest
 
 /// Apple's accessibility audit (A11Y-29) on each design-review screen (`-screen …`), at the default
-/// text size and the largest accessibility size. Anything the audit finds fails the test unless it's
-/// in `AuditKnownIssue.all`. CI runs this on iOS 26.5 only.
+/// text size and the largest accessibility size, plus a contrast pass in dark mode. Anything the audit
+/// finds fails the test unless it's in `AuditKnownIssue.all`. CI runs this on iOS 26.5 only.
 final class AccessibilityAuditUITests: XCTestCase {
     /// Screens that must pass the audit, grouped so one test stays well under CI's per-test limit and
     /// each group reports its own failures. Add a screen when it's fixed; never remove one.
@@ -27,19 +27,29 @@ final class AccessibilityAuditUITests: XCTestCase {
     @MainActor func testMeScreensAtLargestText() { audit(Screens.me, size: .largest) }
     @MainActor func testOnboardingScreensAtLargestText() { audit(Screens.onboarding, size: .largest) }
 
+    /// Contrast only, at the default size, with the app forced dark (`-appearance dark`). Its known
+    /// issues are listed under the screen's name with a "dark-" in front, since the light list's
+    /// reasons (ratios, glass) don't carry over.
+    @MainActor func testScreensInDarkMode() {
+        audit(Screens.map + Screens.detail + Screens.form + Screens.me + Screens.onboarding, dark: true)
+    }
+
     /// Audits each screen in turn. A finding on one screen is recorded and the rest still run.
     @MainActor
-    private func audit(_ screens: [String], size: AuditKnownIssue.Size = .standard) {
+    private func audit(_ screens: [String], size: AuditKnownIssue.Size = .standard, dark: Bool = false) {
         continueAfterFailure = true
         // Text-size checks enlarge the text, which can move or swap elements (stacked buttons at
         // accessibility sizes); run them after the others so contrast and the rest see a still screen.
         let textSize: XCUIAccessibilityAuditType = [.dynamicType, .textClipped]
-        let passes: [XCUIAccessibilityAuditType] = size == .largest
-            ? [[.dynamicType, .textClipped, .hitRegion]]
-            : [.all.subtracting(textSize), textSize]
+        let passes: [XCUIAccessibilityAuditType] = dark
+            ? [.contrast]
+            : size == .largest ? [[.dynamicType, .textClipped, .hitRegion]] : [.all.subtracting(textSize), textSize]
         var used = Set<Int>()
-        for screen in screens {
-            var app = launch(screen, size: size)
+        // What a screen's findings are listed under.
+        let listed = { (screen: String) in dark ? "dark-\(screen)" : screen }
+        for launched in screens {
+            let screen = listed(launched)
+            var app = launch(launched, size: size, dark: dark)
             XCTContext.runActivity(named: "Audit \(screen)\(size == .largest ? " at AX5" : "")") { _ in
                 do {
                     var unknown = Set<String>()
@@ -68,7 +78,7 @@ final class AccessibilityAuditUITests: XCTestCase {
                     // by the time its label is read, so it arrives unnamed. A fresh launch settles that;
                     // whatever isn't listed then fails.
                     app.terminate()
-                    app = launch(screen, size: size)
+                    app = launch(launched, size: size, dark: dark)
                     try Self.audit(app, passes) { issue in
                         if let index = AuditKnownIssue.match(issue, on: screen, size: size) {
                             used.insert(index)
@@ -86,7 +96,7 @@ final class AccessibilityAuditUITests: XCTestCase {
         // Entries that didn't come up may be fixed: a hint for shrinking the list, not a failure,
         // since some findings depend on timing or Apple Maps content.
         for (index, entry) in AuditKnownIssue.all.enumerated() where !used.contains(index) && entry.applies(to: size) {
-            let here = entry.screens.filter(screens.contains)
+            let here = entry.screens.filter(screens.map(listed).contains)
             guard !here.isEmpty else { continue }
             print("AUDIT-UNSEEN \(here) .\(size) .\(AuditKnownIssue.name(of: entry.type)) \"\(entry.element)\": \(entry.reason)")
         }
@@ -94,11 +104,12 @@ final class AccessibilityAuditUITests: XCTestCase {
 
     /// Opens `screen` on mocks and waits for its sheet or popup, which open a moment after launch.
     @MainActor
-    private func launch(_ screen: String, size: AuditKnownIssue.Size) -> XCUIApplication {
+    private func launch(_ screen: String, size: AuditKnownIssue.Size, dark: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["-liveAuth", "NO", "-mockLocation", "YES", "-screen", screen,
                                "-notificationSettingsDelay", "60",
-                               "-appLanguage", "system", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+                               "-appLanguage", "system", "-AppleLanguages", "(en)", "-AppleLocale", "en_US",
+                               "-appearance", dark ? "dark" : "system"]
         if size == .largest {
             app.launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
         }

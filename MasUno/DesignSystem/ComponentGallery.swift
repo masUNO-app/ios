@@ -12,8 +12,8 @@ struct ComponentGallery: View {
         ("accent", Theme.accent), ("accentText", Theme.accentText), ("accentSoft", Theme.accentSoft),
         ("background", Theme.background), ("card", Theme.card), ("surface2", Theme.surface2),
         ("ink", Theme.ink), ("muted", Theme.muted), ("mutedLarge", Theme.mutedLarge),
-        ("destructive", Theme.destructive), ("error", Theme.error),
-        ("you", Theme.you), ("separator", Theme.separator), ("hairline", Theme.hairline),
+        ("destructive", Theme.destructive), ("destructiveText", Theme.destructiveText), ("error", Theme.error),
+        ("you", Theme.you), ("separator", Theme.separator), ("hairline", Theme.hairline), ("paper", Theme.paper),
     ]
 
     private var game: Game { MockFixtures.world(now: .now).games[0] }
@@ -86,7 +86,7 @@ struct ComponentGallery: View {
                             IconTile(systemImage: "mappin.and.ellipse", color: Color(.sportVolleyball).opacity(0.45))
                         }
                         HStack(spacing: 12) {
-                            ProfileBadge("Verified student", systemImage: "checkmark.seal.fill").padding(8).background(Theme.you, in: .capsule)
+                            ProfileBadge("Verified student", systemImage: "checkmark.seal.fill").padding(8).background(Theme.you, in: .capsule).inkOnColor()
                             OptionalTag()
                         }
                     }

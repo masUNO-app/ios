@@ -68,7 +68,7 @@ struct LocationPickerView: View {
                 .padding(.vertical, typeSize.isAccessibilitySize ? 4 : 0)
                 .frame(minHeight: 28)
                 .background(Theme.card, in: .capsule)
-                .shadow(color: Theme.ink.opacity(0.12), radius: 4, y: 2)
+                .shadow(color: Theme.shadowInk.opacity(0.12), radius: 4, y: 2)
             PinMarker(color: sport.color) {
                 Text(sport.emoji).font(.system(size: 24))
             }
@@ -103,7 +103,7 @@ struct LocationPickerView: View {
             .frame(minHeight: 48)
             .background(Theme.card, in: .capsule)
             .overlay(Capsule().strokeBorder(isSearchFocused ? Theme.accent : Theme.hairline, lineWidth: isSearchFocused ? 1.5 : 1))
-            .shadow(color: Theme.ink.opacity(0.08), radius: 6, y: 2)
+            .shadow(color: Theme.shadowInk.opacity(0.08), radius: 6, y: 2)
 
             if viewModel.showsSuggestions || isSearchFocused {
                 suggestionList
@@ -127,7 +127,7 @@ struct LocationPickerView: View {
         .background(Theme.card, in: .rect(cornerRadius: Theme.Radius.card))
         .clipShape(.rect(cornerRadius: Theme.Radius.card))
         .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card).strokeBorder(Theme.hairline))
-        .shadow(color: Theme.ink.opacity(0.1), radius: 10, y: 4)
+        .shadow(color: Theme.shadowInk.opacity(0.1), radius: 10, y: 4)
     }
 
     private var suggestionRows: some View {

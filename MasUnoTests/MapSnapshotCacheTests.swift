@@ -42,15 +42,29 @@ struct MapSnapshotCacheTests {
         }
     }
 
-    @Test func cacheIdentityIncludesDimensionsScaleAndRegion() {
+    @Test func cacheIdentityIncludesDimensionsScaleRegionAndScheme() {
         var resized = request
         resized.size = 72
         var scaled = request
         scaled.scale = 3
         var zoomed = request
         zoomed.regionMeters = 800
-        #expect(Set([request, resized, scaled, zoomed]).count == 4)
-        #expect(Set([request.cacheKey, resized.cacheKey, scaled.cacheKey, zoomed.cacheKey]).count == 4)
+        var dark = request
+        dark.isDark = true
+        #expect(Set([request, resized, scaled, zoomed, dark]).count == 5)
+        #expect(Set([request.cacheKey, resized.cacheKey, scaled.cacheKey, zoomed.cacheKey, dark.cacheKey]).count == 5)
+    }
+
+    @Test func lightAndDarkSnapshotsAreRenderedAndCachedSeparately() async throws {
+        let light = image(), darkImage = image()
+        var dark = request
+        dark.isDark = true
+        var rendered: [Bool] = []
+        let cache = MapSnapshotCache { request in rendered.append(request.isDark); return request.isDark ? darkImage : light }
+        #expect(try await cache.image(for: request) === light)
+        #expect(try await cache.image(for: dark) === darkImage)
+        #expect(try await cache.image(for: request) === light)
+        #expect(rendered == [false, true])
     }
 
     @Test func equalSnapshotsReuseTheCachedImageAndClearingRequiresANewRender() async throws {

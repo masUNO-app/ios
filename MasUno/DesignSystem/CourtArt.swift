@@ -335,6 +335,7 @@ struct CourtHeader: View {
         }
         .frame(height: Self.designHeight * scale)
         .background(activity.color)
+        .inkOnColor()
         .clipped()
         .contentShape(.rect)
         .onTapGesture(perform: onTap)

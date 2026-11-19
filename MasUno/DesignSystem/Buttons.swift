@@ -91,7 +91,7 @@ private struct PillModifier: ViewModifier {
         case .quiet:
             sized.buttonStyle(.glass).tint(Theme.ink)
         case .quietDestructive:
-            sized.buttonStyle(.glass).tint(Theme.destructive)
+            sized.buttonStyle(.glass).tint(Theme.destructiveText)
         }
     }
 }
@@ -126,7 +126,7 @@ private struct CapsuleActionStyle: ButtonStyle {
         switch style {
         case .primary, .destructive: Theme.onAccent
         case .secondary, .quiet: Theme.ink
-        case .quietDestructive: Theme.destructive
+        case .quietDestructive: Theme.destructiveText
         }
     }
 

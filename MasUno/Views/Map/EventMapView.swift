@@ -368,9 +368,9 @@ struct EventMapView: View {
         let topInset = safeFrame.isEmpty ? 0 : max(0, safeFrame.minY - mapFrame.minY)
         return LinearGradient(
             stops: [
-                .init(color: Theme.background.opacity(0.95), location: 0),
-                .init(color: Theme.background.opacity(0.8), location: 0.65),
-                .init(color: Theme.background.opacity(0), location: 1),
+                .init(color: Theme.mapFade.opacity(0.95), location: 0),
+                .init(color: Theme.mapFade.opacity(0.8), location: 0.65),
+                .init(color: Theme.mapFade.opacity(0), location: 1),
             ],
             startPoint: .top, endPoint: .bottom
         )
@@ -492,7 +492,7 @@ struct EventMapView: View {
                 .scrollBounceBehavior(.basedOnSize)
                 .frame(maxHeight: min(CGFloat(results.count) * resultRowHeight, max(screenSize.height * 0.5, 204)))
                 .background(Theme.card, in: .rect(cornerRadius: Theme.Radius.card))
-                .shadow(color: Theme.ink.opacity(0.08), radius: 8, y: 3)
+                .shadow(color: Theme.shadowInk.opacity(0.08), radius: 8, y: 3)
             }
         }
         // The list changes as you type without moving focus (A11Y-03).
@@ -581,7 +581,7 @@ struct EventMapView: View {
         }
         .frame(maxWidth: 354)
         .padding(.horizontal, 24)
-        .shadow(color: Theme.ink.opacity(0.1), radius: 16, y: 6)
+        .shadow(color: Theme.shadowInk.opacity(0.1), radius: 16, y: 6)
     }
 
     // MARK: Location

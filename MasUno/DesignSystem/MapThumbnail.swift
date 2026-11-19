@@ -10,6 +10,7 @@ struct MapThumbnail: View {
     @State private var image: UIImage?
     @State private var renderedRequest: MapSnapshotRequest?
     @Environment(\.displayScale) private var displayScale
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         RoundedRectangle(cornerRadius: Theme.Radius.tile)
@@ -35,7 +36,10 @@ struct MapThumbnail: View {
     }
 
     private var request: MapSnapshotRequest {
-        MapSnapshotRequest(latitude: coordinate.latitude, longitude: coordinate.longitude, size: Double(size), scale: Double(displayScale))
+        MapSnapshotRequest(
+            latitude: coordinate.latitude, longitude: coordinate.longitude, size: Double(size),
+            scale: Double(displayScale), isDark: colorScheme == .dark
+        )
     }
 
     private func render(_ request: MapSnapshotRequest) async {

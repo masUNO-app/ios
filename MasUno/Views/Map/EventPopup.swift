@@ -42,7 +42,7 @@ struct EventPopup: View {
             CalloutTail()
                 .fill(Theme.card)
                 .frame(width: 28, height: 13)
-                .shadow(color: Theme.ink.opacity(0.12), radius: 3, y: 4)
+                .shadow(color: Theme.shadowInk.opacity(0.12), radius: 3, y: 4)
                 // Tucked under the card so the border doesn't show between them.
                 .padding(.top, -1)
         }

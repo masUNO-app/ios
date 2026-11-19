@@ -137,7 +137,8 @@ Placeholders that still need a real answer. Card IDs refer to SPEC §5.
 ### Later
 - [x] 1.0 UI (E27), guest browsing (R7-15), invites and the beta badge (N37), one waitlist (N38)
 - [x] 1.0: Notify me + synced Saved, notifications, picker drag, Spanish ("Happening now" and the changed banner are cut)
-- [ ] Post-MVP: organizer approval, profile photos, dark mode
+- [x] Dark mode (build 9): follows the phone, or Settings › Appearance; derived colors for Arianna to review (SPEC §7.7.2)
+- [ ] Post-MVP: organizer approval, profile photos
 
 Build 0.9 (2) implements the first optimization pass and the post-create/join primer crash fix.
 Build 0.9 (8) adds the accessibility and optimization pass (Nov 19): the accessibility audit UI test
@@ -146,3 +147,6 @@ announcements, larger text support, High Contrast colors, Reduce Motion, 44 pt t
 updates. `-Osize` was measured and left out: 7% smaller, but the map filter path got 26–42% slower.
 CI includes mock iOS tests, primer UI regressions, Release packaging, pgTAP, and pinned Deno/Node
 push-delivery checks. Remaining physical-device checks are listed in [QA.md](docs/QA.md).
+Build 0.9 (9) adds dark mode: every color set has a dark variant (High Contrast too), Settings ›
+Appearance picks System, Light or Dark, and `-appearance dark` forces it in tests, with a dark
+contrast pass in `AccessibilityAuditUITests`.

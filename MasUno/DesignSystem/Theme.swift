@@ -2,9 +2,11 @@ import SwiftUI
 import UIKit
 
 /// 1.0 tokens, "Room for one more" (SPEC §7.7.2). The colors live in `Assets.xcassets` (Colors/
-/// and AccentColor) as named color sets, so they match the Figma variables one-to-one and can get
-/// dark variants later. Views use these, never raw colors. Light mode only; the text, edge and
-/// accent colors have High Contrast variants for Increase Contrast (A11Y-17).
+/// and AccentColor) as named color sets, so they match the Figma variables one-to-one. Views use
+/// these, never raw colors. Each has a dark variant (derived in build 9, for Arianna to review); the
+/// text, edge and accent colors have High Contrast variants for Increase Contrast (A11Y-17), light
+/// and dark. Sport, person and You colors stay the same in dark mode, and so does the dark ink on
+/// them (`inkOnColor()`).
 enum Theme {
     // MARK: Colors
 
@@ -28,8 +30,11 @@ enum Theme {
     /// Lighter secondary text, at any size: it passes AA on every surface (4.9:1 on the background),
     /// so footnotes, subtitles and the host line use it too.
     static let mutedLarge = Color(.mutedLarge)
-    /// Leave game, Cancel game, Sign out, Delete account.
+    /// Leave game, Cancel game, Sign out, Delete account, as a fill under a white label.
     static let destructive = Color(.destructive)
+    /// The same red as text or an icon ("Sign out" on glass, a destructive dialog's icon). Lighter
+    /// in dark mode, where the fill's red is too dark to read on a dark surface.
+    static let destructiveText = Color(.destructiveText)
     /// Field errors.
     static let error = Color(.error)
     /// The signed-in person, everywhere. Kept out of the other people's palette.
@@ -38,17 +43,25 @@ enum Theme {
     static let separator = Color(.rowSeparator)
     /// Hairline border on cards and fields: ink at 10%, and a solid 3:1 edge under Increase Contrast.
     static let hairline = Color(.hairline)
+    /// White in light mode, under the host's note; the card color in dark mode.
+    static let paper = Color(.paper)
+    /// What shadows are made of: ink in light mode, black in dark mode, where they mostly vanish.
+    static let shadowInk = Color(.shadowInk)
+    /// Scrim behind a dialog: ink at 35%, black at 55% in dark mode.
+    static let scrim = Color(.scrim)
+    /// The fade behind the map's search bar: the map's own land color, so it washes the map out
+    /// rather than laying a band over it. The background's color in light mode; the dark map's
+    /// slate (`#344458`, picked from a dark map screenshot) in dark mode.
+    static let mapFade = Color(.mapFade)
 
     // Derived from the tokens above.
 
     /// Soft drop shadow under pins and floating cards.
-    static let shadow = ink.opacity(0.18)
-    /// Label color on `accent` and `destructive` fills.
+    static let shadow = shadowInk.opacity(0.18)
+    /// Label color on `accent` and `destructive` fills, which keep a white label in dark mode too.
     static let onAccent = Color.white
-    /// Scrim behind a dialog.
-    static let scrim = ink.opacity(0.35)
     /// Soft red behind a destructive dialog's icon.
-    static let destructiveSoft = destructive.opacity(0.12)
+    static let destructiveSoft = destructiveText.opacity(0.12)
     /// A map pin that stands for several games: darker than the soccer and accent greens, so it
     /// reads as "more" rather than as one more game.
     static let groupPin = accent.mix(with: .black, by: 0.35)
@@ -131,6 +144,12 @@ extension View {
         modifier(ContrastOpacity(opacity: opacity))
     }
 
+    /// For content on a sport, person or You color: the fills keep their light values in dark mode,
+    /// so what's on them keeps its light colors too (dark ink, light glass). Ink on every sport color.
+    func inkOnColor(_ isOn: Bool = true) -> some View {
+        modifier(InkOnColor(isOn: isOn))
+    }
+
     /// Card surface: `card` fill, rounded corners, hairline border.
     func cardSurface(radius: CGFloat = Theme.Radius.card) -> some View {
         background(Theme.card, in: .rect(cornerRadius: radius))
@@ -160,6 +179,15 @@ extension Color {
             blue: Double(hex & 0xFF) / 255,
             opacity: opacity
         )
+    }
+}
+
+private struct InkOnColor: ViewModifier {
+    var isOn: Bool
+    @Environment(\.colorScheme) private var colorScheme
+
+    func body(content: Content) -> some View {
+        content.environment(\.colorScheme, isOn ? .light : colorScheme)
     }
 }
 

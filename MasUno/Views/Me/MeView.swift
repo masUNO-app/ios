@@ -169,6 +169,8 @@ struct MeView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(18)
+        // On the You color, in dark mode too.
+        .inkOnColor()
     }
 
     private func profilePlays(_ profile: Profile) -> some View {

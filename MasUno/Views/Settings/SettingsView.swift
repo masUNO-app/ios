@@ -9,6 +9,7 @@ struct SettingsView: View {
     @Environment(GameStore.self) private var store
     @Environment(PushNotificationService.self) private var push
     @Environment(LanguageSettings.self) private var language
+    @Environment(AppearanceSettings.self) private var appearance
     @State private var prefQueue = NotificationPrefQueue()
     @State private var prefsLoaded = false
     @State private var prefsFailed = false
@@ -23,25 +24,24 @@ struct SettingsView: View {
         ScrollView {
             // Side by side in open landscape, stacked otherwise. Spacing 10 keeps phones as they were.
             CardGrid(spacing: 10) {
-                section("Language") {
-                    HStack(spacing: 14) {
-                        IconTile(systemImage: "globe", color: Theme.accentSoft)
-                        // The picker goes under the title at accessibility sizes (A11Y-06).
-                        languageLayout {
-                            Text("App language")
-                                .font(.rounded(.body))
-                                .foregroundStyle(Theme.ink)
-                                // The menu picker under it would otherwise squeeze it to "…".
-                                .fixedSize(horizontal: false, vertical: typeSize.isAccessibilitySize)
-                            if !typeSize.isAccessibilitySize { Spacer(minLength: 0) }
-                            languagePicker
+                // One grid item, so the cards after them pair up as before in open landscape.
+                VStack(alignment: .leading, spacing: 10) {
+                    section("Language") {
+                        choiceRow("App language", systemImage: "globe", color: Theme.accentSoft) {
+                            menuPicker(
+                                "App language", selection: Bindable(language).preference,
+                                identifier: "app-language-picker", name: languageName
+                            )
                         }
                     }
-                    .padding(.horizontal, 14)
-                    // Room around the stacked picker at accessibility sizes; smaller sizes keep the row.
-                    .padding(.vertical, typeSize.isAccessibilitySize ? 8 : 0)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .frame(minHeight: 58)
+                    section("Appearance") {
+                        choiceRow("Light or dark", systemImage: "circle.lefthalf.filled", color: Theme.you.opacity(0.55)) {
+                            menuPicker(
+                                "Appearance", selection: Bindable(appearance).preference,
+                                identifier: "appearance-picker", name: appearanceName
+                            )
+                        }
+                    }
                 }
 
                 section("Notifications") {
@@ -189,16 +189,42 @@ struct SettingsView: View {
         }
     }
 
-    private var languageLayout: AnyLayout {
+    private var choiceLayout: AnyLayout {
         typeSize.isAccessibilitySize
             ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
             : AnyLayout(HStackLayout(spacing: 14))
     }
 
+    /// Icon tile, title and a menu of choices: App language, Light or dark.
+    private func choiceRow(
+        _ title: LocalizedStringKey, systemImage: String, color: Color, @ViewBuilder picker: () -> some View
+    ) -> some View {
+        HStack(spacing: 14) {
+            IconTile(systemImage: systemImage, color: color)
+            // The picker goes under the title at accessibility sizes (A11Y-06).
+            choiceLayout {
+                Text(title)
+                    .font(.rounded(.body))
+                    .foregroundStyle(Theme.ink)
+                    // The menu picker under it would otherwise squeeze it to "…".
+                    .fixedSize(horizontal: false, vertical: typeSize.isAccessibilitySize)
+                if !typeSize.isAccessibilitySize { Spacer(minLength: 0) }
+                picker()
+            }
+        }
+        .padding(.horizontal, 14)
+        // Room around the stacked picker at accessibility sizes; smaller sizes keep the row.
+        .padding(.vertical, typeSize.isAccessibilitySize ? 8 : 0)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(minHeight: 58)
+    }
+
     @ViewBuilder
-    private var languagePicker: some View {
-        let picker = Picker("App language", selection: Bindable(language).preference) {
-            ForEach(LanguageSettings.Preference.allCases) { languageName($0).tag($0) }
+    private func menuPicker<Choice: CaseIterable & Identifiable & Hashable>(
+        _ label: LocalizedStringKey, selection: Binding<Choice>, identifier: String, name: @escaping (Choice) -> Text
+    ) -> some View where Choice.AllCases: RandomAccessCollection {
+        let picker = Picker(label, selection: selection) {
+            ForEach(Choice.allCases) { name($0).tag($0) }
         }
         if typeSize.isAccessibilitySize {
             // The menu picker's own button cuts a wrapped choice to one line, so at accessibility
@@ -207,7 +233,7 @@ struct SettingsView: View {
                 picker
             } label: {
                 HStack(spacing: 6) {
-                    languageName(language.preference)
+                    name(selection.wrappedValue)
                         .multilineTextAlignment(.leading)
                     Image(systemName: "chevron.up.chevron.down")
                         .font(.footnote.weight(.semibold))
@@ -216,16 +242,16 @@ struct SettingsView: View {
                 .font(.rounded(.subheadline))
                 .foregroundStyle(Theme.ink)
             }
-            .accessibilityLabel(Text("App language"))
-            .accessibilityValue(languageName(language.preference))
-            .accessibilityIdentifier("app-language-picker")
+            .accessibilityLabel(Text(label))
+            .accessibilityValue(name(selection.wrappedValue))
+            .accessibilityIdentifier(identifier)
         } else {
             picker
                 .labelsHidden()
                 .pickerStyle(.menu)
                 .tint(Theme.ink)
                 .font(.rounded(.subheadline))
-                .accessibilityIdentifier("app-language-picker")
+                .accessibilityIdentifier(identifier)
         }
     }
 
@@ -234,6 +260,14 @@ struct SettingsView: View {
         case .system: Text("Device language")
         case .en: Text(verbatim: "English")
         case .es: Text(verbatim: "Español")
+        }
+    }
+
+    private func appearanceName(_ preference: AppearanceSettings.Preference) -> Text {
+        switch preference {
+        case .system: Text("System")
+        case .light: Text("Light")
+        case .dark: Text("Dark")
         }
     }
 
