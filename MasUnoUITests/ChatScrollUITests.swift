@@ -44,7 +44,11 @@ final class ChatScrollUITests: XCTestCase {
         defer { app.terminate() }
         let latest = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Message 60")).firstMatch
         assertVisible(latest, timeout: 20)
-        app.scrollViews.firstMatch.swipeDown(velocity: .slow)
+        // One slow swipe can be undone by the chat's own first jump to the latest message when the
+        // simulator is busy, so swipe until the latest is off screen.
+        for _ in 0..<3 where latest.isHittable {
+            app.scrollViews.firstMatch.swipeDown(velocity: .slow)
+        }
         XCTAssertFalse(latest.isHittable)
         // Bubbles read "Sam L.: Message 12".
         let messages = app.staticTexts.matching(NSPredicate(format: "label MATCHES %@", ".*: Message [0-9]+"))

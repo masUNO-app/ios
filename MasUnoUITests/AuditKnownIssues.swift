@@ -272,6 +272,7 @@ struct AuditKnownIssue {
         .init(["settings"], .standard, .contrast, "Privacy & safety", "A11Y-15 (PR 14): accent, white-on-accent or muted text"),
         .init(["filter"], .standard, .contrast, "Reset", "A11Y-15 (PR 14): accent, white-on-accent or muted text"),
         .init(["chat"], .standard, .contrast, "Sam L.", "A11Y-15 (PR 14): accent, white-on-accent or muted text"),
+        .init(["chat"], .standard, .contrast, "Today", "A11Y-15 (PR 14): muted day pill, near the threshold so it comes and goes"),
         .init(["profile"], .standard, .contrast, "Save", "A11Y-15 (PR 14): accent, white-on-accent or muted text"),
         .init(["picker"], .standard, .contrast, "Search, or drag the map under the pin.", "A11Y-15 (PR 14): accent, white-on-accent or muted text"),
         .init(["picker"], .standard, .contrast, "Set location", "A11Y-15 (PR 14): accent, white-on-accent or muted text"),
