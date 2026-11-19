@@ -119,7 +119,7 @@ struct GameCard<Accessory: View, Actions: View>: View {
                 accessory
             }
 
-            TokenRow(lineup: lineup, size: 32, openFill: .white.opacity(isMuted ? 0.9 : 0.7))
+            TokenRow(lineup: lineup, size: 32, openFillOpacity: isMuted ? 0.9 : 0.7)
                 .accessibilityHidden(true)
         }
         .foregroundStyle(Theme.ink)

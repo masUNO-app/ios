@@ -9,11 +9,11 @@ struct ComponentGallery: View {
     @State private var isOn = true
 
     private let swatches: [(String, Color)] = [
-        ("accent", Theme.accent), ("accentSoft", Theme.accentSoft),
+        ("accent", Theme.accent), ("accentText", Theme.accentText), ("accentSoft", Theme.accentSoft),
         ("background", Theme.background), ("card", Theme.card), ("surface2", Theme.surface2),
         ("ink", Theme.ink), ("muted", Theme.muted), ("mutedLarge", Theme.mutedLarge),
         ("destructive", Theme.destructive), ("error", Theme.error),
-        ("you", Theme.you), ("separator", Theme.separator),
+        ("you", Theme.you), ("separator", Theme.separator), ("hairline", Theme.hairline),
     ]
 
     private var game: Game { MockFixtures.world(now: .now).games[0] }

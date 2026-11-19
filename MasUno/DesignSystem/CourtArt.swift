@@ -418,7 +418,7 @@ struct CourtHeader: View {
                 .modifier(Hop(trigger: cheers, delay: Double(place.slot) * 0.07, height: 14 * scale))
                 .modifier(Idle(slot: place.slot, scale: scale))
         case .open:
-            OpenSpotToken(size: size, fill: .white.opacity(0.38), isLive: true)
+            OpenSpotToken(size: size, fillOpacity: 0.38, isLive: true)
                 .background { Ping(slot: place.slot) }
                 .transition(.scale(scale: 0.5).combined(with: .opacity))
         }

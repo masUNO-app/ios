@@ -3,12 +3,16 @@ import UIKit
 
 /// 1.0 tokens, "Room for one more" (SPEC §7.7.2). The colors live in `Assets.xcassets` (Colors/
 /// and AccentColor) as named color sets, so they match the Figma variables one-to-one and can get
-/// dark variants later. Views use these, never raw colors. Light mode only.
+/// dark variants later. Views use these, never raw colors. Light mode only; the text, edge and
+/// accent colors have High Contrast variants for Increase Contrast (A11Y-17).
 enum Theme {
     // MARK: Colors
 
-    /// The one action color: primary buttons, toggles, "You" tokens, Host labels. White label only here.
+    /// The one action color: primary buttons, toggles, "You" tokens, focus rings. White label only here.
     static let accent = Color(.accent)
+    /// Green text: "Who's going", Host tags, "Add a meet-up spot…", the celebrating headline.
+    /// Fills stay `accent`, which is 4.3:1 on the background, short of AA for text (A11Y-15).
+    static let accentText = Color(.accentText)
     /// Mint: secondary buttons ("Details", "Not now", "Leave").
     static let accentSoft = Color(.accentSoft)
     /// Screens and sheets.
@@ -21,7 +25,8 @@ enum Theme {
     static let ink = Color(.ink)
     /// Secondary text at any size.
     static let muted = Color(.muted)
-    /// Lighter secondary text, only for ≥ 18 pt or ≥ 14 pt bold.
+    /// Lighter secondary text, at any size: it passes AA on every surface (4.9:1 on the background),
+    /// so footnotes, subtitles and the host line use it too.
     static let mutedLarge = Color(.mutedLarge)
     /// Leave game, Cancel game, Sign out, Delete account.
     static let destructive = Color(.destructive)
@@ -31,11 +36,11 @@ enum Theme {
     static let you = Color(.you)
     /// Opaque row separators and the day pill.
     static let separator = Color(.rowSeparator)
+    /// Hairline border on cards and fields: ink at 10%, and a solid 3:1 edge under Increase Contrast.
+    static let hairline = Color(.hairline)
 
     // Derived from the tokens above.
 
-    /// Hairline border on cards and fields.
-    static let hairline = ink.opacity(0.1)
     /// Soft drop shadow under pins and floating cards.
     static let shadow = ink.opacity(0.18)
     /// Label color on `accent` and `destructive` fills.
@@ -120,6 +125,12 @@ extension Font {
 }
 
 extension View {
+    /// For a color drawn at part opacity (`muted` icons, soft fills): the opacity given, or full
+    /// strength under Increase Contrast (A11Y-17), which the color's own variant can't reach.
+    func contrastOpacity(_ opacity: Double) -> some View {
+        modifier(ContrastOpacity(opacity: opacity))
+    }
+
     /// Card surface: `card` fill, rounded corners, hairline border.
     func cardSurface(radius: CGFloat = Theme.Radius.card) -> some View {
         background(Theme.card, in: .rect(cornerRadius: radius))
@@ -149,5 +160,14 @@ extension Color {
             blue: Double(hex & 0xFF) / 255,
             opacity: opacity
         )
+    }
+}
+
+private struct ContrastOpacity: ViewModifier {
+    var opacity: Double
+    @Environment(\.colorSchemeContrast) private var contrast
+
+    func body(content: Content) -> some View {
+        content.opacity(contrast == .increased ? 1 : opacity)
     }
 }

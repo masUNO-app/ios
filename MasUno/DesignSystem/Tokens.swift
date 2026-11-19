@@ -98,7 +98,9 @@ struct OpenSpotToken: View {
     /// "+1", or "+4" when a row runs out of room for one token per spot.
     var count = 1
     /// White over a sport color; clear on a plain surface.
-    var fill: Color = .white.opacity(0.7)
+    var fill: Color = .white
+    /// Full under Increase Contrast, so the "+1" sits on solid white.
+    var fillOpacity = 0.7
     /// On the court the dashed ring slowly turns, so the spot looks like it's waiting for someone.
     var isLive = false
 
@@ -109,6 +111,7 @@ struct OpenSpotToken: View {
     var body: some View {
         Circle()
             .fill(fill)
+            .contrastOpacity(fillOpacity)
             .overlay {
                 Text(verbatim: "+\(count)")
                     .font(.rounded(size: size * 0.37))
@@ -235,8 +238,9 @@ struct Lineup: Equatable {
 struct TokenRow: View {
     var lineup: Lineup
     var size: CGFloat = 32
-    /// Fill behind the "+1" tokens.
-    var openFill: Color = .white.opacity(0.7)
+    /// Fill behind the "+1" tokens, and its opacity (full under Increase Contrast).
+    var openFill: Color = .white
+    var openFillOpacity = 0.7
     /// The row's width, once measured.
     @State private var width: CGFloat?
 
@@ -276,7 +280,7 @@ struct TokenRow: View {
             ForEach(0..<openTokens, id: \.self) { index in
                 // The last token carries the rest when there are more spots than tokens.
                 let isLast = index == openTokens - 1
-                OpenSpotToken(size: size, count: isLast ? lineup.open - openTokens + 1 : 1, fill: openFill)
+                OpenSpotToken(size: size, count: isLast ? lineup.open - openTokens + 1 : 1, fill: openFill, fillOpacity: openFillOpacity)
             }
         }
         // Takes the width it's offered, so what fits doesn't depend on what it shows.

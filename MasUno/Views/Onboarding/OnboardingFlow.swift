@@ -426,7 +426,7 @@ struct SchoolRow: View {
             .padding(.horizontal, 14)
             .frame(minHeight: 66)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(isSelected ? Theme.accentSoft.opacity(0.6) : .clear)
+            .background { if isSelected { Theme.accentSoft.contrastOpacity(0.6) } }
             .contentShape(.rect)
         }
         .buttonStyle(.plain)

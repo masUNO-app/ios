@@ -5,12 +5,14 @@ import SwiftUI
 struct RowAccessory: View {
     var systemImage = "chevron.right"
     var font: Font = .footnote.weight(.semibold)
-    var color: Color = Theme.muted.opacity(0.6)
+    /// `muted` at 80% when nil: 4:1 on a card, though it's decorative (A11Y-16).
+    var color: Color?
 
     var body: some View {
         Image(systemName: systemImage)
             .font(font)
-            .foregroundStyle(color)
+            .foregroundStyle(color ?? Theme.muted)
+            .contrastOpacity(color == nil ? 0.8 : 1)
             .accessibilityHidden(true)
     }
 }

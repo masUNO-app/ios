@@ -14,15 +14,17 @@ struct SportChip: View {
 }
 
 /// Selectable sport chip (Make it yours, Edit profile, Filter games): the sport's color when
-/// it's on, plain white when it's off.
+/// it's on, plain white when it's off. With Differentiate Without Color, a checkmark too: some
+/// sport colors are hard to tell from white (A11Y-22).
 struct SportToggle: View {
     var sport: Activity
     var isOn: Bool
     var action: () -> Void
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
 
     var body: some View {
         Button(action: action) {
-            SportLabel(sport: sport)
+            SportLabel(sport: sport, showsCheckmark: isOn && differentiateWithoutColor)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
                 .frame(minHeight: 32)
@@ -38,9 +40,15 @@ struct SportToggle: View {
 /// it the emoji would be read too ("basketball, Basketball", A11Y-11).
 private struct SportLabel: View {
     var sport: Activity
+    /// The toggle's "on" mark; its Selected trait already says so to VoiceOver.
+    var showsCheckmark = false
 
     var body: some View {
         HStack(spacing: 4) {
+            if showsCheckmark {
+                Image(systemName: "checkmark")
+                    .accessibilityHidden(true)
+            }
             Text(sport.emoji)
                 .accessibilityHidden(true)
             Text(sport.name)
@@ -109,7 +117,7 @@ struct ProfileBadge: View {
             .padding(.horizontal, 9)
             .padding(.vertical, typeSize.isAccessibilitySize ? 2 : 0)
             .frame(minHeight: 24)
-            .background(.white.opacity(0.75), in: .capsule)
+            .background { Capsule().fill(.white).contrastOpacity(0.75) }
     }
 }
 

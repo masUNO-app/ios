@@ -90,6 +90,6 @@ struct SafetyNote: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.separator.opacity(0.6), in: .rect(cornerRadius: 14))
+        .background { RoundedRectangle(cornerRadius: 14).fill(Theme.separator).contrastOpacity(0.6) }
     }
 }

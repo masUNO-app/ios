@@ -186,7 +186,7 @@ struct EventDetailView: View {
             headline {
                 Text(verbatim: viewModel.headline(for: event))
                     .font(.rounded(.headline, .bold))
-                    .foregroundStyle(viewModel.isCelebrating(event) ? Theme.accent : Theme.ink)
+                    .foregroundStyle(viewModel.isCelebrating(event) ? Theme.accentText : Theme.ink)
                     .contentTransition(.opacity)
                 if !typeSize.isAccessibilitySize { Spacer(minLength: 12) }
                 Button {
@@ -197,7 +197,7 @@ struct EventDetailView: View {
                         RowAccessory(font: .caption.weight(.bold), color: Theme.ink)
                     }
                     .font(.rounded(.subheadline, .bold))
-                    .foregroundStyle(Theme.accent)
+                    .foregroundStyle(Theme.accentText)
                 }
                 .buttonStyle(.plain)
             }
@@ -274,7 +274,7 @@ struct EventDetailView: View {
                     Label("Add a meet-up spot so people know where to find you", systemImage: "flag")
                         .labelStyle(IconRowLabelStyle(iconWidth: 20, spacing: 12))
                         .font(.rounded(.subheadline, .bold))
-                        .foregroundStyle(Theme.accent)
+                        .foregroundStyle(Theme.accentText)
                         .multilineTextAlignment(.leading)
                 }
                 .buttonStyle(.plain)

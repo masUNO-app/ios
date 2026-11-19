@@ -60,7 +60,7 @@ struct ReportSheet: View {
                     }
                     .padding(14)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Theme.separator.opacity(0.6), in: .rect(cornerRadius: 16))
+                    .background { RoundedRectangle(cornerRadius: 16).fill(Theme.separator).contrastOpacity(0.6) }
                 }
 
                 ForEach(ReportReason.listed) { option in

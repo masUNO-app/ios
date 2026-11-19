@@ -88,7 +88,7 @@ struct WhoIsGoingSheet: View {
                             .font(.rounded(.callout, .bold))
                             .foregroundStyle(Theme.ink)
                         if attendee.role == .host {
-                            TagText("Host", color: Theme.accent)
+                            TagText("Host", color: Theme.accentText)
                         }
                         // Muted, so Host stays the only green tag.
                         if person.isBetaTester {

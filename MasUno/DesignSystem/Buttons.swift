@@ -50,6 +50,7 @@ private struct PillModifier: ViewModifier {
     var expands: Bool
     var size: ControlSize
     @Environment(\.pillsExpand) private var pillsExpand
+    @Environment(\.colorSchemeContrast) private var contrast
 
     func body(content: Content) -> some View {
         let expands = expands || pillsExpand
@@ -74,7 +75,14 @@ private struct PillModifier: ViewModifier {
         case .primary:
             sized.buttonStyle(.glassProminent).tint(Theme.accent)
         case .secondary:
+            // Mint is 1.06:1 on the background; the ink label says it's a button, and under
+            // Increase Contrast an edge does too (A11Y-16). iOS 18's capsule has the hairline.
             sized.buttonStyle(.glassProminent).tint(Theme.accentSoft).foregroundStyle(Theme.ink)
+                .overlay {
+                    if contrast == .increased {
+                        Capsule().strokeBorder(Theme.hairline).allowsHitTesting(false)
+                    }
+                }
         case .destructive:
             sized.buttonStyle(.glassProminent).tint(Theme.destructive)
         case .quiet:
@@ -203,14 +211,15 @@ private struct EqualWidthRow: Layout {
     }
 }
 
-/// The grey ⓧ at the end of a search field.
+/// The grey ⓧ at the end of a search field: `muted` at 80%, 4:1 on a card (A11Y-16).
 struct ClearFieldButton: View {
     var action: () -> Void
 
     var body: some View {
         Button("Clear search", systemImage: "xmark.circle.fill", action: action)
             .labelStyle(.iconOnly)
-            .foregroundStyle(Theme.muted.opacity(0.6))
+            .foregroundStyle(Theme.muted)
+            .contrastOpacity(0.8)
             .buttonStyle(.plain)
     }
 }
@@ -231,7 +240,9 @@ struct OptionRow: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .font(.title3)
-                    .foregroundStyle(isSelected ? Theme.accent : Theme.muted.opacity(0.5))
+                    .foregroundStyle(isSelected ? Theme.accent : Theme.muted)
+                    // The empty ring at 80% is 4:1 on the card; at 50% it was 2.2 (A11Y-16).
+                    .contrastOpacity(isSelected ? 1 : 0.8)
                     .contentTransition(.symbolEffect(.replace))
             }
             .padding(.horizontal, 14)
