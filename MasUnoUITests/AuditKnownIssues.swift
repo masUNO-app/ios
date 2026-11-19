@@ -92,6 +92,7 @@ struct AuditKnownIssue {
         .init(["who"], .standard, .textClipped, "2 going", "A11Y-06: still reported after PR 12, though it reads in full in the Large and AX5 screenshots; recheck in Accessibility Inspector"),
         .init(["map", "all-games"], .largest, .textClipped, "5 games nearby", "A11Y-06: still reported after PR 12, though it reads in full in the Large and AX5 screenshots; recheck in Accessibility Inspector"),
         .init(["map", "all-games"], .standard, .textClipped, "5 games nearby", "A11Y-06: still reported after PR 12, though it reads in full in the Large and AX5 screenshots; recheck in Accessibility Inspector"),
+        .init(["map"], .standard, .contrast, "5 games nearby", "A11Y-19 (PR 15): the 44 pt target's frame takes in 6 pt of map above and below the glass chip; text and glass colors unchanged"),
         .init(["search", "all-games"], .largest, .textClipped, "After-work hoops", "A11Y-06: still reported after PR 12, though it reads in full in the Large and AX5 screenshots; recheck in Accessibility Inspector"),
         .init(["popup", "search", "all-games"], .standard, .textClipped, "After-work hoops", "A11Y-06: still reported after PR 12, though it reads in full in the Large and AX5 screenshots; recheck in Accessibility Inspector"),
         .init(["detail-full"], .largest, .textClipped, "Alert me if a spot opens", "A11Y-06: still reported after PR 12, though it reads in full in the Large and AX5 screenshots; recheck in Accessibility Inspector"),
