@@ -149,4 +149,7 @@ CI includes mock iOS tests, primer UI regressions, Release packaging, pgTAP, and
 push-delivery checks. Remaining physical-device checks are listed in [QA.md](docs/QA.md).
 Build 0.9 (9) adds dark mode: every color set has a dark variant (High Contrast too), Settings ›
 Appearance picks System, Light or Dark, and `-appearance dark` forces it in tests, with a dark
-contrast pass in `AccessibilityAuditUITests`.
+contrast pass in `AccessibilityAuditUITests`. It also adds group chat @mentions (a mention always
+notifies, through mute and the chat switch; needs migration `20261123000000_chat_mentions` and the new
+`send-push`), the notification primer in the location primer's dialog card, and a picker whose bar
+sits on the bottom edge under the Maps mark.
