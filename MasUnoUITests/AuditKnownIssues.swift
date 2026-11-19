@@ -315,6 +315,7 @@ struct AuditKnownIssue {
         .init(["invites"], .largest, .textClipped, "Used by Priya S.", "A11Y-06: at the bottom edge of a full-height sheet at AX5; the sheet scrolls it into view"),
         .init(["map"], .largest, .dynamicType, "5 games nearby", "A11Y-06: capped on purpose (map overlays at accessibility2, popup at accessibility1); Arianna picks the cap"),
         .init(["map"], .standard, .dynamicType, "5 games nearby", "A11Y-06: capped on purpose (map overlays at accessibility2, popup at accessibility1); Arianna picks the cap"),
+        .pattern(["chat"], .standard, .dynamicType, #"^(Today|Yesterday)$"#, "Day pills near the top edge; which ones depends on the time of day. Below the fold at default size: the audit loses it as the text grows (scrolled into view it passes)"),
         .pattern(["chat"], .standard, .dynamicType, #"^.+ took a spot( · .+)?$"#, "Older activity rows near the top edge; which ones depends on the time of day. Below the fold at default size: the audit loses it as the text grows (scrolled into view it passes)"),
         .init(["me"], .standard, .dynamicType, "Arena Borregos", "Below the fold at default size: the audit loses it as the text grows (scrolled into view it passes)"),
         .pattern(["me"], .standard, .dynamicType, #"^(Today|Tomorrow), \d{1,2}:\d{2}\s[AP]M · .+$"#, "Below the fold at default size: the audit loses it as the text grows (scrolled into view it passes)"),
