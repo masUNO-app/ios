@@ -10,6 +10,7 @@ struct GroupChatView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dynamicTypeSize) private var typeSize
     let eventID: UUID
 
     @State private var viewModel: ChatViewModel
@@ -93,12 +94,13 @@ struct GroupChatView: View {
         let rows = store.isChatEnabled ? viewModel.rows(in: store, activity: activity) : activity.map(ChatViewModel.Row.activity)
         let lastJoin = Self.latestJoin(in: activity)
         let newest = Self.newestMessage(in: rows)
+        let names = mentionNames()
 
         return ScrollView {
             LazyVStack(alignment: .leading, spacing: 9) {
                 if store.isChatEnabled { olderMessages }
                 ForEach(rows) { row in
-                    rowView(row, in: event, lastJoin: lastJoin)
+                    rowView(row, in: event, lastJoin: lastJoin, names: names)
                 }
                 Color.clear.frame(height: 1).id(Self.bottomID)
             }
@@ -271,6 +273,8 @@ struct GroupChatView: View {
         }
         .onAppear {
             if UserDefaults.standard.string(forKey: "screen") == "meetup" { editsMeetUp = true }
+            // `-screen chat-mention`: "@" typed, so the people to mention show above the field.
+            if UserDefaults.standard.string(forKey: "screen") == "chat-mention" { viewModel.draft = "@" }
             // `-chatDraft "…"`: a typed draft, for screenshots of the send button ready to send.
             if let draft = UserDefaults.standard.string(forKey: "chatDraft") { viewModel.draft = draft }
         }
@@ -390,7 +394,7 @@ struct GroupChatView: View {
     }
 
     @ViewBuilder
-    private func rowView(_ row: ChatViewModel.Row, in event: Game, lastJoin: UUID?) -> some View {
+    private func rowView(_ row: ChatViewModel.Row, in event: Game, lastJoin: UUID?, names: [UUID: String]) -> some View {
         switch row {
         case .day(let date):
             Text(EventFormat.day(date))
@@ -411,15 +415,42 @@ struct GroupChatView: View {
             }
         case .message(let message, let showsSender):
             if message.sender.id == store.profile?.id {
-                ownMessage(message.body, color: event.activity.color, time: showsSender ? message.createdAt : nil)
+                ownMessage(message.body, mentions: message.mentions, names: names, color: event.activity.color,
+                           time: showsSender ? message.createdAt : nil)
                     .contextMenu { copyButton(message.body) }
                     .accessibilityActions { copyButton(message.body) }
             } else {
-                theirMessage(message, showsSender: showsSender, isHost: message.sender.id == event.host.id)
+                theirMessage(message, names: names, showsSender: showsSender, isHost: message.sender.id == event.host.id)
             }
         case .pending(let pending):
-            pendingMessage(pending, color: event.activity.color)
+            pendingMessage(pending, names: names, color: event.activity.color)
         }
+    }
+
+    /// Display names for the mentions in this chat: the game's people and you.
+    private func mentionNames() -> [UUID: String] {
+        var names = Dictionary(store.attendees(of: eventID).map { ($0.id, $0.person.displayName) },
+                               uniquingKeysWith: { first, _ in first })
+        if let me = store.profile?.summary { names[me.id] = me.displayName }
+        return names
+    }
+
+    /// A message's text with its mentions in bold; a mention of you also in the accent color.
+    /// VoiceOver reads the plain text from the bubble's label.
+    private func messageText(_ body: String, mentions: [UUID], names: [UUID: String]) -> Text {
+        guard !mentions.isEmpty else { return Text(verbatim: body) }
+        var text = AttributedString()
+        var cursor = body.startIndex
+        for match in Mention.ranges(in: body, mentions: mentions, names: names, me: store.profile?.id) {
+            text += AttributedString(String(body[cursor..<match.range.lowerBound]))
+            var name = AttributedString(String(body[match.range]))
+            name.font = .rounded(.callout, .bold)
+            if match.isMe { name.foregroundColor = Theme.accentText }
+            text += name
+            cursor = match.range.upperBound
+        }
+        text += AttributedString(String(body[cursor...]))
+        return Text(text)
     }
 
     /// Whether VoiceOver reads out a new newest message: what others write once the chat is open,
@@ -512,7 +543,7 @@ struct GroupChatView: View {
 
     /// "Maya C. · Host · 5:42 PM" over a white bubble. Touch and hold to report or block; with
     /// VoiceOver, one stop that names the sender on every bubble, with the same choices as actions.
-    private func theirMessage(_ message: ChatMessage, showsSender: Bool, isHost: Bool) -> some View {
+    private func theirMessage(_ message: ChatMessage, names: [UUID: String], showsSender: Bool, isHost: Bool) -> some View {
         HStack(alignment: .bottom, spacing: 8) {
             if showsSender {
                 PersonAvatar(person: message.sender, size: 30)
@@ -529,7 +560,7 @@ struct GroupChatView: View {
                     .font(.rounded(.caption))
                     .foregroundStyle(Theme.muted)
                 }
-                Text(verbatim: message.body)
+                messageText(message.body, mentions: message.mentions, names: names)
                     .font(.rounded(.callout))
                     .foregroundStyle(Theme.ink)
                     .padding(.horizontal, 15)
@@ -559,10 +590,13 @@ struct GroupChatView: View {
         }
     }
 
-    /// Your bubble, in the sport's color with ink text; the time, if any, sits under it.
-    private func ownMessage(_ body: String, color: Color, time: Date?, isFaded: Bool = false) -> some View {
+    /// Your bubble, in the sport's color with ink text; the time, if any, sits under it. Mentions are
+    /// bold in ink, which is what reads on the sport color.
+    private func ownMessage(
+        _ body: String, mentions: [UUID], names: [UUID: String], color: Color, time: Date?, isFaded: Bool = false
+    ) -> some View {
         VStack(alignment: .trailing, spacing: 3) {
-            Text(verbatim: body)
+            messageText(body, mentions: mentions, names: names)
                 .font(.rounded(.callout))
                 .foregroundStyle(Theme.ink)
                 .padding(.horizontal, 14)
@@ -588,9 +622,9 @@ struct GroupChatView: View {
     }
 
     /// Your message on its way, or one that didn't send: "Not sent · Tap to retry".
-    private func pendingMessage(_ pending: ChatViewModel.Pending, color: Color) -> some View {
+    private func pendingMessage(_ pending: ChatViewModel.Pending, names: [UUID: String], color: Color) -> some View {
         VStack(alignment: .trailing, spacing: 3) {
-            ownMessage(pending.body, color: color, time: nil, isFaded: true)
+            ownMessage(pending.body, mentions: pending.mentions, names: names, color: color, time: nil, isFaded: true)
             if let error = pending.error {
                 Label(ChatViewModel.failureText(error), systemImage: "exclamationmark.circle.fill")
                     .font(.rounded(.caption))
@@ -648,8 +682,10 @@ struct GroupChatView: View {
     /// Glass "Message" field with a send button in the sport's color.
     private func composer(_ event: Game) -> some View {
         @Bindable var viewModel = viewModel
+        let suggestions = viewModel.mentionSuggestions(in: store)
 
         return VStack(alignment: .leading, spacing: 6) {
+            if !suggestions.isEmpty { mentionList(suggestions) }
             if let error = viewModel.draftError {
                 Text(error)
                     .font(.rounded(.footnote))
@@ -671,6 +707,7 @@ struct GroupChatView: View {
                             viewModel.draft = String(viewModel.draft.prefix(ChatMessage.bodyLimit))
                         }
                         viewModel.draftError = nil
+                        viewModel.draftDidChange()
                     }
                 Button("Send", systemImage: "arrow.up") {
                     viewModel.send(in: store)
@@ -696,6 +733,48 @@ struct GroupChatView: View {
         .foldColumn()
         // Solid, so messages don't show through under the field.
         .background(Theme.surface2)
+        // The list shows up above the field without taking focus, so say it's there.
+        .onChange(of: suggestions.isEmpty) { _, isEmpty in
+            if !isEmpty { Announce.post(String.app("People to mention are above the message field")) }
+        }
+    }
+
+    /// After "@" in the composer: the people you can mention, filtered as you type their first name.
+    /// Picking one writes "@Maya C. " into the message.
+    private func mentionList(_ people: [PersonSummary]) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Fewer rows at accessibility sizes, so the list doesn't cover the conversation.
+            ForEach(people.prefix(typeSize.isAccessibilitySize ? 3 : 5)) { person in
+                Button {
+                    viewModel.mention(person)
+                    composerIsFocused = true
+                } label: {
+                    HStack(spacing: 10) {
+                        PersonAvatar(person: person, size: 28)
+                            .accessibilityHidden(true)
+                        Text(verbatim: person.displayName)
+                            .font(.rounded(.body, .bold))
+                            .foregroundStyle(Theme.ink)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .frame(minHeight: 44)
+                    .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text(verbatim: person.displayName))
+                .accessibilityHint(Text("Adds them to your message"))
+            }
+        }
+        .padding(.vertical, 4)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.card, in: .rect(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Theme.separator))
+        .shadow(color: Theme.shadowInk.opacity(0.06), radius: 6, y: 2)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(Text("People to mention"))
+        .accessibilityIdentifier("chat-mention-suggestions")
     }
 }
 

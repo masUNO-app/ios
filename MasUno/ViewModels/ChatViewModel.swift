@@ -12,6 +12,8 @@ final class ChatViewModel {
         var sentAt: Date
         /// Set when the send failed; nil while it's on its way.
         var error: DomainError?
+        /// Who it mentions, sent again on a retry.
+        var mentions: [UUID] = []
     }
 
     enum Row: Identifiable, Hashable {
@@ -49,6 +51,8 @@ final class ChatViewModel {
     private(set) var isConnected = false
     private(set) var hasLoaded = false
     var draft = ""
+    /// The people the draft mentions. `draftDidChange()` keeps it in step with the text.
+    private(set) var mentions = MentionDraft()
     /// Shown above the composer when the text filter refuses a draft.
     var draftError: String?
     /// "Before you chat" needs an answer.
@@ -94,6 +98,27 @@ final class ChatViewModel {
 
     var canSend: Bool {
         !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    // MARK: Mentions
+
+    /// The game's people you can mention while the draft ends in "@…": the host and everyone going
+    /// but you, minus anyone you blocked, filtered by the first name typed so far.
+    func mentionSuggestions(in store: GameStore) -> [PersonSummary] {
+        guard let query = Mention.query(in: draft), mentions.people.count < Mention.limit else { return [] }
+        let myID = store.profile?.id
+        let people = store.attendees(of: gameID).map(\.person).filter { $0.id != myID }
+        return Mention.suggestions(for: query, among: people)
+    }
+
+    /// Picks a suggestion: "@Ma" becomes "@Maya C. ".
+    func mention(_ person: PersonSummary) {
+        mentions.insert(person, into: &draft)
+    }
+
+    /// After any edit: drops a mention whose name was deleted or changed.
+    func draftDidChange() {
+        mentions.reconcile(with: draft)
     }
 
     // MARK: Timeline
@@ -373,6 +398,7 @@ final class ChatViewModel {
             if losesOwnDraft {
                 pending = []
                 draft = ""
+                mentions.removeAll()
                 draftError = nil
                 asksForRules = false
             } else {
@@ -448,9 +474,12 @@ final class ChatViewModel {
             draftError = TextFilter.message
             return
         }
+        mentions.reconcile(with: body)
+        let mentioned = mentions.ids
         draft = ""
+        mentions.removeAll()
         draftError = nil
-        let message = Pending(id: UUID(), body: body, sentAt: .now)
+        let message = Pending(id: UUID(), body: body, sentAt: .now, mentions: mentioned)
         pending.append(message)
         Task { await deliver(message.id, in: store) }
     }
@@ -511,7 +540,7 @@ final class ChatViewModel {
             let repository = store.chat
             delivery = (UUID(), Task { [weak self, gameID] in
                 guard self?.isCurrent(session, in: store) == true else { throw CancellationError() }
-                return try await repository.sendMessage(gameID: gameID, body: message.body, clientID: id)
+                return try await repository.sendMessage(gameID: gameID, body: message.body, clientID: id, mentions: message.mentions)
             })
             sendTasks[id] = delivery
         }

@@ -26,8 +26,8 @@ private final class ScriptedChatRepository: ChatRepository {
         if let incremental { return try await incremental() }
         return try await backend.fetchMessages(gameID: gameID, since: since)
     }
-    func sendMessage(gameID: UUID, body: String, clientID: UUID) async throws -> ChatMessage {
-        try await backend.sendMessage(gameID: gameID, body: body, clientID: clientID)
+    func sendMessage(gameID: UUID, body: String, clientID: UUID, mentions: [UUID]) async throws -> ChatMessage {
+        try await backend.sendMessage(gameID: gameID, body: body, clientID: clientID, mentions: mentions)
     }
     func acceptChatRules() async throws { try await backend.acceptChatRules() }
     func markRead(gameID: UUID) async throws {

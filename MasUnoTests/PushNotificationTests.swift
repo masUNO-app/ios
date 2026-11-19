@@ -575,10 +575,11 @@ private enum NotificationSamples {
 struct NotificationPayloadTests {
     @Test func everySampleDecodesAndRoutes() throws {
         let samples = try NotificationSamples.all()
-        #expect(samples.count == 11)
+        #expect(samples.count == 12)
         for sample in samples {
             let payload = try #require(NotificationPayload(userInfo: sample.userInfo), "\(sample.name) didn't decode")
-            #expect(payload.kind == sample.name, "The file name is the kind")
+            // A mention arrives as chat with "mention": true; its file is named for the server's kind.
+            #expect((payload.mention ? "chat_mention" : payload.kind) == sample.name, "The file name is the kind")
             switch payload.kind {
             case "signup_approved":
                 #expect(payload.routeURL() == nil)

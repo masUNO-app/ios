@@ -443,7 +443,7 @@ final class AppViewModel {
         case "add", "add-filled", "form-error", "picker", "picker-map": presentGameForm()
         case "edit": presentGameForm(editing: IDs.hosting)
         case "gallery": path = [.gallery]
-        case "chat": path = [.chat(IDs.going)]
+        case "chat", "chat-mention": path = [.chat(IDs.going)]
         case "push-chat", "push-game":
             await push?.handle(
                 action: UNNotificationDefaultActionIdentifier,

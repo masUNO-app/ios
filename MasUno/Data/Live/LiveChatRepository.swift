@@ -63,10 +63,11 @@ final class LiveChatRepository: ChatRepository {
         }
     }
 
-    func sendMessage(gameID: UUID, body: String, clientID: UUID) async throws -> ChatMessage {
+    func sendMessage(gameID: UUID, body: String, clientID: UUID, mentions: [UUID]) async throws -> ChatMessage {
         try await liveRequest {
+            let params = SendMessageParams(gameID: gameID, body: body, clientID: clientID, mentions: mentions)
             let rows: [GameMessageRow] = try await client
-                .rpc("send_message", params: SendMessageParams(gameID: gameID, body: body, clientID: clientID))
+                .rpc("send_message", params: params)
                 .execute().value
             guard let row = rows.first else { throw DomainError.notFound }
             return row.message

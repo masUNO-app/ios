@@ -127,8 +127,8 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
 
     /// Someone else in the game posts from their own phone, and the chat channel says so.
     @discardableResult
-    func receiveMessage(from sender: PersonSummary, in gameID: UUID, body: String) -> ChatMessage {
-        let message = ChatMessage(id: UUID(), gameID: gameID, sender: sender, body: body, clientID: UUID(), createdAt: now)
+    func receiveMessage(from sender: PersonSummary, in gameID: UUID, body: String, mentions: [UUID] = []) -> ChatMessage {
+        let message = ChatMessage(id: UUID(), gameID: gameID, sender: sender, body: body, clientID: UUID(), createdAt: now, mentions: mentions)
         messages[gameID, default: []].append(message)
         announce(.message, in: gameID)
         return message
@@ -623,7 +623,7 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
     }
 
     /// The same checks, in the same order, as `send_message`.
-    func sendMessage(gameID: UUID, body: String, clientID: UUID) async throws -> ChatMessage {
+    func sendMessage(gameID: UUID, body: String, clientID: UUID, mentions: [UUID]) async throws -> ChatMessage {
         try await beginWrite()
         let game = try visibleGame(gameID)
         guard game.myRole != nil else { throw DomainError.notAllowed }
@@ -639,10 +639,25 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         let lastMinute = messages.values.joined().filter { $0.sender.id == me.id && $0.createdAt > now.addingTimeInterval(-60) }
         guard lastMinute.count < 20 else { throw DomainError.rateLimited }
 
-        let message = ChatMessage(id: UUID(), gameID: gameID, sender: me, body: text, clientID: clientID, createdAt: now)
+        let message = ChatMessage(
+            id: UUID(), gameID: gameID, sender: me, body: text, clientID: clientID, createdAt: now,
+            mentions: keptMentions(mentions, in: gameID, body: text)
+        )
         messages[gameID, default: []].append(message)
         announce(.message, in: gameID)
         return message
+    }
+
+    /// As `send_message` keeps them: members other than you, outside a block, named in the text,
+    /// once each, at most ten.
+    private func keptMentions(_ ids: [UUID], in gameID: UUID, body: String) -> [UUID] {
+        let members = Dictionary((attendees[gameID] ?? []).map { ($0.id, $0.person) }, uniquingKeysWith: { first, _ in first })
+        var kept: [UUID] = []
+        for id in ids.prefix(50) where !kept.contains(id) && id != me.id && !hasBlock(with: id) {
+            guard let person = members[id], body.contains(Mention.token(for: person)) else { continue }
+            kept.append(id)
+        }
+        return Array(kept.prefix(Mention.limit))
     }
 
     func acceptChatRules() async throws {

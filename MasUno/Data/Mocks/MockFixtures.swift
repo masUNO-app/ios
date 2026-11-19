@@ -156,16 +156,18 @@ enum MockFixtures {
         }
 
         var messages: [UUID: [ChatMessage]] = [:]
-        func say(_ gameID: UUID, _ sender: PersonSummary, _ body: String, minutesAgo: Double) {
+        func say(_ gameID: UUID, _ sender: PersonSummary, _ body: String, minutesAgo: Double, mentions: [UUID] = []) {
             messages[gameID, default: []].append(ChatMessage(
                 id: UUID(), gameID: gameID, sender: sender, body: body, clientID: UUID(),
-                createdAt: now.addingTimeInterval(-minutesAgo * 60)
+                createdAt: now.addingTimeInterval(-minutesAgo * 60), mentions: mentions
             ))
         }
         say(GameID.going, sam, "Net's up on the far court. Bring water, it's hot in there.", minutesAgo: 95)
         say(GameID.going, maya, "I can bring a second ball", minutesAgo: 90)
         say(GameID.going, me.summary, "Perfect. First time playing with you all, see you there!", minutesAgo: 42)
-        say(GameID.going, sam, "Welcome! We start with a quick warm-up at 10 to.", minutesAgo: 40)
+        // A mention of you, highlighted in the chat (NOTIF §3.5).
+        say(GameID.going, sam, "Welcome \(Mention.token(for: me.summary))! We start with a quick warm-up at 10 to.",
+            minutesAgo: 40, mentions: [me.id])
         say(GameID.hosting, diego, "Should we bring bibs?", minutesAgo: 120)
         say(GameID.hosting, me.summary, "I have a set, don't worry.", minutesAgo: 110)
 

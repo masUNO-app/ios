@@ -150,8 +150,10 @@ protocol ChatRepository: AnyObject {
     /// Everything sent at or after `since`, oldest first.
     func fetchMessages(gameID: UUID, since: Date) async throws -> [ChatMessage]
     /// `clientID` identifies this send: sending it again returns the first message instead of
-    /// posting twice. Throws `.chatRulesRequired` until `acceptChatRules` has run.
-    func sendMessage(gameID: UUID, body: String, clientID: UUID) async throws -> ChatMessage
+    /// posting twice. `mentions` are the people named with "@"; the server keeps only current
+    /// members outside a block with you whose name is in the text. Throws `.chatRulesRequired`
+    /// until `acceptChatRules` has run.
+    func sendMessage(gameID: UUID, body: String, clientID: UUID, mentions: [UUID]) async throws -> ChatMessage
     /// "Before you chat", once per account.
     func acceptChatRules() async throws
     func markRead(gameID: UUID) async throws
@@ -160,6 +162,13 @@ protocol ChatRepository: AnyObject {
     /// Fires when a game's chat has something new, for as long as the caller keeps listening. It
     /// ends if the connection can't be made, so callers also check on a timer.
     func updates(gameID: UUID) -> AsyncStream<ChatUpdate>
+}
+
+extension ChatRepository {
+    /// A message that mentions nobody, like a notification's Reply.
+    func sendMessage(gameID: UUID, body: String, clientID: UUID) async throws -> ChatMessage {
+        try await sendMessage(gameID: gameID, body: body, clientID: clientID, mentions: [])
+    }
 }
 
 // Compatibility for adapters that only implement the original Date-based contract. Live and mock

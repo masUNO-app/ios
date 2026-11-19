@@ -29,9 +29,9 @@ private final class PrivacyChatRepository: ChatRepository {
         return try await backend.fetchMessages(gameID: gameID, since: since)
     }
 
-    func sendMessage(gameID: UUID, body: String, clientID: UUID) async throws -> ChatMessage {
+    func sendMessage(gameID: UUID, body: String, clientID: UUID, mentions: [UUID]) async throws -> ChatMessage {
         if let send { return try await send(body, clientID) }
-        return try await backend.sendMessage(gameID: gameID, body: body, clientID: clientID)
+        return try await backend.sendMessage(gameID: gameID, body: body, clientID: clientID, mentions: mentions)
     }
 
     func acceptChatRules() async throws { try await backend.acceptChatRules() }

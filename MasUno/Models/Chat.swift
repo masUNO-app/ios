@@ -15,6 +15,8 @@ nonisolated struct ChatMessage: Identifiable, Hashable, Sendable {
     var createdAt: Date
     /// Original server timestamp for lossless pagination filters; nil for local/mock messages.
     var serverCreatedAt: String? = nil
+    /// The people it mentions ("@Maya C."), as the server kept them. Empty from servers before mentions.
+    var mentions: [UUID] = []
 }
 
 /// What a game's chat channel says changed. It carries no content: the app reads the rows itself.

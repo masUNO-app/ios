@@ -748,9 +748,10 @@ nonisolated struct GameMessageRow: Decodable, Sendable {
     let clientID: UUID
     let createdAt: Date
     let createdAtText: String
+    let mentions: [UUID]
 
     enum CodingKeys: String, CodingKey {
-        case id, body
+        case id, body, mentions
         case eventID = "event_id"
         case senderID = "sender_id"
         case senderFirstName = "sender_first_name"
@@ -772,13 +773,15 @@ nonisolated struct GameMessageRow: Decodable, Sendable {
         clientID = try c.decode(UUID.self, forKey: .clientID)
         createdAtText = try c.decode(String.self, forKey: .createdAt)
         createdAt = try c.decodeServerTime(forKey: .createdAt)
+        // Absent before the mentions migration.
+        mentions = try c.decodeIfPresent([UUID].self, forKey: .mentions) ?? []
     }
 
     var message: ChatMessage {
         ChatMessage(
             id: id, gameID: eventID,
             sender: PersonSummary(id: senderID, firstName: senderFirstName, lastInitial: senderLastInitial, gradYear: senderGradYear),
-            body: body, clientID: clientID, createdAt: createdAt, serverCreatedAt: createdAtText
+            body: body, clientID: clientID, createdAt: createdAt, serverCreatedAt: createdAtText, mentions: mentions
         )
     }
 }
@@ -794,16 +797,27 @@ nonisolated struct ChatUnreadRow: Decodable, Sendable {
     }
 }
 
-/// The parameters of `send_message`.
+/// The parameters of `send_message`. `p_mentions` is left out when there are none, so a message
+/// without mentions still sends to a server from before them.
 nonisolated struct SendMessageParams: Encodable, Sendable {
     let gameID: UUID
     let body: String
     let clientID: UUID
+    var mentions: [UUID] = []
 
     enum CodingKeys: String, CodingKey {
         case gameID = "p_game_id"
         case body = "p_body"
         case clientID = "p_client_id"
+        case mentions = "p_mentions"
+    }
+
+    func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(gameID, forKey: .gameID)
+        try c.encode(body, forKey: .body)
+        try c.encode(clientID, forKey: .clientID)
+        if !mentions.isEmpty { try c.encode(mentions, forKey: .mentions) }
     }
 }
 

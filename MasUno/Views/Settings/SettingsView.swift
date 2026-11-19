@@ -65,6 +65,13 @@ struct SettingsView: View {
                         preference("Game reminders", key: \.reminders, systemImage: "clock", color: Color(.person1).opacity(0.5))
                         preference("Updates on games you host", key: \.hosting, systemImage: "megaphone", color: Color(.sportBasketball).opacity(0.35))
                         preference("Group chat messages", key: \.chat, systemImage: "bubble.left.and.bubble.right", color: Color(.sportVolleyball).opacity(0.45))
+                        // Mentions have no switch: they notify even with this one off (NOTIF §3.5).
+                        Text("You're still notified when someone mentions you.")
+                            .font(.rounded(.footnote))
+                            .foregroundStyle(Theme.muted)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 14)
+                            .padding(.bottom, 8)
                         preference("Tips to play", key: \.winback, systemImage: "sparkles", color: Theme.you.opacity(0.55))
                         Text("Cancellations, changes and You're in are always on.")
                             .font(.rounded(.footnote))
