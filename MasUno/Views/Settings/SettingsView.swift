@@ -86,7 +86,9 @@ struct SettingsView: View {
                         }
                         .buttonStyle(.plain)
                     } else {
-                        ProgressView().frame(maxWidth: .infinity).padding(.vertical, 12)
+                        ProgressView()
+                            .accessibilityLabel(Text("Loading notification settings"))
+                            .frame(maxWidth: .infinity).padding(.vertical, 12)
                     }
                 }
 
@@ -122,6 +124,7 @@ struct SettingsView: View {
                         .accessibilityHint("Opens Mail")
                     }
                     row("Version", subtitle: Text(verbatim: "\(AppConfig.currentVersion) (\(buildNumber))"), systemImage: "info", color: Theme.separator, trailing: nil)
+                        .accessibilityElement(children: .combine)
                 }
 
                 // The third grid item, so it's one column wide and lands under Privacy & safety

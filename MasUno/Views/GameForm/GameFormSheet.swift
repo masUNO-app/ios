@@ -73,12 +73,16 @@ struct GameFormSheet: View {
                 Menu {
                     Picker("Sport", selection: $viewModel.sport) {
                         ForEach(store.postableActivities) { sport in
-                            Text("\(sport.emoji) \(sport.name)").tag(sport)
+                            Text("\(sport.emoji) \(sport.name)")
+                                .accessibilityLabel(Text(sport.name))
+                                .tag(sport)
                         }
                     }
                 } label: {
                     FieldBox("Sport", showsChevron: true) {
+                        // The name alone: the emoji would be read too (A11Y-11).
                         Text("\(viewModel.sport.emoji)  \(viewModel.sport.name)")
+                            .accessibilityLabel(Text(viewModel.sport.name))
                     }
                 }
 
@@ -286,12 +290,16 @@ struct GameFormSheet: View {
             // Two lines, so a long name or address still reads next to Change on a narrow screen.
             .lineLimit(typeSize.isAccessibilitySize ? nil : 2)
             .frame(maxWidth: .infinity, alignment: .leading)
+            // "Location", the place and its address in one stop (A11Y-13).
+            .accessibilityElement(children: .combine)
 
             Button(viewModel.place == nil ? "Choose" : "Change") {
                 focus = nil
                 picksLocation = true
             }
             .pill(.secondary, expands: false, size: .regular)
+            .accessibilityLabel(viewModel.place == nil ? Text("Choose") : Text("Change location"))
+            .accessibilityInputLabels([viewModel.place == nil ? Text("Choose") : Text("Change")])
             .accessibilityHint(Text(verbatim: viewModel.placeError ?? ""))
             .accessibilityFocused($errorFocus, equals: .place)
         }

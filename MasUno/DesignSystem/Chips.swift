@@ -34,17 +34,22 @@ struct SportToggle: View {
     }
 }
 
-/// "🏀 Basketball", the inside of `SportChip` and `SportToggle`.
+/// "🏀 Basketball", the inside of `SportChip` and `SportToggle`. Read as the name alone: next to
+/// it the emoji would be read too ("basketball, Basketball", A11Y-11).
 private struct SportLabel: View {
     var sport: Activity
 
     var body: some View {
         HStack(spacing: 4) {
             Text(sport.emoji)
+                .accessibilityHidden(true)
             Text(sport.name)
         }
         .font(.rounded(.footnote, .bold))
         .foregroundStyle(Theme.ink)
+        // Left alone, the name would take the whole chip's frame, emoji and all, and the
+        // accessibility audit would measure the emoji's colors as its contrast.
+        .accessibilityElement(children: .contain)
     }
 }
 

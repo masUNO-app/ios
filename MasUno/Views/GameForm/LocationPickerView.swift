@@ -194,6 +194,8 @@ struct LocationPickerView: View {
                 }
             }
             .lineLimit(typeSize.isAccessibilitySize ? nil : 1)
+            // The spot and its address in one stop (A11Y-13).
+            .accessibilityElement(children: .combine)
             Button("Set location") {
                 guard viewModel.canConfirm else { return }
                 place = viewModel.selection

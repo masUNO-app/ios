@@ -32,6 +32,7 @@ struct EventDetailView: View {
                     .background(Theme.background)
             } else {
                 ProgressView()
+                    .accessibilityLabel(Text("Loading game"))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Theme.background)
             }
@@ -60,9 +61,14 @@ struct EventDetailView: View {
         }
     }
 
+    /// Guests, and games that hide their people, get the account prompt instead of the list.
+    private func showsAccountPrompt(for event: Game?) -> Bool {
+        store.isGuest || event?.hidesPeople == true
+    }
+
     /// Who's going / court tap: guests get the account card instead of empty faces.
     private func openWhoIsGoing() {
-        if store.isGuest || store.game(viewModel.eventID)?.hidesPeople == true {
+        if showsAccountPrompt(for: store.game(viewModel.eventID)) {
             appViewModel.requireAccount(.whosGoing)
         } else {
             viewModel.showsWhoIsGoing = true
@@ -79,6 +85,7 @@ struct EventDetailView: View {
             activity: event.activity, lineup: store.lineup(for: event), capacity: event.capacity,
             holdsYou: appViewModel.arrivingIn == event.id, showsOpenSpots: !isOver,
             onTap: { openWhoIsGoing() },
+            tapHint: showsAccountPrompt(for: event) ? "Create an account to see who's going" : "Shows who's going",
             onSheetUnderBar: { isUnder in
                 withAnimation(.easeOut(duration: 0.2)) { isTitleUnderBar = isUnder }
             }
@@ -220,6 +227,8 @@ struct EventDetailView: View {
         }
         .padding(14)
         .background(.white, in: .rect(cornerRadius: 18))
+        // "Alex says" and the note in one stop (A11Y-13).
+        .accessibilityElement(children: .combine)
     }
 
     private func detailsCard(_ event: Game, state: GameStatus) -> some View {
@@ -232,6 +241,8 @@ struct EventDetailView: View {
                     .font(.rounded(.footnote))
                     .foregroundStyle(Theme.muted)
             }
+            // The time and how soon it starts in one stop (A11Y-13).
+            .accessibilityElement(children: .combine)
 
             // The address doubles as a way into Maps once the card's button is Add to calendar.
             Button {

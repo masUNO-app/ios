@@ -168,6 +168,8 @@ struct MeView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        // Name, class and badges in one stop, over the token too (A11Y-13).
+        .accessibilityElement(children: .combine)
         .padding(18)
     }
 
@@ -176,6 +178,7 @@ struct MeView: View {
             Text("Plays")
                 .font(.rounded(.footnote))
                 .foregroundStyle(Theme.muted)
+                .accessibilityAddTraits(.isHeader)
             FlowLayout(spacing: 6) {
                 ForEach(profile.interests) { SportChip(sport: $0) }
             }

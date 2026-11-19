@@ -298,6 +298,8 @@ struct CourtHeader: View {
     var holdsYou = false
     /// Off once a game is over or cancelled: nobody's being invited any more.
     var showsOpenSpots = true
+    /// What a tap does, for VoiceOver: a guest gets the account prompt instead of the list.
+    var tapHint: LocalizedStringKey = "Shows who's going"
     var onTap: () -> Void = {}
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -347,7 +349,7 @@ struct CourtHeader: View {
         .accessibilityElement()
         .accessibilityLabel(Text(verbatim: lineup.accessibilityLabel))
         .accessibilityAddTraits(.isButton)
-        .accessibilityHint("Shows who's going")
+        .accessibilityHint(tapHint)
     }
 
     /// One spot on the court. People keep their identity as others come and go, and an open

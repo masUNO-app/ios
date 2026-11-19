@@ -59,6 +59,7 @@ struct GroupChatView: View {
                 content(event)
             } else if event == nil, !store.isMissing(eventID), !store.isOffline {
                 ProgressView()
+                    .accessibilityLabel(Text("Loading chat"))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Theme.background)
             } else if event == nil, store.isOffline {
@@ -146,6 +147,9 @@ struct GroupChatView: View {
                 }
                 .foregroundStyle(Theme.ink)
                 .lineLimit(1)
+                // One stop, without the emoji next to the sport's name (A11Y-11).
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(Text(verbatim: "\(event.title), \(event.activity.name), \(String.app("\(event.goingCount) going"))"))
                 // The bar keeps its text small; a long press shows the title big (A11Y-24).
                 .accessibilityShowsLargeContentViewer { Text(verbatim: event.title) }
             }
@@ -337,6 +341,8 @@ struct GroupChatView: View {
                 if state == .hosting {
                     Button("Edit") { editsMeetUp = true }
                         .pill(.secondary, expands: false, size: .small)
+                        .accessibilityLabel(Text("Edit meet-up spot"))
+                        .accessibilityInputLabels([Text("Edit")])
                 }
             }
         }
@@ -452,6 +458,8 @@ struct GroupChatView: View {
         .padding(.vertical, 5)
         .background(Theme.card, in: .capsule)
         .overlay(Capsule().strokeBorder(Theme.hairline))
+        // One element over the whole pill, so the "+1" isn't text outside any element.
+        .accessibilityElement(children: .combine)
         .frame(maxWidth: .infinity)
         .padding(.vertical, 2)
     }

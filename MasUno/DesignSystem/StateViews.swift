@@ -60,6 +60,7 @@ struct EmptyCard<Actions: View>: View {
                 Text(title)
                     .font(.rounded(.title2, .bold))
                     .foregroundStyle(Theme.ink)
+                    .accessibilityAddTraits(.isHeader)
                 Text(message)
                     .font(.rounded(.subheadline))
                     .foregroundStyle(Theme.muted)

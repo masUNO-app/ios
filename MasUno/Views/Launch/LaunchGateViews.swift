@@ -29,6 +29,7 @@ private struct GateScreen<Actions: View>: View {
             Text(title)
                 .font(.rounded(.largeTitle, .bold))
                 .foregroundStyle(Theme.ink)
+                .accessibilityAddTraits(.isHeader)
             Text(message)
                 .font(.rounded(.body))
                 .foregroundStyle(Theme.muted)

@@ -53,7 +53,9 @@ private struct InviteCodeRow: View {
 
         layout {
             VStack(alignment: .leading, spacing: 2) {
+                // Letter by letter: "ABCD-EFGH" would be read as two words (A11Y-25).
                 Text(verbatim: invite.displayCode)
+                    .speechSpellsOutCharacters()
                     .font(.system(.title3, design: .rounded, weight: .bold).monospaced())
                     .foregroundStyle(invite.isUsed ? Theme.muted : Theme.ink)
                 Text(verbatim: status)

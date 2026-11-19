@@ -18,6 +18,7 @@ struct FilterSheet: View {
                     Text("Sports")
                         .font(.rounded(.footnote, .bold))
                         .foregroundStyle(Theme.ink)
+                        .accessibilityAddTraits(.isHeader)
                     FlowLayout(spacing: 8) {
                         ForEach(store.postableActivities) { sport in
                             SportToggle(sport: sport, isOn: viewModel.sportFilter.contains(sport)) {

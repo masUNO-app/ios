@@ -34,6 +34,7 @@ struct EditProfileSheet: View {
                 Text("Plays")
                     .font(.rounded(.footnote, .bold))
                     .foregroundStyle(Theme.ink)
+                    .accessibilityAddTraits(.isHeader)
                     .padding(.top, 4)
                 FlowLayout(spacing: 8) {
                     ForEach(store.interestActivities) { sport in

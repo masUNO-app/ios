@@ -262,6 +262,7 @@ struct OptionalQuestion: View {
             Text(title)
                 .font(.rounded(.footnote, .bold))
                 .foregroundStyle(Theme.ink)
+                .accessibilityAddTraits(.isHeader)
             if !typeSize.isAccessibilitySize { Spacer() }
             OptionalTag()
         }

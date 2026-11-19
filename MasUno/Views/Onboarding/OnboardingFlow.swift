@@ -284,6 +284,9 @@ private struct PendingStep: View {
                 .padding(.horizontal, 18)
                 .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
                 .background(Theme.accentSoft, in: .rect(cornerRadius: Theme.Radius.card))
+                // "#12" can be read as "pound 12".
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(Text("Number \(position) in line"))
             }
 
             FieldBox(
@@ -529,6 +532,7 @@ private struct ProfileStep: View {
             Text("What do you play?")
                 .font(.rounded(.callout, .bold))
                 .foregroundStyle(Theme.ink)
+                .accessibilityAddTraits(.isHeader)
                 .padding(.top, 4)
             FlowLayout(spacing: 8) {
                 ForEach(Activity.builtIn.filter(\.interestSelectable)) { sport in
