@@ -142,9 +142,10 @@ extension Place {
         if #available(iOS 26.0, *) {
             let street = mapItem?.address?.shortAddress ?? ""
             let full = (mapItem?.address?.fullAddress ?? "").replacingOccurrences(of: "\n", with: ", ")
+            let name = mapItem?.name ?? (street.isEmpty ? fallbackName : street)
             self.init(
-                name: mapItem?.name ?? (street.isEmpty ? fallbackName : street),
-                address: full,
+                name: name,
+                address: Place.address(full, without: name),
                 latitude: location.coordinate.latitude,
                 longitude: location.coordinate.longitude
             )

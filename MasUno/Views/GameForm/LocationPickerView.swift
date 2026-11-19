@@ -55,7 +55,7 @@ struct LocationPickerView: View {
             .onMapCameraChange(frequency: .onEnd) { context in
                 Task { await viewModel.mapSettled(at: context.region.center) }
             }
-            .ignoresSafeArea(edges: .bottom)
+            // Stops at the bar, so the Maps mark and Legal sit just above it, not under it.
     }
 
     /// Fixed in the middle of the map, point down: the map moves under it.
@@ -69,6 +69,9 @@ struct LocationPickerView: View {
                 .frame(minHeight: 28)
                 .background(Theme.card, in: .capsule)
                 .shadow(color: Theme.shadowInk.opacity(0.12), radius: 4, y: 2)
+                // Capped like the map's other overlays (A11Y-06): the bar takes most of the screen
+                // at the largest sizes, and a bigger label would run into the search field.
+                .dynamicTypeSize(...EventMapView.overlayTypeCap)
             PinMarker(color: sport.color) {
                 Text(sport.emoji).font(.system(size: 24))
             }
@@ -186,7 +189,9 @@ struct LocationPickerView: View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
                 if let selection = viewModel.selection {
+                    // Long campus names get a second line instead of an ellipsis.
                     Text(verbatim: selection.name).font(.rounded(.headline, .bold)).foregroundStyle(Theme.ink)
+                        .lineLimit(typeSize.isAccessibilitySize ? nil : 2)
                     Text(verbatim: selection.address).font(.rounded(.footnote)).foregroundStyle(Theme.muted)
                 } else {
                     Text("No spot yet").font(.rounded(.headline, .bold)).foregroundStyle(Theme.ink)
@@ -209,6 +214,7 @@ struct LocationPickerView: View {
         .padding(.top, 18)
         .padding(.bottom, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.background, in: .rect(topLeadingRadius: Theme.Radius.sheet, topTrailingRadius: Theme.Radius.sheet))
+        // Anchored to the bottom edge, through the home indicator's strip.
+        .background(Theme.background.ignoresSafeArea(edges: .bottom))
     }
 }

@@ -440,7 +440,7 @@ final class AppViewModel {
             path = [.me(.hosting)]
         case "profile": path = [.me(.going, editsProfile: true)]
         case "settings": path = [.me(), .settings]
-        case "add", "add-filled", "form-error", "picker": presentGameForm()
+        case "add", "add-filled", "form-error", "picker", "picker-map": presentGameForm()
         case "edit": presentGameForm(editing: IDs.hosting)
         case "gallery": path = [.gallery]
         case "chat": path = [.chat(IDs.going)]

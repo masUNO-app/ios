@@ -62,6 +62,25 @@ struct LocationResolutionTests {
         #expect(!place.address.contains("\n"))
     }
 
+    @Test func addressDropsTheLinesThatRepeatTheName() {
+        let tec = "Monterrey Institute of Technology and Higher Education"
+        #expect(Place.address("\(tec), Av. Eugenio Garza Sada 2501 Sur, Tecnológico, 64700 Monterrey, N.L., Mexico", without: tec)
+                == "Av. Eugenio Garza Sada 2501 Sur, Tecnológico, 64700 Monterrey, N.L., Mexico")
+        // A dropped pin is named after its street; case and accents don't matter.
+        #expect(Place.address("Av. Eugenio Garza Sada 2501, Tecnológico, Monterrey", without: "av. eugenio garza sada 2501")
+                == "Tecnológico, Monterrey")
+        #expect(Place.address("Estadio Borregos, Estadio Borregos, Monterrey", without: "Estadio Borregos") == "Monterrey")
+        // A name with a comma in it.
+        #expect(Place.address("Tec, Campus Monterrey, Av. Garza Sada", without: "Tec, Campus Monterrey") == "Av. Garza Sada")
+    }
+
+    @Test func addressKeepsWhatOnlyStartsLikeTheName() {
+        #expect(Place.address("Tec Stadium Annex, Monterrey", without: "Tec Stadium") == "Tec Stadium Annex, Monterrey")
+        #expect(Place.address("Monterrey, N.L.", without: "") == "Monterrey, N.L.")
+        // Nothing but the name: keep it rather than show an empty line.
+        #expect(Place.address("Estadio Borregos", without: "Estadio Borregos") == "Estadio Borregos")
+    }
+
     @Test func missingGeocoderResultKeepsFixAndFallbackLabel() {
         let location = CLLocation(latitude: 25.660123, longitude: -100.280456)
         let place = Place(placemark: nil, location: location, fallbackName: "Current location")

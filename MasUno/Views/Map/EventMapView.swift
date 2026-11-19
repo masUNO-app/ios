@@ -67,7 +67,7 @@ struct EventMapView: View {
     private static let avatarOverhang: CGFloat = 5
     /// The field, chip and banners float over the map and stop growing here: at the largest
     /// sizes the field alone would cover a third of the map (A11Y-06). Arianna picks the cap.
-    private static let overlayTypeCap = DynamicTypeSize.accessibility2
+    static let overlayTypeCap = DynamicTypeSize.accessibility2
     /// A search result's height at the default text size; rows grow with the text.
     @ScaledMetric(relativeTo: .body) private var resultRowHeight: CGFloat = 68
 

@@ -37,8 +37,8 @@ struct GameFormSheet: View {
             viewModel.notes = "Casual 3-on-3. I have an extra ball."
             viewModel.place = MockFixtures.Places.basketballCourts
         }
-        // `-screen picker`: straight into "Where's the game?".
-        _picksLocation = State(initialValue: UserDefaults.standard.string(forKey: "screen") == "picker")
+        // `-screen picker`: straight into "Where's the game?" (`picker-map`: without the search).
+        _picksLocation = State(initialValue: ["picker", "picker-map"].contains(UserDefaults.standard.string(forKey: "screen")))
         #endif
         _viewModel = State(initialValue: viewModel)
     }
