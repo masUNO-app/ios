@@ -140,7 +140,7 @@ Placeholders that still need a real answer. Card IDs refer to SPEC §5.
 - [ ] Post-MVP: organizer approval, profile photos, dark mode
 
 Build 0.9 (2) implements the first optimization pass and the post-create/join primer crash fix.
-The accessibility and optimization pass after it (Nov 19) adds the accessibility audit UI test
+Build 0.9 (8) adds the accessibility and optimization pass (Nov 19): the accessibility audit UI test
 (`AccessibilityAuditUITests`, known issues in `AuditKnownIssues.swift`), VoiceOver summaries and
 announcements, larger text support, High Contrast colors, Reduce Motion, 44 pt targets and lighter map
 updates. `-Osize` was measured and left out: 7% smaller, but the map filter path got 26–42% slower.
