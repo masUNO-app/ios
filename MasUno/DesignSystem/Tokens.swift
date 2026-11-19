@@ -227,7 +227,7 @@ struct Lineup: Equatable {
             parts.append(people.isEmpty ? String.app("\(unlisted) going") : String.app("\(unlisted) more"))
         }
         if open > 0 { parts.append(open == 1 ? String.app("1 open spot") : String.app("\(open) open spots")) }
-        return parts.formatted(.list(type: .and))
+        return parts.formatted(.list(type: .and).locale(LanguageSettings.shared.locale))
     }
 }
 
@@ -346,6 +346,6 @@ struct TokenStack: View {
             }
         }
         .accessibilityElement()
-        .accessibilityLabel(Text(verbatim: people.map(\.displayName).formatted(.list(type: .and))))
+        .accessibilityLabel(Text(verbatim: people.map(\.displayName).formatted(.list(type: .and).locale(LanguageSettings.shared.locale))))
     }
 }

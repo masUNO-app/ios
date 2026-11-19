@@ -149,7 +149,7 @@ final class GameFormViewModel {
 
     var timeError: String? {
         guard showsErrors, start <= .now, editing?.startsAt != start else { return nil }
-        let time = start.formatted(date: .omitted, time: .shortened)
+        let time = EventFormat.time(start)
         return String.app("\(time) has already passed today. Pick a later time.")
     }
 

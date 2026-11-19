@@ -19,6 +19,7 @@ struct GroupChatView: View {
     @State private var position = ScrollPosition(edge: .bottom)
     /// The first page is on screen, so from here a new row is news worth animating to.
     @State private var hasShownLatest = false
+    @State private var loadedEmpty = false
     @State private var followsLatest = true
     @State private var isUserScrolling = false
 
@@ -229,11 +230,14 @@ struct GroupChatView: View {
             }
             if !store.isChatEnabled || viewModel.state == .loaded { hasShownLatest = true }
         }
-        // Read out what others write once the chat is open. Not the first page, your own sends,
-        // or an older message coming back to the end after someone is blocked.
+        // An empty chat has no newest message to compare with, so remember that it loaded empty.
+        .onChange(of: viewModel.state) {
+            if viewModel.state == .loaded { loadedEmpty = newest == nil }
+        }
         .onChange(of: newest) { old, new in
-            guard hasShownLatest, let old, let new, new.createdAt > old.createdAt,
-                  new.sender.id != store.profile?.id else { return }
+            defer { if new != nil { loadedEmpty = false } }
+            guard let new, Self.announces(new, after: old, shownLatest: hasShownLatest,
+                                          loadedEmpty: loadedEmpty, myID: store.profile?.id) else { return }
             Announce.post(String.app("\(new.sender.displayName): \(new.body)"))
         }
         #if DEBUG
@@ -410,6 +414,16 @@ struct GroupChatView: View {
         case .pending(let pending):
             pendingMessage(pending, color: event.activity.color)
         }
+    }
+
+    /// Whether VoiceOver reads out a new newest message: what others write once the chat is open,
+    /// including the first message into a chat that loaded empty. Not the first page, your own
+    /// sends, or an older message coming back to the end after someone is blocked.
+    static func announces(_ new: ChatMessage, after old: ChatMessage?, shownLatest: Bool,
+                          loadedEmpty: Bool, myID: UUID?) -> Bool {
+        guard new.sender.id != myID else { return false }
+        guard let old else { return loadedEmpty }
+        return shownLatest && new.createdAt > old.createdAt
     }
 
     /// The newest message on screen, from anyone.

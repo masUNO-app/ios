@@ -80,6 +80,36 @@ struct AnnouncementTests {
         #expect(ChatViewModel.failureText(.rateLimited) == "Not sent · \(DomainError.rateLimited.message)")
     }
 
+    // MARK: Chat messages
+
+    private let me = PersonSummary(id: UUID(), firstName: "Ethan", lastInitial: "W", gradYear: 0)
+    private let nina = PersonSummary(id: UUID(), firstName: "Nina", lastInitial: "P", gradYear: 0)
+
+    private func message(from sender: PersonSummary, at offset: TimeInterval) -> ChatMessage {
+        ChatMessage(id: UUID(), gameID: UUID(), sender: sender, body: "On my way", clientID: UUID(),
+                    createdAt: Date(timeIntervalSinceReferenceDate: offset))
+    }
+
+    @Test func theFirstMessageIntoAnEmptyChatIsSaid() {
+        let first = message(from: nina, at: 0)
+        #expect(GroupChatView.announces(first, after: nil, shownLatest: false, loadedEmpty: true, myID: me.id))
+        #expect(!GroupChatView.announces(message(from: me, at: 0), after: nil, shownLatest: true, loadedEmpty: true, myID: me.id))
+    }
+
+    @Test func theFirstPageIsNotSaid() {
+        // A chat that loaded with messages, or hasn't loaded yet.
+        #expect(!GroupChatView.announces(message(from: nina, at: 0), after: nil, shownLatest: true, loadedEmpty: false, myID: me.id))
+    }
+
+    @Test func onlyNewerMessagesFromOthersAreSaid() {
+        let old = message(from: nina, at: 0)
+        #expect(GroupChatView.announces(message(from: nina, at: 10), after: old, shownLatest: true, loadedEmpty: false, myID: me.id))
+        #expect(!GroupChatView.announces(message(from: me, at: 10), after: old, shownLatest: true, loadedEmpty: false, myID: me.id))
+        // An older message back at the end after someone is blocked.
+        #expect(!GroupChatView.announces(message(from: nina, at: -10), after: old, shownLatest: true, loadedEmpty: false, myID: me.id))
+        #expect(!GroupChatView.announces(message(from: nina, at: 10), after: old, shownLatest: false, loadedEmpty: false, myID: me.id))
+    }
+
     // MARK: Toasts
 
     @Test func toastsStayLongerForVoiceOverAndLargeText() {
