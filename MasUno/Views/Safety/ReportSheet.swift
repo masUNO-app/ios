@@ -69,14 +69,8 @@ struct ReportSheet: View {
                     }
                 }
 
-                HStack {
-                    Text("Anything else we should know?")
-                        .font(.rounded(.footnote, .bold))
-                        .foregroundStyle(Theme.ink)
-                    Spacer()
-                    OptionalTag()
-                }
-                .padding(.top, 4)
+                OptionalQuestion("Anything else we should know?")
+                    .padding(.top, 4)
 
                 TextField("Tell us what happened", text: $note, axis: .vertical)
                     .lineLimit(1...4)

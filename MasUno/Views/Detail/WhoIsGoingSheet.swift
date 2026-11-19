@@ -10,6 +10,7 @@ struct WhoIsGoingSheet: View {
 
     @State private var reportTarget: ReportSubject?
     @State private var blockTarget: PersonSummary?
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
         ScrollView {
@@ -81,7 +82,8 @@ struct WhoIsGoingSheet: View {
             HStack(spacing: 12) {
                 PersonAvatar(person: person, size: 42, ring: 0)
                 VStack(alignment: .leading, spacing: 2) {
-                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    // The tags go under the name at accessibility sizes, so neither gets cut off.
+                    nameLayout {
                         Text(verbatim: name)
                             .font(.rounded(.callout, .bold))
                             .foregroundStyle(Theme.ink)
@@ -110,6 +112,12 @@ struct WhoIsGoingSheet: View {
             }
         }
         .frame(minHeight: 66)
+    }
+
+    private var nameLayout: AnyLayout {
+        typeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 2))
+            : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: 8))
     }
 
     @ViewBuilder

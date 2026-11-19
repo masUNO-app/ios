@@ -55,7 +55,7 @@ struct WhereToMeetSheet: View {
             .padding(.bottom, 12)
         }
         .scrollBounceBehavior(.basedOnSize)
-        .sheetChrome(detents: [.height(330)])
+        .sheetChrome(detents: [.height(330), .large])
         .onAppear { isFocused = true }
     }
 

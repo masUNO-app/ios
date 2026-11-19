@@ -146,6 +146,8 @@ struct GroupChatView: View {
                 }
                 .foregroundStyle(Theme.ink)
                 .lineLimit(1)
+                // The bar keeps its text small; a long press shows the title big (A11Y-24).
+                .accessibilityShowsLargeContentViewer { Text(verbatim: event.title) }
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Button(event.chatMuted ? "Unmute chat" : "Mute chat", systemImage: event.chatMuted ? "bell.slash" : "bell") {
@@ -165,6 +167,7 @@ struct GroupChatView: View {
                     )
                 }
                 .accessibilityLabel("Who's going")
+                .accessibilityShowsLargeContentViewer { Label("Who's going", systemImage: "person.2") }
             }
             .appSharedBackgroundVisibility(.hidden)
         }

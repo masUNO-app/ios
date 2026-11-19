@@ -8,6 +8,7 @@ struct EventDetailView: View {
     @Environment(GameStore.self) private var store
     @Environment(AppViewModel.self) private var appViewModel
     @Environment(\.openURL) private var openURL
+    @Environment(\.dynamicTypeSize) private var typeSize
     @State private var viewModel: EventDetailViewModel
     /// The sheet has scrolled far enough that its title is under the navigation bar.
     @State private var isTitleUnderBar = false
@@ -99,6 +100,8 @@ struct EventDetailView: View {
                     .lineLimit(1)
                     .opacity(isTitleUnderBar ? 1 : 0)
                     .accessibilityHidden(!isTitleUnderBar)
+                    // The bar keeps its text small; a long press shows the title big (A11Y-24).
+                    .accessibilityShowsLargeContentViewer { Text(verbatim: event.title) }
             }
             ToolbarItem(placement: .topBarTrailing) { overflowMenu(event, state: state).tint(Theme.ink) }
         }
@@ -165,15 +168,20 @@ struct EventDetailView: View {
         }
     }
 
-    /// "Room for 4 more" · **Who's going ›**, and the line under it once you're in.
+    /// "Room for 4 more" · **Who's going ›**, and the line under it once you're in. Who's going
+    /// goes under the headline at accessibility sizes (A11Y-06).
     private func availability(_ event: Game, state: GameStatus) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .firstTextBaseline) {
+        let headline = typeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
+            : AnyLayout(HStackLayout(alignment: .firstTextBaseline))
+
+        return VStack(alignment: .leading, spacing: 4) {
+            headline {
                 Text(verbatim: viewModel.headline(for: event))
                     .font(.rounded(.headline, .bold))
                     .foregroundStyle(viewModel.isCelebrating(event) ? Theme.accent : Theme.ink)
                     .contentTransition(.opacity)
-                Spacer(minLength: 12)
+                if !typeSize.isAccessibilitySize { Spacer(minLength: 12) }
                 Button {
                     openWhoIsGoing()
                 } label: {
