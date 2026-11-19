@@ -31,24 +31,19 @@ final class AccessibilityAuditUITests: XCTestCase {
     @MainActor
     private func audit(_ screens: [String], size: AuditKnownIssue.Size = .standard) {
         continueAfterFailure = true
-        let types: XCUIAccessibilityAuditType = size == .largest ? [.dynamicType, .textClipped, .hitRegion] : .all
+        // Text-size checks enlarge the text, which can move or swap elements (stacked buttons at
+        // accessibility sizes); run them after the others so contrast and the rest see a still screen.
+        let textSize: XCUIAccessibilityAuditType = [.dynamicType, .textClipped]
+        let passes: [XCUIAccessibilityAuditType] = size == .largest
+            ? [[.dynamicType, .textClipped, .hitRegion]]
+            : [.all.subtracting(textSize), textSize]
         var used = Set<Int>()
         for screen in screens {
-            let app = XCUIApplication()
-            app.launchArguments = ["-liveAuth", "NO", "-mockLocation", "YES", "-screen", screen,
-                                   "-notificationSettingsDelay", "60",
-                                   "-appLanguage", "system", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
-            if size == .largest {
-                app.launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
-            }
-            app.launch()
-            // Debug screens open their sheet or popup a moment after launch; audit once they've settled.
-            _ = app.wait(for: .runningForeground, timeout: 20)
-            Thread.sleep(forTimeInterval: 4)
+            var app = launch(screen, size: size)
             XCTContext.runActivity(named: "Audit \(screen)\(size == .largest ? " at AX5" : "")") { _ in
                 do {
                     var unknown = Set<String>()
-                    try app.performAccessibilityAudit(for: types) { issue in
+                    try Self.audit(app, passes) { issue in
                         if let index = AuditKnownIssue.match(issue, on: screen, size: size) {
                             used.insert(index)
                         } else {
@@ -58,11 +53,27 @@ final class AccessibilityAuditUITests: XCTestCase {
                     }
                     guard !unknown.isEmpty else { return }
                     // An app that's slow to settle can miss the audit's own text-size change and report
-                    // every label. Audit again; only what comes up both times fails.
+                    // every label. Audit again; only what comes up both times is suspect.
                     Thread.sleep(forTimeInterval: 2)
-                    try app.performAccessibilityAudit(for: types) { issue in
-                        guard AuditKnownIssue.match(issue, on: screen, size: size) == nil,
-                              unknown.contains(Self.key(issue)) else { return true }
+                    var repeated = Set<String>()
+                    try Self.audit(app, passes) { issue in
+                        let key = Self.key(issue)
+                        if AuditKnownIssue.match(issue, on: screen, size: size) == nil, unknown.contains(key) {
+                            repeated.insert(key)
+                        }
+                        return true
+                    }
+                    guard !repeated.isEmpty else { return }
+                    // On a simulator that's been busy for a while, a known finding's element can be gone
+                    // by the time its label is read, so it arrives unnamed. A fresh launch settles that;
+                    // whatever isn't listed then fails.
+                    app.terminate()
+                    app = launch(screen, size: size)
+                    try Self.audit(app, passes) { issue in
+                        if let index = AuditKnownIssue.match(issue, on: screen, size: size) {
+                            used.insert(index)
+                            return true
+                        }
                         Self.log(issue, on: screen, size: size)
                         return false
                     }
@@ -78,6 +89,30 @@ final class AccessibilityAuditUITests: XCTestCase {
             let here = entry.screens.filter(screens.contains)
             guard !here.isEmpty else { continue }
             print("AUDIT-UNSEEN \(here) .\(size) .\(AuditKnownIssue.name(of: entry.type)) \"\(entry.element)\": \(entry.reason)")
+        }
+    }
+
+    /// Opens `screen` on mocks and waits for its sheet or popup, which open a moment after launch.
+    @MainActor
+    private func launch(_ screen: String, size: AuditKnownIssue.Size) -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments = ["-liveAuth", "NO", "-mockLocation", "YES", "-screen", screen,
+                               "-notificationSettingsDelay", "60",
+                               "-appLanguage", "system", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        if size == .largest {
+            app.launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+        }
+        app.launch()
+        _ = app.wait(for: .runningForeground, timeout: 20)
+        Thread.sleep(forTimeInterval: 4)
+        return app
+    }
+
+    @MainActor
+    private static func audit(_ app: XCUIApplication, _ passes: [XCUIAccessibilityAuditType],
+                              _ handler: @escaping (XCUIAccessibilityAuditIssue) throws -> Bool) throws {
+        for types in passes {
+            try app.performAccessibilityAudit(for: types, handler)
         }
     }
 

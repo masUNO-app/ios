@@ -25,7 +25,9 @@ final class MapAccessibilityUITests: XCTestCase {
         let pin = app.buttons["Basketball: After-work hoops"]
         XCTAssertTrue(pin.waitForExistence(timeout: 20))
         let value = pin.value as? String ?? ""
-        XCTAssertTrue(value.hasPrefix("Soon, Room for 4 more, Today, "), value)
+        // The fixture starts in about 35 minutes, so late in the evening it's tomorrow's game.
+        XCTAssertTrue(value.hasPrefix("Soon, Room for 4 more, Today, ")
+                      || value.hasPrefix("Soon, Room for 4 more, Tomorrow, "), value)
         XCTAssertTrue(value.contains(", starts in "), value)
         XCTAssertFalse(value.contains("·"), value)
         XCTAssertFalse(pin.isSelected)
