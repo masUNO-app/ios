@@ -3,6 +3,8 @@ import SwiftUI
 /// Which drawing a sport gets behind its lineup (SPEC §7.7.3).
 nonisolated enum CourtKind: Hashable, Sendable {
     case basketball, tennis, soccer, volleyball, padel
+    /// Every esports game: a screen.
+    case screen
     /// A sport the app has no drawing for yet: a plain court outline.
     case generic
 }
@@ -17,7 +19,10 @@ extension Activity {
         case "soccer": Color(.sportSoccer)
         case "volleyball": Color(.sportVolleyball)
         case "padel": Color(.sportPadel)
-        default: Color(.sportOther)
+        case "valorant": Color(.esportsValorant)
+        case "csgo": Color(.esportsCSGO)
+        case "league": Color(.esportsLeague)
+        default: isEsport ? Color(.sportEsports) : Color(.sportOther)
         }
     }
 
@@ -28,7 +33,7 @@ extension Activity {
         case "soccer": .soccer
         case "volleyball": .volleyball
         case "padel": .padel
-        default: .generic
+        default: isEsport ? .screen : .generic
         }
     }
 }

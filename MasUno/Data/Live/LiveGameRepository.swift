@@ -97,11 +97,14 @@ final class LiveGameRepository: GameRepository {
     }
 
     func createGame(_ draft: GameDraft) async throws -> Game {
-        try await write("create_game", GameDraftParams(draft))
+        // `create_game` has no round nights yet; never post one as a plain game.
+        guard draft.rotation == nil else { throw DomainError.invalidInput }
+        return try await write("create_game", GameDraftParams(draft))
     }
 
     func updateGame(id: UUID, _ draft: GameDraft) async throws -> Game {
-        try await write("update_game", GameDraftParams(id: id, draft))
+        guard draft.rotation == nil else { throw DomainError.invalidInput }
+        return try await write("update_game", GameDraftParams(id: id, draft))
     }
 
     func cancelGame(id: UUID) async throws -> Game {

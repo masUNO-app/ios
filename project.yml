@@ -196,6 +196,9 @@ schemes:
       # on in-memory mocks; without real keys the app falls back to mocks by itself.
       commandLineArguments:
         "-liveAuth YES": true
+        # Esports and round nights on the mocks: untick -liveAuth YES and tick both of these.
+        "-liveAuth NO": false
+        "-esports YES": false
     test:
       config: Debug
       targets:

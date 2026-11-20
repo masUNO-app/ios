@@ -35,6 +35,10 @@ protocol GameRepository: AnyObject {
     /// Group chat system rows, oldest first.
     func fetchActivity(gameID: UUID) async throws -> [GameActivityEntry]
 
+    /// A round night's rounds and, once each is revealed, its groups. Throws `.notFound` for a game
+    /// that isn't one. Only `MockBackend` has rotations so far; the default below is for the rest.
+    func fetchRotation(gameID: UUID) async throws -> RotationPlan
+
     func createGame(_ draft: GameDraft) async throws -> Game
     func updateGame(id: UUID, _ draft: GameDraft) async throws -> Game
     func cancelGame(id: UUID) async throws -> Game
@@ -62,6 +66,13 @@ protocol GameRepository: AnyObject {
     ///   - ids: Games to save.
     ///   - alertIDs: The subset that also wants a spot alert.
     func importBookmarks(ids: [UUID], alertIDs: [UUID]) async throws
+}
+
+extension GameRepository {
+    /// No server has round nights yet.
+    func fetchRotation(gameID: UUID) async throws -> RotationPlan {
+        throw DomainError.notFound
+    }
 }
 
 /// Device token, notification preferences and opened receipts (`docs/API.md`).
