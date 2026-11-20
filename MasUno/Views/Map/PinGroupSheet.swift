@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// The games behind a group pin on the map, in the same rows as search results. Also every game
-/// on the map, for VoiceOver's "List games".
+/// on the map, for VoiceOver's "List plans".
 struct PinGroupSheet: View {
     @Environment(GameStore.self) private var store
     @Environment(\.dismiss) private var dismiss
@@ -17,7 +17,7 @@ struct PinGroupSheet: View {
         let games = gameIDs.compactMap { store.game($0) }
 
         VStack(alignment: .leading, spacing: 16) {
-            SheetHeader(title: title ?? Text("\(games.count) games here"), subtitle: subtitle) { dismiss() }
+            SheetHeader(title: title ?? Text("\(games.count) plans here"), subtitle: subtitle) { dismiss() }
 
             ScrollView {
                 VStack(spacing: 0) {

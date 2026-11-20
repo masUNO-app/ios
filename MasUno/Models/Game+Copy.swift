@@ -16,9 +16,9 @@ extension Game {
         return spotsLeft == 1 ? String.app("Room for one more") : String.app("Room for \(spotsLeft) more")
     }
 
-    /// The same, for the middle of a line: "room for 4 more", "room for one more", "game is full".
+    /// The same, for the middle of a line: "room for 4 more", "room for one more", "it's full".
     var roomPhrase: String {
-        if isFull { return String.app("game is full") }
+        if isFull { return String.app("it's full") }
         return spotsLeft == 1 ? String.app("room for one more") : String.app("room for \(spotsLeft) more")
     }
 
@@ -43,18 +43,18 @@ extension Game {
 
     /// Me › Going, cancelled: "Cancelled by Alex". A guest isn't shown who cancelled.
     var cancelledLine: String {
-        if isHostedByMe { return String.app("You cancelled this game") }
-        return hidesPeople ? String.app("This game was cancelled.") : String.app("Cancelled by \(host.firstName)")
+        if isHostedByMe { return String.app("You cancelled this plan") }
+        return hidesPeople ? String.app("This plan was cancelled.") : String.app("Cancelled by \(host.firstName)")
     }
 
     /// Me › Earlier: "You played · 10 showed up".
     var playedLine: String {
-        String.app("You played · \(goingCount) showed up")
+        String.app("You went · \(goingCount) showed up")
     }
 
     /// Game details, full: "Game's full · 6 of 6".
     var fullLine: String {
-        String.app("Game's full · \(goingCount) of \(capacity)")
+        String.app("It's full · \(goingCount) of \(capacity)")
     }
 }
 

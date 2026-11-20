@@ -36,7 +36,7 @@ final class GameFormViewModel {
     static let durations = GameDraft.durations
     static let playerRange = GameDraft.capacityRange
 
-    /// - Parameter template: "Play again": a new game that starts from an earlier one's sport,
+    /// - Parameter template: "Run it back": a new game that starts from an earlier one's sport,
     ///   name, place and details. The day and time start fresh.
     init(editing: Game? = nil, template: Game? = nil) {
         self.editing = editing
@@ -57,9 +57,9 @@ final class GameFormViewModel {
     // MARK: Presentation
 
     var isEditing: Bool { editing != nil }
-    var title: String { isEditing ? String.app("Edit game") : String.app("Add game") }
-    var subtitle: String { isEditing ? String.app("Changes are shared with everyone going.") : String.app("Get a game going nearby.") }
-    var saveButtonTitle: String { isEditing ? String.app("Save changes") : String.app("Create game") }
+    var title: String { isEditing ? String.app("Edit plan") : String.app("Make a plan") }
+    var subtitle: String { isEditing ? String.app("Changes are shared with everyone going.") : String.app("Get something going nearby.") }
+    var saveButtonTitle: String { isEditing ? String.app("Save changes") : String.app("Create plan") }
 
     /// Today through 6 days out (games start within 7 days).
     var dayOptions: [Date] {
@@ -84,7 +84,7 @@ final class GameFormViewModel {
 
     /// "6 players".
     var playersLabel: String {
-        String.app("\(players) players")
+        String.app("\(players) people")
     }
 
     /// Under the count: "Including you", or "3 joined" once people have.
@@ -154,7 +154,7 @@ final class GameFormViewModel {
     }
 
     var placeError: String? {
-        showsErrors && place == nil ? String.app("Pick where the game is.") : nil
+        showsErrors && place == nil ? String.app("Pick where it's happening.") : nil
     }
 
     func error(for field: Field) -> String? {

@@ -18,7 +18,7 @@ struct InviteSheet: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 SheetHeader(
-                    title: Text(event.isHostedByMe ? "Share game" : "Invite a friend"),
+                    title: Text(event.isHostedByMe ? "Share plan" : "Invite a friend"),
                     subtitle: Text("They'll see who's going and can grab an open spot.")
                 ) { dismiss() }
 

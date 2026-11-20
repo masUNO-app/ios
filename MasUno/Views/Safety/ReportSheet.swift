@@ -117,7 +117,7 @@ struct ReportSheet: View {
     private var title: LocalizedStringKey {
         switch target {
         case .person(let person): "Report \(person.firstName)"
-        case .game: "Report game"
+        case .game: "Report plan"
         case .message: "Report message"
         }
     }

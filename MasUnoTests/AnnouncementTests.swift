@@ -16,17 +16,17 @@ struct AnnouncementTests {
     @Test func searchResultsSayTheTitleAndHowMany() throws {
         let map = EventMapViewModel()
         let hoops = try game(MockFixtures.GameID.open)
-        #expect(map.resultsAnnouncement(for: [hoops]) == "Basketball near you, 1 game")
+        #expect(map.resultsAnnouncement(for: [hoops]) == "Basketball near you, 1 plan")
         let mixed = [hoops, try game(MockFixtures.GameID.going), try game(MockFixtures.GameID.full)]
-        #expect(map.resultsAnnouncement(for: mixed) == "Games near you, 3 games")
-        #expect(map.resultsAnnouncement(for: []) == "No games match that search")
+        #expect(map.resultsAnnouncement(for: mixed) == "Plans near you, 3 plans")
+        #expect(map.resultsAnnouncement(for: []) == "No plans match that search")
     }
 
-    @Test func theGameCountIsPluralInSpanish() {
+    @Test func thePlanCountIsPluralInSpanish() {
         let settings = LanguageSettings(defaults: UserDefaults(suiteName: "AnnouncementTests.\(UUID().uuidString)")!, preferredLanguages: ["es-MX"])
         let one = 1, three = 3
-        #expect(String(localized: "\(one) games", bundle: settings.bundle, locale: settings.locale) == "1 partido")
-        #expect(String(localized: "\(three) games", bundle: settings.bundle, locale: settings.locale) == "3 partidos")
+        #expect(String(localized: "\(one) plans", bundle: settings.bundle, locale: settings.locale) == "1 plan")
+        #expect(String(localized: "\(three) plans", bundle: settings.bundle, locale: settings.locale) == "3 planes")
     }
 
     // MARK: Joining

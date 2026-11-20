@@ -83,7 +83,7 @@ struct GameCard<Accessory: View, Actions: View>: View {
         if let onOpen {
             element
                 .accessibilityAddTraits(.isButton)
-                .accessibilityHint(Text("Opens the game"))
+                .accessibilityHint(Text("Opens the plan"))
                 .accessibilityInputLabels([Text(verbatim: event.title)])
                 .accessibilityAction { onOpen() }
         } else {

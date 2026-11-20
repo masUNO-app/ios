@@ -55,7 +55,7 @@ struct UpdateRequiredView: View {
         GateScreen(
             systemImage: "arrow.down.app",
             title: "Update masUNO",
-            message: "This version is no longer supported. Update to keep finding games."
+            message: "This version is no longer supported. Update to keep finding plans."
         ) {
             Button("Update") { openURL(AppConfig.appStoreURL) }
                 .pill(.primary)

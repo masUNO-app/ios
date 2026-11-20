@@ -94,7 +94,7 @@ struct GroupChatView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Theme.background)
             } else if event == nil, store.isOffline {
-                RetryCard(message: "Couldn't load this game.") { await store.loadGame(eventID) }
+                RetryCard(message: "Couldn't load this plan.") { await store.loadGame(eventID) }
                     .padding(.horizontal, Theme.gutter)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Theme.background)
@@ -569,7 +569,7 @@ struct GroupChatView: View {
         let name = name(of: entry)
         let mine = isMine(entry)
         let text: String = if event.isFull {
-            mine ? String.app("You took the last spot · game is full") : String.app("\(name) took the last spot · game is full")
+            mine ? String.app("You took the last spot · it's full") : String.app("\(name) took the last spot · it's full")
         } else {
             mine ? String.app("You took a spot · \(event.roomPhrase)") : String.app("\(name) took a spot · \(event.roomPhrase)")
         }
@@ -621,7 +621,7 @@ struct GroupChatView: View {
         case .left: mine ? String.app("You left · a spot opened") : String.app("\(name) left · a spot opened")
         case .meetPointUpdated: String.app("Meet-up spot updated · \(time)")
         case .timeOrPlaceChanged: String.app("Time or place changed · \(time)")
-        case .cancelled: String.app("Game cancelled · Chat closed")
+        case .cancelled: String.app("Plan cancelled · Chat closed")
         }
     }
 
@@ -752,7 +752,7 @@ struct GroupChatView: View {
             composer(event)
         } else if event.isGoing {
             // The server refuses messages here too (`cancelled`, `ended`).
-            Text(event.isCancelled ? "This game was cancelled, so the chat is closed." : "This chat closed 24 hours after the game ended.")
+            Text(event.isCancelled ? "This plan was cancelled, so the chat is closed." : "This chat closed 24 hours after the plan wrapped.")
                 .font(.rounded(.footnote))
                 .foregroundStyle(Theme.muted)
                 .multilineTextAlignment(.center)

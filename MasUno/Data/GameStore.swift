@@ -1094,7 +1094,7 @@ final class GameStore {
                 return
             }
             applyWrite(updated)
-            notice = String.app("Game cancelled. We let everyone going know.")
+            notice = String.app("Plan cancelled. We let everyone going know.")
         } catch {
             guard context == sessionID, !OperationCancellation.isCancellation(error) else { return }
             fail(domainError(error))

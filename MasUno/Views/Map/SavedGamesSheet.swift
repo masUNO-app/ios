@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Figma "Saved games", from the bookmark button on the map (E17). A full game you asked to
+/// Figma "Saved plans", from the bookmark button on the map (E17). A full game you asked to
 /// hear about shows "Spot alert is on" in place of "Count me in".
 struct SavedGamesSheet: View {
     @Environment(GameStore.self) private var store
@@ -15,13 +15,13 @@ struct SavedGamesSheet: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 SheetHeader(
-                    title: Text("Saved games"),
-                    subtitle: Text("Turn on a spot alert and we'll tell you when a full game opens up.")
+                    title: Text("Saved plans"),
+                    subtitle: Text("Turn on a spot alert and we'll tell you when a full plan opens up.")
                 ) { dismiss() }
 
                 if games.isEmpty {
-                    EmptyCard(title: "Nothing saved yet", message: "Tap the bookmark on a game to keep it here.") {
-                        Button("Find a game") { dismiss() }
+                    EmptyCard(title: "Nothing saved yet", message: "Tap the bookmark on a plan to keep it here.") {
+                        Button("Find a plan") { dismiss() }
                             .pill(.primary)
                     }
                 }
@@ -65,10 +65,10 @@ struct SavedGamesSheet: View {
     @ViewBuilder
     private func action(for event: Game) -> some View {
         if event.isGoing || event.isCancelled {
-            Button("View game") { open(event) }
+            Button("View plan") { open(event) }
                 .pill(.primary)
-                .accessibilityLabel(String.app("View game, \(event.title)"))
-                .accessibilityInputLabels([Text("View game")])
+                .accessibilityLabel(String.app("View plan, \(event.title)"))
+                .accessibilityInputLabels([Text("View plan")])
         } else if event.isFull {
             let isOn = store.hasSpotAlert(event.id)
             Button(isOn ? "Spot alert is on" : "Alert me") { store.toggleSpotAlert(event.id) }

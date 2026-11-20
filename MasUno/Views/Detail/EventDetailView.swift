@@ -2,7 +2,7 @@ import MapKit
 import SwiftUI
 
 /// Figma: "Game details" (408:3506 and one per sport), "You're in" (408:3632), "Game's full" and
-/// "Your game is live!", plus the ended and cancelled states from SPEC §7.6.4. A full-bleed
+/// "Your plan is live!", plus the ended and cancelled states from SPEC §7.6.4. A full-bleed
 /// court with the lineup on it, and a content sheet that overlaps it.
 struct EventDetailView: View {
     @Environment(GameStore.self) private var store
@@ -22,17 +22,17 @@ struct EventDetailView: View {
             if let event = store.game(viewModel.eventID) {
                 content(event)
             } else if store.isMissing(viewModel.eventID) {
-                ContentUnavailableView("This game isn't available.", systemImage: "sportscourt")
+                ContentUnavailableView("This plan isn't available.", systemImage: "calendar.badge.exclamationmark")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Theme.background)
             } else if store.isOffline {
-                RetryCard(message: "Couldn't load this game.") { await load() }
+                RetryCard(message: "Couldn't load this plan.") { await load() }
                     .padding(.horizontal, Theme.gutter)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Theme.background)
             } else {
                 ProgressView()
-                    .accessibilityLabel(Text("Loading game"))
+                    .accessibilityLabel(Text("Loading plan"))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Theme.background)
             }
@@ -340,13 +340,13 @@ struct EventDetailView: View {
                     appViewModel.path.append(.chat(event.id))
                 }
                 Button("Open in Maps", systemImage: "arrow.up.forward.square") { viewModel.openInMaps(event) }
-                Button("Cancel game", systemImage: "xmark.circle", role: .destructive) {
+                Button("Cancel plan", systemImage: "xmark.circle", role: .destructive) {
                     viewModel.cancelling = event
                 }
             case .going:
                 Button("Open in Maps", systemImage: "arrow.up.forward.square") { viewModel.openInMaps(event) }
                 reportGameButton(event)
-                Button("Leave game", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) {
+                Button("Leave plan", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) {
                     viewModel.leaving = event
                 }
             default:
@@ -357,7 +357,7 @@ struct EventDetailView: View {
     }
 
     private func reportGameButton(_ event: Game) -> some View {
-        Button("Report game", systemImage: "flag") {
+        Button("Report plan", systemImage: "flag") {
             if store.isGuest {
                 appViewModel.requireAccount(.report)
             } else {
@@ -401,14 +401,14 @@ struct EventDetailView: View {
             case .hosting:
                 PillPair {
                     if canInvite {
-                        Button("Share game") { viewModel.showsInvite = true }
+                        Button("Share plan") { viewModel.showsInvite = true }
                             .pill(.primary)
                     } else {
                         Button("Open group chat") { appViewModel.path.append(.chat(event.id)) }
                             .pill(.primary)
                             .accessibilityIdentifier("detail-open-chat")
                     }
-                    Button("Edit game") { appViewModel.presentGameForm(editing: event.id) }
+                    Button("Edit plan") { appViewModel.presentGameForm(editing: event.id) }
                         .pill(.secondary)
                 }
             case .full:

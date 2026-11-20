@@ -29,7 +29,7 @@ struct WhereToMeetSheet: View {
                 ) { dismiss() }
 
                 FieldBox(
-                    "Meet-up spot", text: $spot, prompt: Text("e.g. By the north court bleachers"),
+                    "Meet-up spot", text: $spot, prompt: Text("e.g. By the big tree outside the library"),
                     error: errorMessage, isFocused: isFocused
                 ) { field in
                     field
@@ -39,7 +39,7 @@ struct WhereToMeetSheet: View {
                         .onChange(of: spot) { if spot.count > Self.limit { spot = String(spot.prefix(Self.limit)) } }
                 }
 
-                Text("To change the date, time or location, edit the game from Me › Hosting.")
+                Text("To change the date, time or location, edit the plan from Me › Hosting.")
                     .font(.rounded(.footnote))
                     .foregroundStyle(Theme.muted)
 

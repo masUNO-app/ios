@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// The 1.0 dialog: a card in the middle of the screen with an icon, a title, a sentence or two
-/// and stacked pills (Figma "Leave game", "Before you chat", "Block", "Sign out"…). Present it
+/// and stacked pills (Figma "Leave plan", "Before you chat", "Block", "Sign out"…). Present it
 /// with `.dialog(isPresented:)` or `.dialog(item:)`.
 struct DialogCard<Content: View>: View {
     enum Tone {

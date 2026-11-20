@@ -50,30 +50,30 @@ final class AccessibilityAuditUITests: XCTestCase {
                   reason: "iOS 26 only, not identified: likely the map pins' emoji and tags behind the sheet, which their pin buttons read"),
         Allowance(type: .elementDetection, element: "",
                   limits: ["map": 1],
-                  reason: "iOS 27 only: the group pin's count (\"2\"). The pin is a button named \"N games here\" that VoiceOver reaches (MapAccessibilityUITests); the audit doesn't match a MapKit annotation's text to it. Found by elimination: blanking the count clears it, the tags and face tokens don't (Nov 19)"),
+                  reason: "iOS 27 only: the group pin's count (\"2\"). The pin is a button named \"N plans here\" that VoiceOver reaches (MapAccessibilityUITests); the audit doesn't match a MapKit annotation's text to it. Found by elimination: blanking the count clears it, the tags and face tokens don't (Nov 19)"),
     ]
 
     // Grouped so each test stays short and reports on its own. Add a screen when it's built; never remove one.
     @MainActor static let map = [
-        Screen("map") { $0.buttons["5 games nearby"] },
+        Screen("map") { $0.buttons["5 plans nearby"] },
         Screen("popup") { $0.buttons["Details, After-work hoops"] },
         Screen("search") { $0.buttons["Clear search"] },
-        Screen("filter") { $0.staticTexts["Filter games"] },
-        Screen("saved") { $0.staticTexts["Saved games"] },
-        Screen("all-games") { $0.staticTexts["5 games nearby"] },
+        Screen("filter") { $0.staticTexts["Filter plans"] },
+        Screen("saved") { $0.staticTexts["Saved plans"] },
+        Screen("all-games") { $0.staticTexts["5 plans nearby"] },
     ]
     @MainActor static let detail = [
         Screen("detail-open") { $0.buttons["detail-count-me-in"] },
         Screen("detail-in") { $0.buttons["detail-open-chat"] },
         Screen("detail-full") { $0.buttons["Alert me if a spot opens"] },
-        Screen("detail-hosting") { $0.buttons["Edit game"] },
+        Screen("detail-hosting") { $0.buttons["Edit plan"] },
         Screen("who") { $0.staticTexts["2 going"] },
         Screen("report") { $0.buttons["Send report"] },
     ]
     @MainActor static let form = [
         Screen("add") { $0.buttons["Choose"] },
         Screen("form-error") { $0.staticTexts["Add a name so people know what they're joining."] },
-        Screen("picker") { $0.navigationBars["Where's the game?"] },
+        Screen("picker") { $0.navigationBars["Where's it happening?"] },
     ]
     @MainActor static let me = [
         Screen("chat") { $0.descendants(matching: .any)["chat-composer"] },
@@ -88,7 +88,7 @@ final class AccessibilityAuditUITests: XCTestCase {
         Screen("onboarding-signup") { $0.buttons["Create account"] },
         Screen("onboarding-signin") { $0.buttons["Sign in"] },
         Screen("onboarding-pending") { $0.buttons["Check again"] },
-        Screen("onboarding-about") { $0.buttons["Let's play"] },
+        Screen("onboarding-about") { $0.buttons["Let's go"] },
         Screen("onboarding-guidelines") { $0.buttons["I agree"] },
     ]
 

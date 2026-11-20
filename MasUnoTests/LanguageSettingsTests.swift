@@ -46,8 +46,8 @@ struct LanguageSettingsTests {
         settings.preference = .es
         #expect(String(localized: "Settings", bundle: settings.bundle, locale: settings.locale) == "Ajustes")
         let one = 1, two = 2
-        #expect(String(localized: "\(one) players", bundle: settings.bundle, locale: settings.locale) == "1 jugador")
-        #expect(String(localized: "\(two) players", bundle: settings.bundle, locale: settings.locale) == "2 jugadores")
+        #expect(String(localized: "\(one) people", bundle: settings.bundle, locale: settings.locale) == "1 persona")
+        #expect(String(localized: "\(two) people", bundle: settings.bundle, locale: settings.locale) == "2 personas")
         settings.preference = .en
         #expect(String(localized: "Settings", bundle: settings.bundle, locale: settings.locale) == "Settings")
     }

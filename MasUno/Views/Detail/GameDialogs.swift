@@ -1,7 +1,7 @@
 import SwiftUI
 
 extension View {
-    /// Figma "Leave game": "Leave After-work hoops?" → **Leave game** / **Stay in**.
+    /// Figma "Leave plan": "Leave After-work hoops?" → **Leave game** / **Stay in**.
     func leaveGameDialog(_ game: Binding<Game?>) -> some View {
         modifier(LeaveGameDialog(game: game))
     }
@@ -28,7 +28,7 @@ private struct LeaveGameDialog: ViewModifier {
                 systemImage: "rectangle.portrait.and.arrow.right", tone: .destructive,
                 title: Text("Leave \(game.title)?"),
                 message: Text("Your spot opens up for someone else and \(game.host.firstName) gets a heads-up. You'll leave the group chat too."),
-                confirm: .init("Leave game") { Task { await store.leave(game.id) } },
+                confirm: .init("Leave plan") { Task { await store.leave(game.id) } },
                 cancel: .init("Stay in")
             )
         }
@@ -47,11 +47,11 @@ private struct CancelGameDialog: ViewModifier {
                 title: Text("Cancel \(game.title)?"),
                 message: Text(message(for: game)),
                 footnote: Text("This can't be undone."),
-                confirm: .init("Cancel game") {
+                confirm: .init("Cancel plan") {
                     Task { await store.cancelGame(game.id) }
                     onCancelled()
                 },
-                cancel: .init("Keep game")
+                cancel: .init("Keep plan")
             )
         }
     }
@@ -75,7 +75,7 @@ private struct BlockDialog: ViewModifier {
             DialogCard(
                 systemImage: "nosign", tone: .destructive,
                 title: Text("Block \(person.firstName)?"),
-                message: Text("You won't see each other's games or messages, and neither of you can join the other's games. We won't tell \(person.firstName)."),
+                message: Text("You won't see each other's plans or messages, and neither of you can join the other's plans. We won't tell \(person.firstName)."),
                 footnote: Text("You can unblock anytime in Settings."),
                 confirm: .init("Block") {
                     Task { await store.block(person) }

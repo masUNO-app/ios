@@ -328,7 +328,7 @@ final class PushNotificationService {
     private func announceSpotTaken() async {
         let content = UNMutableNotificationContent()
         content.title = String.app("Someone beat you to it")
-        content.body = String.app("That game just filled up.")
+        content.body = String.app("That plan just filled up.")
         content.sound = .default
         let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
         do {

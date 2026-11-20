@@ -11,7 +11,7 @@ struct NotificationPrimerDialog: View {
     var body: some View {
         DialogCard(
             systemImage: "bell.badge", tone: .tinted(Color(.sportPadel)),
-            title: Text("Know when your game changes or a spot opens"),
+            title: Text("Know when your plan changes or a spot opens"),
             message: Text("We'll tell you about cancellations, time changes, reminders and spots. You can change this in Settings."),
             confirm: DialogAction("Turn on notifications") {
                 // The dialog has closed; the account is read before anything can sign out.
@@ -21,7 +21,7 @@ struct NotificationPrimerDialog: View {
             },
             cancel: DialogAction("Not now") { decline() }
         ) {
-            Toggle("Tips when games match your sports", isOn: $wantsTips)
+            Toggle("Tips when plans match your interests", isOn: $wantsTips)
                 .font(.rounded(.subheadline))
                 .foregroundStyle(Theme.ink)
                 .tint(Theme.accent)

@@ -30,12 +30,12 @@ final class EventDetailViewModel {
         case .open: event.roomLine
         case .going: String.app("You're in!")
         case .full: event.fullLine
-        case .hosting: String.app("Your game is live!")
-        case .ended: String.app("This game has ended")
+        case .hosting: String.app("Your plan is live!")
+        case .ended: String.app("This plan has wrapped")
         case .cancelled:
             event.isHostedByMe
-                ? String.app("You cancelled this game")
-                : String.app("\(event.host.firstName) cancelled this game")
+                ? String.app("You cancelled this plan")
+                : String.app("\(event.host.firstName) cancelled this plan")
         }
     }
 
@@ -44,7 +44,7 @@ final class EventDetailViewModel {
         old == .open && new == .going ? headline(for: event) : nil
     }
 
-    /// "You're in!" and "Your game is live!" are the green ones.
+    /// "You're in!" and "Your plan is live!" are the green ones.
     func isCelebrating(_ event: Game) -> Bool {
         [.going, .hosting].contains(event.status())
     }
@@ -59,7 +59,7 @@ final class EventDetailViewModel {
                 : String.app("\(event.host.firstName) knows you're coming. Check where to meet and who's going.")
         case .hosting:
             event.isFull
-                ? String.app("Every spot is taken. See you on the court.")
+                ? String.app("Every spot is taken. See you there.")
                 : String.app("It's on the map now with \(event.roomPhrase).")
         default: nil
         }

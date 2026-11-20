@@ -20,7 +20,7 @@ final class AppViewModel {
 
     enum Sheet: Identifiable, Hashable {
         case gameForm(editing: UUID?)
-        /// "Play again": a new game that starts from an earlier one's sport, place and details.
+        /// "Run it back": a new game that starts from an earlier one's sport, place and details.
         case playAgain(UUID)
 
         var id: Self { self }
@@ -41,7 +41,7 @@ final class AppViewModel {
         var title: String {
             switch self {
             case .join: String.app("Join with a student account")
-            case .save: String.app("Save games with an account")
+            case .save: String.app("Save plans with an account")
             case .host: String.app("Host with a student account")
             case .whosGoing: String.app("See who's going")
             case .me: String.app("Your account")
@@ -53,11 +53,11 @@ final class AppViewModel {
         var message: String {
             switch self {
             case .join:
-                String.app("Create an account with your school email so other players know you're a real student. Takes about a minute.")
+                String.app("Create an account with your school email so everyone knows you're a real student. Takes about a minute.")
             case .save:
-                String.app("Bookmarks and spot alerts stay on your account. Create one with your school email to keep games for later.")
+                String.app("Bookmarks and spot alerts stay on your account. Create one with your school email to keep plans for later.")
             case .host:
-                String.app("Only verified students can post a game. Create an account with your school email to host.")
+                String.app("Only verified students can post a plan. Create an account with your school email to host.")
             case .whosGoing:
                 String.app("Names stay with verified students. Create an account with your school email to see who's going.")
             case .me:
@@ -250,7 +250,7 @@ final class AppViewModel {
         arrivingIn = nil
     }
 
-    /// Back to the map from wherever you are ("Find a game").
+    /// Back to the map from wherever you are ("Find a plan").
     func showMap() {
         sheet = nil
         path = []

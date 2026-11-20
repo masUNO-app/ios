@@ -12,7 +12,7 @@ struct BlockedPeopleView: View {
                     ContentUnavailableView(
                         "No one blocked",
                         systemImage: "nosign",
-                        description: Text("Block someone from a game's Who's going list.")
+                        description: Text("Block someone from a plan's Who's going list.")
                     )
                     .padding(.top, 60)
                 } else {
@@ -40,7 +40,7 @@ struct BlockedPeopleView: View {
                     }
                     .cardSurface()
 
-                    Text("You won't see each other's games or messages, and neither of you can join the other's games.")
+                    Text("You won't see each other's plans or messages, and neither of you can join the other's plans.")
                         .font(.rounded(.footnote))
                         .foregroundStyle(Theme.muted)
                         .padding(.horizontal, 4)

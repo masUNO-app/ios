@@ -32,7 +32,7 @@ struct LocationPickerServices {
     )
 }
 
-/// "Where's the game?" (SPEC §7.6.3): search suggestions near campus or the current location,
+/// "Where's it happening?" (SPEC §7.6.3): search suggestions near campus or the current location,
 /// or drag the map under the fixed pin and the address follows (E20). Then **Set location**.
 @Observable
 final class LocationPickerViewModel: NSObject {

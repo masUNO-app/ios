@@ -495,7 +495,7 @@ struct PushNotificationServiceTests {
         #expect(game.myRole == nil)
         #expect(system.requests.count == 1)
         #expect(system.requests.first?.content.title == "Someone beat you to it")
-        #expect(system.requests.first?.content.body == "That game just filled up.")
+        #expect(system.requests.first?.content.body == "That plan just filled up.")
     }
 
     // MARK: Primer

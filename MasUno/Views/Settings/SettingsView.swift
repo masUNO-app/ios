@@ -170,7 +170,7 @@ struct SettingsView: View {
             DialogCard(
                 systemImage: "rectangle.portrait.and.arrow.right", tone: .destructive,
                 title: Text("Sign out?"),
-                message: Text("Your games and saved spots stay put. Sign back in anytime with your school email."),
+                message: Text("Your plans and saved spots stay put. Sign back in anytime with your school email."),
                 confirm: DialogAction("Sign out") { Task { await appViewModel.signOut(store: store) } },
                 cancel: DialogAction("Cancel")
             )
@@ -179,7 +179,7 @@ struct SettingsView: View {
             DialogCard(
                 systemImage: "trash", tone: .destructive,
                 title: Text("Delete your account?"),
-                message: Text("We'll remove your profile, cancel the games you host and give up your spots right away. People in your games will see a spot open up."),
+                message: Text("We'll remove your profile, cancel the plans you host and give up your spots right away. People in your plans will see a spot open up."),
                 footnote: Text("This can't be undone."),
                 confirm: DialogAction("Delete account") { Task { await appViewModel.deleteAccount(store: store) } },
                 cancel: DialogAction("Keep my account")
@@ -272,10 +272,10 @@ struct SettingsView: View {
     /// The six switches and their notes, in one column: loaded, or as the loading placeholder.
     private var notificationSwitches: some View {
         VStack(spacing: 0) {
-            preference("Games that match your sports", key: \.interestMatch, systemImage: "sportscourt", color: Color(.sportSoccer).opacity(0.35))
+            preference("Plans that match your interests", key: \.interestMatch, systemImage: "heart", color: Color(.sportSoccer).opacity(0.35))
             preference("A spot opens up", key: \.spotOpen, systemImage: "person.badge.plus", color: Color(.person4).opacity(0.45))
-            preference("Game reminders", key: \.reminders, systemImage: "clock", color: Color(.person1).opacity(0.5))
-            preference("Updates on games you host", key: \.hosting, systemImage: "megaphone", color: Color(.sportBasketball).opacity(0.35))
+            preference("Plan reminders", key: \.reminders, systemImage: "clock", color: Color(.person1).opacity(0.5))
+            preference("Updates on plans you host", key: \.hosting, systemImage: "megaphone", color: Color(.sportBasketball).opacity(0.35))
             preference("Group chat messages", key: \.chat, systemImage: "bubble.left.and.bubble.right", color: Color(.sportVolleyball).opacity(0.45))
             // Mentions have no switch: they notify even with this one off (NOTIF §3.5).
             Text("You're still notified when someone mentions you.")
@@ -284,7 +284,7 @@ struct SettingsView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 14)
                 .padding(.bottom, 8)
-            preference("Tips to play", key: \.winback, systemImage: "sparkles", color: Theme.you.opacity(0.55))
+            preference("Tips to get out there", key: \.winback, systemImage: "sparkles", color: Theme.you.opacity(0.55))
             Text("Cancellations, changes and You're in are always on.")
                 .font(.rounded(.footnote))
                 .foregroundStyle(Theme.muted)
@@ -406,13 +406,13 @@ struct CommunityGuidelinesView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                Text("masUNO works because people show up and play fair.")
+                Text("masUNO works because people show up and play nice.")
                     .font(.rounded(.body))
                     .foregroundStyle(Theme.muted)
                 CommunityRules()
                     .padding(18)
                     .cardSurface()
-                SafetyNote(text: "Anything feel off? You can report or block anyone from a game's Who's going list.")
+                SafetyNote(text: "Anything feel off? You can report or block anyone from a plan's Who's going list.")
             }
             .padding(.horizontal, Theme.gutter)
             .padding(.top, 4)

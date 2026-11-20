@@ -2,7 +2,7 @@ import SwiftUI
 
 /// A load failed and there's nothing to show yet: say so and offer a retry (SPEC §7.6.8).
 struct RetryCard: View {
-    var message: LocalizedStringKey = "Couldn't load games."
+    var message: LocalizedStringKey = "Couldn't load plans."
     var onRetry: () async -> Void
     @State private var isRetrying = false
 
@@ -34,7 +34,7 @@ struct RetryCard: View {
 struct OfflineBanner: View {
     var body: some View {
         Label {
-            Text("You're offline — showing the last games we loaded.")
+            Text("You're offline — showing the last plans we loaded.")
         } icon: {
             Image(systemName: "wifi.slash").accessibilityHidden(true)
         }
@@ -46,7 +46,7 @@ struct OfflineBanner: View {
     }
 }
 
-/// An empty list as an invitation (Figma "No games yet", "No games nearby yet"): the dashed
+/// An empty list as an invitation (Figma "No plans yet", "No plans nearby yet"): the dashed
 /// "+1", a title, one line, and what to do about it.
 struct EmptyCard<Actions: View>: View {
     var title: LocalizedStringKey

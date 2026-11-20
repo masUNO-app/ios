@@ -177,18 +177,18 @@ final class EventMapViewModel {
         return selected.map { [$0] + visible } ?? visible
     }
 
-    /// "Basketball near you" when every result is one sport; otherwise "Games near you".
+    /// "Basketball near you" when every result is one sport; otherwise "Plans near you".
     func resultsTitle(for results: [Game]) -> String {
         let sports = Set(results.map(\.activity))
         if sports.count == 1, let sport = sports.first { return String.app("\(sport.name) near you") }
-        return String.app("Games near you")
+        return String.app("Plans near you")
     }
 
     /// What VoiceOver says when the results change: "Basketball near you, 3 games", or
-    /// "No games match that search".
+    /// "No plans match that search".
     func resultsAnnouncement(for results: [Game]) -> String {
-        guard !results.isEmpty else { return String.app("No games match that search") }
-        return resultsTitle(for: results) + ", " + String.app("\(results.count) games")
+        guard !results.isEmpty else { return String.app("No plans match that search") }
+        return resultsTitle(for: results) + ", " + String.app("\(results.count) plans")
     }
 
     /// "Today, 7:35 PM · 0.4 km · room for 4". The distance is left out when there's nowhere to measure from.

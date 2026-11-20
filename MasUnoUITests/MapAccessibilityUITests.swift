@@ -2,7 +2,7 @@ import XCTest
 
 /// What VoiceOver gets on the map (A11Y-02): pins that say more than their title, group pins that
 /// name their sports and open their list, and the List games sheet. Custom actions and focus aren't
-/// visible to XCUITest, so `-screen all-games` opens the sheet that "List games" opens.
+/// visible to XCUITest, so `-screen all-games` opens the sheet that "List plans" opens.
 final class MapAccessibilityUITests: XCTestCase {
     @MainActor
     private func launch(screen: String) -> XCUIApplication {
@@ -51,7 +51,7 @@ final class MapAccessibilityUITests: XCTestCase {
         // `-screen groups` zooms out until games share pins. How many pins depends on the screen and
         // the OS's map (iOS 18 can leave a soccer-only group beside the mixed one), so take the
         // biggest group.
-        let groups = app.buttons.matching(NSPredicate(format: "label ENDSWITH %@", "games here"))
+        let groups = app.buttons.matching(NSPredicate(format: "label ENDSWITH %@", "plans here"))
         XCTAssertTrue(groups.firstMatch.waitForExistence(timeout: 20))
         let group = groups.allElementsBoundByIndex.max {
             (Int($0.label.split(separator: " ").first ?? "") ?? 0) < (Int($1.label.split(separator: " ").first ?? "") ?? 0)
@@ -69,7 +69,7 @@ final class MapAccessibilityUITests: XCTestCase {
         let app = launch(screen: "all-games")
         defer { app.terminate() }
 
-        let chip = app.buttons.matching(NSPredicate(format: "label ENDSWITH %@", "games nearby")).firstMatch
+        let chip = app.buttons.matching(NSPredicate(format: "label ENDSWITH %@", "plans nearby")).firstMatch
         XCTAssertTrue(chip.waitForExistence(timeout: 20))
         // Titled like the chip, without the group pin's line.
         XCTAssertTrue(app.staticTexts[chip.label].waitForExistence(timeout: 5))

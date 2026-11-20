@@ -457,7 +457,7 @@ private struct VerifiedStep: View {
                 Text(verbatim: viewModel.verifiedWelcome)
                     .font(.rounded(.title3))
                     .foregroundStyle(Theme.mutedLarge)
-                Text("Next, tell us what you play so the right games show up first.")
+                Text("Next, tell us what you're into so the right plans show up first.")
                     .font(.rounded(.subheadline, .bold))
                     .foregroundStyle(Theme.mutedLarge)
 
@@ -538,7 +538,7 @@ private struct ProfileStep: View {
                 Text(verbatim: error).font(.rounded(.caption)).foregroundStyle(Theme.error)
             }
 
-            Text("What do you play?")
+            Text("What are you into?")
                 .font(.rounded(.callout, .bold))
                 .foregroundStyle(Theme.ink)
                 .accessibilityAddTraits(.isHeader)
@@ -557,7 +557,7 @@ private struct ProfileStep: View {
                     .foregroundStyle(Theme.muted)
             }
         } footer: {
-            WorkingButton("Let's play", isWorking: viewModel.isWorking) { submit() }
+            WorkingButton("Let's go", isWorking: viewModel.isWorking) { submit() }
         }
     }
 
@@ -578,13 +578,13 @@ private struct GuidelinesStep: View {
     var body: some View {
         OnboardingPage(
             systemImage: "checkmark.shield",
-            title: "Before you play",
-            message: "masUNO works because people show up and play fair."
+            title: "Before you go",
+            message: "masUNO works because people show up and play nice."
         ) {
             CommunityRules()
                 .padding(18)
                 .cardSurface()
-            SafetyNote(text: "You can report or block anyone from a game's Who's going list.")
+            SafetyNote(text: "You can report or block anyone from a plan's Who's going list.")
             if let error = viewModel.guidelinesError {
                 Text(verbatim: error).font(.rounded(.caption)).foregroundStyle(Theme.error)
             }

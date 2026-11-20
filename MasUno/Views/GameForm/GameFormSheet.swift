@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Figma: "Add game" (341:1849), "Error" (341:3054), "Edit game" (341:2703) and its cancel
+/// Figma: "Make a plan" (341:1849), "Error" (341:3054), "Edit plan" (341:2703) and its cancel
 /// confirmation (341:2840): a stack of field cards. Errors are a red outline and a line under
 /// the field, never an alert (SPEC §7.7.3).
 struct GameFormSheet: View {
@@ -26,7 +26,7 @@ struct GameFormSheet: View {
             viewModel.time = Calendar.current.date(bySettingHour: 0, minute: 0, second: 0, of: .now) ?? .now
             viewModel.place = MockFixtures.Places.basketballCourts
             viewModel.meetUpSpot = "By the north court bleachers"
-            viewModel.notes = "Casual 3-on-3. I have an extra ball."
+            viewModel.notes = "Chill, all levels welcome. Coming alone is fine."
             viewModel.showsErrors = true
         }
         // `-screen add-filled`: a filled-in Add game form (marketing screenshots).
@@ -41,10 +41,10 @@ struct GameFormSheet: View {
             viewModel.meetUpSpot = MockFixtures.spanishShot("By the north court bleachers", "Junto a las gradas de la cancha norte")
             viewModel.notes = shot
                 ? MockFixtures.spanishShot("First time? Come anyway, we rotate every game.", "¿Primera vez? Vente, rotamos cada juego.")
-                : "Casual 3-on-3. I have an extra ball."
+                : "Chill, all levels welcome. Coming alone is fine."
             viewModel.place = MockFixtures.Places.basketballCourts
         }
-        // `-screen picker`: straight into "Where's the game?" (`picker-map`: without the search).
+        // `-screen picker`: straight into "Where's it happening?" (`picker-map`: without the search).
         _picksLocation = State(initialValue: ["picker", "picker-map"].contains(UserDefaults.standard.string(forKey: "screen")))
         #endif
         _viewModel = State(initialValue: viewModel)
@@ -94,7 +94,7 @@ struct GameFormSheet: View {
                 }
 
                 FieldBox(
-                    "Game name", text: $viewModel.name, prompt: Text("e.g. Pickup after class"),
+                    "What's the plan?", text: $viewModel.name, prompt: Text("e.g. Pickup after class"),
                     error: viewModel.nameError, isFocused: focus == .name
                 ) { field in
                     field
@@ -109,7 +109,7 @@ struct GameFormSheet: View {
                 locationCard
 
                 FieldBox(
-                    "Meet-up spot (optional)", text: $viewModel.meetUpSpot, prompt: Text("e.g. By the north court bleachers"),
+                    "Meet-up spot (optional)", text: $viewModel.meetUpSpot, prompt: Text("e.g. By the big tree outside the library"),
                     error: viewModel.meetUpError, isFocused: focus == .meetUp
                 ) { field in
                     field
@@ -124,7 +124,7 @@ struct GameFormSheet: View {
                         Text("Auto-repost")
                             .font(.rounded(.body, .bold))
                             .foregroundStyle(Theme.ink)
-                        Text("If someone drops out, we'll bump your game back to the top of the map.")
+                        Text("If someone drops out, we'll bump your plan back to the top of the map.")
                             .font(.rounded(.caption))
                             .foregroundStyle(Theme.muted)
                             .fixedSize(horizontal: false, vertical: true)
@@ -155,7 +155,7 @@ struct GameFormSheet: View {
                     .keyboardShortcut(.defaultAction) // Return on a hardware keyboard (A11Y-20).
 
                 if let editing = viewModel.editing {
-                    Button("Cancel game") { cancelling = editing }
+                    Button("Cancel plan") { cancelling = editing }
                         .pill(.quietDestructive)
                 }
             }
@@ -285,7 +285,7 @@ struct GameFormSheet: View {
                         .font(.rounded(.caption))
                         .foregroundStyle(Theme.muted)
                 } else {
-                    Text("Where's the game?")
+                    Text("Where's it happening?")
                         .font(.rounded(.body, .bold))
                         .foregroundStyle(Theme.ink)
                     if let error = viewModel.placeError {
@@ -328,7 +328,7 @@ struct GameFormSheet: View {
 
         return stacksAt(spacing: 12) {
             VStack(alignment: .leading, spacing: 1) {
-                Text("Players")
+                Text("People")
                     .font(.rounded(.caption))
                     .foregroundStyle(Theme.muted)
                 Text(verbatim: viewModel.playersLabel)
@@ -341,7 +341,7 @@ struct GameFormSheet: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            Stepper("Players", value: $viewModel.players.animation(.snappy), in: viewModel.playersRange)
+            Stepper("People", value: $viewModel.players.animation(.snappy), in: viewModel.playersRange)
                 .labelsHidden()
         }
         .padding(.horizontal, 14)
@@ -349,7 +349,7 @@ struct GameFormSheet: View {
         .cardSurface(radius: Theme.Radius.field)
         // One adjustable element: swipe up or down to change the count (A11Y-14).
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text("Players"))
+        .accessibilityLabel(Text("People"))
         .accessibilityValue(Text(verbatim: "\(viewModel.playersLabel), \(viewModel.playersHint)"))
         .accessibilityAdjustableAction { direction in
             switch direction {
@@ -369,7 +369,7 @@ struct GameFormSheet: View {
                 .padding(.top, 2)
 
             VStack(alignment: .leading, spacing: 4) {
-                TextField("Casual 3-on-3. I have an extra ball.", text: $viewModel.notes, axis: .vertical)
+                TextField("Chill, all levels welcome. Coming alone is fine.", text: $viewModel.notes, axis: .vertical)
                     .lineLimit(1...4)
                     .font(.rounded(.callout))
                     .foregroundStyle(Theme.ink)

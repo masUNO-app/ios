@@ -115,8 +115,8 @@ struct ComponentGallery: View {
 
                 section("Fields") {
                     VStack(spacing: 12) {
-                        FieldBox("Game name", text: $name, prompt: Text(verbatim: "e.g. Pickup after class"))
-                        FieldBox("Game name", error: "Add a name so people know what they're joining.") {
+                        FieldBox("What's the plan?", text: $name, prompt: Text(verbatim: "e.g. Pickup after class"))
+                        FieldBox("What's the plan?", error: "Add a name so people know what they're joining.") {
                             Text(verbatim: "e.g. Pickup after class").foregroundStyle(Theme.muted)
                         }
                         HStack(spacing: 10) {
@@ -134,13 +134,13 @@ struct ComponentGallery: View {
                     }
                     GameCard(event: game, lineup: lineup, status: game.cancelledLine, time: EventFormat.cancelledTime(game), isMuted: true) {
                         Button(String("Remove")) {}.pill(.secondary, expands: false)
-                        Button(String("Find another game")) {}.pill(.primary)
+                        Button(String("Find another plan")) {}.pill(.primary)
                     }
                 }
 
                 section("States") {
-                    EmptyCard(title: "No games yet", message: "Find one nearby, or start your own. Most games just need one more.") {
-                        Button(String("Find a game")) {}.pill(.primary)
+                    EmptyCard(title: "No plans yet", message: "Find one nearby, or start your own. Most plans just need one more.") {
+                        Button(String("Find a plan")) {}.pill(.primary)
                     }
                     SafetyNote(text: "Anything feel off? Tap ••• next to anyone to report or block them. Only the masUNO team sees reports.")
                     RetryCard {}
@@ -160,8 +160,8 @@ struct ComponentGallery: View {
                 title: Text(verbatim: "Cancel Sunday pickup soccer?"),
                 message: Text(verbatim: "We'll let the 3 people who joined know it's cancelled and close the group chat."),
                 footnote: Text(verbatim: "This can't be undone."),
-                confirm: DialogAction("Cancel game"),
-                cancel: DialogAction("Keep game")
+                confirm: DialogAction("Cancel plan"),
+                cancel: DialogAction("Keep plan")
             )
         }
     }

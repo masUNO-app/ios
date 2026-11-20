@@ -42,7 +42,7 @@ final class ProfileEditorViewModel {
     }
 
     var interestsError: String? {
-        showsErrors && interests.isEmpty ? String.app("Pick at least one sport.") : nil
+        showsErrors && interests.isEmpty ? String.app("Pick at least one.") : nil
     }
 
     func error(for field: ProfileInput.Field) -> String? {

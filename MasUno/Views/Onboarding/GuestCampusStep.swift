@@ -10,7 +10,7 @@ struct GuestCampusStep: View {
     var body: some View {
         OnboardingPage(
             title: "Which campus?",
-            message: "Pick a campus to see its games. You can make an account any time."
+            message: "Pick a campus to see its plans. You can make an account any time."
         ) {
             if viewModel.schoolsFailedToLoad {
                 RetryCard(message: "Couldn't load campuses.") { await viewModel.loadSchools() }
@@ -27,7 +27,7 @@ struct GuestCampusStep: View {
                 campusList
             }
         } footer: {
-            WorkingButton("Browse games", isWorking: viewModel.isStartingGuest) {
+            WorkingButton("Browse plans", isWorking: viewModel.isStartingGuest) {
                 Task { await viewModel.startGuestBrowsing(app: appViewModel, store: store) }
             }
             .disabled(viewModel.guestCampusChoice == nil)

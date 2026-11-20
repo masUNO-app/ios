@@ -86,7 +86,7 @@ struct MeView: View {
             sectionTitle("Coming up")
             Spacer()
             if viewModel.tab == .hosting {
-                Button("Add game", systemImage: "plus") { appViewModel.presentGameForm() }
+                Button("Make a plan", systemImage: "plus") { appViewModel.presentGameForm() }
                     .labelStyle(.titleAndIcon)
                     .pill(.secondary, expands: false, size: .small)
             }
@@ -175,14 +175,14 @@ struct MeView: View {
 
     private func profilePlays(_ profile: Profile) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Plays")
+            Text("Into")
                 .font(.rounded(.footnote))
                 .foregroundStyle(Theme.muted)
                 .accessibilityAddTraits(.isHeader)
             FlowLayout(spacing: 6) {
                 ForEach(profile.interests) { SportChip(sport: $0) }
             }
-            Button("Edit profile and sports") { viewModel.editsProfile = true }
+            Button("Edit profile and interests") { viewModel.editsProfile = true }
                 .pill(.secondary)
                 .padding(.top, 4)
             Button(viewModel.inviteTitle(for: store.invites)) { viewModel.showsInvites = true }
@@ -196,10 +196,10 @@ struct MeView: View {
     @ViewBuilder
     private func goingList(_ events: [Game], past: [Game]) -> some View {
         if events.isEmpty, store.myGamesState == .loaded {
-            EmptyCard(title: "No games yet", message: "Find one nearby, or start your own. Most games just need one more.") {
-                Button("Find a game") { appViewModel.showMap() }
+            EmptyCard(title: "No plans yet", message: "Find one nearby, or start your own. Most plans just need one more.") {
+                Button("Find a plan") { appViewModel.showMap() }
                     .pill(.primary)
-                Button("Add a game") { appViewModel.presentGameForm() }
+                Button("Make a plan") { appViewModel.presentGameForm() }
                     .pill(.secondary)
             }
         }
@@ -241,7 +241,7 @@ struct MeView: View {
                 .pill(.secondary, expands: false)
                 .accessibilityLabel(String.app("Remove \(event.title)"))
                 .accessibilityInputLabels([Text("Remove")])
-            Button("Find another game") { appViewModel.showMap() }
+            Button("Find another plan") { appViewModel.showMap() }
                 .pill(.primary)
         }
     }
@@ -263,10 +263,10 @@ struct MeView: View {
                                 .pill(.secondary, expands: false)
                                 .accessibilityLabel(String.app("Report, \(event.title)"))
                                 .accessibilityInputLabels([Text("Report")])
-                            Button("Play again") { appViewModel.presentPlayAgain(event.id) }
+                            Button("Run it back") { appViewModel.presentPlayAgain(event.id) }
                                 .pill(.primary)
-                                .accessibilityLabel(String.app("Play again, \(event.title)"))
-                                .accessibilityInputLabels([Text("Play again")])
+                                .accessibilityLabel(String.app("Run it back, \(event.title)"))
+                                .accessibilityInputLabels([Text("Run it back")])
                         }
                     }
                 }
@@ -282,8 +282,8 @@ struct MeView: View {
     @ViewBuilder
     private func hostingList(_ events: [Game]) -> some View {
         if events.isEmpty, store.myGamesState == .loaded {
-            EmptyCard(title: "Nothing on the map yet", message: "Host a game in under a minute. Most games just need one more.") {
-                Button("Add a game") { appViewModel.presentGameForm() }
+            EmptyCard(title: "Nothing on the map yet", message: "Start a plan in under a minute. Most plans just need one more.") {
+                Button("Make a plan") { appViewModel.presentGameForm() }
                     .pill(.primary)
             }
         }

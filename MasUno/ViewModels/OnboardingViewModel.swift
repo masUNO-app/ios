@@ -107,8 +107,8 @@ final class OnboardingViewModel {
     // MARK: Presentation
 
     var welcomeMessage: LocalizedStringKey {
-        if let campus { return "Pickup games around \(campus.shortName) that are one or two players short. Grab the open spot and play today." }
-        return "Pickup games on campus that are one or two players short. Grab the open spot and play today."
+        if let campus { return "Plans around \(campus.shortName) that are just one or two people short. Grab the open spot and tag along today." }
+        return "Plans on campus that are just one or two people short. Grab the open spot and tag along today."
     }
 
     /// The open campuses a guest can browse, narrowed by the search.
@@ -439,7 +439,7 @@ final class OnboardingViewModel {
         profileError = nil
         guard validateName() else { return }
         guard !interests.isEmpty else {
-            profileError = String.app("Pick at least one sport.")
+            profileError = String.app("Pick at least one.")
             return
         }
         let input = ProfileInput(

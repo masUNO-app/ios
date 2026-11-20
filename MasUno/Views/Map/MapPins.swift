@@ -65,7 +65,7 @@ struct EventPin: View {
         .accessibilityValue(Text(verbatim: Self.accessibilityValue(for: event, now: now)))
         // Selection shows only as size and a halo.
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
-        .accessibilityHint(Text(verbatim: isSelected ? "" : String.app("Shows the game card")))
+        .accessibilityHint(Text(verbatim: isSelected ? "" : String.app("Shows the plan card")))
     }
 
     private var tag: String? {
@@ -135,7 +135,7 @@ struct GroupPin: View {
         .animation(.snappy, value: isDimmed)
         .contentShape(.rect)
         .accessibilityElement()
-        .accessibilityLabel(Text("\(games.count) games here"))
+        .accessibilityLabel(Text("\(games.count) plans here"))
         // The sport dots are color only.
         .accessibilityValue(Text(verbatim: sports.map(\.name).formatted(.list(type: .and).locale(LanguageSettings.shared.locale))))
         .accessibilityAddTraits(.isButton)

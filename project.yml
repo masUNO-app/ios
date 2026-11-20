@@ -97,7 +97,7 @@ targets:
         DEVELOPMENT_TEAM: PU87MU4QAR # Boys & Girls Clubs of Chicago
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: masUNO
-        INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: "masUNO uses your location to center the map and show how far games are. It's only shared if you choose to post a game at your current location."
+        INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: "masUNO uses your location to center the map and show how far plans are. It's only shared if you choose to post a plan at your current location."
         INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor

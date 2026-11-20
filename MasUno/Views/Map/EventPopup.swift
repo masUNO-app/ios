@@ -71,11 +71,11 @@ struct EventPopup: View {
     @ViewBuilder
     private var primaryAction: some View {
         if event.isHostedByMe {
-            Button("Edit game") { appViewModel.presentGameForm(editing: event.id) }
+            Button("Edit plan") { appViewModel.presentGameForm(editing: event.id) }
         } else if event.isGoing {
-            Button("View game") { appViewModel.path.append(.game(event.id)) }
-                .accessibilityLabel(String.app("View game, \(event.title)"))
-                .accessibilityInputLabels([Text("View game")])
+            Button("View plan") { appViewModel.path.append(.game(event.id)) }
+                .accessibilityLabel(String.app("View plan, \(event.title)"))
+                .accessibilityInputLabels([Text("View plan")])
         } else {
             Button("Count me in") { appViewModel.joinAndOpen(event.id, in: store) }
                 .accessibilityLabel(String.app("Count me in, \(event.title)"))

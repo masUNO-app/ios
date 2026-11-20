@@ -11,7 +11,7 @@ enum PillStyle {
     case destructive
     /// Plain glass with an ink label: quiet actions ("Reset", "Show QR code").
     case quiet
-    /// Plain glass with a red label: "Sign out", "Cancel game" before the confirmation.
+    /// Plain glass with a red label: "Sign out", "Cancel plan" before the confirmation.
     case quietDestructive
 }
 

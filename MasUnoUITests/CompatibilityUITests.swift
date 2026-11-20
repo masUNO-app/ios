@@ -36,7 +36,7 @@ final class CompatibilityUITests: XCTestCase {
         defer { app.terminate() }
 
         let filter = app.buttons["Filter"]
-        let addGame = app.buttons["Add game"]
+        let addGame = app.buttons["Make a plan"]
         let me = app.buttons["Me"]
         let location = app.buttons["Show my location"]
         assertHittable(filter, timeout: 20)
@@ -54,7 +54,7 @@ final class CompatibilityUITests: XCTestCase {
         add(controls)
 
         filter.tap()
-        XCTAssertTrue(app.staticTexts["Filter games"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Filter plans"].waitForExistence(timeout: 5))
 
         let basketball = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Basketball")).firstMatch
         XCTAssertTrue(basketball.waitForExistence(timeout: 5))
@@ -68,7 +68,7 @@ final class CompatibilityUITests: XCTestCase {
         // Any element type: the field box merges the text field with its label.
         let name = app.descendants(matching: .any)["game-name-field"]
         XCTAssertTrue(name.waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["Create game"].exists)
+        XCTAssertTrue(app.buttons["Create plan"].exists)
         app.buttons["Close"].tap()
         XCTAssertTrue(name.waitForNonExistence(timeout: 5))
 

@@ -13,7 +13,7 @@ struct EventMapView: View {
     @State private var screenSize: CGSize = .zero
     @State private var showsSaved = false
     @State private var showsFilters = false
-    /// Every game on the map in one list: VoiceOver's "List games" action, for getting through
+    /// Every game on the map in one list: VoiceOver's "List plans" action, for getting through
     /// the games without hunting pin by pin (A11Y-02).
     @State private var listsAllGames = false
     /// A popup just opened at an accessibility size: pan again once its real height is known.
@@ -27,7 +27,7 @@ struct EventMapView: View {
     @State private var fold: CGRect?
     /// Keeps When-In-Use location authorized while the map is up.
     @State private var locationSession: CLServiceSession?
-    /// "See games near you", before the iOS prompt.
+    /// "See plans near you", before the iOS prompt.
     @State private var asksForLocation = false
     @State private var declinedLocationPrimer = UserDefaults.standard.bool(forKey: EventMapView.declinedPrimerKey)
     /// The avatar's frame in the bottom bar, so the location button sits right above it.
@@ -127,14 +127,14 @@ struct EventMapView: View {
             let games = viewModel.searchResults(from: frame.filtered, now: presentationTime)
             PinGroupSheet(
                 gameIDs: games.map(\.id), viewModel: viewModel,
-                title: Text(games.count == 1 ? "1 game nearby" : "\(games.count) games nearby"), subtitle: nil
+                title: Text(games.count == 1 ? "1 plan nearby" : "\(games.count) plans nearby"), subtitle: nil
             ) { appViewModel.path.append(.game($0)) }
         }
         .dialog(isPresented: $asksForLocation, isDismissable: false) {
             DialogCard(
                 systemImage: "mappin.and.ellipse", tone: .tinted(Color(.sportVolleyball)),
-                title: Text("See games near you"),
-                message: Text("We use your location only while the app is open, to show games within walking distance. It stays on your phone unless you post a game at your current spot."),
+                title: Text("See plans near you"),
+                message: Text("We use your location only while the app is open, to show plans within walking distance. It stays on your phone unless you post a plan at your current spot."),
                 confirm: .init("Allow location") { allowLocation() },
                 cancel: .init("Not now") { declineLocation() }
             )
@@ -255,7 +255,7 @@ struct EventMapView: View {
 
     /// Not selectable: tapping lists its games instead of opening a popup.
     private func groupPin(_ group: PinGroup) -> some MapContent {
-        Annotation(String.app("\(group.games.count) games here"), coordinate: group.coordinate, anchor: GroupPin.anchor) {
+        Annotation(String.app("\(group.games.count) plans here"), coordinate: group.coordinate, anchor: GroupPin.anchor) {
             GroupPin(games: group.games, isDimmed: viewModel.selectedID != nil)
                 .fontDesign(.rounded)
                 .onTapGesture { viewModel.groupedIDs = group.games.map(\.id) }
@@ -419,7 +419,7 @@ struct EventMapView: View {
 
             // With a vertical bar, Saved games lives in the bar instead.
             if !usesVerticalBar {
-                Button("Saved games", systemImage: "bookmark") { openSaved() }
+                Button("Saved plans", systemImage: "bookmark") { openSaved() }
                     .font(.title3.weight(.medium))
                     .glassCircle()
             }
@@ -435,7 +435,7 @@ struct EventMapView: View {
                 .font(.title3)
                 .foregroundStyle(Theme.muted)
                 .accessibilityHidden(true)
-            TextField("Search games", text: $viewModel.searchText)
+            TextField("Search plans", text: $viewModel.searchText)
                 .font(.rounded(.body, isSearching ? .bold : .medium))
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
@@ -470,7 +470,7 @@ struct EventMapView: View {
         let results = viewModel.searchResults(from: games, now: presentationTime)
 
         return VStack(alignment: .leading, spacing: 8) {
-            Text(verbatim: results.isEmpty ? String.app("No games match that search") : viewModel.resultsTitle(for: results))
+            Text(verbatim: results.isEmpty ? String.app("No plans match that search") : viewModel.resultsTitle(for: results))
                 .font(.rounded(.footnote, .bold))
                 .foregroundStyle(Theme.muted)
                 .padding(.leading, 4)
@@ -528,7 +528,7 @@ struct EventMapView: View {
                 if games.isEmpty {
                     Text("Quiet around here")
                 } else {
-                    Text(games.count == 1 ? "1 game nearby" : "\(games.count) games nearby")
+                    Text(games.count == 1 ? "1 plan nearby" : "\(games.count) plans nearby")
                 }
             }
             .font(.rounded(.footnote))
@@ -555,23 +555,23 @@ struct EventMapView: View {
                 RetryCard { await store.refreshMap() }
             case .loaded where frame.open.isEmpty:
                 EmptyCard(
-                    title: "No games nearby yet",
+                    title: "No plans nearby yet",
                     message: store.isGuest
                         ? "Check back soon, or create an account to host the first one."
-                        : "Be the first to start one. Most games just need one more."
+                        : "Be the first to start one. Most plans just need one more."
                 ) {
                     if store.isGuest {
                         Button("Create an account") { appViewModel.requireAccount(.host) }
                             .pill(.primary)
                     } else {
-                        Button("Add a game") { appViewModel.presentGameForm() }
+                        Button("Make a plan") { appViewModel.presentGameForm() }
                             .pill(.primary)
                     }
                     Button("Look farther away") { viewModel.lookFartherAway() }
                         .pill(.secondary)
                 }
             case .loaded where frame.filtered.isEmpty:
-                EmptyCard(title: "No games fit those filters", message: "Try another sport or a wider search.") {
+                EmptyCard(title: "No plans fit those filters", message: "Try another activity or a wider search.") {
                     Button("Reset filters") { withAnimation(.snappy) { viewModel.resetFilters() } }
                         .pill(.primary)
                 }
@@ -636,7 +636,7 @@ struct EventMapView: View {
                 openURL(UIApplication.openSettingsURL)
             }
         } label: {
-            Label("Turn on location to see how far games are", systemImage: "location.slash")
+            Label("Turn on location to see how far plans are", systemImage: "location.slash")
                 .font(.rounded(.footnote, .bold))
                 .foregroundStyle(Theme.ink)
                 .multilineTextAlignment(.leading)
@@ -718,7 +718,7 @@ struct EventMapView: View {
                 searchField.frame(width: navigationFieldWidth)
             }
             ToolbarItem(placement: .topBarTrailing) {
-                Button("Saved games", systemImage: "bookmark") { openSaved() }
+                Button("Saved plans", systemImage: "bookmark") { openSaved() }
                     .tint(Theme.ink)
             }
         }
@@ -744,7 +744,7 @@ struct EventMapView: View {
             .axis(.verticalPreferred)
 
             ToolbarItem(placement: .topBarTrailing) {
-                Button("Saved games", systemImage: "bookmark") { openSaved() }
+                Button("Saved plans", systemImage: "bookmark") { openSaved() }
                     .tint(Theme.ink)
             }
             .axis(.verticalPreferred)
@@ -766,7 +766,7 @@ struct EventMapView: View {
                 .sharedBackgroundVisibility(.hidden)
 
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Saved games", systemImage: "bookmark") { openSaved() }
+                    Button("Saved plans", systemImage: "bookmark") { openSaved() }
                         .tint(Theme.ink)
                 }
             }
@@ -823,14 +823,14 @@ struct EventMapView: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: "plus")
-                Text("Add game")
+                Text("Make a plan")
             }
             .font(.rounded(.headline, .bold))
             // Toolbar items size to fit, so this fills a narrow bottom bar. Natural size on wide
             // screens, and beside a vertical bar.
             .frame(width: isWideLayout || usesVerticalBar ? nil : addButtonWidth)
         }
-        .accessibilityShowsLargeContentViewer { Label("Add game", systemImage: "plus") }
+        .accessibilityShowsLargeContentViewer { Label("Make a plan", systemImage: "plus") }
         if #available(iOS 26, *) {
             button
                 .buttonStyle(.glassProminent)
@@ -931,10 +931,10 @@ private extension ToolbarContent {
 }
 
 private extension View {
-    /// "List games" in VoiceOver's actions, on the chip and the map, while there are games to list.
+    /// "List plans" in VoiceOver's actions, on the chip and the map, while there are games to list.
     func listGamesAction(_ games: [Game], perform: @escaping () -> Void) -> some View {
         accessibilityActions {
-            if !games.isEmpty { Button("List games", action: perform) }
+            if !games.isEmpty { Button("List plans", action: perform) }
         }
     }
 }

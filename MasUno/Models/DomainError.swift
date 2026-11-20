@@ -51,13 +51,13 @@ nonisolated enum DomainError: Error, Hashable, Sendable {
     @MainActor var message: String {
         switch self {
         case .full: String.app("Someone just took the last spot.")
-        case .cancelled: String.app("This game was cancelled.")
-        case .ended: String.app("This game has ended")
+        case .cancelled: String.app("This plan was cancelled.")
+        case .ended: String.app("This plan has wrapped")
         case .blocked: String.app("Someone you blocked is going.")
-        case .notFound: String.app("This game isn't available anymore.")
-        case .notAllowed: String.app("You can't do that on this game.")
-        case .limitReached: String.app("You can host up to 3 upcoming games. Cancel one to post another.")
-        case .capacityBelowGoing: String.app("Players can't be lower than the number going.")
+        case .notFound: String.app("This plan isn't available anymore.")
+        case .notAllowed: String.app("You can't do that on this plan.")
+        case .limitReached: String.app("You can host up to 3 upcoming plans. Cancel one to post another.")
+        case .capacityBelowGoing: String.app("Can't go below the number of people going.")
         case .invalidTime: String.app("Pick a start time in the next 7 days.")
         case .invalidText: TextFilter.message
         case .invalidInput: String.app("Check the details and try again.")

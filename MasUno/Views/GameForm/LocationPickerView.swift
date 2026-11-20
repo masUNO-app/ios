@@ -1,7 +1,7 @@
 import MapKit
 import SwiftUI
 
-/// Figma: "Add game · Choose location" (341:2646) — "Where's the game?". Search, use where you
+/// Figma: "Add game · Choose location" (341:2646) — "Where's it happening?". Search, use where you
 /// are, or drag the map under the pin; the bar at the bottom says where that is. Pushed inside
 /// the game form's sheet, so Back returns to the form.
 struct LocationPickerView: View {
@@ -23,7 +23,7 @@ struct LocationPickerView: View {
             .overlay { pin }
             .overlay(alignment: .top) { searchPanel }
             .safeAreaInset(edge: .bottom, spacing: 0) { selectionBar }
-            .navigationTitle(String.app("Where's the game?"))
+            .navigationTitle(String.app("Where's it happening?"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(.visible, for: .navigationBar)
             .dialog(isPresented: Binding(get: { viewModel.errorMessage != nil }, set: { if !$0 { viewModel.errorMessage = nil } })) {
@@ -90,7 +90,7 @@ struct LocationPickerView: View {
         return VStack(spacing: 10) {
             HStack(spacing: 10) {
                 Image(systemName: "magnifyingglass").foregroundStyle(Theme.muted).accessibilityHidden(true)
-                TextField("Search for a court, field or address", text: $viewModel.query)
+                TextField("Search for a place or address", text: $viewModel.query)
                     .font(.rounded(.body))
                     .focused($isSearchFocused)
                     .submitLabel(.search)

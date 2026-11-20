@@ -31,7 +31,7 @@ struct EditProfileSheet: View {
                     errorFocus: $errorFocus
                 )
 
-                Text("Plays")
+                Text("Into")
                     .font(.rounded(.footnote, .bold))
                     .foregroundStyle(Theme.ink)
                     .accessibilityAddTraits(.isHeader)
@@ -45,7 +45,7 @@ struct EditProfileSheet: View {
                     Text(verbatim: error).font(.rounded(.caption)).foregroundStyle(Theme.error)
                         .accessibilityFocused($errorFocus, equals: .interests)
                 } else {
-                    Text("Only you see what you play.").font(.rounded(.footnote)).foregroundStyle(Theme.muted)
+                    Text("Only you see what you're into.").font(.rounded(.footnote)).foregroundStyle(Theme.muted)
                 }
 
                 Button("Save") { save() }

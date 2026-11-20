@@ -5,7 +5,7 @@ import SwiftUI
 struct CommunityRules: View {
     private let rules: [LocalizedStringKey] = [
         "Be respectful. No harassment, hate or slurs.",
-        "Keep it about the game: plans, timing, where to meet.",
+        "Keep it about the plan: timing, where to meet, who's bringing what.",
         "Don't share anyone's personal info or photos without asking.",
         "Meet in public places and look out for each other.",
     ]
