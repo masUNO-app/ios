@@ -2,7 +2,7 @@ import XCTest
 
 /// Apple's accessibility audit (A11Y-29) on each design-review screen (`-screen …`), at the default
 /// text size and the largest accessibility size, plus a contrast pass in dark mode. Anything the audit
-/// finds fails the test unless it's in `AuditKnownIssue.all`. CI runs this on iOS 26.5 only.
+/// finds fails the test unless it's in `AuditKnownIssue.all`. CI runs it on iOS 26.5 and 27.2 (`audit-ios26`, `audit-ios27`).
 final class AccessibilityAuditUITests: XCTestCase {
     /// Screens that must pass the audit, grouped so one test stays well under CI's per-test limit and
     /// each group reports its own failures. Add a screen when it's fixed; never remove one.

@@ -34,7 +34,8 @@ final class ChatMentionUITests: XCTestCase {
 
         composer.typeText("on it")
         app.buttons["Send"].tap()
+        // While it's on its way the row reads "You: …, Sending…"; slow CI runners can take a while.
         let sent = app.staticTexts["You: Thanks @Maya C. on it"]
-        XCTAssertTrue(sent.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(sent.waitForExistence(timeout: 20), app.debugDescription)
     }
 }
