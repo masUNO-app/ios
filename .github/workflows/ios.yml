@@ -154,9 +154,10 @@ jobs:
 
       # Swift Testing still runs concurrent tests in-process; disable extra simulator clones.
       # Keep sysdiagnose collection off: CI has stalled for 600s collecting it after failures.
-      # Allow cold simulator test-runner startup; individual test bodies finish in seconds.
+      # Allow cold simulator test-runner startup; individual test bodies finish in seconds. The runner
+      # itself has taken 9 minutes to start (iOS 27, Nov 20), so the limit is well above the usual 2 to 7.
       - name: Run mock unit tests
-        timeout-minutes: 12
+        timeout-minutes: 20
         run: |
           test_runs=(build/Build/Products/*.xctestrun)
           [[ -f "${test_runs[0]}" && ${#test_runs[@]} -eq 1 ]]
@@ -308,9 +309,10 @@ jobs:
 
       # Swift Testing still runs concurrent tests in-process; disable extra simulator clones.
       # Keep sysdiagnose collection off: CI has stalled for 600s collecting it after failures.
-      # Allow cold simulator test-runner startup; individual test bodies finish in seconds.
+      # Allow cold simulator test-runner startup; individual test bodies finish in seconds. The runner
+      # itself has taken 9 minutes to start (iOS 27, Nov 20), so the limit is well above the usual 2 to 7.
       - name: Run mock unit tests
-        timeout-minutes: 12
+        timeout-minutes: 20
         run: |
           test_runs=(build/Build/Products/*.xctestrun)
           [[ -f "${test_runs[0]}" && ${#test_runs[@]} -eq 1 ]]
@@ -455,9 +457,10 @@ jobs:
 
       # Swift Testing still runs concurrent tests in-process; disable extra simulator clones.
       # Keep sysdiagnose collection off: CI has stalled for 600s collecting it after failures.
-      # Allow cold simulator test-runner startup; individual test bodies finish in seconds.
+      # Allow cold simulator test-runner startup; individual test bodies finish in seconds. The runner
+      # itself has taken 9 minutes to start (iOS 27, Nov 20), so the limit is well above the usual 2 to 7.
       - name: Run mock unit tests
-        timeout-minutes: 12
+        timeout-minutes: 20
         run: |
           test_runs=(build/Build/Products/*.xctestrun)
           [[ -f "${test_runs[0]}" && ${#test_runs[@]} -eq 1 ]]
