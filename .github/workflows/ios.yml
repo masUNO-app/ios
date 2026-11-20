@@ -178,9 +178,10 @@ jobs:
           sleep 45
           xcrun simctl terminate "$SIMULATOR" com.masuno.app || true
 
-      # Includes the accessibility audit (one launch per screen) and the AX5 core-loop tests. Launch timing
-      # is local only: on shared runners its numbers swing with load, and its 6 launches cost a minute.
-      # A failed test runs once more: a launch that times out on a loaded runner passes the second time,
+      # The AX5 core-loop and other UI tests. The accessibility audit (one launch per screen) runs on the
+      # iOS 27 job and locally: on this Intel runner, simulator launches wedged partway through its ~27
+      # relaunches and hung the step (Nov 20). Launch timing is local only: on shared runners its numbers
+      # swing with load, and its 6 launches cost a minute. A failed test runs once more: a launch that times out on a loaded runner passes the second time,
       # and a real failure fails twice.
       - name: Run mock UI tests
         if: ${{ !cancelled() && steps.build-tests.outcome == 'success' && steps.boot-simulator.outcome == 'success' }}
@@ -191,6 +192,7 @@ jobs:
           xcodebuild test-without-building -xctestrun "${test_runs[0]}" \
             -destination "id=$SIMULATOR" -destination-timeout 60 \
             -resultBundlePath artifacts/ui-tests.xcresult -only-testing:masUNOUITests \
+            -skip-testing:masUNOUITests/AccessibilityAuditUITests \
             -skip-testing:masUNOUITests/LaunchPerformanceUITests \
             -parallel-testing-enabled NO -collect-test-diagnostics never \
             -retry-tests-on-failure -test-iterations 2 \
