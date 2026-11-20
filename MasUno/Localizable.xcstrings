@@ -4824,7 +4824,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Hora de inicio"
+            "value" : "Hora"
           }
         }
       }
@@ -5805,6 +5805,61 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "tú"
+          }
+        }
+      }
+    },
+    "You created the chat" : {
+      "comment" : "A system row in a group chat: you created the game's chat.",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Creaste el chat"
+          }
+        }
+      }
+    },
+    "You left · a spot opened" : {
+      "comment" : "A system row in a group chat: you left the game, so a spot opened.",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Te saliste · se abrió un lugar"
+          }
+        }
+      }
+    },
+    "You took a spot" : {
+      "comment" : "A system row in a group chat: you joined the game.",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Te apuntaste"
+          }
+        }
+      }
+    },
+    "You took a spot · %@" : {
+      "comment" : "The \"+1\" pill in a group chat when you joined. The argument is how much room is left, like \"room for 3 more\".",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Te apuntaste · %@"
+          }
+        }
+      }
+    },
+    "You took the last spot · game is full" : {
+      "comment" : "The \"+1\" pill in a group chat when you took the game's last spot.",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tomaste el último lugar · el partido está lleno"
           }
         }
       }

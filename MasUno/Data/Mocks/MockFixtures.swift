@@ -41,10 +41,10 @@ enum MockFixtures {
     }
 
     enum Places {
-        static let basketballCourts = Place(name: "Tec basketball courts", address: "Av. Eugenio Garza Sada 2501 Sur, Tecnológico, Monterrey, N.L.", latitude: 25.6521, longitude: -100.2903)
+        static let basketballCourts = Place(name: MockFixtures.spanishShot("Tec basketball courts", "Canchas de básquet del Tec"), address: "Av. Eugenio Garza Sada 2501 Sur, Tecnológico, Monterrey, N.L.", latitude: 25.6521, longitude: -100.2903)
         static let stadium = Place(name: "Estadio Borregos", address: "Av. Luis Elizondo, Tecnológico, Monterrey, N.L.", latitude: 25.6489, longitude: -100.2868)
         static let arena = Place(name: "Arena Borregos", address: "Av. Junco de la Vega, Tecnológico, Monterrey, N.L.", latitude: 25.6531, longitude: -100.2925)
-        static let tennisCourts = Place(name: "Tec tennis courts", address: "Av. Eugenio Garza Sada 2501 Sur, Tecnológico, Monterrey, N.L.", latitude: 25.6502, longitude: -100.2918)
+        static let tennisCourts = Place(name: MockFixtures.spanishShot("Tec tennis courts", "Canchas de tenis del Tec"), address: "Av. Eugenio Garza Sada 2501 Sur, Tecnológico, Monterrey, N.L.", latitude: 25.6502, longitude: -100.2918)
         static let park = Place(name: "Parque Distrito Tec", address: "Calle Profr. Moisés Sáenz, Tecnológico, Monterrey, N.L.", latitude: 25.6553, longitude: -100.2889)
         static let sportsCenter = Place(name: "Centro Deportivo Tec", address: "Av. Fernando García Roel, Tecnológico, Monterrey, N.L.", latitude: 25.6475, longitude: -100.2905)
     }
@@ -75,6 +75,20 @@ enum MockFixtures {
     /// The fixture's value, or `shot` under `-screenshots YES`.
     private static func pick<Value>(_ fixture: Value, shot: Value) -> Value {
         isScreenshotWorld ? shot : fixture
+    }
+
+    /// The screenshot world in Spanish, for the Spanish listing: the device in Spanish
+    /// (`-AppleLanguages "(es-MX)"`) and what students at Tec would write. Ricardo checks the wording.
+    static let isSpanishScreenshotWorld = isScreenshotWorld && LanguageSettings.shared.language == "es"
+
+    /// `pick`, with the value for Spanish screenshots.
+    private static func pick<Value>(_ fixture: Value, shot: Value, es: Value) -> Value {
+        isSpanishScreenshotWorld ? es : pick(fixture, shot: shot)
+    }
+
+    /// English text, or its Spanish for Spanish screenshots.
+    static func spanishShot(_ english: String, _ spanish: String) -> String {
+        isSpanishScreenshotWorld ? spanish : english
     }
 
     static let alex = pick(person(1, "Alex", "R", 2027), shot: person(1, "Sofía", "R", 2027))
@@ -135,32 +149,33 @@ enum MockFixtures {
             return midnight.addingTimeInterval(Double(hour * 3600 + minute * 60)).timeIntervalSince(now) / 60
         }
 
-        add(GameID.open, pick("After-work hoops", shot: "Pickup after class"), "basketball",
+        add(GameID.open, pick("After-work hoops", shot: "Pickup after class", es: "Retas después de clase"), "basketball",
             minutes: pick(35, shot: at(0, 17, 30)), capacity: 6, roster: [alex, ricardo],
-            place: Places.basketballCourts, meetPoint: "Meet by the north court bleachers",
+            place: Places.basketballCourts, meetPoint: spanishShot("Meet by the north court bleachers", "Junto a las gradas de la cancha norte"),
             notes: pick("Casual 3-on-3 after work. Bring a ball if you have one, and some water.",
-                        shot: "First time? Come anyway, we rotate every game. Bring water."))
-        add(GameID.lastSpot, pick("Tennis doubles", shot: "Doubles, bring a racket"), "tennis",
+                        shot: "First time? Come anyway, we rotate every game. Bring water.",
+                        es: "¿Primera vez? Vente, rotamos cada juego. Trae agua."))
+        add(GameID.lastSpot, pick("Tennis doubles", shot: "Doubles, bring a racket", es: "Dobles, trae raqueta"), "tennis",
             minutes: pick(135, shot: at(0, 19)), capacity: 4, roster: [priya, diego, sam],
-            place: Places.tennisCourts, notes: "Need one more for doubles. Rackets available.")
-        add(GameID.full, pick("Padel at Distrito Tec", shot: "Padel after class"), "padel",
+            place: Places.tennisCourts, notes: spanishShot("Need one more for doubles. Rackets available.", "Nos falta uno para dobles. Hay raquetas."))
+        add(GameID.full, pick("Padel at Distrito Tec", shot: "Padel after class", es: "Pádel después de clase"), "padel",
             minutes: pick(240, shot: at(1, 18)), duration: 90, capacity: 4, roster: [nina, sam, maya, ricardo],
             place: pick(Places.park, shot: Places.sportsCenter))
-        add(GameID.going, pick("Volleyball at the arena", shot: "Sunset volleyball"), "volleyball",
+        add(GameID.going, pick("Volleyball at the arena", shot: "Sunset volleyball", es: "Voleibol al atardecer"), "volleyball",
             minutes: pick(180, shot: at(0, 18, 45)), capacity: 12,
             roster: [sam, nina, maya, priya, me.summary], place: pick(Places.arena, shot: Places.park),
-            meetPoint: pick(nil, shot: "Sand court, by the palm trees"))
-        add(GameID.hosting, pick("Sunday pickup soccer", shot: "Sunday 5v5"), "soccer",
+            meetPoint: pick(nil, shot: "Sand court, by the palm trees", es: "Cancha de arena, junto a las palmeras"))
+        add(GameID.hosting, pick("Sunday pickup soccer", shot: "Sunday 5v5", es: "Fut 5 del domingo"), "soccer",
             minutes: pick(26 * 60, shot: at(2, 10)), duration: 90, capacity: 10,
-            roster: [me.summary, diego, alex], place: Places.stadium, notes: "Coming alone is fine.")
-        add(GameID.ended, pick("Morning hoops", shot: "Shootaround before class"), "basketball",
+            roster: [me.summary, diego, alex], place: Places.stadium, notes: spanishShot("Coming alone is fine.", "Puedes venir solo."))
+        add(GameID.ended, pick("Morning hoops", shot: "Shootaround before class", es: "Tiros antes de clase"), "basketball",
             minutes: pick(-26 * 60, shot: at(-1, 7)), capacity: 6, roster: [alex, me.summary, maya],
             place: Places.basketballCourts)
         if !isScreenshotWorld {
             add(GameID.cancelled, "Rainy day soccer", "soccer", minutes: 300, capacity: 10, roster: [diego, sam],
                 place: Places.sportsCenter, cancelled: true)
         }
-        add(GameID.bumped, pick("Pickup soccer", shot: "Fútbol 7 after class"), "soccer",
+        add(GameID.bumped, pick("Pickup soccer", shot: "Fútbol 7 after class", es: "Fútbol 7 después de clase"), "soccer",
             minutes: pick(50, shot: at(0, 20)), duration: 90, capacity: 10,
             roster: [diego, nina, maya, alex], place: Places.stadium, repostedMinutesAgo: 25)
 
@@ -193,14 +208,17 @@ enum MockFixtures {
             ))
         }
         say(GameID.going, sam, pick("Net's up on the far court. Bring water, it's hot in there.",
-                                    shot: "Net's up on the sand court. Bring water 🏐"), minutesAgo: 95)
-        say(GameID.going, maya, "I can bring a second ball", minutesAgo: 90)
-        say(GameID.going, me.summary, "Perfect. First time playing with you all, see you there!", minutesAgo: 42)
+                                    shot: "Net's up on the sand court. Bring water 🏐",
+                                    es: "Ya está la red en la cancha de arena. Traigan agua 🏐"), minutesAgo: 95)
+        say(GameID.going, maya, spanishShot("I can bring a second ball", "Yo llevo otro balón"), minutesAgo: 90)
+        say(GameID.going, me.summary, spanishShot("Perfect. First time playing with you all, see you there!",
+                                                  "Perfecto. Es mi primera vez jugando con ustedes, ¡nos vemos!"), minutesAgo: 42)
         // A mention of you, highlighted in the chat (NOTIF §3.5).
-        say(GameID.going, sam, "Welcome \(Mention.token(for: me.summary))! We start with a quick warm-up at 10 to.",
+        say(GameID.going, sam, spanishShot("Welcome \(Mention.token(for: me.summary))! We start with a quick warm-up at 10 to.",
+                                           "¡Bienvenida, \(Mention.token(for: me.summary))! Calentamos 10 minutos antes."),
             minutesAgo: 40, mentions: [me.id])
-        say(GameID.hosting, diego, "Should we bring bibs?", minutesAgo: 120)
-        say(GameID.hosting, me.summary, "I have a set, don't worry.", minutesAgo: 110)
+        say(GameID.hosting, diego, spanishShot("Should we bring bibs?", "¿Llevamos petos?"), minutesAgo: 120)
+        say(GameID.hosting, me.summary, spanishShot("I have a set, don't worry.", "Yo tengo, no te preocupes."), minutesAgo: 110)
 
         // Three codes, oldest first, like `my_invites`: one Priya used, two still open.
         let invites = [

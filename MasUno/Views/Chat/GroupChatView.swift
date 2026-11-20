@@ -553,18 +553,25 @@ struct GroupChatView: View {
         return last.id
     }
 
+    /// Your own rows get their own sentences ("You took a spot"), not "You" in the third-person one:
+    /// Spanish conjugates the verb ("Te apuntaste", not "Tú se apuntó").
+    private func isMine(_ entry: GameActivityEntry) -> Bool {
+        entry.actor != nil && entry.actor?.id == store.profile?.id
+    }
+
     private func name(of entry: GameActivityEntry) -> String {
-        if entry.actor?.id == store.profile?.id { return String.app("You") }
+        if isMine(entry) { return String.app("You") }
         return entry.actor?.firstName ?? String.app("Someone")
     }
 
     /// "+1 Emilio took a spot · room for 3 more", or "took the last spot · game is full".
     private func joinPill(_ entry: GameActivityEntry, in event: Game) -> some View {
         let name = name(of: entry)
+        let mine = isMine(entry)
         let text: String = if event.isFull {
-            String.app("\(name) took the last spot · game is full")
+            mine ? String.app("You took the last spot · game is full") : String.app("\(name) took the last spot · game is full")
         } else {
-            String.app("\(name) took a spot · \(event.roomPhrase)")
+            mine ? String.app("You took a spot · \(event.roomPhrase)") : String.app("\(name) took a spot · \(event.roomPhrase)")
         }
 
         return HStack(spacing: 8) {
@@ -606,11 +613,12 @@ struct GroupChatView: View {
     /// "Maya created the chat", "Leo left · a spot opened", "Meet-up spot updated · 5:42 PM".
     private func text(for entry: GameActivityEntry) -> String {
         let name = name(of: entry)
+        let mine = isMine(entry)
         let time = EventFormat.time(entry.at)
         return switch entry.kind {
-        case .created: String.app("\(name) created the chat")
-        case .joined: String.app("\(name) took a spot")
-        case .left: String.app("\(name) left · a spot opened")
+        case .created: mine ? String.app("You created the chat") : String.app("\(name) created the chat")
+        case .joined: mine ? String.app("You took a spot") : String.app("\(name) took a spot")
+        case .left: mine ? String.app("You left · a spot opened") : String.app("\(name) left · a spot opened")
         case .meetPointUpdated: String.app("Meet-up spot updated · \(time)")
         case .timeOrPlaceChanged: String.app("Time or place changed · \(time)")
         case .cancelled: String.app("Game cancelled · Chat closed")

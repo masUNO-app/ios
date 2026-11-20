@@ -8,6 +8,8 @@
 # then pass the display: `xcrun simctl io <udid> enumerate` lists them; the cover display is 1398 px wide,
 # the open one 2007 px. Never boot the Duo with `simctl boot`: it comes up without displays.
 #
+# SHOT_LANG=es: Spanish (Mexico), with the screenshot world in Spanish; English otherwise.
+#
 # Build first: xcodebuild build -scheme masUNO -configuration Debug -destination 'generic/platform=iOS Simulator'
 # and set APP below (or export it) to the built masUNO.app.
 set -euo pipefail
@@ -17,6 +19,7 @@ OUT=${2:?output directory}
 DISPLAY_ID=${3:-}
 APP=${APP:-build/Build/Products/Debug-iphonesimulator/masUNO.app}
 BUNDLE=com.masuno.app
+if [[ ${SHOT_LANG:-en} == es ]]; then LANG_ARGS=(-AppleLanguages "(es-MX)" -AppleLocale es_MX); else LANG_ARGS=(-AppleLanguages "(en)" -AppleLocale en_US); fi
 SCREENS=(popup detail-open detail-in add-filled me chat onboarding-guidelines)
 
 [[ -d $APP ]] || { echo "No app at $APP; build Debug for the simulator first" >&2; exit 1; }
@@ -34,7 +37,7 @@ display_args=()
 for screen in $SCREENS; do
   xcrun simctl terminate "$UDID" "$BUNDLE" >/dev/null 2>&1 || true
   xcrun simctl launch "$UDID" "$BUNDLE" -liveAuth NO -mockLocation YES -appearance light \
-    -screenshots YES -screen "$screen" -AppleLanguages "(en)" -AppleLocale en_US >/dev/null
+    -screenshots YES -screen "$screen" -appLanguage system "${LANG_ARGS[@]}" >/dev/null
   # The map and court art settle in a few seconds; a cold first launch on the Duo takes about ten.
   sleep "${SETTLE:-10}"
   png="$OUT/$screen.png"
