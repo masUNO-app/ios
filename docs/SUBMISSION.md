@@ -56,10 +56,16 @@ All eight are small. About **12–15 focused hours** across the team, most of it
   - S1: Supabase side, migration `20261124000000_delete_signup_request` with pgTAP checks.
   - S2: runbook line in `supabase/README.md`.
   - S4: form placeholder.
+- **Verified on prod (Nov 20, read-only checks):** B1, B2 and B7 are done.
+  - `chat_enabled` and `push_enabled` are true, and `min_supported_version` is 0.5.
+  - All 21 migrations are applied, including `20261124000000_delete_signup_request`.
+  - `send-push` and `delete-account` are active, and the three `APNS_*` secrets are set.
+  - Both review accounts exist, are confirmed and allowlisted to masUNO Demo, with 6 joinable games. They have no profile yet, so the reviewer goes through Make it yours.
+  - Chat and notifications were tested on TestFlight by the team.
 - **Still open:**
-  - B1, B2, B7: prod flags, APNs, migrations (Emilio).
   - B3: notes into App Store Connect.
-  - B5: policy applied on the website, plus Spanish (Ricardo).
+  - B5: policy applied on the website, plus Spanish (Ricardo). Hand-off prompt given Nov 20.
+  - Upload build 10 and smoke-test that exact build on a phone.
   - S5, S6, S7.
 
 ---
