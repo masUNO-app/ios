@@ -434,7 +434,7 @@ final class AppViewModel {
         case "me-hosting": path = [.me(.hosting)]
         case "repost":
             // A player just dropped out of a full hosted game and auto-repost fired.
-            mock.fillGame(id: IDs.hosting)
+            mock.fillGameWithPlayers(id: IDs.hosting)
             mock.simulateDropOut(id: IDs.hosting)
             await store.refreshMyGames()
             path = [.me(.hosting)]

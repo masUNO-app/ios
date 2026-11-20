@@ -90,6 +90,27 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         games[index].goingCount = games[index].capacity
     }
 
+    /// The same, with everyone on Who's going, as in a real full game: the fixture people first,
+    /// then a few more invented ones. `fillGame` raises only the count, which draws the missing
+    /// people as blank circles (the `repost` screenshot).
+    func fillGameWithPlayers(id: UUID) {
+        guard let index = games.firstIndex(where: { $0.id == id }) else { return }
+        for extra in [
+            MockFixtures.person(21, "Jorge", "R", 2028),
+            MockFixtures.person(22, "Ximena", "L", 2027),
+            MockFixtures.person(23, "Pablo", "M", 2029),
+        ] { people[extra.id] = extra }
+        var roster = attendees[id] ?? []
+        let free = people.values
+            .filter { person in person.id != me.id && !roster.contains { $0.id == person.id } }
+            .sorted { $0.id.uuidString < $1.id.uuidString }
+        for (offset, person) in free.prefix(max(games[index].capacity - roster.count, 0)).enumerated() {
+            roster.append(Attendee(person: person, role: .player, joinedAt: now.addingTimeInterval(Double(offset) * 60)))
+        }
+        attendees[id] = roster
+        games[index].goingCount = roster.count
+    }
+
     /// Another player leaves, firing auto-repost if the game was full.
     /// When the roster matches the count, that player comes off Who's going too.
     func simulateDropOut(id: UUID) {
