@@ -66,6 +66,7 @@ private extension CourtArt {
         case .soccer: soccer
         case .volleyball: volleyball
         case .padel: padel
+        case .screen: screen
         case .generic: generic
         }
     }
@@ -184,6 +185,23 @@ private extension CourtArt {
             CourtLayer(path: court, style: .stroke(Color(hex: 0xE6F8FF), width: 7)),
             CourtLayer(path: panels, style: .stroke(ink.opacity(0.4))),
             CourtLayer(path: line(14.4, 86.5, 387.6, 86.5), style: .stroke(ink.opacity(0.45), width: 5, dash: [3, 3])),
+        ]
+    }()
+
+    /// Esports: a big screen on its stand, split down the middle like a two-player match.
+    static let screen: [CourtLayer] = {
+        let frame = Path { path in
+            path.addRoundedRect(in: rect(30, 96, 372, 330), cornerSize: CGSize(width: 22, height: 22))
+            path.addPath(line(201, 330, 201, 372))
+            path.addPath(line(150, 372, 252, 372))
+        }
+        let split = Path { path in
+            path.addPath(line(201, 96, 201, 330))
+            path.addPath(circle(201, 213, radius: 40))
+        }
+        return [
+            CourtLayer(path: frame, style: .stroke(.white.opacity(0.75), width: 4)),
+            CourtLayer(path: split, style: .stroke(.white.opacity(0.4), width: 3, dash: [8, 7])),
         ]
     }()
 

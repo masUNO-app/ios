@@ -29,6 +29,8 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
     var losesNextJoinRace = false
     /// `app_config.chat_enabled`. Off, `sendMessage` answers `chat_disabled`.
     var chatEnabled = true
+    /// `-esports YES`: esports games in `activities`, and round nights in the fixtures.
+    let esportsEnabled: Bool
 
     let me: PersonSummary
     private var attendees: [UUID: [Attendee]]
@@ -61,12 +63,16 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
     private var deviceToken: String?
     private var prefs = NotificationPrefs.standard
     private var openedNotifications: Set<Int64> = []
+    /// Each round night's groups so far, as person IDs: locked when a round is revealed, so people
+    /// who join later never reshuffle a round that's already out.
+    private var rotationGroups: [UUID: [[[UUID]]]] = [:]
 
     /// `state` defaults to signed in with the Monterrey fixtures. Pass `.signedOut(expired: false)`
     /// to preview onboarding: the new account then has no profile until `completeProfile`.
-    init(state: AuthState? = nil, now: Date = .now) {
-        let world = MockFixtures.world(now: now)
+    init(state: AuthState? = nil, now: Date = .now, esports: Bool = MockFixtures.isEsportsWorld) {
+        let world = MockFixtures.world(now: now, esports: esports)
         self.now = now
+        self.esportsEnabled = esports
         self.me = world.me.summary
         self.games = world.games
         self.attendees = world.attendees
@@ -372,6 +378,37 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         }
     }
 
+    /// Like a future `game_rotation`: rounds from the game's start, and the groups of every round
+    /// whose reveal time has come, picked from who's going at that moment and then kept.
+    func fetchRotation(gameID: UUID) async throws -> RotationPlan {
+        try await begin()
+        let game = try visibleGame(gameID)
+        guard let rotation = game.rotation else { throw DomainError.notFound }
+        let roster = attendees[gameID] ?? []
+        var locked = rotationGroups[gameID] ?? []
+        while locked.count < rotation.rounds, rotation.reveal(of: locked.count, from: game.startsAt) <= now {
+            locked.append(RotationPlanner.groups(
+                of: roster.map(\.id), size: rotation.groupSize, earlier: locked,
+                seed: RotationPlanner.seed(game: gameID, round: locked.count)
+            ))
+        }
+        rotationGroups[gameID] = locked
+
+        // Someone who left drops out of their group; anyone you blocked is never shown.
+        let people = Dictionary(roster.map { ($0.id, $0.person) }, uniquingKeysWith: { first, _ in first })
+        return RotationPlan(rounds: (0..<rotation.rounds).map { round in
+            RotationRound(
+                index: round,
+                startsAt: rotation.start(of: round, from: game.startsAt),
+                endsAt: rotation.end(of: round, from: game.startsAt),
+                revealsAt: rotation.reveal(of: round, from: game.startsAt),
+                groups: round < locked.count
+                    ? locked[round].map { group in group.compactMap { hasBlock(with: $0) ? nil : people[$0] } }
+                    : nil
+            )
+        })
+    }
+
     func createGame(_ draft: GameDraft) async throws -> Game {
         try await beginWrite()
         try validate(draft, checksTime: true)
@@ -387,6 +424,7 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
             myRole: .host, myJoinedAt: now, hasBlockedAttendee: false
         )
         game.title = draft.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        game.rotation = draft.rotation
         games.append(game)
         attendees[game.id] = [Attendee(person: me, role: .host, joinedAt: now)]
         log(.created, game.id, actor: me)
@@ -416,6 +454,9 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         new.place = draft.place
         new.meetPoint = draft.meetPoint
         new.autoRepost = draft.autoRepost
+        new.rotation = draft.rotation
+        // New rounds or a new start: groups are picked again as each round comes out.
+        if new.rotation != old.rotation || new.startsAt != old.startsAt { rotationGroups[id] = nil }
 
         let timeOrPlaceChanged = new.startsAt != old.startsAt || new.endsAt != old.endsAt || new.place != old.place
         let meetPointChanged = new.meetPoint != old.meetPoint
@@ -746,7 +787,7 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
 
     func fetchActivities() async throws -> [Activity] {
         try await begin()
-        return Activity.builtIn
+        return Activity.builtIn + (esportsEnabled ? Activity.esports : [])
     }
 
     func fetchUniversities() async throws -> [University] {
@@ -863,8 +904,17 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
 
     private func validate(_ draft: GameDraft, checksTime: Bool) throws {
         let title = draft.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let rotation = draft.rotation {
+            // A round night: an esports game, its duration exactly its rounds and breaks, and
+            // room for at least two groups.
+            guard draft.activity.isEsport, rotation.isValid,
+                  draft.durationMinutes == rotation.totalMinutes,
+                  draft.capacity >= rotation.minimumPlayers
+            else { throw DomainError.invalidInput }
+        } else if !GameDraft.durations.contains(draft.durationMinutes) {
+            throw DomainError.invalidInput
+        }
         guard (1...GameDraft.titleLimit).contains(title.count),
-              GameDraft.durations.contains(draft.durationMinutes),
               GameDraft.capacityRange.contains(draft.capacity),
               (draft.notes?.count ?? 0) <= GameDraft.notesLimit,
               (draft.meetPoint?.count ?? 0) <= GameDraft.meetPointLimit,

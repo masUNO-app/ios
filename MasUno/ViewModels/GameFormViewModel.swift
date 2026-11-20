@@ -7,7 +7,7 @@ import Observation
 final class GameFormViewModel {
     /// The fields that can have a problem, in the order the form shows them.
     enum Field: Hashable, CaseIterable {
-        case name, time, place, meetUp, notes
+        case name, time, place, meetUp, rotation, notes
     }
 
     var sport: Activity
@@ -23,6 +23,14 @@ final class GameFormViewModel {
     /// Bump the game back to the top when a spot opens (SPEC §7.6.11).
     var autoRepost: Bool
     var notes: String { didSet { if notes.count > GameDraft.notesLimit { notes = String(notes.prefix(GameDraft.notesLimit)) } } }
+    /// Esports only: play in rounds with new groups each time. Turning it on makes room for four groups.
+    var rotates: Bool {
+        didSet {
+            guard rotates, !oldValue else { return }
+            players = min(max(players, rotation.groupSize * 4), playersRange.upperBound)
+        }
+    }
+    var rotation: Rotation
 
     /// Errors only show after the first Create/Save tap (Figma "Error" frame).
     var showsErrors = false
@@ -46,12 +54,15 @@ final class GameFormViewModel {
         name = source?.title ?? ""
         day = Calendar.current.startOfDay(for: editing?.startsAt ?? .now)
         time = source?.startsAt ?? defaultStart
-        duration = source?.durationMinutes ?? 60
+        // A round night's length isn't one of the durations; keep a real one for switching rounds off.
+        duration = source.flatMap { $0.rotation == nil ? $0.durationMinutes : nil } ?? 60
         place = source?.place
         meetUpSpot = source?.meetPoint ?? ""
         players = source?.capacity ?? 6
         notes = source?.notes ?? ""
         autoRepost = source?.autoRepost ?? true
+        rotates = source?.rotation != nil
+        rotation = source?.rotation ?? .standard
     }
 
     // MARK: Presentation
@@ -59,7 +70,57 @@ final class GameFormViewModel {
     var isEditing: Bool { editing != nil }
     var title: String { isEditing ? String.app("Edit plan") : String.app("Make a plan") }
     var subtitle: String { isEditing ? String.app("Changes are shared with everyone going.") : String.app("Get something going nearby.") }
-    var saveButtonTitle: String { isEditing ? String.app("Save changes") : String.app("Create plan") }
+    var saveButtonTitle: String {
+        if isEditing { return String.app("Save changes") }
+        return usesRotation ? String.app("Create round night") : String.app("Create plan")
+    }
+
+    // MARK: Esports and round nights
+
+    var isEsports: Bool { sport.isEsport }
+
+    /// Sports | Esports | …: picks the first of that kind, unless the current pick already is one.
+    func setKind(_ kind: String, from activities: [Activity]) {
+        guard kind != sport.kind, let first = activities.first(where: { $0.kind == kind }) else { return }
+        sport = first
+    }
+
+    /// Rounds are only for esports; switching to a sport keeps the setting for switching back.
+    var usesRotation: Bool { isEsports && rotates }
+
+    /// The game's length: the picked duration, or every round and break.
+    var effectiveDuration: Int {
+        usesRotation ? rotation.totalMinutes : duration
+    }
+
+    /// "10:40 PM", in place of the duration on a round night.
+    var endLabel: String {
+        EventFormat.time(start.addingTimeInterval(Double(effectiveDuration) * 60))
+    }
+
+    /// Each round's times, from the start picked: "Round 2", "8:20 – 9:20 PM".
+    var roundTimes: [(round: Int, time: String)] {
+        (0..<rotation.rounds).map { round in
+            let from = rotation.start(of: round, from: start)
+            let to = rotation.end(of: round, from: start)
+            return (round + 1, "\(EventFormat.time(from)) – \(EventFormat.time(to))")
+        }
+    }
+
+    /// "Everyone plays with up to 9 new people."
+    var mostNewPeople: Int {
+        rotation.mostNewPeople(players: players)
+    }
+
+    /// Under Players on a round night: "4 groups of 4", or "3 groups of 4–5" when it doesn't divide.
+    private var groupsHint: String {
+        guard players >= rotation.minimumPlayers else { return String.app("Room for 2 groups needed") }
+        let count = rotation.groupCount(players: players)
+        let size = rotation.groupSize
+        return players % size == 0
+            ? String.app("\(count) groups of \(size)")
+            : String.app("\(count) groups of \(size)–\(size + 1)")
+    }
 
     /// Today through 6 days out (games start within 7 days).
     var dayOptions: [Date] {
@@ -89,6 +150,7 @@ final class GameFormViewModel {
 
     /// Under the count: "Including you", or "3 joined" once people have.
     var playersHint: String {
+        if usesRotation { return groupsHint }
         guard let editing, editing.joinedCount > 0 else { return String.app("Including you") }
         return String.app("\(editing.joinedCount) joined")
     }
@@ -101,7 +163,7 @@ final class GameFormViewModel {
     /// One-tap answers to "What would help someone new say yes?" (SPEC §7.7.3).
     var suggestions: [String] {
         [
-            String.app("I have an extra ball"),
+            isEsports ? String.app("I have a spare headset") : String.app("I have an extra ball"),
             String.app("Coming alone is fine"),
             String.app("Come for part of it"),
         ]
@@ -153,6 +215,11 @@ final class GameFormViewModel {
         return String.app("\(time) has already passed today. Pick a later time.")
     }
 
+    var rotationError: String? {
+        guard showsErrors, usesRotation, players < rotation.minimumPlayers else { return nil }
+        return String.app("Round nights need at least \(rotation.minimumPlayers) people, for two groups.")
+    }
+
     var placeError: String? {
         showsErrors && place == nil ? String.app("Pick where it's happening.") : nil
     }
@@ -163,6 +230,7 @@ final class GameFormViewModel {
         case .time: timeError
         case .place: placeError
         case .meetUp: meetUpError
+        case .rotation: rotationError
         case .notes: notesError
         }
     }
@@ -183,6 +251,7 @@ final class GameFormViewModel {
     private var isValid: Bool {
         !name.trimmingCharacters(in: .whitespaces).isEmpty && place != nil && (start > .now || editing?.startsAt == start)
             && [name, meetUpSpot, notes].allSatisfy(TextFilter.isFriendly)
+            && (!usesRotation || players >= rotation.minimumPlayers)
     }
 
     // MARK: Intents
@@ -199,12 +268,13 @@ final class GameFormViewModel {
             activity: sport,
             title: name.trimmingCharacters(in: .whitespaces),
             startsAt: start,
-            durationMinutes: duration,
+            durationMinutes: effectiveDuration,
             capacity: players,
             notes: notes.isEmpty ? nil : notes,
             place: place,
             meetPoint: meetPoint.isEmpty ? nil : meetPoint,
-            autoRepost: autoRepost
+            autoRepost: autoRepost,
+            rotation: usesRotation ? rotation : nil
         )
         isSaving = true
         defer { isSaving = false }

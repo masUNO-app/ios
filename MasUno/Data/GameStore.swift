@@ -233,6 +233,26 @@ final class GameStore {
         activities.filter { $0.postable && $0.active }.sorted { $0.sortOrder < $1.sortOrder }
     }
 
+    /// The kinds that can be posted, in catalog order: "sport", then "esports" (`-esports YES` for now).
+    /// Make a plan shows a tab for each once there's more than one.
+    var activityKinds: [String] {
+        postableActivities.reduce(into: [String]()) { kinds, activity in
+            if !kinds.contains(activity.kind) { kinds.append(activity.kind) }
+        }
+    }
+
+    /// A round night's rounds and groups. Not cached: groups come out as the night goes on.
+    /// People you just blocked are left out here too, before the server has caught up.
+    func rotationPlan(_ id: UUID) async throws -> RotationPlan {
+        var plan = try await games.fetchRotation(gameID: id)
+        for index in plan.rounds.indices {
+            plan.rounds[index].groups = plan.rounds[index].groups?.map { group in
+                group.filter { !blockedIDs.contains($0.id) }
+            }
+        }
+        return plan
+    }
+
     var interestActivities: [Activity] {
         activities.filter { $0.interestSelectable && $0.active }.sorted { $0.sortOrder < $1.sortOrder }
     }
