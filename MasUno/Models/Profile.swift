@@ -36,6 +36,32 @@ nonisolated struct ProfileInput: Hashable, Sendable {
     var locale = "en"
 }
 
+/// The checks Set up profile and Edit profile share.
+extension ProfileInput {
+    enum NameProblem: Equatable {
+        case missing
+        /// Caught by `TextFilter`.
+        case unfriendly
+    }
+
+    /// The parts of Make it yours and Edit profile that can have a problem, in screen order.
+    enum Field: Hashable, CaseIterable {
+        case firstName, lastName, interests
+    }
+
+    /// Class years to pick from: this year through six years out.
+    static func classYears(now: Date = .now) -> [Int] {
+        let year = Calendar.current.component(.year, from: now)
+        return Array(year...(year + 6))
+    }
+
+    /// What's wrong with a first or last name, if anything. Each screen words the message.
+    static func nameProblem(_ name: String) -> NameProblem? {
+        if name.trimmingCharacters(in: .whitespaces).isEmpty { return .missing }
+        return TextFilter.isFriendly(name) ? nil : .unfriendly
+    }
+}
+
 /// The name the school's sign-in gave us, as a starting point: students can edit it.
 nonisolated struct SuggestedName: Hashable, Sendable {
     var first: String

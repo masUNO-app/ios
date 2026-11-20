@@ -1,7 +1,7 @@
 # masUNO (iOS)
 
 masUNO helps Tec students find a pickup game — basketball, tennis, soccer,
-volleyball or padel — on a map, host one, and fill the last open spots. SwiftUI, iOS 26+.
+volleyball or padel — on a map, host one, and fill the last open spots. SwiftUI, iOS 18.0+. Liquid Glass controls are used on iOS 26 and later; iOS 18 uses themed controls.
 Launch is 1.0 on Wed Dec 16; 0.5 and 0.6 are the earlier App Store builds (SPEC §3).
 
 Where things stand (Nov 15): the Supabase backend is live on `masuno-dev` and `masuno-prod`, the 1.0 UI
@@ -20,7 +20,7 @@ invite-only sign-up with a waitlist, and the beta tester badge. Debug builds use
 | Backend | Supabase (Postgres, RLS, RPCs, Realtime, one edge function). `masuno-dev` for Debug, `masuno-prod` for Release | `supabase/` |
 | Alerts | Report, sign-up and invite alerts post to the team Discord from the database | `supabase/README.md` |
 | Website and waitlist | `masuno-app.github.io` (Privacy & Terms, Support, the waitlist). Its Google Sheet waitlist is mirrored with Supabase's queue by an Apps Script (N38) | SPEC §8, `docs/API.md` (Website waitlist sync) |
-| CI | `ios.yml` builds and runs unit tests; `database.yml` runs the pgTAP tests; `keep-alive.yml` reads prod daily so the free project doesn't pause | `.github/workflows/` |
+| CI | `ios.yml` builds Release and runs unit/UI tests on pinned iOS 18.6 and 26.5 simulators; `database.yml` runs the pgTAP tests; `backend-sync.yml` validates and syncs dev/prod on PRs and daily | `.github/workflows/` |
 | Design | Figma file and the 1.0 frames (SPEC §7.7) | Arianna |
 
 ## Setup
@@ -37,10 +37,16 @@ open masUNO.xcodeproj                          # run the masUNO scheme on a simu
 re-run `xcodegen generate` after pulling or adding files. `Config.xcconfig` is
 git-ignored too: Debug points at `masuno-dev`, Release at `masuno-prod`.
 
+Before archiving for TestFlight, fill in the real **Release** values in `Config.xcconfig`.
+Archives reject missing or placeholder backend settings. CI's unsigned Release compile uses
+the template and verifies compilation; it does not verify production configuration or sign-in.
+
 Debug builds accept a `-screen` launch argument to jump straight to a screen for design review:
 `popup`, `popup-saved`, `guest`, `guest-popup`, `guest-detail`, `guest-prompt`, `saved`, `add`, `form-error`, `edit`, `picker`, `detail-open|in|full|hosting|ended|cancelled`
 (add `-raceJoin YES` to `detail-open` for the last-spot race; `-mockLocation YES` pins you at Tec), `who`, `who-beta`, `report`, `blocked`, `me`,
-`me-hosting`, `invites`, `profile`, `onboarding-primer|sheet|signup|pending|pending-code|campus|school|review|verified|about|interests|guidelines`, `calendar`, `chat`, `chat-host`, `meetup`, `repost`, `settings`, `update`, `signed-out`, `session-expired`, `suspended`, `gallery`. The full list is in the comment above `openDebugScreen` in `AppViewModel.swift`.
+`me-hosting`, `invites`, `profile`, `onboarding-primer|sheet|signup|pending|pending-code|campus|school|review|verified|about|interests|guidelines`, `calendar`, `chat`, `chat-unavailable`, `chat-host`, `meetup`, `repost`, `settings`, `update`, `signed-out`, `session-expired`, `suspended`, `gallery`. The full list is in the comment above `openDebugScreen` in `AppViewModel.swift`.
+
+Add `-mockGames 150` to any mock launch to copy the fixture games around campus, so the map, search and filters have real work when profiling. `AccessibilityAuditUITests` runs Apple's accessibility audit on these screens for missing labels, tap targets, traits and unreadable text (the few accepted findings, with their reasons, are at the top of the file). Contrast is checked exactly from the color tokens in `MasUnoTests/ContrastTests.swift`, and `LargeTextUITests` runs the core loop at AX5.
 
 A Debug build puts sign-in, games and chat on `masuno-dev` when `Config.xcconfig` has real Debug keys, including when you open it from the home screen after disconnecting from Xcode (launch arguments only exist for Xcode launches, so this is the default, not the argument). It runs on in-memory mocks, where sign-in is faked and everything is forgotten on relaunch, when you pass `-liveAuth NO` or any `-screen` option, or when there are no real keys. Unit tests pass `-liveAuth NO`.
 
@@ -97,6 +103,13 @@ Built from the green Figma frames (node ids `341:*`) and restyled for 1.0 (SPEC 
 Navigation, the launch gate and app-level sheets live in `ViewModels/AppViewModel.swift`; data in
 `Data/GameStore.swift`; mock content in `Data/Mocks/`. `masuno://game/<id>` opens a game.
 
+The app uses Spanish when the device's primary language is Spanish, and English otherwise.
+Settings → Language offers Device language, English, and Español; an override takes effect immediately
+and stays on that device across launches. Dates, sport names, error messages and push registration
+follow the same choice. Translations live in `MasUno/Localizable.xcstrings`; `InfoPlist.strings` in
+`en.lproj` and `es.lproj` supplies the location permission explanation. Build formatted copy outside a
+`Text` with `String.app("…")` (in `LanguageSettings.swift`) so it respects an in-app override.
+
 masUNO launches at Tec, but the app has no campus built in: open campuses come from `open_universities`, and your
 campus from `my_profile`. To change or add a campus, see SPEC §8.10; no release needed.
 
@@ -123,5 +136,20 @@ Placeholders that still need a real answer. Card IDs refer to SPEC §5.
 
 ### Later
 - [x] 1.0 UI (E27), guest browsing (R7-15), invites and the beta badge (N37), one waitlist (N38)
-- [ ] 1.0: Notify me + synced Saved, notifications, picker drag, Spanish
-- [ ] Post-MVP: organizer approval, profile photos, dark mode
+- [x] 1.0: Notify me + synced Saved, notifications, picker drag, Spanish ("Happening now" and the changed banner are cut)
+- [x] Dark mode (build 9): follows the phone, or Settings › Appearance; derived colors for Arianna to review (SPEC §7.7.2)
+- [ ] Post-MVP: organizer approval, profile photos
+
+Build 0.9 (2) implements the first optimization pass and the post-create/join primer crash fix.
+Build 0.9 (8) adds the accessibility and optimization pass (Nov 19): the accessibility audit UI test
+(`AccessibilityAuditUITests`, known issues in `AuditKnownIssues.swift`), VoiceOver summaries and
+announcements, larger text support, High Contrast colors, Reduce Motion, 44 pt targets and lighter map
+updates. `-Osize` was measured and left out: 7% smaller, but the map filter path got 26–42% slower.
+CI includes mock iOS tests, primer UI regressions, Release packaging, pgTAP, and pinned Deno/Node
+push-delivery checks. Remaining physical-device checks are listed in [QA.md](docs/QA.md).
+Build 0.9 (9) adds dark mode: every color set has a dark variant (High Contrast too), Settings ›
+Appearance picks System, Light or Dark, and `-appearance dark` forces it in tests, with a dark
+contrast pass in `AccessibilityAuditUITests`. It also adds group chat @mentions (a mention always
+notifies, through mute and the chat switch; needs migration `20261123000000_chat_mentions` and the new
+`send-push`), the notification primer in the location primer's dialog card, and a picker whose bar
+sits on the bottom edge under the Maps mark.

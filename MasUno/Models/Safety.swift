@@ -19,28 +19,28 @@ nonisolated enum ReportReason: String, CaseIterable, Identifiable, Hashable, Sen
 
     /// The wording depends on what's being reported: a person gets the Figma "Report Ricardo"
     /// list; a game or a message keeps the general one.
-    func title(for target: ReportTarget) -> String {
+    @MainActor func title(for target: ReportTarget) -> String {
         if case .person = target {
             switch self {
-            case .unsafe: return String(localized: "Made me feel unsafe")
-            case .harassment: return String(localized: "Harassment or hateful language")
-            case .inappropriate: return String(localized: "Pushed me to share personal info")
-            case .spam: return String(localized: "Fake profile or not a student")
-            case .other: return String(localized: "Something else")
+            case .unsafe: return String.app("Made me feel unsafe")
+            case .harassment: return String.app("Harassment or hateful language")
+            case .inappropriate: return String.app("Pushed me to share personal info")
+            case .spam: return String.app("Fake profile or not a student")
+            case .other: return String.app("Something else")
             }
         }
         switch self {
-        case .unsafe: return String(localized: "Made me feel unsafe")
-        case .harassment: return String(localized: "Harassment or hateful language")
-        case .inappropriate: return String(localized: "Inappropriate content")
-        case .spam: return String(localized: "Spam or fake")
-        case .other: return String(localized: "Something else")
+        case .unsafe: return String.app("Made me feel unsafe")
+        case .harassment: return String.app("Harassment or hateful language")
+        case .inappropriate: return String.app("Inappropriate content")
+        case .spam: return String.app("Spam or fake")
+        case .other: return String.app("Something else")
         }
     }
 
     /// The person wording for these two says more than the stored reason does, so the report's
     /// note starts with it and moderators see what was picked.
-    func noteLead(for target: ReportTarget) -> String? {
+    @MainActor func noteLead(for target: ReportTarget) -> String? {
         guard case .person = target, self == .inappropriate || self == .spam else { return nil }
         return title(for: target)
     }

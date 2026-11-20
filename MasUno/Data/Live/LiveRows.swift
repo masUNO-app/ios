@@ -173,14 +173,22 @@ nonisolated struct SignInFailure: Hashable, Sendable {
 /// Postgres `timestamptz` as PostgREST sends it: ISO 8601 with up to microseconds and an offset.
 /// Rows parse it themselves, so they decode the same with any `JSONDecoder`.
 nonisolated enum ServerTime {
+    private static let fractional = Date.ISO8601FormatStyle(includingFractionalSeconds: true)
+    private static let whole = Date.ISO8601FormatStyle()
+
+    /// PostgREST drops the fraction when it's zero, so try the style the text looks like first.
+    /// The other one stays as a fallback, so odd input parses as before.
     static func date(from text: String) -> Date? {
-        (try? Date.ISO8601FormatStyle(includingFractionalSeconds: true).parse(text))
-            ?? (try? Date.ISO8601FormatStyle().parse(text))
+        // The fraction always follows the seconds as "."; nothing else in this format has one.
+        let hasFraction = text.contains(".")
+        let first = hasFraction ? fractional : whole
+        let second = hasFraction ? whole : fractional
+        return (try? first.parse(text)) ?? (try? second.parse(text))
     }
 
     /// What RPC parameters and filters send: UTC with milliseconds.
     static func string(from date: Date) -> String {
-        date.formatted(Date.ISO8601FormatStyle(includingFractionalSeconds: true))
+        date.formatted(fractional)
     }
 }
 
@@ -739,9 +747,11 @@ nonisolated struct GameMessageRow: Decodable, Sendable {
     let body: String
     let clientID: UUID
     let createdAt: Date
+    let createdAtText: String
+    let mentions: [UUID]
 
     enum CodingKeys: String, CodingKey {
-        case id, body
+        case id, body, mentions
         case eventID = "event_id"
         case senderID = "sender_id"
         case senderFirstName = "sender_first_name"
@@ -761,14 +771,17 @@ nonisolated struct GameMessageRow: Decodable, Sendable {
         senderGradYear = try c.decode(Int.self, forKey: .senderGradYear)
         body = try c.decode(String.self, forKey: .body)
         clientID = try c.decode(UUID.self, forKey: .clientID)
+        createdAtText = try c.decode(String.self, forKey: .createdAt)
         createdAt = try c.decodeServerTime(forKey: .createdAt)
+        // Absent before the mentions migration.
+        mentions = try c.decodeIfPresent([UUID].self, forKey: .mentions) ?? []
     }
 
     var message: ChatMessage {
         ChatMessage(
             id: id, gameID: eventID,
             sender: PersonSummary(id: senderID, firstName: senderFirstName, lastInitial: senderLastInitial, gradYear: senderGradYear),
-            body: body, clientID: clientID, createdAt: createdAt
+            body: body, clientID: clientID, createdAt: createdAt, serverCreatedAt: createdAtText, mentions: mentions
         )
     }
 }
@@ -784,16 +797,27 @@ nonisolated struct ChatUnreadRow: Decodable, Sendable {
     }
 }
 
-/// The parameters of `send_message`.
+/// The parameters of `send_message`. `p_mentions` is left out when there are none, so a message
+/// without mentions still sends to a server from before them.
 nonisolated struct SendMessageParams: Encodable, Sendable {
     let gameID: UUID
     let body: String
     let clientID: UUID
+    var mentions: [UUID] = []
 
     enum CodingKeys: String, CodingKey {
         case gameID = "p_game_id"
         case body = "p_body"
         case clientID = "p_client_id"
+        case mentions = "p_mentions"
+    }
+
+    func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(gameID, forKey: .gameID)
+        try c.encode(body, forKey: .body)
+        try c.encode(clientID, forKey: .clientID)
+        if !mentions.isEmpty { try c.encode(mentions, forKey: .mentions) }
     }
 }
 

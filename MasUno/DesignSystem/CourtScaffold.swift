@@ -12,14 +12,18 @@ struct CourtScaffold<Sheet: View>: View {
     var showsOpenSpots: Bool
     /// Tapping the court. Without one the court is only a picture: no taps, hidden from VoiceOver.
     var onTap: (() -> Void)?
+    /// What the tap does, for VoiceOver.
+    var tapHint: LocalizedStringKey
     /// Told when the top of the sheet, where its title sits, scrolls up under the navigation bar,
     /// and back down. Measured here, against the same court as the one on screen.
     var onSheetUnderBar: ((Bool) -> Void)?
     var sheet: Sheet
+    @State private var courtIsVisible = true
 
     init(
         activity: Activity, lineup: Lineup, capacity: Int, holdsYou: Bool = false, showsOpenSpots: Bool = true,
-        onTap: (() -> Void)? = nil, onSheetUnderBar: ((Bool) -> Void)? = nil, @ViewBuilder sheet: () -> Sheet
+        onTap: (() -> Void)? = nil, tapHint: LocalizedStringKey = "Shows who's going",
+        onSheetUnderBar: ((Bool) -> Void)? = nil, @ViewBuilder sheet: () -> Sheet
     ) {
         self.activity = activity
         self.lineup = lineup
@@ -27,6 +31,7 @@ struct CourtScaffold<Sheet: View>: View {
         self.holdsYou = holdsYou
         self.showsOpenSpots = showsOpenSpots
         self.onTap = onTap
+        self.tapHint = tapHint
         self.onSheetUnderBar = onSheetUnderBar
         self.sheet = sheet()
     }
@@ -81,12 +86,18 @@ struct CourtScaffold<Sheet: View>: View {
             } action: { _, isUnder in
                 onSheetUnderBar?(isUnder)
             }
+            .onScrollGeometryChange(for: Bool.self) { geometry in
+                geometry.contentOffset.y < sheetTop
+            } action: { _, visible in
+                courtIsVisible = visible
+            }
             .background(alignment: .top) {
                 // Over the content column, not under a side bar.
                 CourtHeader(
                     activity: activity, lineup: lineup, capacity: capacity, scale: scale,
-                    holdsYou: holdsYou, showsOpenSpots: showsOpenSpots, onTap: onTap ?? {}
+                    holdsYou: holdsYou, showsOpenSpots: showsOpenSpots, tapHint: tapHint, onTap: onTap ?? {}
                 )
+                .environment(\.courtDecorationVisible, courtIsVisible)
                 .allowsHitTesting(onTap != nil)
                 .accessibilityHidden(onTap == nil)
                 .frame(maxHeight: .infinity, alignment: .top)

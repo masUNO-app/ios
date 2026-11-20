@@ -1,0 +1,54 @@
+name: Sync Supabase
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    paths: ["supabase/**", ".github/workflows/backend-sync.yml", ".github/workflows/database.yml", ".github/scripts/sync-supabase.sh"]
+  schedule:
+    - cron: "0 15 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Never cancel a migration in flight or deploy two revisions simultaneously.
+concurrency:
+  group: supabase-hosted-sync
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    uses: ./.github/workflows/database.yml
+
+  sync-dev:
+    needs: validate
+    # Fork PRs run validation but cannot receive deployment credentials.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 3.1.0
+      - name: Migrate and deploy masuno-dev
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ vars.DEV_SUPABASE_PROJECT_REF }}
+        run: bash .github/scripts/sync-supabase.sh
+
+  sync-prod:
+    needs: sync-dev
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 3.1.0
+      - name: Migrate and deploy masuno-prod
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ vars.PROD_SUPABASE_PROJECT_REF }}
+        run: bash .github/scripts/sync-supabase.sh

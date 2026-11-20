@@ -22,38 +22,59 @@ final class ProfileEditorViewModel {
         interests = Set(profile.interests)
     }
 
-    /// This year through six years out.
-    var classYears: [Int] {
-        let year = Calendar.current.component(.year, from: .now)
-        return Array(year...(year + 6))
-    }
+    var classYears: [Int] { ProfileInput.classYears() }
 
     /// "Emilio G.": how others see you.
     var previewName: String {
         let name = ProfileInput.previewName(first: firstName, last: lastName)
-        return name.isEmpty ? String(localized: "your first name and last initial") : name
+        return name.isEmpty ? String.app("your first name and last initial") : name
     }
 
     // MARK: Validation
 
     func nameError(_ value: String) -> String? {
         guard showsErrors else { return nil }
-        if value.trimmingCharacters(in: .whitespaces).isEmpty { return String(localized: "Add your name.") }
-        return TextFilter.isFriendly(value) ? nil : TextFilter.message
+        switch ProfileInput.nameProblem(value) {
+        case .missing: return String.app("Add your name.")
+        case .unfriendly: return TextFilter.message
+        case nil: return nil
+        }
     }
 
     var interestsError: String? {
-        showsErrors && interests.isEmpty ? String(localized: "Pick at least one sport.") : nil
+        showsErrors && interests.isEmpty ? String.app("Pick at least one.") : nil
+    }
+
+    func error(for field: ProfileInput.Field) -> String? {
+        switch field {
+        case .firstName: nameError(firstName)
+        case .lastName: nameError(lastName)
+        case .interests: interestsError
+        }
+    }
+
+    /// Where VoiceOver goes after a failed Save: the first part with a problem.
+    var firstInvalidField: ProfileInput.Field? {
+        ProfileInput.Field.allCases.first { error(for: $0) != nil }
+    }
+
+    /// What VoiceOver says after a failed Save: the first problem and how many there are, or the
+    /// server's message.
+    var errorSummary: String? {
+        let errors = ProfileInput.Field.allCases.compactMap(error(for:))
+        guard let first = errors.first else { return saveError }
+        return errors.count == 1 ? first : String.app("\(errors.count) things to fix. \(first)")
     }
 
     // MARK: Intents
 
     func toggle(_ sport: Activity) {
-        if interests.contains(sport) { interests.remove(sport) } else { interests.insert(sport) }
+        interests.toggle(sport)
     }
 
     /// Returns true when saved (`complete_profile`).
     func save(in store: GameStore) async -> Bool {
+        guard !isSaving else { return false }
         showsErrors = true
         saveError = nil
         guard nameError(firstName) == nil, nameError(lastName) == nil, interestsError == nil else { return false }
@@ -63,12 +84,14 @@ final class ProfileEditorViewModel {
             firstName: firstName.trimmingCharacters(in: .whitespaces),
             lastName: lastName.trimmingCharacters(in: .whitespaces),
             gradYear: classYear,
-            interests: interests.sorted { $0.sortOrder < $1.sortOrder }
+            interests: interests.sorted { $0.sortOrder < $1.sortOrder },
+            locale: LanguageSettings.shared.language
         )
         do {
             try await store.updateProfile(input)
             return true
         } catch {
+            guard !OperationCancellation.isCancellation(error) else { return false }
             saveError = (error as? DomainError ?? .offline).message
             return false
         }

@@ -10,12 +10,24 @@ final class LiveNotificationRepository: NotificationRepository {
     }
 
     func registerDevice(token: String, environment: String, locale: String, appVersion: String) async throws {
+        let params = RegisterDeviceParams(
+            token: token, environment: environment, locale: locale, appVersion: appVersion, installID: Self.installID()
+        )
         _ = try await liveRequest {
-            try await client.rpc(
-                "register_device",
-                params: RegisterDeviceParams(token: token, environment: environment, locale: locale, appVersion: appVersion)
-            ).execute()
+            try await client.rpc("register_device", params: params).execute()
         }
+    }
+
+    /// A random secret for this install, made once and kept in `UserDefaults`.
+    /// The server only moves a push token to another account when the same install asks, so knowing
+    /// someone's token isn't enough to take over their notifications.
+    /// - Returns: The same UUID string on every call until the app is deleted.
+    private static func installID() -> String {
+        let key = "pushInstallID"
+        if let existing = UserDefaults.standard.string(forKey: key) { return existing }
+        let created = UUID().uuidString
+        UserDefaults.standard.set(created, forKey: key)
+        return created
     }
 
     func unregisterDevice(token: String) async throws {
@@ -66,12 +78,14 @@ nonisolated private struct RegisterDeviceParams: Encodable, Sendable {
     let environment: String
     let locale: String
     let appVersion: String
+    let installID: String
 
     enum CodingKeys: String, CodingKey {
         case token = "p_token"
         case environment = "p_environment"
         case locale = "p_locale"
         case appVersion = "p_app_version"
+        case installID = "p_install_id"
     }
 }
 

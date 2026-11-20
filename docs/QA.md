@@ -100,6 +100,7 @@ With `chat_enabled` on (0.6, E26). Phone A hosts, Phone B joined:
 - [ ] Airplane mode on Phone B: a sent message says "Not sent · Tap to retry". Back online, tapping it sends it once.
 - [ ] A message with a filtered word or a link never leaves the composer, and says why.
 - [ ] A third account that isn't in the game can't open the chat.
+- [ ] Mentions (1.0): on Phone A type "@", pick Phone B's person and send. Phone B sees its name bold in green. With Phone B's "Group chat messages" off, the game muted and a Focus on that allows mentions, Phone B still gets "… mentioned you: …" at once, with the Messages look; with that chat open on Phone B, no banner. Delete a letter of the inserted name before sending: no mention push.
 - [ ] Touch and hold Phone A's message on Phone B: **Report message** sends, and the team-chat alert says "chat message". **Block** hides Phone A's messages at once.
 - [ ] Phone A cancels the game: both chats lose the composer and say the chat is closed.
 - [ ] Set `chat_enabled` back to `false`: after a relaunch the composer and messages are gone, with no error.
@@ -109,7 +110,10 @@ With `chat_enabled` on (0.6, E26). Phone A hosts, Phone B joined:
 - [ ] Report a person and a game. "Thanks — we'll review this within 24 hours." The team-chat alert arrives within a minute.
 - [ ] Phone B blocks Phone A: A's games and name disappear **without refreshing**.
 - [ ] Phone A can no longer see B's games or name after a refresh, and neither can join the other's game.
-- [ ] Settings › Blocked people lists the name. Unblock brings the games back.
+- [ ] In a third person’s game, neither side can see the other in Who’s going, chat messages or system rows, including previously loaded/older chat pages. Counts still include hidden peers.
+- [ ] A host blocks a joined player: their active RSVP disappears, the spot opens, and the player loses the game/chat on their phone. Repeat with the player blocking the host. Counts stay correct after repeated blocks.
+- [ ] Queue a chat burst before a block, including two different senders. After blocking, notifications contain only visible names and message bodies. Leaving closes queued member-only delivery too.
+- [ ] Settings › Blocked people lists the name. Unblock brings the games back without restoring a removed RSVP.
 - [ ] A moderator bans an account: its next action lands on "Your account is suspended".
 
 ## 10. Cancel and delete
@@ -171,3 +175,68 @@ Push stays off until `app_config.push_enabled` is true. With it on, two phones, 
 - [ ] Chat: the banner uses the sender's initials. Mute hides the next one. Reply sends. Mark as read clears it.
 - [ ] A banner for the game or chat already on screen does not appear. Opening that screen clears it.
 - [ ] Sign out stops this phone's token. The other phone still gets alerts.
+
+## Build 0.9 (2) follow-up
+
+The simulator regression suite covers 313 iOS cases and both create/join primer UI paths.
+Physical-device, two-phone and distribution checks remain below.
+
+- [ ] On TestFlight, create and join with notification permission undetermined; the primer opens
+  and both Not now and drag-dismiss keep the app alive. Repeat with permission already decided.
+- [ ] Refresh empty/nonempty chats, leave during a pull, background during a read, then recover
+  from airplane mode. Real failures remain retryable and cancelled reads show no false popup.
+- [ ] Two phones: same-count attendee replacement, mute, reconnect gap, scroll-up during incoming
+  chat, and read acknowledgement interrupted by network loss.
+- [ ] Physical device: compare idle/covered courts with Reduce Motion/Low Power Mode toggled;
+  inspect energy, navigation memory and frame hitches at 100/500 games.
+- [ ] Compact/landscape/large Dynamic Type: open popup, keyboard, filter/group sheet and location
+  picker; rotate/resume, change timezone across midnight, and confirm expired actions revalidate.
+- [ ] Apply migration 17 in a fresh/dev environment, run the complete database CI suite, then
+  deploy the v2 sender. Observe queue/retry summaries before proceeding to production.
+
+## iOS 18 compatibility
+
+Run the mock unit and UI suites on iPhone 16 Pro / iOS 18.6 and a current iOS simulator.
+The deployment minimum is 18.0; an 18.6 run does not establish behavior on 18.0 itself.
+Build Debug and Release with the 18.0 target and run the earliest supported OS when available.
+
+- [ ] Map: Filter, Add game, Me/Account, Saved and recenter are visible and tappable; recenter does not overlap the avatar.
+- [ ] Filter selections, Reset, disabled buttons, primary actions and Close work on the older themed controls.
+- [ ] Signed-in and guest flows, sheets, large text and the smallest supported screen remain usable.
+- [ ] Location search, current location and dragging a pin resolve the correct coordinate and address. Denied permission stays on campus. Failed address lookup preserves the dropped coordinate; cancelling or selecting another result cannot publish an older result.
+- [ ] Detail and notification Directions open the correct location. Add to calendar is prefilled.
+- [ ] Chat with messaging enabled: composer, keyboard, send, mute and Who’s going work; check the read-only state too.
+- [ ] Physical device: push permission, communication notification rendering, actions and the TestFlight beta badge work.
+- [ ] Home screen icon appears correctly, including dark and tinted home screen styles.
+- [ ] Dark mode (Settings › Appearance › Dark, and System with the phone in dark): the iOS 18 material controls, sheets, dialogs, map and map thumbnails read well. The launch color follows the phone, not the in-app choice.
+- [ ] iOS 26+: glass controls, toolbar grouping and detail scrolling keep their existing appearance. iOS 27.1+: also run the iPhone Duo checks above.
+
+CI runs all mock unit/UI suites on iOS 18.6 with Xcode 26.3 (`macos-15`) and iOS 26.5 with Xcode 26.6 (`macos-26`), both Apple silicon. Both runtimes are preinstalled on their runner images. Each job builds the Release app and notification extension before testing on a fresh iPhone 16 Pro, and uploads logs, the result bundle, and screenshots even on failure.
+
+## Notification tap and delivery regressions
+
+- With two physical phones in the same chat, send one message and confirm the receiving banner
+  shows the sender once, the group title, and message text without a sender prefix. Repeat for a
+  burst/merged summary in English and Spanish.
+- Tap a game alert and a chat alert with the app open, backgrounded, and terminated. Confirm each
+  destination opens, chat Back returns to the game, and notification cleanup does not crash.
+- Repeat while the network is slow and with a game absent from the current map/list cache. The
+  opened-tracking call must not hold navigation; an uncached chat loads its own game.
+- Send actions in sequence from both phones and across two games. With phones online and outside
+  quiet hours, check normal delivery within roughly 20 seconds and chronological submission order.
+  Include continuous chat traffic for over a minute to check that merging never postpones a due alert.
+- Verify the Sync Supabase workflow on a same-repository PR and daily/manual run: validation first,
+  migrations before functions, dev before prod. A rerun with no migrations must leave history intact.
+
+## App language
+
+- A Spanish device starts in Spanish; English and unsupported primary languages start in English,
+  even when Spanish appears later in the device's preferred-language list.
+- In Settings → Language, switch among Device language, English and Español. Check that the
+  navigation title, notification labels, sport names, dates and validation messages use one language.
+  The screen and navigation history should remain in place.
+- Relaunch after selecting an override: it must persist. Return to Device language and change the
+  device language: the next launch follows the new primary language.
+- Review onboarding, filters, game details, creation/editing, chat, profile and reports in Spanish,
+  including long labels and singular/plural counts. User-written names, game titles and messages
+  remain as written. Check the Spanish location permission explanation on a fresh install.

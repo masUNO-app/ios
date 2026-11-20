@@ -11,8 +11,10 @@ masUNO.xcodeproj/
 # Dependency managers
 Pods/
 .build/
+__pycache__/
 .swiftpm/
 Carthage/Build/
+node_modules/
 
 # Release artifacts & signing
 *.ipa

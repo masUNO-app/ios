@@ -204,8 +204,9 @@ struct MockSafetyTests {
 
         let who = try await backend.fetchAttendees(gameID: MockFixtures.GameID.hosting)
         #expect(!who.map(\.id).contains(MockFixtures.alex.id))
-        // The count still includes them (C9).
-        #expect(try await backend.fetchGame(id: MockFixtures.GameID.hosting).goingCount == 3)
+        // A host/player block removes the player's active RSVP and frees the actual spot.
+        let hosted = try await backend.fetchGame(id: MockFixtures.GameID.hosting)
+        #expect(hosted.goingCount == 2)
     }
 
     @Test func joiningAGameWithSomeoneBlockedFails() async throws {
@@ -912,6 +913,32 @@ struct LiveGameContractTests {
         #expect(ServerTime.string(from: date) == "2026-11-10T23:30:00.123Z")
         #expect(ServerTime.date(from: "2026-11-10T17:30:00-06:00") == ServerTime.date(from: "2026-11-10T23:30:00Z"))
         #expect(ServerTime.date(from: "yesterday") == nil)
+    }
+
+    /// Every form PostgREST sends, with and without a fraction. Each one also parses the same as the
+    /// old two-step parse (fractional style, then whole seconds), so nothing changes for odd input.
+    @Test(arguments: [
+        ("2026-11-10T23:30:00+00:00", 1_794_353_400.0),
+        ("2026-11-10T23:30:00.123456+00:00", 1_794_353_400.123),
+        ("2026-11-10T23:30:00Z", 1_794_353_400.0),
+        ("2026-11-10T23:30:00.123Z", 1_794_353_400.123),
+        ("2026-11-10T17:30:00-06:00", 1_794_353_400.0),
+        ("2026-11-09T06:15:00.5+00:00", 1_794_204_900.5),
+        ("2026-11-09T06:15:00.5Z", 1_794_204_900.5),
+    ])
+    func serverTimestampForms(text: String, seconds: TimeInterval) throws {
+        let date = try #require(ServerTime.date(from: text))
+        #expect(abs(date.timeIntervalSince1970 - seconds) < 0.001)
+        let before = (try? Date.ISO8601FormatStyle(includingFractionalSeconds: true).parse(text))
+            ?? (try? Date.ISO8601FormatStyle().parse(text))
+        #expect(date == before)
+    }
+
+    @Test(arguments: ["yesterday", "", "2026-11-10", "2026-11-10T23:30:00.+00:00"])
+    func oddInputParsesAsBefore(text: String) {
+        let before = (try? Date.ISO8601FormatStyle(includingFractionalSeconds: true).parse(text))
+            ?? (try? Date.ISO8601FormatStyle().parse(text))
+        #expect(ServerTime.date(from: text) == before)
     }
 
     @Test func gameCardRowBecomesAGame() throws {

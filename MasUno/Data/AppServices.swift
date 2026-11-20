@@ -29,7 +29,10 @@ struct AppServices {
         if wantsLive, let live = LiveBackend.make() {
             return AppServices(live, mock: mock)
         }
-        let push = PushNotificationService(repository: mock, games: mock, chat: mock)
+        let notificationSystem = MockNotificationSystemClient()
+        // Exercise navigation while the system's notification-settings reply is delayed.
+        notificationSystem.settingsDelay = .seconds(max(0, defaults.double(forKey: "notificationSettingsDelay")))
+        let push = PushNotificationService(repository: mock, games: mock, chat: mock, system: notificationSystem)
         return AppServices(
             auth: mock, games: mock, profiles: mock, safety: mock, chat: mock, catalog: mock,
             notifications: mock, push: push, mock: mock

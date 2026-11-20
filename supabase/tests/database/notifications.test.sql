@@ -1,7 +1,7 @@
 -- Push notifications: producers, the send-time rules, and the client RPCs (NOTIF.md §2 and §5).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(71);
+select plan(72);
 
 create function pg_temp.act_as(p_user uuid) returns void language plpgsql as $$
 begin
@@ -29,10 +29,12 @@ select is((select user_id from private.device_tokens where token = 'pendingtoken
     'f0000000-0000-4000-8000-00000000000f'::uuid, 'the token is theirs');
 
 set local role authenticated;
+select pg_temp.act_as('f0000000-0000-4000-8000-00000000000f');
+select public.unregister_device('pendingtokenpendingtoken');
 select pg_temp.act_as('a0000000-0000-4000-8000-00000000000a');
 select public.complete_profile('Alice', 'Zamora', 2027, array['soccer'], 'en');
 select lives_ok($$ select public.register_device('pendingtokenpendingtoken', 'production', 'en-US', '1.0') $$,
-    'signing in on the same phone moves the token');
+    'signing in after legacy sign-out registers the token for the new account');
 reset role;
 select is((select user_id from private.device_tokens where token = 'pendingtokenpendingtoken'),
     'a0000000-0000-4000-8000-00000000000a'::uuid, 'the token now belongs to Alice');
@@ -115,10 +117,10 @@ select is((select count(*)::int from private.notification_outbox
           'd0000000-0000-4000-8000-00000000000d'
       )),
     0, 'and not the host or people who play something else');
-select ok((select not_before > now() + interval '2 minutes' from private.notification_outbox
+select ok((select not_before between now() and now() + interval '10 seconds' from private.notification_outbox
     where event_id = (select id from game_ids where name = 'main') and kind = 'interest_match'
       and user_id = 'b0000000-0000-4000-8000-00000000000b'),
-    'it waits a few minutes in case the game changes');
+    'new-game batching stays within ten seconds');
 
 -- Host updates, then a game that fills.
 set local role authenticated;
@@ -131,9 +133,9 @@ select is((select count(*)::int from private.notification_outbox
 select is((select user_id from private.notification_outbox
     where event_id = (select id from game_ids where name = 'main') and kind = 'host_update'),
     'a0000000-0000-4000-8000-00000000000a'::uuid, 'and not the person who joined');
-select ok((select not_before > now() + interval '4 minutes' from private.notification_outbox
+select ok((select not_before between now() and now() + interval '10 seconds' from private.notification_outbox
     where event_id = (select id from game_ids where name = 'main') and kind = 'host_update'),
-    'joins in a few minutes merge into one');
+    'roster batching stays within ten seconds');
 
 set local role authenticated;
 select pg_temp.act_as('a0000000-0000-4000-8000-00000000000a');
@@ -194,9 +196,9 @@ reset role;
 select is((select count(*)::int from private.notification_outbox
     where event_id = (select id from game_ids where name = 'main') and kind = 'game_changed' and dropped is null),
     1, 'several edits make one change notification');
-select ok((select not_before > now() + interval '1 minute' from private.notification_outbox
+select ok((select not_before between now() and now() + interval '10 seconds' from private.notification_outbox
     where event_id = (select id from game_ids where name = 'main') and kind = 'game_changed' and dropped is null),
-    'it waits so the last edit wins');
+    'edits merge within the ten-second delivery window');
 
 set local role authenticated;
 select pg_temp.act_as('a0000000-0000-4000-8000-00000000000a');
@@ -236,6 +238,10 @@ select is((select (payload->>'count')::int from private.notification_outbox
     where event_id = (select id from game_ids where name = 'chat') and kind = 'chat_message'
       and user_id = 'b0000000-0000-4000-8000-00000000000b' and dropped is null),
     2, 'two messages a moment apart merge');
+select is((select not_before from private.notification_outbox
+    where event_id = (select id from game_ids where name = 'chat') and kind = 'chat_message'
+      and user_id = 'b0000000-0000-4000-8000-00000000000b' and dropped is null),
+    now(), 'a second message keeps the first immediate deadline');
 update private.notification_outbox set locked_at = now()
 where event_id = (select id from game_ids where name = 'chat') and kind = 'chat_message'
   and user_id = 'b0000000-0000-4000-8000-00000000000b' and dropped is null;
@@ -331,29 +337,40 @@ select ok(exists (select 1 from private.notification_outbox
       and user_id = 'b0000000-0000-4000-8000-00000000000b' and dropped is null),
     'a saved game with room nudges the person who saved it');
 
+-- Keep the fixed-time win-back scenario separate from the now()-relative games above and seed data.
+-- Otherwise those basketball games enter this window as the real date changes.
+insert into public.universities (name, short_name, email_domain, signup_enabled, center_lat, center_lng)
+values ('Winback test', 'Winback', 'winback.test.invalid', false, 25.65, -100.29);
+insert into auth.users (id, email) values
+    ('90000000-0000-4000-8000-000000000001', 'host@winback.test.invalid'),
+    ('90000000-0000-4000-8000-000000000002', 'player@winback.test.invalid');
+insert into public.profiles (id, university_id, first_name, last_name, grad_year, interests, last_seen_at)
+select u.id, campus.id, u.first_name, 'Test', 2027, array['basketball'], timestamptz '2026-11-01 00:00+00'
+from (values
+    ('90000000-0000-4000-8000-000000000001'::uuid, 'Host'),
+    ('90000000-0000-4000-8000-000000000002'::uuid, 'Player')
+) as u(id, first_name)
+cross join public.universities campus where campus.email_domain = 'winback.test.invalid';
+
 insert into public.games (
     university_id, host_id, activity_slug, title, starts_at, duration_minutes, ends_at, capacity,
     place_name, place_address, lat, lng
 )
 select university_id, id, 'basketball', 'Weekday hoops', timestamptz '2026-11-18 18:00+00', 60,
        timestamptz '2026-11-18 19:00+00', 8, 'Arena', 'Tec', 25.65, -100.29
-from public.profiles where id = 'a0000000-0000-4000-8000-00000000000a';
+from public.profiles where id = '90000000-0000-4000-8000-000000000001';
 insert into public.games (
     university_id, host_id, activity_slug, title, starts_at, duration_minutes, ends_at, capacity,
     place_name, place_address, lat, lng
 )
 select university_id, id, 'basketball', 'Second hoops', timestamptz '2026-11-19 18:00+00', 60,
        timestamptz '2026-11-19 19:00+00', 8, 'Arena', 'Tec', 25.65, -100.29
-from public.profiles where id = 'a0000000-0000-4000-8000-00000000000a';
-update public.profiles set last_seen_at = timestamptz '2026-11-01 00:00+00'
-where id = 'b0000000-0000-4000-8000-00000000000b';
-update public.notification_prefs set winback = true where user_id = 'b0000000-0000-4000-8000-00000000000b';
+from public.profiles where id = '90000000-0000-4000-8000-000000000001';
 insert into public.notification_prefs (user_id, winback)
-select 'b0000000-0000-4000-8000-00000000000b', true
-where not exists (select 1 from public.notification_prefs where user_id = 'b0000000-0000-4000-8000-00000000000b');
+values ('90000000-0000-4000-8000-000000000002', true);
 select private.enqueue_winback(timestamptz '2026-11-17 23:00+00');
 select is((select (payload->>'games')::int from private.notification_outbox
-    where user_id = 'b0000000-0000-4000-8000-00000000000b' and kind = 'winback'),
+    where user_id = '90000000-0000-4000-8000-000000000002' and kind = 'winback'),
     2, 'win-back names how many games are on that weeknight');
 
 -- Approval tells every token of that account.

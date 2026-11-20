@@ -8,14 +8,18 @@ struct MapThumbnail: View {
     var size: CGFloat = 48
 
     @State private var image: UIImage?
+    @State private var renderedRequest: MapSnapshotRequest?
     @Environment(\.displayScale) private var displayScale
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         RoundedRectangle(cornerRadius: Theme.Radius.tile)
             .fill(Theme.accentSoft)
             .overlay {
-                if let image {
+                if let image, renderedRequest == request {
+                    // A map photo, which Smart Invert would turn into a negative (A11Y-27).
                     Image(uiImage: image).resizable().scaledToFill()
+                        .accessibilityIgnoresInvertColors()
                 }
             }
             .overlay {
@@ -28,17 +32,25 @@ struct MapThumbnail: View {
             .clipShape(.rect(cornerRadius: Theme.Radius.tile))
             .overlay(RoundedRectangle(cornerRadius: Theme.Radius.tile).strokeBorder(Theme.hairline))
             .accessibilityHidden(true)
-            .task(id: "\(coordinate.latitude),\(coordinate.longitude)") { await render() }
+            .task(id: request) { await render(request) }
     }
 
-    private func render() async {
-        let options = MKMapSnapshotter.Options()
-        options.region = MKCoordinateRegion(center: coordinate, latitudinalMeters: 400, longitudinalMeters: 400)
-        options.size = CGSize(width: size, height: size)
-        options.scale = displayScale
-        options.pointOfInterestFilter = .excludingAll
-        // The app is light-only; snapshots otherwise follow the system appearance.
-        options.traitCollection = UITraitCollection(userInterfaceStyle: .light)
-        image = try? await MKMapSnapshotter(options: options).start().image
+    private var request: MapSnapshotRequest {
+        MapSnapshotRequest(
+            latitude: coordinate.latitude, longitude: coordinate.longitude, size: Double(size),
+            scale: Double(displayScale), isDark: colorScheme == .dark
+        )
+    }
+
+    private func render(_ request: MapSnapshotRequest) async {
+        do {
+            let rendered = try await MapSnapshotCache.shared.image(for: request)
+            try Task.checkCancellation()
+            guard request == self.request else { return }
+            image = rendered
+            renderedRequest = request
+        } catch {
+            // The accent placeholder remains useful while offline or after cancellation.
+        }
     }
 }

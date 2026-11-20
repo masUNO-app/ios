@@ -9,11 +9,11 @@ struct ComponentGallery: View {
     @State private var isOn = true
 
     private let swatches: [(String, Color)] = [
-        ("accent", Theme.accent), ("accentSoft", Theme.accentSoft),
+        ("accent", Theme.accent), ("accentText", Theme.accentText), ("accentSoft", Theme.accentSoft),
         ("background", Theme.background), ("card", Theme.card), ("surface2", Theme.surface2),
         ("ink", Theme.ink), ("muted", Theme.muted), ("mutedLarge", Theme.mutedLarge),
-        ("destructive", Theme.destructive), ("error", Theme.error),
-        ("you", Theme.you), ("separator", Theme.separator),
+        ("destructive", Theme.destructive), ("destructiveText", Theme.destructiveText), ("error", Theme.error),
+        ("you", Theme.you), ("separator", Theme.separator), ("hairline", Theme.hairline), ("paper", Theme.paper),
     ]
 
     private var game: Game { MockFixtures.world(now: .now).games[0] }
@@ -86,7 +86,7 @@ struct ComponentGallery: View {
                             IconTile(systemImage: "mappin.and.ellipse", color: Color(.sportVolleyball).opacity(0.45))
                         }
                         HStack(spacing: 12) {
-                            VerifiedBadge().padding(8).background(Theme.you, in: .capsule)
+                            ProfileBadge("Verified student", systemImage: "checkmark.seal.fill").padding(8).background(Theme.you, in: .capsule).inkOnColor()
                             OptionalTag()
                         }
                     }
@@ -115,11 +115,9 @@ struct ComponentGallery: View {
 
                 section("Fields") {
                     VStack(spacing: 12) {
-                        FieldBox("Game name") {
-                            TextField(text: $name) { Text(verbatim: "e.g. After-work hoops") }
-                        }
-                        FieldBox("Game name", error: "Add a name so people know what they're joining.") {
-                            Text(verbatim: "e.g. After-work hoops").foregroundStyle(Theme.muted)
+                        FieldBox("What's the plan?", text: $name, prompt: Text(verbatim: "e.g. Pickup after class"))
+                        FieldBox("What's the plan?", error: "Add a name so people know what they're joining.") {
+                            Text(verbatim: "e.g. Pickup after class").foregroundStyle(Theme.muted)
                         }
                         HStack(spacing: 10) {
                             FieldBox("Date", showsChevron: true) { Text(verbatim: "Sat, Oct 24") }
@@ -136,13 +134,13 @@ struct ComponentGallery: View {
                     }
                     GameCard(event: game, lineup: lineup, status: game.cancelledLine, time: EventFormat.cancelledTime(game), isMuted: true) {
                         Button(String("Remove")) {}.pill(.secondary, expands: false)
-                        Button(String("Find another game")) {}.pill(.primary)
+                        Button(String("Find another plan")) {}.pill(.primary)
                     }
                 }
 
                 section("States") {
-                    EmptyCard(title: "No games yet", message: "Find one nearby, or start your own. Most games just need one more.") {
-                        Button(String("Find a game")) {}.pill(.primary)
+                    EmptyCard(title: "No plans yet", message: "Find one nearby, or start your own. Most plans just need one more.") {
+                        Button(String("Find a plan")) {}.pill(.primary)
                     }
                     SafetyNote(text: "Anything feel off? Tap ••• next to anyone to report or block them. Only the masUNO team sees reports.")
                     RetryCard {}
@@ -162,8 +160,8 @@ struct ComponentGallery: View {
                 title: Text(verbatim: "Cancel Sunday pickup soccer?"),
                 message: Text(verbatim: "We'll let the 3 people who joined know it's cancelled and close the group chat."),
                 footnote: Text(verbatim: "This can't be undone."),
-                confirm: DialogAction("Cancel game"),
-                cancel: DialogAction("Keep game")
+                confirm: DialogAction("Cancel plan"),
+                cancel: DialogAction("Keep plan")
             )
         }
     }

@@ -24,6 +24,11 @@ final class OnboardingViewModel {
         }
     }
 
+    /// The account fields a step can send VoiceOver to after a failed submit.
+    enum Field: Hashable {
+        case email, password, inviteCode
+    }
+
     var path: [Step] = []
     var isSignInSheetPresented = false
 
@@ -102,8 +107,8 @@ final class OnboardingViewModel {
     // MARK: Presentation
 
     var welcomeMessage: LocalizedStringKey {
-        if let campus { return "Pickup games around \(campus.shortName) that are one or two players short. Grab the open spot and play today." }
-        return "Pickup games on campus that are one or two players short. Grab the open spot and play today."
+        if let campus { return "Plans around \(campus.shortName) that are just one or two people short. Grab the open spot and tag along today." }
+        return "Plans on campus that are just one or two people short. Grab the open spot and tag along today."
     }
 
     /// The open campuses a guest can browse, narrowed by the search.
@@ -129,13 +134,13 @@ final class OnboardingViewModel {
     /// "Welcome to masUNO, Emilio." when the school told us a name; otherwise just the welcome.
     var verifiedWelcome: String {
         let first = firstName.trimmingCharacters(in: .whitespaces)
-        return first.isEmpty ? String(localized: "Welcome to masUNO.") : String(localized: "Welcome to masUNO, \(first).")
+        return first.isEmpty ? String.app("Welcome to masUNO.") : String.app("Welcome to masUNO, \(first).")
     }
 
     /// "Tec de Monterrey · school account", under "Verified student".
     var verifiedSchoolLine: String {
-        guard let school = selectedSchool ?? campus else { return String(localized: "School account") }
-        return String(localized: "\(school.name) · school account")
+        guard let school = selectedSchool ?? campus else { return String.app("School account") }
+        return String.app("\(school.name) · school account")
     }
 
     /// The name from the school's sign-in, if it gave one.
@@ -151,11 +156,11 @@ final class OnboardingViewModel {
 
     /// The rate limit on codes is per hour, so it says so; the chat's "too fast" wording doesn't fit here.
     private func inviteMessage(for error: DomainError) -> String {
-        error == .rateLimited ? String(localized: "Too many tries. Wait an hour and try again.") : message(for: error)
+        error == .rateLimited ? String.app("Too many tries. Wait an hour and try again.") : message(for: error)
     }
 
     var emailPlaceholder: String {
-        campus.map { "you@\($0.emailDomain)" } ?? String(localized: "School email")
+        campus.map { "you@\($0.emailDomain)" } ?? String.app("School email")
     }
 
     private var trimmedEmail: String { email.trimmingCharacters(in: .whitespaces).lowercased() }
@@ -163,21 +168,50 @@ final class OnboardingViewModel {
     /// Names the campus in the "not allowed" message when there's only one to name.
     private func message(for error: DomainError) -> String {
         if error == .emailNotAllowed, let campus {
-            return String(localized: "masUNO is just for \(campus.shortName) students right now. Use your \(campus.shortName) school account.")
+            return String.app("masUNO is just for \(campus.shortName) students right now. Use your \(campus.shortName) school account.")
         }
         return error.message
     }
 
-    var classYears: [Int] {
-        let year = Calendar.current.component(.year, from: .now)
-        return Array(year...(year + 6))
-    }
+    var classYears: [Int] { ProfileInput.classYears() }
 
     /// "Others see Emilio G. and your class year."
     var previewLine: String {
         let name = ProfileInput.previewName(first: firstName, last: lastName)
-        if name.isEmpty { return String(localized: "Others see your first name, last initial and class year.") }
-        return String(localized: "Others see \(name) and your class year.")
+        if name.isEmpty { return String.app("Others see your first name, last initial and class year.") }
+        return String.app("Others see \(name) and your class year.")
+    }
+
+    // MARK: Errors after a submit
+
+    /// Where VoiceOver goes after a failed submit on `step`: the first field with a problem, in
+    /// the order the step shows them. Each error shows on the field named here.
+    func firstInvalidField(on step: Step) -> Field? {
+        switch step {
+        case .signUp: signUpError != nil ? .email : passwordError != nil ? .password : nil
+        case .signIn: signInError != nil ? .password : nil
+        case .pending: inviteError != nil ? .inviteCode : nil
+        default: nil
+        }
+    }
+
+    /// The same on Make it yours, whose name error shows under both name fields.
+    var firstInvalidProfileField: ProfileInput.Field? {
+        if aboutError != nil {
+            return ProfileInput.nameProblem(firstName) == nil && ProfileInput.nameProblem(lastName) != nil ? .lastName : .firstName
+        }
+        return profileError != nil ? .interests : nil
+    }
+
+    /// What VoiceOver says after a failed submit on `step`, field or not.
+    func errorSummary(on step: Step) -> String? {
+        switch step {
+        case .signUp: signUpError ?? passwordError
+        case .signIn: signInError
+        case .pending: inviteError ?? pendingError
+        case .about: aboutError ?? profileError
+        default: nil
+        }
     }
 
     // MARK: Intents
@@ -228,7 +262,7 @@ final class OnboardingViewModel {
             } else if let campus = open.first {
                 await app.browseAsGuest(campus: campus, store: store)
             } else {
-                guestBrowseError = String(localized: "Browsing isn't open on any campus yet. Create an account to join the wait.")
+                guestBrowseError = String.app("Browsing isn't open on any campus yet. Create an account to join the wait.")
             }
         } catch {
             guestBrowseError = (error as? DomainError ?? .offline).message
@@ -381,13 +415,15 @@ final class OnboardingViewModel {
     /// Checks the name before anything goes to the server. Returns whether it's fine.
     private func validateName() -> Bool {
         for name in [firstName, lastName] {
-            if name.trimmingCharacters(in: .whitespaces).isEmpty {
-                aboutError = String(localized: "Add your first and last name.")
+            switch ProfileInput.nameProblem(name) {
+            case .missing:
+                aboutError = String.app("Add your first and last name.")
                 return false
-            }
-            if !TextFilter.isFriendly(name) {
+            case .unfriendly:
                 aboutError = TextFilter.message
                 return false
+            case nil:
+                continue
             }
         }
         aboutError = nil
@@ -395,7 +431,7 @@ final class OnboardingViewModel {
     }
 
     func toggle(_ sport: Activity) {
-        if interests.contains(sport) { interests.remove(sport) } else { interests.insert(sport) }
+        interests.toggle(sport)
     }
 
     /// **Let's play** on Make it yours: name, class year and at least one sport.
@@ -403,14 +439,15 @@ final class OnboardingViewModel {
         profileError = nil
         guard validateName() else { return }
         guard !interests.isEmpty else {
-            profileError = String(localized: "Pick at least one sport.")
+            profileError = String.app("Pick at least one.")
             return
         }
         let input = ProfileInput(
             firstName: firstName.trimmingCharacters(in: .whitespaces),
             lastName: lastName.trimmingCharacters(in: .whitespaces),
             gradYear: classYear,
-            interests: interests.sorted { $0.sortOrder < $1.sortOrder }
+            interests: interests.sorted { $0.sortOrder < $1.sortOrder },
+            locale: LanguageSettings.shared.language
         )
         await work {
             try await auth.completeProfile(input)

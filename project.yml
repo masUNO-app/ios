@@ -3,7 +3,7 @@ options:
   xcodeVersion: "27.2"
   bundleIdPrefix: com.masuno
   deploymentTarget:
-    iOS: "26.0"
+    iOS: "18.0"
   createIntermediateGroups: true
 packages:
   Supabase:
@@ -39,6 +39,8 @@ targets:
     info:
       path: MasUno/Info.plist
       properties:
+        CFBundleDevelopmentRegion: en
+        CFBundleLocalizations: [en, es]
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         # Lets "Open in Maps" offer Google Maps when it's installed (E19).
@@ -67,13 +69,35 @@ targets:
     configFiles:
       Debug: Config.xcconfig
       Release: Config.xcconfig
+    preBuildScripts:
+      - name: Verify archive backend configuration
+        basedOnDependencyAnalysis: false
+        showEnvVars: false
+        script: |
+          #!/bin/sh
+          # CI may compile with placeholders, but an archive must connect to a real backend.
+          if [ "${ACTION:-}" != "install" ]; then exit 0; fi
+          case "${SUPABASE_URL:-}" in
+            *YOUR-*|*"\$("* )
+              echo 'error: Archive requires a real Release SUPABASE_URL in Config.xcconfig.'
+              exit 1 ;;
+            https://?*) ;;
+            *)
+              echo 'error: Archive requires an HTTPS Release SUPABASE_URL in Config.xcconfig.'
+              exit 1 ;;
+          esac
+          case "${SUPABASE_ANON_KEY:-}" in
+            ''|*YOUR-*|*"\$("* )
+              echo 'error: Archive requires a real Release SUPABASE_ANON_KEY in Config.xcconfig.'
+              exit 1 ;;
+          esac
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.masuno.app
         DEVELOPMENT_TEAM: PU87MU4QAR # Boys & Girls Clubs of Chicago
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: masUNO
-        INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: "masUNO uses your location to show how far games are. It's never shared with other people."
+        INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: "masUNO uses your location to center the map and show how far plans are. It's only shared if you choose to post a plan at your current location."
         INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
@@ -84,7 +108,7 @@ targets:
         SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
         SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD: NO
         MARKETING_VERSION: "0.9"
-        CURRENT_PROJECT_VERSION: "1"
+        CURRENT_PROJECT_VERSION: "10"
         CODE_SIGN_STYLE: Automatic
         LOCALIZATION_PREFERS_STRING_CATALOGS: YES
         SWIFT_EMIT_LOC_STRINGS: YES
@@ -128,7 +152,7 @@ targets:
         SUPPORTED_PLATFORMS: "iphoneos iphonesimulator"
         SUPPORTS_MACCATALYST: NO
         MARKETING_VERSION: "0.9"
-        CURRENT_PROJECT_VERSION: "1"
+        CURRENT_PROJECT_VERSION: "10"
         CODE_SIGN_STYLE: Automatic
         SKIP_INSTALL: YES
   masUNOTests:
@@ -144,6 +168,20 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         TARGETED_DEVICE_FAMILY: "1"
         SUPPORTED_PLATFORMS: "iphoneos iphonesimulator"
+  masUNOUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: MasUnoUITests
+    dependencies:
+      - target: masUNO
+    settings:
+      base:
+        SWIFT_DEFAULT_ACTOR_ISOLATION: nonisolated
+        PRODUCT_BUNDLE_IDENTIFIER: com.masuno.app.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TARGETED_DEVICE_FAMILY: "1"
+        SUPPORTED_PLATFORMS: "iphoneos iphonesimulator"
 schemes:
   masUNO:
     build:
@@ -151,6 +189,7 @@ schemes:
         masUNO: all
         masUNONotifications: all
         masUNOTests: [test]
+        masUNOUITests: [test]
     run:
       config: Debug
       # Debug runs against masuno-dev (Debug keys in Config.xcconfig). Untick it in the scheme to run
@@ -161,6 +200,7 @@ schemes:
       config: Debug
       targets:
         - masUNOTests
+        - masUNOUITests
       # Unit tests stay on mocks: their host app never calls the backend.
       commandLineArguments:
         "-liveAuth NO": true

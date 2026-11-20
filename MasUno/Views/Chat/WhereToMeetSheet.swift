@@ -11,6 +11,7 @@ struct WhereToMeetSheet: View {
     @State private var errorMessage: String?
     @State private var isSaving = false
     @FocusState private var isFocused: Bool
+    @AccessibilityFocusState private var isErrorFocused: Bool
     private static let limit = GameDraft.meetPointLimit
 
     init(event: Game) {
@@ -27,33 +28,35 @@ struct WhereToMeetSheet: View {
                     subtitle: Text("Pinned at the top of the chat so nobody has to ask.")
                 ) { dismiss() }
 
-                FieldBox("Meet-up spot", error: errorMessage, isFocused: isFocused) {
-                    TextField("e.g. By the north court bleachers", text: $spot)
+                FieldBox(
+                    "Meet-up spot", text: $spot, prompt: Text("e.g. By the big tree outside the library"),
+                    error: errorMessage, isFocused: isFocused
+                ) { field in
+                    field
                         .focused($isFocused)
+                        .accessibilityFocused($isErrorFocused)
                         .submitLabel(.done)
                         .onChange(of: spot) { if spot.count > Self.limit { spot = String(spot.prefix(Self.limit)) } }
                 }
 
-                Text("To change the date, time or location, edit the game from Me › Hosting.")
+                Text("To change the date, time or location, edit the plan from Me › Hosting.")
                     .font(.rounded(.footnote))
                     .foregroundStyle(Theme.muted)
 
                 Button("Save") {
-                    guard TextFilter.isFriendly(spot) else {
-                        errorMessage = TextFilter.message
-                        return
-                    }
+                    guard TextFilter.isFriendly(spot) else { return showError(TextFilter.message) }
                     Task { await save() }
                 }
                 .disabled(isSaving)
                 .pill(.primary)
+                .keyboardShortcut(.defaultAction) // Return on a hardware keyboard (A11Y-20).
             }
             .padding(.horizontal, Theme.gutter)
             .padding(.top, 22)
             .padding(.bottom, 12)
         }
         .scrollBounceBehavior(.basedOnSize)
-        .sheetChrome(detents: [.height(330)])
+        .sheetChrome(detents: [.height(330), .large])
         .onAppear { isFocused = true }
     }
 
@@ -65,7 +68,15 @@ struct WhereToMeetSheet: View {
             try await store.updateMeetPoint(event.id, to: trimmed.isEmpty ? nil : trimmed)
             dismiss()
         } catch {
-            errorMessage = (error as? DomainError ?? .offline).message
+            guard !OperationCancellation.isCancellation(error) else { return }
+            showError((error as? DomainError ?? .offline).message)
         }
+    }
+
+    /// Under the field, and VoiceOver moves there and says it.
+    private func showError(_ message: String) {
+        errorMessage = message
+        isErrorFocused = true
+        Announce.post(message, priority: .high)
     }
 }

@@ -1,13 +1,14 @@
 import MapKit
 import SwiftUI
 
-/// Figma: "Add game · Choose location" (341:2646) — "Where's the game?". Search, use where you
+/// Figma: "Add game · Choose location" (341:2646) — "Where's it happening?". Search, use where you
 /// are, or drag the map under the pin; the bar at the bottom says where that is. Pushed inside
 /// the game form's sheet, so Back returns to the form.
 struct LocationPickerView: View {
     @Binding var place: Place?
     var sport: Activity
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var typeSize
     @State private var viewModel: LocationPickerViewModel
     @FocusState private var isSearchFocused: Bool
 
@@ -22,7 +23,7 @@ struct LocationPickerView: View {
             .overlay { pin }
             .overlay(alignment: .top) { searchPanel }
             .safeAreaInset(edge: .bottom, spacing: 0) { selectionBar }
-            .navigationTitle("Where's the game?")
+            .navigationTitle(String.app("Where's it happening?"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(.visible, for: .navigationBar)
             .dialog(isPresented: Binding(get: { viewModel.errorMessage != nil }, set: { if !$0 { viewModel.errorMessage = nil } })) {
@@ -33,7 +34,9 @@ struct LocationPickerView: View {
                     confirm: DialogAction("OK")
                 )
             }
+            .onDisappear { viewModel.cancelResolution() }
             .onAppear {
+                viewModel.resumeResolution()
                 #if DEBUG
                 if UserDefaults.standard.string(forKey: "screen") == "picker" {
                     viewModel.query = "Estadio"
@@ -52,7 +55,7 @@ struct LocationPickerView: View {
             .onMapCameraChange(frequency: .onEnd) { context in
                 Task { await viewModel.mapSettled(at: context.region.center) }
             }
-            .ignoresSafeArea(edges: .bottom)
+            // Stops at the bar, so the Maps mark and Legal sit just above it, not under it.
     }
 
     /// Fixed in the middle of the map, point down: the map moves under it.
@@ -62,9 +65,13 @@ struct LocationPickerView: View {
                 .font(.rounded(.footnote, .bold))
                 .foregroundStyle(Theme.ink)
                 .padding(.horizontal, 12)
-                .frame(height: 28)
+                .padding(.vertical, typeSize.isAccessibilitySize ? 4 : 0)
+                .frame(minHeight: 28)
                 .background(Theme.card, in: .capsule)
-                .shadow(color: Theme.ink.opacity(0.12), radius: 4, y: 2)
+                .shadow(color: Theme.shadowInk.opacity(0.12), radius: 4, y: 2)
+                // Capped like the map's other overlays (A11Y-06): the bar takes most of the screen
+                // at the largest sizes, and a bigger label would run into the search field.
+                .dynamicTypeSize(...EventMapView.overlayTypeCap)
             PinMarker(color: sport.color) {
                 Text(sport.emoji).font(.system(size: 24))
             }
@@ -82,8 +89,8 @@ struct LocationPickerView: View {
 
         return VStack(spacing: 10) {
             HStack(spacing: 10) {
-                Image(systemName: "magnifyingglass").foregroundStyle(Theme.muted)
-                TextField("Search for a court, field or address", text: $viewModel.query)
+                Image(systemName: "magnifyingglass").foregroundStyle(Theme.muted).accessibilityHidden(true)
+                TextField("Search for a place or address", text: $viewModel.query)
                     .font(.rounded(.body))
                     .focused($isSearchFocused)
                     .submitLabel(.search)
@@ -91,17 +98,15 @@ struct LocationPickerView: View {
                 if viewModel.isResolving {
                     ProgressView()
                 } else if !viewModel.query.isEmpty {
-                    Button("Clear search", systemImage: "xmark.circle.fill") { viewModel.query = "" }
-                        .labelStyle(.iconOnly)
-                        .foregroundStyle(Theme.muted.opacity(0.6))
-                        .buttonStyle(.plain)
+                    ClearFieldButton { viewModel.query = "" }
                 }
             }
             .padding(.horizontal, 16)
-            .frame(height: 48)
+            .padding(.vertical, typeSize.isAccessibilitySize ? 8 : 0)
+            .frame(minHeight: 48)
             .background(Theme.card, in: .capsule)
             .overlay(Capsule().strokeBorder(isSearchFocused ? Theme.accent : Theme.hairline, lineWidth: isSearchFocused ? 1.5 : 1))
-            .shadow(color: Theme.ink.opacity(0.08), radius: 6, y: 2)
+            .shadow(color: Theme.shadowInk.opacity(0.08), radius: 6, y: 2)
 
             if viewModel.showsSuggestions || isSearchFocused {
                 suggestionList
@@ -125,7 +130,7 @@ struct LocationPickerView: View {
         .background(Theme.card, in: .rect(cornerRadius: Theme.Radius.card))
         .clipShape(.rect(cornerRadius: Theme.Radius.card))
         .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card).strokeBorder(Theme.hairline))
-        .shadow(color: Theme.ink.opacity(0.1), radius: 10, y: 4)
+        .shadow(color: Theme.shadowInk.opacity(0.1), radius: 10, y: 4)
     }
 
     private var suggestionRows: some View {
@@ -134,7 +139,7 @@ struct LocationPickerView: View {
                 Task { await viewModel.useCurrentLocation() }
             }
             ForEach(viewModel.suggestions) { suggestion in
-                Theme.separator.frame(height: 1)
+                RowDivider()
                 row(title: Text(verbatim: suggestion.title), subtitle: suggestion.subtitle, systemImage: nil) {
                     Task { await viewModel.select(suggestion) }
                 }
@@ -161,16 +166,19 @@ struct LocationPickerView: View {
                 .foregroundStyle(Theme.ink)
                 .frame(width: 32, height: 32)
                 .background(Theme.accentSoft, in: .circle)
+                .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 1) {
                     title.font(.rounded(.callout, .bold)).foregroundStyle(Theme.ink)
                     if let subtitle, !subtitle.isEmpty {
                         Text(verbatim: subtitle).font(.rounded(.footnote)).foregroundStyle(Theme.muted)
                     }
                 }
-                .lineLimit(1)
+                // Wraps at accessibility sizes, where one line would cut most of it off (A11Y-06).
+                .lineLimit(typeSize.isAccessibilitySize ? nil : 1)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(.horizontal, 14)
+            .padding(.vertical, typeSize.isAccessibilitySize ? 8 : 0)
             .frame(minHeight: 60)
             .contentShape(.rect)
         }
@@ -181,25 +189,32 @@ struct LocationPickerView: View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
                 if let selection = viewModel.selection {
+                    // Long campus names get a second line instead of an ellipsis.
                     Text(verbatim: selection.name).font(.rounded(.headline, .bold)).foregroundStyle(Theme.ink)
+                        .lineLimit(typeSize.isAccessibilitySize ? nil : 2)
                     Text(verbatim: selection.address).font(.rounded(.footnote)).foregroundStyle(Theme.muted)
                 } else {
                     Text("No spot yet").font(.rounded(.headline, .bold)).foregroundStyle(Theme.ink)
                     Text("Search, or drag the map under the pin.").font(.rounded(.footnote)).foregroundStyle(Theme.muted)
                 }
             }
-            .lineLimit(1)
+            .lineLimit(typeSize.isAccessibilitySize ? nil : 1)
+            // The spot and its address in one stop (A11Y-13).
+            .accessibilityElement(children: .combine)
             Button("Set location") {
+                guard viewModel.canConfirm else { return }
                 place = viewModel.selection
                 dismiss()
             }
-            .disabled(viewModel.selection == nil)
+            .disabled(!viewModel.canConfirm)
             .pill(.primary)
+            .keyboardShortcut(.defaultAction) // Return on a hardware keyboard (A11Y-20).
         }
         .padding(.horizontal, Theme.gutter)
         .padding(.top, 18)
         .padding(.bottom, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.background, in: .rect(topLeadingRadius: Theme.Radius.sheet, topTrailingRadius: Theme.Radius.sheet))
+        // Anchored to the bottom edge, through the home indicator's strip.
+        .background(Theme.background.ignoresSafeArea(edges: .bottom))
     }
 }

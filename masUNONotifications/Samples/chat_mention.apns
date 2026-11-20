@@ -1,0 +1,37 @@
+{
+  "Simulator Target Bundle": "com.masuno.app",
+  "aps": {
+    "alert": {
+      "title": "Sunday pickup soccer",
+      "body": "Maya C. mentioned you: @Sam L. can you bring the ball?"
+    },
+    "sound": "default",
+    "thread-id": "chat:6f1c0000-0000-4000-8000-000000000001",
+    "target-content-id": "chat:6f1c0000-0000-4000-8000-000000000001",
+    "category": "CHAT",
+    "interruption-level": "active",
+    "relevance-score": 0.9,
+    "mutable-content": 1
+  },
+  "kind": "chat_message",
+  "mention": true,
+  "game_id": "6f1c0000-0000-4000-8000-000000000001",
+  "outbox_id": 12,
+  "game": {
+    "title": "Sunday pickup soccer",
+    "sport": "soccer"
+  },
+  "sender": {
+    "id": "a21b0000-0000-4000-8000-000000000002",
+    "name": "Maya C.",
+    "initials": "MC"
+  },
+  "others": [
+    {
+      "id": "c9d00000-0000-4000-8000-000000000003",
+      "name": "Nina P."
+    }
+  ],
+  "body": "Mentioned you: @Sam L. can you bring the ball?",
+  "count": 1
+}

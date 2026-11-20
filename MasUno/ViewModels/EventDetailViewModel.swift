@@ -28,18 +28,23 @@ final class EventDetailViewModel {
     func headline(for event: Game) -> String {
         switch event.status() {
         case .open: event.roomLine
-        case .going: String(localized: "You're in!")
+        case .going: String.app("You're in!")
         case .full: event.fullLine
-        case .hosting: String(localized: "Your game is live!")
-        case .ended: String(localized: "This game has ended")
+        case .hosting: String.app("Your plan is live!")
+        case .ended: String.app("This plan has wrapped")
         case .cancelled:
             event.isHostedByMe
-                ? String(localized: "You cancelled this game")
-                : String(localized: "\(event.host.firstName) cancelled this game")
+                ? String.app("You cancelled this plan")
+                : String.app("\(event.host.firstName) cancelled this plan")
         }
     }
 
-    /// "You're in!" and "Your game is live!" are the green ones.
+    /// Said when "Count me in" goes through, since only the headline's color and text change.
+    func joinAnnouncement(from old: GameStatus, to new: GameStatus, for event: Game) -> String? {
+        old == .open && new == .going ? headline(for: event) : nil
+    }
+
+    /// "You're in!" and "Your plan is live!" are the green ones.
     func isCelebrating(_ event: Game) -> Bool {
         [.going, .hosting].contains(event.status())
     }
@@ -49,20 +54,20 @@ final class EventDetailViewModel {
         switch event.status() {
         case .going:
             chatEnabled
-                ? String(localized: "\(event.host.firstName) knows you're coming. Say hi in the group chat, or just show up.")
+                ? String.app("\(event.host.firstName) knows you're coming. Say hi in the group chat, or just show up.")
                 // Read-only group chat (SPEC N14).
-                : String(localized: "\(event.host.firstName) knows you're coming. Check where to meet and who's going.")
+                : String.app("\(event.host.firstName) knows you're coming. Check where to meet and who's going.")
         case .hosting:
             event.isFull
-                ? String(localized: "Every spot is taken. See you on the court.")
-                : String(localized: "It's on the map now with \(event.roomPhrase).")
+                ? String.app("Every spot is taken. See you there.")
+                : String.app("It's on the map now with \(event.roomPhrase).")
         default: nil
         }
     }
 
     /// "Alex says" over the host's note; "You said" on your own game.
     func noteLabel(for event: Game) -> String {
-        event.isHostedByMe ? String(localized: "You said") : String(localized: "\(event.host.firstName) says")
+        event.isHostedByMe ? String.app("You said") : String.app("\(event.host.firstName) says")
     }
 
     // MARK: Intents
@@ -76,9 +81,9 @@ final class EventDetailViewModel {
     /// With an unused invite code of yours, it adds "Use my invite code ABCD-EFGH to skip the waitlist."
     /// so a friend still waiting can get in.
     static func inviteMessage(for event: Game, invites: [Invite] = []) -> String {
-        let message = String(localized: "Join me for \(event.title) — \(EventFormat.dayAndTime(event.startsAt)) at \(event.place.name). \(event.roomLine) on masUNO:")
+        let message = String.app("Join me for \(event.title) — \(EventFormat.dayAndTime(event.startsAt)) at \(event.place.name). \(event.roomLine) on masUNO:")
         guard let code = invites.first(where: { !$0.isUsed }) else { return message }
-        return message + " " + String(localized: "Use my invite code \(code.displayCode) to skip the waitlist.")
+        return message + " " + String.app("Use my invite code \(code.displayCode) to skip the waitlist.")
     }
 
     /// Walking directions. Offers Google Maps too when it's installed (E19).
@@ -104,8 +109,7 @@ final class EventDetailViewModel {
 
     func openInAppleMaps(_ event: Game) {
         let location = CLLocation(latitude: event.place.latitude, longitude: event.place.longitude)
-        let item = MKMapItem(location: location, address: nil)
-        item.name = event.place.name
+        let item = LocationService.mapItem(location: location, name: event.place.name)
         item.openInMaps(launchOptions: [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeWalking])
     }
 }

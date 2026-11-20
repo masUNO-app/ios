@@ -7,6 +7,8 @@ import Observation
 @Observable
 final class NotificationPrefQueue {
     private(set) var displayed: NotificationPrefs
+    /// Counts switch flips, so a read that started before one doesn't overwrite it.
+    private(set) var edits = 0
     private var accepted: NotificationPrefs
     private var chain: Task<Void, Never>?
     private var generations: [WritableKeyPath<NotificationPrefs, Bool>: Int] = [:]
@@ -28,6 +30,7 @@ final class NotificationPrefQueue {
         onFailure: @escaping @MainActor (DomainError) -> Void
     ) {
         displayed[keyPath: key] = value
+        edits += 1
         generations[key, default: 0] += 1
         let generation = generations[key]
         let changed = key

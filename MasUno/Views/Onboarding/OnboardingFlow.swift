@@ -11,6 +11,8 @@ struct OnboardingFlow: View {
     @Environment(AppViewModel.self) private var appViewModel
     @Environment(GameStore.self) private var store
     @State private var viewModel: OnboardingViewModel
+    /// Welcome's "masUNO": 44 pt at the default size, growing with Dynamic Type (A11Y-06).
+    @ScaledMetric(relativeTo: .largeTitle) private var wordmarkSize: CGFloat = 44
 
     init(auth: any AuthService, catalog: any AppConfigRepository, campus: University?) {
         _viewModel = State(initialValue: OnboardingViewModel(auth: auth, catalog: catalog, campus: campus))
@@ -70,7 +72,7 @@ struct OnboardingFlow: View {
         CourtPage(lineup: .welcome()) {
             VStack(alignment: .leading, spacing: 10) {
                 Text(verbatim: "masUNO")
-                    .font(.system(size: 44, weight: .bold, design: .rounded))
+                    .font(.system(size: wordmarkSize, weight: .bold, design: .rounded))
                     .foregroundStyle(Theme.ink)
                     .accessibilityAddTraits(.isHeader)
                 Text("We're looking for you.")
@@ -99,9 +101,11 @@ struct OnboardingFlow: View {
                         .foregroundStyle(Theme.error)
                         .multilineTextAlignment(.center)
                 }
-                Link("Privacy & Terms", destination: appViewModel.config.privacyURL)
-                    .font(.rounded(.footnote))
-                    .foregroundStyle(Theme.mutedLarge)
+                Link(destination: appViewModel.config.privacyURL) {
+                    Text("Privacy & Terms").buttonShapeUnderline()
+                }
+                .font(.rounded(.footnote))
+                .foregroundStyle(Theme.mutedLarge)
             }
         }
         .toolbar(.hidden, for: .navigationBar)
@@ -146,40 +150,58 @@ struct OnboardingFlow: View {
 private struct SignUpStep: View {
     @Bindable var viewModel: OnboardingViewModel
     @FocusState private var focus: Int?
+    @AccessibilityFocusState private var errorFocus: OnboardingViewModel.Field?
 
     var body: some View {
         OnboardingPage(title: "Create your account", message: viewModel.signUpMessage) {
-            FieldBox("School email", error: viewModel.signUpError, isFocused: focus == 0) {
-                TextField(viewModel.emailPlaceholder, text: $viewModel.email)
+            FieldBox(
+                "School email", text: $viewModel.email, prompt: Text(verbatim: viewModel.emailPlaceholder),
+                error: viewModel.signUpError, isFocused: focus == 0
+            ) { field in
+                field
                     .keyboardType(.emailAddress)
                     .textContentType(.username)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .focused($focus, equals: 0)
+                    .accessibilityFocused($errorFocus, equals: .email)
             }
-            FieldBox("Password", error: viewModel.passwordError, isFocused: focus == 1) {
-                SecureField("At least 8 characters", text: $viewModel.password)
+            FieldBox(
+                "Password", text: $viewModel.password, prompt: Text("At least 8 characters"),
+                error: viewModel.passwordError, isFocused: focus == 1, secure: true
+            ) { field in
+                field
                     .textContentType(.newPassword)
                     .focused($focus, equals: 1)
-                    .onSubmit { Task { await viewModel.submitSignUp() } }
+                    .accessibilityFocused($errorFocus, equals: .password)
+                    .onSubmit { submit() }
             }
-            FieldBox("Invite code (optional)", isFocused: focus == 2) {
-                TextField("ABCD-EFGH", text: $viewModel.inviteCode)
+            FieldBox("Invite code (optional)", text: $viewModel.inviteCode, prompt: Text("ABCD-EFGH"), isFocused: focus == 2) { field in
+                field
                     .textInputAutocapitalization(.characters)
                     .autocorrectionDisabled()
                     .focused($focus, equals: 2)
-                    .onSubmit { Task { await viewModel.submitSignUp() } }
+                    .onSubmit { submit() }
             }
             Text("Have a code from a friend? You'll skip the waitlist.")
                 .font(.rounded(.footnote))
                 .foregroundStyle(Theme.muted)
         } footer: {
             VStack(spacing: 10) {
-                WorkingButton("Create account", isWorking: viewModel.isWorking) { Task { await viewModel.submitSignUp() } }
+                WorkingButton("Create account", isWorking: viewModel.isWorking) { submit() }
                     .disabled(viewModel.email.isEmpty || viewModel.password.isEmpty)
                 Button("I already have an account") { viewModel.path = [.signIn] }
                     .pill(.quiet)
             }
+        }
+    }
+
+    /// On a problem, VoiceOver moves to the field and says what's wrong.
+    private func submit() {
+        Task {
+            await viewModel.submitSignUp()
+            if let field = viewModel.firstInvalidField(on: .signUp) { errorFocus = field }
+            if let summary = viewModel.errorSummary(on: .signUp) { Announce.post(summary, priority: .high) }
         }
     }
 }
@@ -189,36 +211,56 @@ private struct SignInStep: View {
     @Environment(AppViewModel.self) private var appViewModel
     @Bindable var viewModel: OnboardingViewModel
     @FocusState private var focus: Int?
+    @AccessibilityFocusState private var errorFocus: OnboardingViewModel.Field?
 
     var body: some View {
         OnboardingPage(title: "Sign in", message: "Welcome back. Use the email and password you signed up with.") {
-            FieldBox("Email", isFocused: focus == 0) {
-                TextField(viewModel.emailPlaceholder, text: $viewModel.email)
+            FieldBox("Email", text: $viewModel.email, prompt: Text(verbatim: viewModel.emailPlaceholder), isFocused: focus == 0) { field in
+                field
                     .keyboardType(.emailAddress)
                     .textContentType(.username)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .focused($focus, equals: 0)
             }
-            FieldBox("Password", error: viewModel.signInError, isFocused: focus == 1) {
-                SecureField("Password", text: $viewModel.password)
+            FieldBox(
+                "Password", text: $viewModel.password, prompt: Text("Password"),
+                error: viewModel.signInError, isFocused: focus == 1, secure: true
+            ) { field in
+                field
                     .textContentType(.password)
                     .focused($focus, equals: 1)
-                    .onSubmit { Task { await viewModel.submitSignIn() } }
+                    .accessibilityFocused($errorFocus, equals: .password)
+                    .onSubmit { submit() }
             }
             // No reset email yet: the team resets a password by hand.
             if let mail = appViewModel.config.supportMailURL {
-                Link("Forgot your password? Contact us", destination: mail)
-                    .font(.rounded(.footnote))
-                    .foregroundStyle(Theme.mutedLarge)
+                Link(destination: mail) {
+                    Text("Forgot your password? Contact us")
+                        .buttonShapeUnderline()
+                        .tapTarget(.vertical, 15)
+                }
+                .font(.rounded(.footnote))
+                .foregroundStyle(Theme.mutedLarge)
+                // 44 pt tall to tap, in the same place: the 16 pt gaps above and below take it (A11Y-19).
+                .padding(.vertical, -15)
             }
         } footer: {
             VStack(spacing: 10) {
-                WorkingButton("Sign in", isWorking: viewModel.isWorking) { Task { await viewModel.submitSignIn() } }
+                WorkingButton("Sign in", isWorking: viewModel.isWorking) { submit() }
                     .disabled(viewModel.email.isEmpty || viewModel.password.isEmpty)
                 Button("Create an account") { viewModel.path = [.signUp] }
                     .pill(.quiet)
             }
+        }
+    }
+
+    /// On a problem, VoiceOver moves to the field and says what's wrong.
+    private func submit() {
+        Task {
+            await viewModel.submitSignIn()
+            if let field = viewModel.firstInvalidField(on: .signIn) { errorFocus = field }
+            if let summary = viewModel.errorSummary(on: .signIn) { Announce.post(summary, priority: .high) }
         }
     }
 }
@@ -230,6 +272,7 @@ private struct PendingStep: View {
     @Environment(PushNotificationService.self) private var push
     @Bindable var viewModel: OnboardingViewModel
     @FocusState private var isCodeFocused: Bool
+    @AccessibilityFocusState private var errorFocus: OnboardingViewModel.Field?
 
     var body: some View {
         OnboardingPage(
@@ -241,7 +284,7 @@ private struct PendingStep: View {
                 Label {
                     Text("#\(position) in line")
                 } icon: {
-                    Image(systemName: "person.3.fill")
+                    Image(systemName: "person.3.fill").accessibilityHidden(true)
                 }
                 .labelStyle(IconRowLabelStyle(iconWidth: 24, spacing: 10))
                 .font(.rounded(.title3, .bold))
@@ -249,16 +292,23 @@ private struct PendingStep: View {
                 .padding(.horizontal, 18)
                 .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
                 .background(Theme.accentSoft, in: .rect(cornerRadius: Theme.Radius.card))
+                // "#12" can be read as "pound 12".
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(Text("Number \(position) in line"))
             }
 
-            FieldBox("Invite code", error: viewModel.inviteError, isFocused: isCodeFocused) {
-                TextField("ABCD-EFGH", text: $viewModel.inviteCode)
+            FieldBox(
+                "Invite code", text: $viewModel.inviteCode, prompt: Text("ABCD-EFGH"),
+                error: viewModel.inviteError, isFocused: isCodeFocused
+            ) { field in
+                field
                     .textInputAutocapitalization(.characters)
                     .autocorrectionDisabled()
                     .focused($isCodeFocused)
-                    .onSubmit { Task { await viewModel.redeemInviteWhileWaiting() } }
+                    .accessibilityFocused($errorFocus, equals: .inviteCode)
+                    .onSubmit { redeem() }
             }
-            Button("Use invite code") { Task { await viewModel.redeemInviteWhileWaiting() } }
+            Button("Use invite code") { redeem() }
                 .pill(.secondary)
                 .disabled(Invite.normalized(viewModel.inviteCode).isEmpty || viewModel.isWorking)
 
@@ -273,7 +323,7 @@ private struct PendingStep: View {
                     Button("Want a heads-up when you're in?") { Task { await push.requestPermission() } }
                         .pill(.primary)
                 }
-                WorkingButton("Check again", isWorking: viewModel.isWorking) { Task { await viewModel.checkApproval() } }
+                WorkingButton("Check again", isWorking: viewModel.isWorking) { checkAgain() }
                 Button("Sign out") { Task { await viewModel.signOutWhilePending() } }
                     .pill(.quiet)
             }
@@ -285,6 +335,23 @@ private struct PendingStep: View {
                 await viewModel.checkApproval(quietly: true)
                 await viewModel.loadWaitlistPosition()
             }
+        }
+    }
+
+    /// On a refused code, VoiceOver moves to the field and says why.
+    private func redeem() {
+        Task {
+            await viewModel.redeemInviteWhileWaiting()
+            if let field = viewModel.firstInvalidField(on: .pending) { errorFocus = field }
+            if let summary = viewModel.errorSummary(on: .pending) { Announce.post(summary, priority: .high) }
+        }
+    }
+
+    /// Only this check's own error: an earlier refused code stays on its field.
+    private func checkAgain() {
+        Task {
+            await viewModel.checkApproval()
+            if let error = viewModel.pendingError { Announce.post(error, priority: .high) }
         }
     }
 }
@@ -303,8 +370,8 @@ private struct FindSchoolStep: View {
             } else if viewModel.isLoadingSchools {
                 ProgressView().frame(maxWidth: .infinity).padding(.vertical, 24)
             } else {
-                FieldBox("Search schools") {
-                    TextField("Search your school", text: $viewModel.schoolSearch)
+                FieldBox("Search schools", text: $viewModel.schoolSearch, prompt: Text("Search your school")) { field in
+                    field
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                 }
@@ -362,14 +429,12 @@ struct SchoolRow: View {
                     Text(verbatim: school.emailDomain).font(.rounded(.footnote)).foregroundStyle(Theme.muted)
                 }
                 Spacer(minLength: 4)
-                Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(Theme.muted.opacity(0.6))
+                RowAccessory()
             }
             .padding(.horizontal, 14)
             .frame(minHeight: 66)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(isSelected ? Theme.accentSoft.opacity(0.6) : .clear)
+            .background { if isSelected { Theme.accentSoft.contrastOpacity(0.6) } }
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
@@ -380,6 +445,7 @@ struct SchoolRow: View {
 /// Figma "You're verified!": you, on the court, and what happens next.
 private struct VerifiedStep: View {
     var viewModel: OnboardingViewModel
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
         CourtPage(lineup: .welcome(includesYou: true)) {
@@ -391,7 +457,7 @@ private struct VerifiedStep: View {
                 Text(verbatim: viewModel.verifiedWelcome)
                     .font(.rounded(.title3))
                     .foregroundStyle(Theme.mutedLarge)
-                Text("Next, tell us what you play so the right games show up first.")
+                Text("Next, tell us what you're into so the right plans show up first.")
                     .font(.rounded(.subheadline, .bold))
                     .foregroundStyle(Theme.mutedLarge)
 
@@ -404,12 +470,13 @@ private struct VerifiedStep: View {
                             .background(Theme.accentSoft, in: .rect(cornerRadius: Theme.Radius.tile))
                     }
                     if let name = viewModel.verifiedName {
-                        row(title: Text(verbatim: name), subtitle: String(localized: "Others only see your first name and last initial")) {
+                        row(title: Text(verbatim: name), subtitle: String.app("Others only see your first name and last initial")) {
                             Text(verbatim: PersonToken.initials(of: name))
                                 .font(.rounded(size: 13))
                                 .foregroundStyle(Theme.ink)
                                 .frame(width: 36, height: 36)
                                 .background(Theme.you, in: .rect(cornerRadius: Theme.Radius.tile))
+                                .inkOnColor()
                         }
                     }
                 }
@@ -436,11 +503,13 @@ private struct VerifiedStep: View {
                 title.font(.rounded(.body)).foregroundStyle(Theme.ink)
                 Text(verbatim: subtitle).font(.rounded(.footnote)).foregroundStyle(Theme.muted)
             }
-            .lineLimit(1)
-            .minimumScaleFactor(0.8)
+            // Wraps at accessibility sizes instead of shrinking, which would undo the size (A11Y-06).
+            .lineLimit(typeSize.isAccessibilitySize ? nil : 1)
+            .minimumScaleFactor(typeSize.isAccessibilitySize ? 1 : 0.8)
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 14)
+        .padding(.vertical, typeSize.isAccessibilitySize ? 8 : 0)
         .frame(minHeight: 58)
         .accessibilityElement(children: .combine)
     }
@@ -449,11 +518,12 @@ private struct VerifiedStep: View {
 /// Figma "Make it yours": your token, name, class year and what you play, on one screen.
 private struct ProfileStep: View {
     @Bindable var viewModel: OnboardingViewModel
+    @AccessibilityFocusState private var errorFocus: ProfileInput.Field?
 
     var body: some View {
         OnboardingPage(title: "Make it yours", message: nil) {
             MeToken(name: "\(viewModel.firstName) \(viewModel.lastName)", size: 80, ring: 4)
-                .shadow(color: Theme.ink.opacity(0.08), radius: 6, y: 2)
+                .shadow(color: Theme.shadowInk.opacity(0.08), radius: 6, y: 2)
 
             Text(verbatim: viewModel.previewLine)
                 .font(.rounded(.subheadline))
@@ -461,15 +531,17 @@ private struct ProfileStep: View {
 
             ProfileFields(
                 firstName: $viewModel.firstName, lastName: $viewModel.lastName, classYear: $viewModel.classYear,
-                classYears: viewModel.classYears
+                classYears: viewModel.classYears,
+                errorFocus: $errorFocus
             )
             if let error = viewModel.aboutError {
                 Text(verbatim: error).font(.rounded(.caption)).foregroundStyle(Theme.error)
             }
 
-            Text("What do you play?")
+            Text("What are you into?")
                 .font(.rounded(.callout, .bold))
                 .foregroundStyle(Theme.ink)
+                .accessibilityAddTraits(.isHeader)
                 .padding(.top, 4)
             FlowLayout(spacing: 8) {
                 ForEach(Activity.builtIn.filter(\.interestSelectable)) { sport in
@@ -478,13 +550,23 @@ private struct ProfileStep: View {
             }
             if let error = viewModel.profileError {
                 Text(verbatim: error).font(.rounded(.caption)).foregroundStyle(Theme.error)
+                    .accessibilityFocused($errorFocus, equals: .interests)
             } else {
                 Text("Pick as many as you like. We'll show these first.")
                     .font(.rounded(.footnote))
                     .foregroundStyle(Theme.muted)
             }
         } footer: {
-            WorkingButton("Let's play", isWorking: viewModel.isWorking) { Task { await viewModel.submitProfile() } }
+            WorkingButton("Let's go", isWorking: viewModel.isWorking) { submit() }
+        }
+    }
+
+    /// On a problem, VoiceOver moves to it and says what's wrong.
+    private func submit() {
+        Task {
+            await viewModel.submitProfile()
+            if let field = viewModel.firstInvalidProfileField { errorFocus = field }
+            if let summary = viewModel.errorSummary(on: .about) { Announce.post(summary, priority: .high) }
         }
     }
 }
@@ -496,13 +578,13 @@ private struct GuidelinesStep: View {
     var body: some View {
         OnboardingPage(
             systemImage: "checkmark.shield",
-            title: "Before you play",
-            message: "masUNO works because people show up and play fair."
+            title: "Before you go",
+            message: "masUNO works because people show up and play nice."
         ) {
             CommunityRules()
                 .padding(18)
                 .cardSurface()
-            SafetyNote(text: "You can report or block anyone from a game's Who's going list.")
+            SafetyNote(text: "You can report or block anyone from a plan's Who's going list.")
             if let error = viewModel.guidelinesError {
                 Text(verbatim: error).font(.rounded(.caption)).foregroundStyle(Theme.error)
             }
@@ -522,6 +604,7 @@ struct OnboardingPage<Content: View, Footer: View>: View {
     var message: LocalizedStringKey?
     @ViewBuilder var content: Content
     @ViewBuilder var footer: Footer
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     init(
         systemImage: String? = nil, title: LocalizedStringKey, message: LocalizedStringKey?,
@@ -558,6 +641,9 @@ struct OnboardingPage<Content: View, Footer: View>: View {
                     }
                 }
                 content
+                // At accessibility sizes a pinned footer would cover half the screen, so the
+                // buttons come after the text instead (A11Y-06).
+                if typeSize.isAccessibilitySize { footer.padding(.top, 8) }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, Theme.gutter)
@@ -568,12 +654,14 @@ struct OnboardingPage<Content: View, Footer: View>: View {
         .scrollDismissesKeyboard(.interactively)
         .background(Theme.background)
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            footer
-                .padding(.horizontal, Theme.gutter)
-                .padding(.top, 10)
-                .padding(.bottom, 8)
-                .readableColumn()
-                .background(Theme.background)
+            if !typeSize.isAccessibilitySize {
+                footer
+                    .padding(.horizontal, Theme.gutter)
+                    .padding(.top, 10)
+                    .padding(.bottom, 8)
+                    .readableColumn()
+                    .background(Theme.background)
+            }
         }
     }
 }
@@ -585,10 +673,19 @@ private struct CourtPage<Content: View, Footer: View>: View {
     @ViewBuilder var content: Content
     @ViewBuilder var footer: Footer
 
+    @Environment(\.dynamicTypeSize) private var typeSize
+
     var body: some View {
-        CourtScaffold(activity: Activity.builtIn[0], lineup: lineup, capacity: 6) { content }
-            .scrollBounceBehavior(.basedOnSize)
-            .safeAreaInset(edge: .bottom, spacing: 0) {
+        CourtScaffold(activity: Activity.builtIn[0], lineup: lineup, capacity: 6) {
+            VStack(alignment: .leading, spacing: 0) {
+                content
+                // After the text at accessibility sizes, as on `OnboardingPage` (A11Y-06).
+                if typeSize.isAccessibilitySize { footer.padding(.top, 18) }
+            }
+        }
+        .scrollBounceBehavior(.basedOnSize)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if !typeSize.isAccessibilitySize {
                 footer
                     .padding(.horizontal, Theme.gutter)
                     .padding(.top, 10)
@@ -596,27 +693,6 @@ private struct CourtPage<Content: View, Footer: View>: View {
                     .readableColumn()
                     .background(Theme.background)
             }
-    }
-}
-
-/// The green pill, with a spinner while a request is out.
-struct WorkingButton: View {
-    var title: LocalizedStringKey
-    var isWorking = false
-    var action: () -> Void
-
-    init(_ title: LocalizedStringKey, isWorking: Bool = false, action: @escaping () -> Void) {
-        self.title = title
-        self.isWorking = isWorking
-        self.action = action
-    }
-
-    var body: some View {
-        Button(action: action) {
-            if isWorking { ProgressView().tint(Theme.onAccent) } else { Text(title) }
         }
-        // The steps are tinted ink for the back button; this stays green.
-        .pill(.primary)
-        .disabled(isWorking)
     }
 }

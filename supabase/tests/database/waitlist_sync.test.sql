@@ -111,8 +111,9 @@ select ok((select source = 'website' and requested_at = '2026-11-08T10:00:00Z' f
     'and keeps its website request and time');
 select is((select convert_from(body, 'utf8')::jsonb ->> 'content' from net.http_request_queue
            where url = 'https://discord.example/api/webhooks/test' order by id desc limit 1),
-    E'New sign-up waiting for approval: wendy@tec.mx\nApprove: `select private.approve_signup(''wendy@tec.mx'');`\nReject: `select private.reject_signup(''wendy@tec.mx'');`\nRun one in the Supabase SQL editor.',
-    'the team gets the approval alert now there''s an account');
+    format(E'New sign-up waiting for approval: w•••@tec.mx\nApprove: `select private.approve_signup(email) from private.signup_requests where id = %L;`\nReject: `select private.reject_signup(email) from private.signup_requests where id = %L;`\nRun one in the Supabase SQL editor.',
+           (pg_temp.request('wendy@tec.mx')).id, (pg_temp.request('wendy@tec.mx')).id),
+    'the team gets the approval alert now there''s an account, without her email');
 create temp table q2 on commit drop as select pg_temp.queued() as n;
 select public.before_user_created('{"user":{"email":"anton@tec.mx","app_metadata":{"provider":"email"}}}');
 select is(pg_temp.queued() - (select n from q2), 0::bigint, 'an app request that''s already waiting isn''t alerted twice');

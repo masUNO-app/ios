@@ -6,36 +6,36 @@ extension Game {
     /// guest, who isn't shown the host.
     var hostLine: String {
         if hidesPeople { return activity.name }
-        let host = isHostedByMe ? String(localized: "you") : host.displayName
-        return String(localized: "\(activity.name) · Hosted by \(host)")
+        let host = isHostedByMe ? String.app("you") : host.displayName
+        return String.app("\(activity.name) · Hosted by \(host)")
     }
 
     /// "Room for 4 more", "Room for one more", "Full".
     var roomLine: String {
-        if isFull { return String(localized: "Full") }
-        return spotsLeft == 1 ? String(localized: "Room for one more") : String(localized: "Room for \(spotsLeft) more")
+        if isFull { return String.app("Full") }
+        return spotsLeft == 1 ? String.app("Room for one more") : String.app("Room for \(spotsLeft) more")
     }
 
-    /// The same, for the middle of a line: "room for 4 more", "room for one more", "game is full".
+    /// The same, for the middle of a line: "room for 4 more", "room for one more", "it's full".
     var roomPhrase: String {
-        if isFull { return String(localized: "game is full") }
-        return spotsLeft == 1 ? String(localized: "room for one more") : String(localized: "room for \(spotsLeft) more")
+        if isFull { return String.app("it's full") }
+        return spotsLeft == 1 ? String.app("room for one more") : String.app("room for \(spotsLeft) more")
     }
 
     /// The popup and Saved: "Room for 4 more", or "A spot just opened · room for 1" after a repost.
     func discoverLine(now: Date = .now) -> String {
         guard isBumped(now: now), !isFull else { return roomLine }
-        return String(localized: "A spot just opened · room for \(spotsLeft)")
+        return String.app("A spot just opened · room for \(spotsLeft)")
     }
 
     /// Me › Going: "You're in · room for 3 more".
     var goingLine: String {
-        String(localized: "You're in · \(roomPhrase)")
+        String.app("You're in · \(roomPhrase)")
     }
 
     /// Me › Hosting: "3 joined · room for 6 more". The host isn't counted as having joined.
     var hostingLine: String {
-        String(localized: "\(joinedCount) joined · \(roomPhrase)")
+        String.app("\(joinedCount) joined · \(roomPhrase)")
     }
 
     /// Everyone going except the host.
@@ -43,18 +43,18 @@ extension Game {
 
     /// Me › Going, cancelled: "Cancelled by Alex". A guest isn't shown who cancelled.
     var cancelledLine: String {
-        if isHostedByMe { return String(localized: "You cancelled this game") }
-        return hidesPeople ? String(localized: "This game was cancelled.") : String(localized: "Cancelled by \(host.firstName)")
+        if isHostedByMe { return String.app("You cancelled this plan") }
+        return hidesPeople ? String.app("This plan was cancelled.") : String.app("Cancelled by \(host.firstName)")
     }
 
     /// Me › Earlier: "You played · 10 showed up".
     var playedLine: String {
-        String(localized: "You played · \(goingCount) showed up")
+        String.app("You went · \(goingCount) showed up")
     }
 
     /// Game details, full: "Game's full · 6 of 6".
     var fullLine: String {
-        String(localized: "Game's full · \(goingCount) of \(capacity)")
+        String.app("It's full · \(goingCount) of \(capacity)")
     }
 }
 

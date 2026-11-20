@@ -256,6 +256,34 @@ nonisolated enum CourtLayout {
     }
 }
 
+extension EnvironmentValues {
+    @Entry var courtDecorationVisible = true
+    @Entry var courtDecorationRuns = true
+}
+
+/// Keep looping decoration local to a visible, active court. Event-driven join celebrations
+/// retain their own Reduce Motion behavior and are not driven by a per-frame timer.
+private struct CourtMotionPolicy: ViewModifier {
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.courtDecorationVisible) private var courtVisible
+    @State private var isVisible = false
+    @State private var lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
+
+    func body(content: Content) -> some View {
+        content
+            .environment(\.courtDecorationRuns, isVisible && courtVisible && scenePhase == .active && !reduceMotion && !lowPower)
+            .onAppear {
+                lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
+                isVisible = true
+            }
+            .onDisappear { isVisible = false }
+            .onReceive(NotificationCenter.default.publisher(for: .NSProcessInfoPowerStateDidChange)) { _ in
+                lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
+            }
+    }
+}
+
 /// The full-bleed header on game details (SPEC §7.7.3): the court in the sport's color, with
 /// everyone going standing on it and a "+1" on every open spot. People shift their weight while
 /// they wait and open spots pulse, as on the website; when you take a spot you pop in and the
@@ -270,6 +298,8 @@ struct CourtHeader: View {
     var holdsYou = false
     /// Off once a game is over or cancelled: nobody's being invited any more.
     var showsOpenSpots = true
+    /// What a tap does, for VoiceOver: a guest gets the account prompt instead of the list.
+    var tapHint: LocalizedStringKey = "Shows who's going"
     var onTap: () -> Void = {}
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -305,6 +335,7 @@ struct CourtHeader: View {
         }
         .frame(height: Self.designHeight * scale)
         .background(activity.color)
+        .inkOnColor()
         .clipped()
         .contentShape(.rect)
         .onTapGesture(perform: onTap)
@@ -315,10 +346,13 @@ struct CourtHeader: View {
             try? await Task.sleep(for: .milliseconds(300))
             isSettled = true
         }
+        .modifier(CourtMotionPolicy())
         .accessibilityElement()
         .accessibilityLabel(Text(verbatim: lineup.accessibilityLabel))
         .accessibilityAddTraits(.isButton)
-        .accessibilityHint("Shows who's going")
+        .accessibilityHint(tapHint)
+        // Its own action rather than a simulated tap on the middle of the court (A11Y-20).
+        .accessibilityAction { onTap() }
     }
 
     /// One spot on the court. People keep their identity as others come and go, and an open
@@ -387,7 +421,7 @@ struct CourtHeader: View {
                 .modifier(Hop(trigger: cheers, delay: Double(place.slot) * 0.07, height: 14 * scale))
                 .modifier(Idle(slot: place.slot, scale: scale))
         case .open:
-            OpenSpotToken(size: size, fill: .white.opacity(0.38), isLive: true)
+            OpenSpotToken(size: size, fillOpacity: 0.38, isLive: true)
                 .background { Ping(slot: place.slot) }
                 .transition(.scale(scale: 0.5).combined(with: .opacity))
         }
@@ -402,8 +436,8 @@ struct CourtHeader: View {
 
 /// Shifting your weight while you wait, as on the website: a slow 5 pt bob every 5.5 s, each
 /// spot 1.1 s behind the one before, plus a faint sway on a longer beat so it doesn't look
-/// mechanical. Repeating animations rather than a per-frame timeline, so an idle court costs
-/// nothing to keep on screen.
+/// mechanical. Scoped repeating animations still consume rendering resources, so the court
+/// pauses them when inactive, covered, or in Low Power Mode.
 ///
 /// A repeating animation replays whatever it picks up, forever, so these loops (here, `Ping`
 /// and the turning ring) each animate one unitless value (a 0…1 phase, a scale factor, an
@@ -414,12 +448,13 @@ private struct Idle: ViewModifier {
     var slot: Int
     var scale: CGFloat
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.courtDecorationRuns) private var decorationRuns
 
     func body(content: Content) -> some View {
         let lag = Double(slot % 5) * 1.1
         content
-            .modifier(Drift(distance: -5 * scale, duration: 2.75, lag: lag, axis: .vertical, paused: reduceMotion))
-            .modifier(Drift(distance: 1.5 * scale, duration: 3.9, lag: lag * 0.7, axis: .horizontal, paused: reduceMotion))
+            .modifier(Drift(distance: -5 * scale, duration: 2.75, lag: lag, axis: .vertical, paused: reduceMotion || !decorationRuns))
+            .modifier(Drift(distance: 1.5 * scale, duration: 3.9, lag: lag * 0.7, axis: .horizontal, paused: reduceMotion || !decorationRuns))
     }
 }
 
@@ -517,6 +552,7 @@ private struct Burst: ViewModifier {
 private struct Ping: View {
     var slot: Int
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.courtDecorationRuns) private var decorationRuns
     @State private var isOut = false
 
     var body: some View {
@@ -526,7 +562,9 @@ private struct Ping: View {
             .animation(isOut ? .easeOut(duration: 2.6).repeatForever(autoreverses: false).delay(Double(slot % 4) * 0.45) : nil) {
                 $0.scaleEffect(isOut ? 1.6 : 1).opacity(isOut ? 0 : 0.7)
             }
-            .onAppear { isOut = !reduceMotion }
-            .onChange(of: reduceMotion) { isOut = !reduceMotion }
+            .onAppear { isOut = !reduceMotion && decorationRuns }
+            .onDisappear { isOut = false }
+            .onChange(of: reduceMotion) { isOut = !reduceMotion && decorationRuns }
+            .onChange(of: decorationRuns) { isOut = !reduceMotion && decorationRuns }
     }
 }

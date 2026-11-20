@@ -3,6 +3,7 @@ import UIKit
 
 /// The person and sport colors, as values, so the app and the notification extension draw the same
 /// avatars. Order matches `SportStyle`: person5, person1, person3, person4, person7, person6, person2.
+/// They're the same in dark mode, with ink on them, so the rendered images need no dark versions.
 nonisolated enum AvatarPalette {
     nonisolated struct RGB: Sendable {
         var red: Double

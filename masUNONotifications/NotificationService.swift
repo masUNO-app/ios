@@ -67,10 +67,11 @@ nonisolated final class NotificationService: UNNotificationServiceExtension {
                 isMe: false
             )
         }
+        let message = payload.communicationBody(fallback: content.body)
         let intent = INSendMessageIntent(
             recipients: [me] + others,
             outgoingMessageType: .outgoingMessageText,
-            content: payload.body ?? content.body,
+            content: message,
             speakableGroupName: INSpeakableString(spokenPhrase: game.title),
             conversationIdentifier: gameID.uuidString,
             serviceName: nil,
@@ -78,11 +79,17 @@ nonisolated final class NotificationService: UNNotificationServiceExtension {
             attachments: nil
         )
         intent.setImage(INImage(imageData: AvatarRenderer.sport(slug: game.sport)), forParameterNamed: \.speakableGroupName)
+        // A mention (iOS 15 and later, so every supported version).
+        if let metadata = payload.donationMetadata(recipients: 1 + others.count) { intent.donationMetadata = metadata }
         let interaction = INInteraction(intent: intent, response: nil)
         interaction.direction = .incoming
         do {
             try await interaction.donate()
-            return try content.updating(from: intent)
+            // updating(from:) adds the sender header, but retains the APNs alert body.
+            // Remove its sender prefix first, leaving the original fallback intact.
+            guard let communication = content.mutableCopy() as? UNMutableNotificationContent else { return content }
+            communication.body = message
+            return try communication.updating(from: intent)
         } catch {
             return content
         }

@@ -14,6 +14,7 @@ final class PushNotificationService {
     @ObservationIgnored private let games: any GameRepository
     @ObservationIgnored private let chat: any ChatRepository
     @ObservationIgnored private let defaults: UserDefaults
+    @ObservationIgnored private let system: any NotificationSystemClient
     @ObservationIgnored private let logger = Logger(subsystem: "com.masuno.app", category: "Push")
     @ObservationIgnored private var token: String?
     @ObservationIgnored private var lastUploaded: Date?
@@ -37,29 +38,32 @@ final class PushNotificationService {
 
     init(
         repository: any NotificationRepository, games: any GameRepository, chat: any ChatRepository,
-        defaults: UserDefaults = .standard
+        defaults: UserDefaults = .standard,
+        system: any NotificationSystemClient = LiveNotificationSystemClient()
     ) {
         self.repository = repository
         self.games = games
         self.chat = chat
         self.defaults = defaults
+        self.system = system
         token = defaults.string(forKey: Self.tokenKey)
     }
 
     /// Categories exist before the person allows notifications, so a later push already has actions.
     func registerCategories() {
         let reply = UNTextInputNotificationAction(
-            identifier: Self.reply, title: "Reply", options: [], textInputButtonTitle: "Send", textInputPlaceholder: "Message"
+            identifier: Self.reply, title: String.app("Reply"), options: [],
+            textInputButtonTitle: String.app("Send"), textInputPlaceholder: String.app("Message")
         )
-        let markRead = UNNotificationAction(identifier: Self.markRead, title: "Mark as read", options: [])
+        let markRead = UNNotificationAction(identifier: Self.markRead, title: String.app("Mark as read"), options: [])
         let chat = UNNotificationCategory(identifier: "CHAT", actions: [reply, markRead], intentIdentifiers: [INSendMessageIntentIdentifier], options: [])
-        let countMeIn = UNNotificationAction(identifier: Self.countMeIn, title: "Count me in", options: [.authenticationRequired])
+        let countMeIn = UNNotificationAction(identifier: Self.countMeIn, title: String.app("Count me in"), options: [.authenticationRequired])
         let joinCategories = ["SPOT_OPEN", "INTEREST", "SAVED_SOON"].map {
             UNNotificationCategory(identifier: $0, actions: [countMeIn], intentIdentifiers: [], options: [])
         }
-        let directions = UNNotificationAction(identifier: Self.directions, title: "Directions", options: [.foreground])
+        let directions = UNNotificationAction(identifier: Self.directions, title: String.app("Directions"), options: [.foreground])
         let reminder = UNNotificationCategory(identifier: "REMINDER", actions: [directions], intentIdentifiers: [], options: [])
-        UNUserNotificationCenter.current().setNotificationCategories(Set([chat, reminder] + joinCategories))
+        system.setCategories(Set([chat, reminder] + joinCategories))
     }
 
     /// Asks iOS, then requests a device token when they allow it.
@@ -67,9 +71,9 @@ final class PushNotificationService {
     @discardableResult
     func requestPermission() async -> Bool {
         do {
-            let granted = try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge])
+            let granted = try await system.requestAuthorization()
             await refreshAuthorization()
-            if granted { UIApplication.shared.registerForRemoteNotifications() }
+            if granted { system.registerForRemoteNotifications() }
             return granted
         } catch {
             logger.error("Permission request failed: \(error.localizedDescription, privacy: .public)")
@@ -78,8 +82,7 @@ final class PushNotificationService {
     }
 
     func refreshAuthorization() async {
-        let settings = await UNUserNotificationCenter.current().notificationSettings()
-        authorizationStatus = settings.authorizationStatus
+        authorizationStatus = await system.authorizationStatus()
     }
 
     /// Launch always uploads. Foreground uploads when the last one was more than an hour ago.
@@ -88,7 +91,7 @@ final class PushNotificationService {
         await refreshAuthorization()
         switch authorizationStatus {
         case .authorized, .provisional, .ephemeral:
-            UIApplication.shared.registerForRemoteNotifications()
+            system.registerForRemoteNotifications()
         default:
             break
         }
@@ -153,17 +156,37 @@ final class PushNotificationService {
         lastUploaded = nil
     }
 
+    /// The signed-in account's notification settings as last read or saved, so a new Settings screen
+    /// opens with them instead of a spinner. In memory only, and any account change drops them:
+    /// `accountGeneration` moves on every sign-in, sign-out and deletion.
+    @ObservationIgnored private var knownPrefs: (generation: Int, prefs: NotificationPrefs)?
+
+    var lastKnownPrefs: NotificationPrefs? {
+        guard let knownPrefs, knownPrefs.generation == accountGeneration else { return nil }
+        return knownPrefs.prefs
+    }
+
     func fetchPrefs() async throws -> NotificationPrefs {
-        try await repository.fetchPrefs()
+        let generation = accountGeneration
+        let prefs = try await repository.fetchPrefs()
+        if generation == accountGeneration { knownPrefs = (generation, prefs) }
+        return prefs
     }
 
     func setPrefs(_ prefs: NotificationPrefs) async throws {
+        let generation = accountGeneration
         try await repository.setPrefs(prefs)
+        if generation == accountGeneration { knownPrefs = (generation, prefs) }
     }
 
     /// The primer's tips switch. Does not rewrite the other flags.
     func setWinback(_ on: Bool) async throws {
+        let generation = accountGeneration
         try await repository.setWinback(on)
+        if generation == accountGeneration, var prefs = lastKnownPrefs {
+            prefs.winback = on
+            knownPrefs = (generation, prefs)
+        }
     }
 
     /// Hide a banner for the chat or game already on screen. Everything else shows.
@@ -183,6 +206,8 @@ final class PushNotificationService {
     /// A tap or a long-press action. Runs with the stored session.
     func handle(action: String, payload: NotificationPayload?, reply: String?) async {
         guard let payload else { return }
+        // Navigation must not wait for analytics (or a network timeout).
+        if action == UNNotificationDefaultActionIdentifier { deliver(payload.routeURL()) }
         if let outboxID = payload.outboxID {
             do {
                 try await repository.markOpened(outboxID)
@@ -191,6 +216,8 @@ final class PushNotificationService {
             }
         }
         switch action {
+        case UNNotificationDefaultActionIdentifier:
+            break
         case Self.reply:
             await sendReply(reply, in: payload)
         case Self.markRead:
@@ -212,8 +239,10 @@ final class PushNotificationService {
     }
 
     /// Removes delivered notifications for one thread, such as `game:<id>` or `chat:<id>`.
-    static func clearDelivered(thread: String) {
-        UNUserNotificationCenter.current().getDeliveredNotifications { notifications in
+    nonisolated static func clearDelivered(thread: String) {
+        // UserNotifications invokes this on its own queue. A main-actor-inherited
+        // completion traps when opening a game or chat under Swift 6 isolation checks.
+        UNUserNotificationCenter.current().getDeliveredNotifications { @Sendable notifications in
             let identifiers = notifications
                 .filter { $0.request.content.threadIdentifier == thread }
                 .map(\.request.identifier)
@@ -256,7 +285,7 @@ final class PushNotificationService {
     }
 
     private func uploadNow(_ token: String, generation: Int) async {
-        let locale = Locale.preferredLanguages.first ?? "en"
+        let locale = LanguageSettings.shared.language
         do {
             try await repository.registerDevice(
                 token: token, environment: Self.environment, locale: locale, appVersion: AppConfig.currentVersion
@@ -298,12 +327,12 @@ final class PushNotificationService {
 
     private func announceSpotTaken() async {
         let content = UNMutableNotificationContent()
-        content.title = "Someone beat you to it"
-        content.body = "That game just filled up."
+        content.title = String.app("Someone beat you to it")
+        content.body = String.app("That plan just filled up.")
         content.sound = .default
         let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
         do {
-            try await UNUserNotificationCenter.current().add(request)
+            try await system.add(request)
         } catch {
             logger.error("Couldn't post the full-game notice: \(error.localizedDescription, privacy: .public)")
         }
@@ -312,8 +341,9 @@ final class PushNotificationService {
     @MainActor
     private func openDirections(_ payload: NotificationPayload) {
         guard let place = payload.place else { return }
-        let item = MKMapItem(location: CLLocation(latitude: place.lat, longitude: place.lng), address: nil)
-        item.name = place.name
+        let item = LocationService.mapItem(
+            location: CLLocation(latitude: place.lat, longitude: place.lng), name: place.name
+        )
         item.openInMaps(launchOptions: [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeWalking])
         deliver(payload.routeURL())
     }

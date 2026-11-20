@@ -14,9 +14,9 @@ final class EventMapViewModel {
 
         var label: String {
             switch self {
-            case .anyTime: String(localized: "Any day this week")
-            case .today: String(localized: "Today, any time")
-            case .tomorrow: String(localized: "Tomorrow, any time")
+            case .anyTime: String.app("Any day this week")
+            case .today: String.app("Today, any time")
+            case .tomorrow: String.app("Tomorrow, any time")
             }
         }
     }
@@ -29,9 +29,9 @@ final class EventMapViewModel {
 
         var label: String {
             switch self {
-            case .anywhere: String(localized: "Any distance")
-            case .walking: String(localized: "Walking distance · 20 min")
-            case .biking: String(localized: "Biking distance · 20 min")
+            case .anywhere: String.app("Any distance")
+            case .walking: String.app("Walking distance · 20 min")
+            case .biking: String.app("Biking distance · 20 min")
             }
         }
 
@@ -72,25 +72,77 @@ final class EventMapViewModel {
 
     // MARK: Queries
 
+    /// Everything the map draws for one render, computed once.
+    struct MapFrame {
+        /// Joinable games, before search and filters.
+        let open: [Game]
+        /// After search and filters: the pins, the chip and the search list.
+        let filtered: [Game]
+        /// Pins as drawn, in drawing order.
+        let groups: [PinGroup]
+        /// Single pins whose faces to load, selection first.
+        let attendeeDemand: [Game]
+    }
+
+    /// One pass over the store for a whole render of the map, rather than one per use. Not kept
+    /// between renders, so it can't outlive its inputs.
+    func frame(in store: GameStore, now: Date, mapSize: CGSize) -> MapFrame {
+        let open = store.mapGames(now: now)
+        let filtered = filter(open, now: now)
+        let groups = group(order(filtered, now: now), mapSize: mapSize)
+        return MapFrame(open: open, filtered: filtered, groups: groups, attendeeDemand: attendeePreview(from: groups))
+    }
+
     /// Games you can actually join: not cancelled, ended or full (SPEC §7.6.1), that match the
     /// search and the filters.
     func mapEvents(in store: GameStore, now: Date = .now) -> [Game] {
-        store.mapGames(now: now).filter { matchesSearch($0) && matchesFilter($0, now: now) }
+        filter(store.mapGames(now: now), now: now)
     }
 
     /// Pins in drawing order: MapKit draws later annotations on top, so bumped games go last.
     func pinOrder(in store: GameStore, now: Date = .now) -> [Game] {
-        let games = mapEvents(in: store, now: now)
-        return games.filter { !$0.isBumped(now: now) } + games.filter { $0.isBumped(now: now) }
+        order(mapEvents(in: store, now: now), now: now)
+    }
+
+    /// Pins as drawn: games close enough to cover each other at this zoom share one group pin.
+    /// The selected game always keeps its own, for its popup.
+    func pinGroups(in store: GameStore, now: Date = .now, mapSize: CGSize) -> [PinGroup] {
+        group(pinOrder(in: store, now: now), mapSize: mapSize)
+    }
+
+    /// Face previews are only used by single pins. The settled region avoids starting/cancelling
+    /// requests on every camera frame; selection is always first even during a programmatic pan.
+    func attendeePreviewGames(in store: GameStore, now: Date = .now, mapSize: CGSize) -> [Game] {
+        attendeePreview(from: pinGroups(in: store, now: now, mapSize: mapSize))
+    }
+
+    /// The search list: games with a spot that just opened first, then the soonest.
+    func searchResults(in store: GameStore, now: Date = .now) -> [Game] {
+        searchResults(from: mapEvents(in: store, now: now), now: now)
+    }
+
+    /// `games` in search-list order. Each game's key is worked out once rather than in every
+    /// comparison, and positions are sorted rather than games, which are large to move. `sorted`
+    /// is stable, so ties keep their order.
+    func searchResults(from games: [Game], now: Date) -> [Game] {
+        let keys = games.map { ($0.isBumped(now: now) ? 0 : 1, $0.startsAt) }
+        return games.indices.sorted { keys[$0] < keys[$1] }.map { games[$0] }
+    }
+
+    /// Bumped games last, otherwise in the order given.
+    private func order(_ games: [Game], now: Date) -> [Game] {
+        var calm: [Game] = [], bumped: [Game] = []
+        for game in games {
+            if game.isBumped(now: now) { bumped.append(game) } else { calm.append(game) }
+        }
+        return calm + bumped
     }
 
     /// Pins closer than this on screen cover most of each other's head, so they share a pin.
     private static let overlap = CGSize(width: 40, height: 48)
 
-    /// Pins as drawn: games close enough to cover each other at this zoom share one group pin.
-    /// The selected game always keeps its own, for its popup.
-    func pinGroups(in store: GameStore, now: Date = .now, mapSize: CGSize) -> [PinGroup] {
-        let games = pinOrder(in: store, now: now)
+    /// Groups pins already in drawing order.
+    private func group(_ games: [Game], mapSize: CGSize) -> [PinGroup] {
         guard let span = settledSpan, mapSize.width > 0, mapSize.height > 0 else {
             return games.map { PinGroup(games: [$0]) }
         }
@@ -114,25 +166,36 @@ final class EventMapViewModel {
         return groups
     }
 
-    /// The search list: games with a spot that just opened first, then the soonest.
-    func searchResults(in store: GameStore, now: Date = .now) -> [Game] {
-        mapEvents(in: store, now: now).sorted {
-            ($0.isBumped(now: now) ? 0 : 1, $0.startsAt) < ($1.isBumped(now: now) ? 0 : 1, $1.startsAt)
+    private func attendeePreview(from groups: [PinGroup]) -> [Game] {
+        let singles = groups
+            .filter { $0.games.count == 1 }
+            .compactMap { $0.games.first }
+        let selected = singles.first { $0.id == selectedID }
+        let visible = singles.filter { game in
+            game.id != selectedID && (settledRegion?.contains(game.coordinate) ?? false)
         }
+        return selected.map { [$0] + visible } ?? visible
     }
 
-    /// "Basketball near you" when every result is one sport; otherwise "Games near you".
+    /// "Basketball near you" when every result is one sport; otherwise "Plans near you".
     func resultsTitle(for results: [Game]) -> String {
         let sports = Set(results.map(\.activity))
-        if sports.count == 1, let sport = sports.first { return String(localized: "\(sport.name) near you") }
-        return String(localized: "Games near you")
+        if sports.count == 1, let sport = sports.first { return String.app("\(sport.name) near you") }
+        return String.app("Plans near you")
+    }
+
+    /// What VoiceOver says when the results change: "Basketball near you, 3 games", or
+    /// "No plans match that search".
+    func resultsAnnouncement(for results: [Game]) -> String {
+        guard !results.isEmpty else { return String.app("No plans match that search") }
+        return resultsTitle(for: results) + ", " + String.app("\(results.count) plans")
     }
 
     /// "Today, 7:35 PM · 0.4 km · room for 4". The distance is left out when there's nowhere to measure from.
     func resultLine(for game: Game) -> String {
         var parts = [EventFormat.shortDayAndTime(game.startsAt)]
         if let origin = userCoordinate { parts.append(EventFormat.distance(from: origin, to: game.coordinate)) }
-        parts.append(String(localized: "room for \(game.spotsLeft)"))
+        parts.append(String.app("room for \(game.spotsLeft)"))
         return parts.joined(separator: " · ")
     }
 
@@ -142,7 +205,7 @@ final class EventMapViewModel {
     }
 
     var filterLabel: String {
-        activeFilterCount == 0 ? String(localized: "Filter") : String(localized: "Filter · \(activeFilterCount)")
+        activeFilterCount == 0 ? String.app("Filter") : String.app("Filter · \(activeFilterCount)")
     }
 
     /// Where you are, if the phone has said: the mocked spot in design review, otherwise the last fix.
@@ -217,7 +280,7 @@ final class EventMapViewModel {
             center.longitude -= shift.dx * span.longitudeDelta / mapSize.width
             center.latitude += shift.dy * span.latitudeDelta / mapSize.height
         }
-        withAnimation(.smooth) { position = .region(MKCoordinateRegion(center: center, span: span)) }
+        withAnimation(.cameraMove) { position = .region(MKCoordinateRegion(center: center, span: span)) }
     }
 
     /// How far to move a pin at `pin` so its popup, centered above it, lands inside `area`:
@@ -237,9 +300,11 @@ final class EventMapViewModel {
     /// Zoom the pins were last grouped at. Only updated once the camera stops, so pins don't
     /// merge and split while you pinch.
     private var settledSpan: MKCoordinateSpan?
+    private var settledRegion: MKCoordinateRegion?
 
     func cameraSettled(on region: MKCoordinateRegion) {
         settledSpan = region.span
+        settledRegion = region
     }
 
     /// Tracks the visible region and closes the popup once its pin leaves the screen.
@@ -271,20 +336,15 @@ final class EventMapViewModel {
     func locate() async {
         guard LocationService.mockCoordinate == nil else { return }
         do {
-            for try await update in CLLocationUpdate.liveUpdates() {
-                if Task.isCancelled { return }
-                if update.authorizationDenied || update.authorizationDeniedGlobally {
-                    isLocationDenied = true
-                    return
-                }
-                guard let location = update.location else { continue }
-                isLocationDenied = false
-                lastFix = location.coordinate
-                centerIfNeeded()
-                return
-            }
+            let location = try await LocationService.currentLocation()
+            try Task.checkCancellation()
+            isLocationDenied = false
+            lastFix = location.coordinate
+            centerIfNeeded()
+        } catch LocationService.Failure.denied {
+            isLocationDenied = true
         } catch {
-            // No fix: the map just stays where it is.
+            // No timely fix: the map stays on campus and remains usable.
         }
     }
 
@@ -311,11 +371,7 @@ final class EventMapViewModel {
     }
 
     func toggleSport(_ sport: Activity) {
-        if sportFilter.contains(sport) {
-            sportFilter.remove(sport)
-        } else {
-            sportFilter.insert(sport)
-        }
+        sportFilter.toggle(sport)
     }
 
     /// Filter games › Reset.
@@ -335,7 +391,7 @@ final class EventMapViewModel {
             latitudeDelta: min(region.span.latitudeDelta * 3, 1.5),
             longitudeDelta: min(region.span.longitudeDelta * 3, 1.5)
         )
-        withAnimation(.smooth) { position = .region(MKCoordinateRegion(center: region.center, span: span)) }
+        withAnimation(.cameraMove) { position = .region(MKCoordinateRegion(center: region.center, span: span)) }
     }
 
     #if DEBUG
@@ -357,6 +413,8 @@ final class EventMapViewModel {
         let id: UUID? = switch UserDefaults.standard.string(forKey: "screen") {
         case "popup", "guest-popup": MockFixtures.GameID.open
         case "popup-saved": MockFixtures.GameID.lastSpot
+        // Auto-repost: the game a player just left, back at the top with "A spot just opened".
+        case "popup-bumped": MockFixtures.GameID.bumped
         default: nil
         }
         guard let id else { return }
@@ -382,28 +440,44 @@ final class EventMapViewModel {
 
     // MARK: Filtering
 
-    /// Title, sport, place or host first name.
-    private func matchesSearch(_ event: Game) -> Bool {
+    /// Search and filters. What doesn't change from game to game (the trimmed query, tomorrow,
+    /// where distance is measured from) is worked out once per pass.
+    func filter(_ games: [Game], now: Date) -> [Game] {
         let query = searchText.trimmingCharacters(in: .whitespaces)
-        guard !query.isEmpty else { return true }
-        return [event.title, event.activity.name, event.place.name, event.host.firstName]
+        let calendar = Calendar.current
+        // Nil means no game is tomorrow, as when the date can't be worked out.
+        let tomorrow = whenFilter == .tomorrow ? calendar.date(byAdding: .day, value: 1, to: now) : nil
+        let limit = distanceFilter.meters
+        // No origin means distance can't be measured, so it doesn't filter.
+        let origin = limit == nil ? nil : (userCoordinate ?? campus?.center).map {
+            CLLocation(latitude: $0.latitude, longitude: $0.longitude)
+        }
+        return games.filter { event in
+            (query.isEmpty || matchesSearch(event, query: query))
+                && matchesFilter(event, now: now, calendar: calendar, tomorrow: tomorrow, limit: limit, origin: origin)
+        }
+    }
+
+    /// Title, sport, place or host first name.
+    private func matchesSearch(_ event: Game, query: String) -> Bool {
+        [event.title, event.activity.name, event.place.name, event.host.firstName]
             .contains { $0.localizedCaseInsensitiveContains(query) }
     }
 
-    private func matchesFilter(_ event: Game, now: Date) -> Bool {
+    private func matchesFilter(
+        _ event: Game, now: Date, calendar: Calendar, tomorrow: Date?, limit: CLLocationDistance?, origin: CLLocation?
+    ) -> Bool {
         guard sportFilter.isEmpty || sportFilter.contains(event.activity) else { return false }
         if startingSoonOnly, !event.isSoon(now: now) { return false }
         switch whenFilter {
         case .anyTime: break
-        case .today: if !Calendar.current.isDate(event.startsAt, inSameDayAs: now) { return false }
+        case .today: if !calendar.isDate(event.startsAt, inSameDayAs: now) { return false }
         case .tomorrow:
-            guard let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: now),
-                  Calendar.current.isDate(event.startsAt, inSameDayAs: tomorrow) else { return false }
+            guard let tomorrow, calendar.isDate(event.startsAt, inSameDayAs: tomorrow) else { return false }
         }
-        if let limit = distanceFilter.meters, let origin = userCoordinate ?? campus?.center {
-            let here = CLLocation(latitude: origin.latitude, longitude: origin.longitude)
+        if let limit, let origin {
             let there = CLLocation(latitude: event.place.latitude, longitude: event.place.longitude)
-            if here.distance(from: there) > limit { return false }
+            if origin.distance(from: there) > limit { return false }
         }
         return true
     }

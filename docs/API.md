@@ -27,12 +27,12 @@ An RPC fails with `raise exception '<code>'`, so PostgREST returns the code as `
 | Code | `DomainError` | Meaning |
 | --- | --- | --- |
 | `not_authenticated` | `.notAuthenticated` | No valid session. Any RPC. |
-| `suspended` | `.suspended` | `banned_at` is set. Any write RPC. The app shows the suspended screen. |
+| `suspended` | `.suspended` | `banned_at` is set. Any write RPC. The app shows the suspended screen. Reads return no rows except `my_profile` and your own blocks, bookmarks and preferences. |
 | `pending_approval` | `.pendingApproval` | The account signed up with a password and the team hasn't approved it yet (N36). Any write RPC, including `complete_profile`. The app shows "We're checking your account". |
 | `full` | `.full` | No spots left. |
 | `cancelled` | `.cancelled` | The game is cancelled. |
 | `ended` | `.ended` | The game has ended. |
-| `blocked` | `.blocked` | The host or someone going is in a blocked pair with you. |
+| `blocked` | `.blocked` | Someone going is someone you blocked. Never because someone going blocked you: that would tell you where they'll be. A host in a blocked pair either way is `not_found`. |
 | `not_found` | `.notFound` | No such game, or a block hides it from you. |
 | `not_allowed` | `.notAllowed` | You aren't the host, or the host tried to leave. |
 | `limit_reached` | `.limitReached` | Already hosting 3 upcoming games. |
@@ -148,7 +148,7 @@ them and game RPCs return them. RLS hides games whose host is in a blocked pair 
 | `sort_at` | `timestamptz` | `coalesce(reposted_at, created_at)`; used for ordering |
 | `my_role` | `text?` (`host`, `player`) | `myRole` |
 | `my_joined_at` | `timestamptz?` | `myJoinedAt` |
-| `has_blocked_attendee` | `bool` | `hasBlockedAttendee` |
+| `has_blocked_attendee` | `bool` | `hasBlockedAttendee`. Only someone *you* blocked; false when someone going blocked you |
 | `my_chat_muted` | `bool` | `chatMuted` |
 | `is_bookmarked` | `bool` | `isBookmarked` |
 | `spot_alert` | `bool` | `spotAlert` |
@@ -165,7 +165,7 @@ How `GameRepository` reads it:
 ### `game_attendees` → `Attendee`
 
 `event_id`, `user_id`, `first_name`, `last_initial`, `grad_year`, `role`, `joined_at`, `is_beta_tester` (1.0;
-missing on an older server, read as `false`). Excludes anyone in a blocked pair with the reader. `going_count` still counts them.
+missing on an older server, read as `false`). Excludes anyone in a blocked pair with the reader. `going_count` still counts hidden peers in another host’s game. A host/player block removes the player from active games and frees the spot.
 `fetchAttendees` orders host first, then by `joined_at`.
 
 ### `game_activity` → `GameActivityEntry`
@@ -174,7 +174,8 @@ A view over an append-only table the RPCs write to (`private.game_activity`): `l
 `rsvps` row, and one `material_change_at` can't tell a meet-up edit from a time change. Only people in the
 game can read its rows. System rows for group chat: `id`, `event_id`, `kind`, `actor_id?`, `actor_first_name?`,
 `actor_last_initial?`, `actor_grad_year?`, `at`. Oldest first. Actor columns are null for a deleted
-account or a blocked pair. `kind` is one of `created`, `joined`, `left`, `meet_point_updated`,
+account. Rows from an actor in a blocked pair are omitted entirely, including from the underlying
+activity table, so anonymous rows cannot disclose their attendance. `kind` is one of `created`, `joined`, `left`, `meet_point_updated`,
 `time_or_place_changed`, `cancelled`.
 
 ### `my_profile` → `Profile`
@@ -220,7 +221,13 @@ Rules the signatures don't show:
 - **`cancel_game`** is a soft cancel. Calling it on a game that's already cancelled returns the row.
 - **`report`** takes exactly one of `p_user_id` and `p_game_id`. `p_reason` is one of `harassment`,
   `inappropriate`, `spam`, `unsafe`, `other`.
-- **`block`** returns `invalid_input` for yourself or an unknown user; blocking twice is a no-op.
+- **`block`** returns `invalid_input` for yourself or an unknown user. In either block direction,
+  the player is removed from upcoming/in-progress games hosted by the other person; host RSVPs
+  and historical attendance remain intact. Counts, reopened spots and auto-repost reconcile in
+  the same transaction. Existing block pairs are repaired by migration `20261121000000`.
+  Repeating the call does not decrement counts again. **`unblock`** never rejoins removed games.
+  Both operations emit a campus invalidation without actor/game IDs. Clients reload cached
+  games, attendees, activity and chat pages; in-flight responses cannot restore revoked content.
 
 ## Group chat (0.6)
 
@@ -233,13 +240,17 @@ missing, the app shows the read-only chat with no composer, and `send_message` a
 ### `game_messages` → `ChatMessage`
 
 `id`, `event_id`, `sender_id`, `sender_first_name`, `sender_last_initial`, `sender_grad_year`, `body`,
-`client_id`, `created_at`. Only people in the game can read its rows, and leaving the game closes it.
-Messages from a sender in a blocked pair with the reader, and messages a moderator hid, are left out.
+`client_id`, `created_at`, `mentions uuid[]` (1.0, `20261123000000_chat_mentions`; `ChatMessage.mentions`).
+Only people in the game can read its rows, and leaving the game closes it. Messages from a sender in a
+blocked pair with the reader, and messages a moderator hid, are left out. `mentions` is the people the
+message mentions, in the order the sender picked them, minus anyone in a blocked pair with the reader;
+`[]` when there are none. The app finds each one's "@First L." in `body` to highlight it. Older builds
+ignore the column.
 
 | Method | PostgREST query |
 | --- | --- |
-| `fetchMessages(before:limit:)` | `event_id=eq.<id>&order=created_at.desc&limit=50`, plus `created_at=lte.<oldest>` for an older page |
-| `fetchMessages(since:)` | `event_id=eq.<id>&created_at=gte.<newest − 5 s>&order=created_at` |
+| `fetchMessages(before:limit:)` | `event_id=eq.<id>&order=created_at.desc,id.desc&limit=50`; older pages use strict `(created_at,id) < (oldest timestamp,oldest id)` |
+| `fetchMessages(since:)` | `event_id=eq.<id>&created_at=gte.<newest − 5 s>&order=created_at.asc,id.asc`; fetch 200-row pages using a strict composite cursor until exhausted |
 
 ### `chat_unread`
 
@@ -250,7 +261,7 @@ chat. Games with none have no row.
 
 | RPC | Returns | Errors |
 | --- | --- | --- |
-| `send_message(p_game_id uuid, p_body text, p_client_id uuid)` | `game_messages` | `not_found`, `not_allowed`, `chat_disabled`, `cancelled`, `ended`, `chat_rules_required`, `invalid_text`, `rate_limited`, `invalid_input` |
+| `send_message(p_game_id uuid, p_body text, p_client_id uuid, p_mentions uuid[] default '{}')` | `game_messages` | `not_found`, `not_allowed`, `chat_disabled`, `cancelled`, `ended`, `chat_rules_required`, `invalid_text`, `rate_limited`, `invalid_input` |
 | `accept_chat_rules()` | `void` | — |
 | `mark_chat_read(p_game_id uuid)` | `void` | — |
 | `report_message(p_message_id uuid, p_reason text, p_note text)` | `void` | `invalid_input` |
@@ -259,6 +270,14 @@ chat. Games with none have no row.
   one that ended more than 24 hours ago (`ended`). The body is trimmed and goes through the same text filter
   as titles, which also refuses links; the limit is 1000 characters. `p_client_id` is the app's own ID for the
   send: sending it again returns the first message, so a retry never posts twice.
+- **`p_mentions`** (1.0) is the people the message mentions. It replaces the three-argument function,
+  and its default keeps calls from older builds working. The server looks at the first 50 IDs and
+  keeps, once each and at most 10, those that are a current member (host or going), not the sender,
+  not in a blocked pair with the sender, and whose "@First L." is in the trimmed body. Others are
+  dropped without an error. The app sends `p_mentions` only when there are some, so a message without
+  mentions still sends to a server before the migration. Each mention notifies that person even with
+  chat notifications off or the game muted (`NOTIF.md` §3.5). `@everyone` and `@here` are still
+  `invalid_text`.
 - **`mark_chat_read`** does nothing if you aren't in the game.
 - **`report_message`** files a report against the sender with the message text copied in. You can't report
   your own message or one you can't see. Reasons are the same as `report`.
@@ -433,7 +452,7 @@ ship off, the same way chat does.
 
 | RPC | Returns | Errors |
 | --- | --- | --- |
-| `register_device(p_token text, p_environment text, p_locale text, p_app_version text)` | `void` | `invalid_input`, `not_authenticated` |
+| `register_device(p_token text, p_environment text, p_locale text, p_app_version text, p_install_id text?)` | `void` | `invalid_input`, `not_authenticated` |
 | `unregister_device(p_token text)` | `void` | `not_authenticated` |
 | `set_notification_prefs(p_interest_match bool, p_spot_open bool, p_reminders bool, p_hosting bool, p_chat bool, p_winback bool)` | `notification_prefs` | `invalid_input`, `pending_approval`, `not_authenticated` |
 | `set_winback(p_on bool)` | `notification_prefs` | `invalid_input`, `pending_approval`, `not_authenticated` |
@@ -442,6 +461,11 @@ ship off, the same way chat does.
 | `import_bookmarks(p_ids uuid[], p_alert_ids uuid[])` | `void` | `pending_approval` |
 | `set_chat_muted(p_game_id uuid, p_muted bool)` | `void` | `invalid_input`, `not_allowed` |
 | `notification_opened(p_outbox_id bigint)` | `void` | `not_authenticated` |
+
+`p_install_id` is a random secret the app keeps per install. A token moves to another account only when
+the install that registered it asks; otherwise the call changes nothing for that token. For legacy
+rows without a binding, only the existing account can set one when upgrading. Builds that do not
+send it can still refresh their own tokens; sign-out unregisters before another account registers.
 
 `notification_prefs` columns are the flags above, all defaulting on except `winback`. Cancellations,
 changes and approval are not preferences: they always send. `bookmarks.notify` is the spot alert.
@@ -455,3 +479,18 @@ and keeps reports without the reporter.
 `send-push`: `POST` with the service-role key and no body. The cron job calls it. `204` when nothing
 is due, otherwise it claims a batch and delivers it to APNs. `401` for any other role. `500` when
 APNs isn't configured, and those rows are released so the attempt isn't burned.
+
+### Build 2 chat and delivery amendments
+
+`ChatMessageCursor` carries the original server timestamp text and UUID. Preserve server
+microseconds in page filters; a timestamp converted through `Date` and a millisecond formatter
+can overlap or skip rows. Equal timestamps advance using UUID order on both adapters. Realtime
+updates additionally expose connected/disconnected state; these are transport state, not messages.
+
+The push sender uses service-role-only `claim_notifications_v2(p_limit integer default 100)`
+and `complete_notifications_v2(p_results jsonb)`. Claims retain the legacy snapshot fields and
+add `claim_token uuid`. Every result includes `id`, `claim_token`, `outcome` (`sent`, `retry`,
+`release`, `drop`), plus optional `error`/`drop_tokens`. Completion locks the current row and
+compares the token before changing outcome or deleting tokens. Missing/stale tokens are no-ops.
+Legacy RPCs remain during rollout. Deploy migration 17 before the v2 sender; retain gateway JWT
+verification. No new client database permission is granted.

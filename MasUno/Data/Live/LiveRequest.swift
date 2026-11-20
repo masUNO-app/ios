@@ -3,9 +3,16 @@ import Supabase
 
 /// Runs one PostgREST call and translates what goes wrong into a `DomainError` (`docs/API.md`, Errors).
 /// Every live repository goes through this, so screens only ever see `DomainError`.
-func liveRequest<Value>(_ body: () async throws -> Value) async throws -> Value {
+/// Keep the caller's isolation explicit across compiler versions: the closure does not need
+/// to be sent to another actor just to translate its errors.
+func liveRequest<Value>(
+    isolation: isolated (any Actor)? = #isolation,
+    _ body: () async throws -> Value
+) async throws -> Value {
     do {
         return try await body()
+    } catch let error where OperationCancellation.isCancellation(error) {
+        throw error
     } catch let error as DomainError {
         throw error
     } catch let error as PostgrestError {
