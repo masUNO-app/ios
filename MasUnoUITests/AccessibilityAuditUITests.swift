@@ -29,10 +29,13 @@ final class AccessibilityAuditUITests: XCTestCase {
 
     /// Contrast only, at the default size, with the app forced dark (`-appearance dark`). Its known
     /// issues are listed under the screen's name with a "dark-" in front, since the light list's
-    /// reasons (ratios, glass) don't carry over.
-    @MainActor func testScreensInDarkMode() {
-        audit(Screens.map + Screens.detail + Screens.form + Screens.me + Screens.onboarding, dark: true)
-    }
+    /// reasons (ratios, glass) don't carry over. Grouped like the others: all 27 screens in one test
+    /// ran past the 10-minute limit on the iOS 26 job.
+    @MainActor func testMapScreensInDarkMode() { audit(Screens.map, dark: true) }
+    @MainActor func testDetailScreensInDarkMode() { audit(Screens.detail, dark: true) }
+    @MainActor func testFormScreensInDarkMode() { audit(Screens.form, dark: true) }
+    @MainActor func testMeScreensInDarkMode() { audit(Screens.me, dark: true) }
+    @MainActor func testOnboardingScreensInDarkMode() { audit(Screens.onboarding, dark: true) }
 
     /// Audits each screen in turn. A finding on one screen is recorded and the rest still run.
     @MainActor

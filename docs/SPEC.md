@@ -934,6 +934,9 @@ Plain language, at `masuno-app.github.io/privacy`, linked from onboarding, Setti
 - [ ] App icon in the asset catalog.
 - [ ] Location purpose string explains the use; (1.0) notifications asked in context.
 - [ ] Age-rating questionnaire answered (user-generated content; messaging only if `chat_enabled` is on in prod for that submission).
+- [ ] Age rating also answers the new content descriptors, **Shared Location** (games show a meeting place) and **Dating and Relationships** (no), required from Jan 12, 2027. The **social media** capability question is answered before the version is uploaded.
+- [ ] No remote flag turns on anything the reviewer didn't see (Guideline 2.5.19, Oct 16, 2026). If a build has group chat, `chat_enabled` is on in prod for the whole review, and the notes say so; don't flip it on after approval.
+- [ ] Privacy label matches `PrivacyInfo.xcprivacy` (name, email, user ID, other user content: chats, game notes and places). Both the app and the notification extension ship a manifest; the app-group defaults need `1C8F.1`.
 - [ ] Map lands on the demo campus for review accounts far from any campus.
 - [ ] Exact submitted build tested on a physical phone.
 

@@ -17,7 +17,7 @@ final class ChatScrollUITests: XCTestCase {
         defer { app.terminate() }
 
         let latest = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Message 60")).firstMatch
-        assertVisible(latest, timeout: 20)
+        assertVisible(latest)
         let composer = app.descendants(matching: .any).matching(identifier: "chat-composer").firstMatch
         XCTAssertTrue(composer.waitForExistence(timeout: 5), app.debugDescription)
         composer.tap()
@@ -43,7 +43,7 @@ final class ChatScrollUITests: XCTestCase {
         let app = launchChat()
         defer { app.terminate() }
         let latest = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Message 60")).firstMatch
-        assertVisible(latest, timeout: 20)
+        assertVisible(latest)
         // One slow swipe can be undone by the chat's own first jump to the latest message when the
         // simulator is busy, so swipe until the latest is off screen.
         for _ in 0..<3 where latest.isHittable {
@@ -64,7 +64,7 @@ final class ChatScrollUITests: XCTestCase {
         app.buttons["chat-test-receive"].tap()
         let latestMessage = app.descendants(matching: .any).matching(identifier: "chat-test-latest").firstMatch
         let refreshed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "New live message"), object: latestMessage)
-        XCTAssertEqual(XCTWaiter.wait(for: [refreshed], timeout: 5), .completed)
+        XCTAssertEqual(XCTWaiter.wait(for: [refreshed], timeout: 20), .completed)
         assertVisible(anchor)
         XCTAssertFalse(latest.isHittable, "Receiving must not pull someone away from older messages")
 
@@ -74,7 +74,10 @@ final class ChatScrollUITests: XCTestCase {
         assertVisible(sent)
     }
 
-    @MainActor private func assertVisible(_ element: XCUIElement, timeout: TimeInterval = 5,
+    /// 20 s, like the launch waits: on a loaded CI runner one hittable lookup can take 3 s or more, so a
+    /// 5 s wait can time out before its first answer even though the message is on screen. The wait still
+    /// returns as soon as the element is visible.
+    @MainActor private func assertVisible(_ element: XCUIElement, timeout: TimeInterval = 20,
                                          file: StaticString = #filePath, line: UInt = #line) {
         let visible = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == true AND hittable == true"), object: element)
         XCTAssertEqual(XCTWaiter.wait(for: [visible], timeout: timeout), .completed,

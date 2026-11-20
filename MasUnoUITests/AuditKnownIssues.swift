@@ -231,7 +231,7 @@ struct AuditKnownIssue {
         .init(["settings"], .standard, .contrast, "Privacy & safety", "A11Y-15 (PR 14): ink text, unchanged (13.5:1 on the background, 14.7 on a card computed); the audit's measurement, comes and goes"),
         .init(["filter"], .standard, .contrast, "Reset", "A11Y-15 (PR 14): ink on clear glass, unchanged (13.5:1 on the background computed); the audit measures what shows through"),
         .init(["chat"], .standard, .contrast, "Sam L.", "A11Y-15 (PR 14): muted text, kept at default by the plan (5.85:1 on the background, 6.38 on a card computed; 8.0 under Increase Contrast); the audit's measurement, comes and goes"),
-        .init(["chat"], .standard, .contrast, "Today", "A11Y-15 (PR 14): muted day pill, kept at default by the plan (5.24:1 on the separator computed; 7.2 under Increase Contrast); near the threshold, so it comes and goes"),
+        .pattern(["chat"], .standard, .contrast, #"^(Today|Yesterday|[A-Z][a-z]{2}, [A-Z][a-z]{2} \d{1,2})$"#, "A11Y-15 (PR 14): muted day pill, kept at default by the plan (5.24:1 on the separator computed; 7.2 under Increase Contrast); near the threshold, so it comes and goes. A run past midnight shows a dated pill"),
         .init(["profile"], .standard, .contrast, "Save", "A11Y-15 (PR 14): white on the accent fill, kept by the text-only decision (4.81:1 computed, 5.78 under Increase Contrast); the audit measures the glass highlight"),
         .init(["picker"], .standard, .contrast, "Search, or drag the map under the pin.", "A11Y-15 (PR 14): muted text, kept at default by the plan (5.85:1 on the background, 6.38 on a card computed; 8.0 under Increase Contrast); the audit's measurement, comes and goes"),
         .init(["picker"], .standard, .contrast, "Set location", "A11Y-15 (PR 14): white on the accent fill, kept by the text-only decision (4.81:1 computed, 5.78 under Increase Contrast); the audit measures the glass highlight"),
@@ -307,7 +307,18 @@ struct AuditKnownIssue {
         .init(["map"], .largest, .dynamicType, "5 games nearby", "A11Y-06: capped on purpose (map overlays at accessibility2, popup at accessibility1); Arianna picks the cap"),
         .init(["map"], .standard, .dynamicType, "5 games nearby", "A11Y-06: capped on purpose (map overlays at accessibility2, popup at accessibility1); Arianna picks the cap"),
         .init(["picker"], .largest, .dynamicType, "Drag the map to adjust", "A11Y-06: capped on purpose like the map overlays (accessibility2): the bottom bar takes most of the screen at AX5; Arianna picks the cap"),
-        .pattern(["chat"], .standard, .dynamicType, #"^(Today|Yesterday)$"#, "Day pills near the top edge; which ones depends on the time of day. Below the fold at default size: the audit loses it as the text grows (scrolled into view it passes)"),
+        // Picker on CI (Nov 19 runs): the fixture searches "Estadio", and Apple Maps answers by the runner's region.
+        .pattern(["picker", "dark-picker"], .standard, .contrast, #"Monterrey|Estadio"#, "Apple Maps results and the selected spot's muted address (5.85:1 light, 8.38 dark computed); the audit's screenshots show it measuring rows hidden under the keyboard"),
+        .pattern(["picker"], .largest, .textClipped, #"Monterrey"#, "Apple Maps' English name for the selected campus on CI: wraps at accessibility sizes, but with the keyboard up at AX5 the bar has no room for it all"),
+        .init(["picker"], .standard, .sufficientElementDescription, "", "The system keyboard's QuickType cells (TUIPredictionViewCell), empty on CI; the picker opens with the search focused"),
+        .init(["dark-picker"], .standard, .contrast, "Drag the map to adjust", "Hidden (opacity 0) while the search is focused, so the audit measures the map behind it; as in light"),
+        .init(["dark-picker"], .standard, .contrast, "Where's the game?", "Dark mode (build 9): the inline title on the bar's glass over map tiles; comes and goes with the tiles"),
+        // The sticky bar's button and caption at AX5: the audit's screenshot shows them at full AX5 size, wrapped.
+        .init(["detail-open"], .largest, .dynamicType, "Count me in", "A11Y-06: reads at full AX5 size in the audit's screenshot; reported because it can't grow past the largest size"),
+        .init(["detail-open"], .largest, .dynamicType, "One tap and you're in. Change your mind anytime.", "A11Y-06: reads at full AX5 size in the audit's screenshot; reported because it can't grow past the largest size"),
+        .init(["detail-full"], .largest, .dynamicType, "Alert me if a spot opens", "A11Y-06: reads at full AX5 size in the audit's screenshot; reported because it can't grow past the largest size"),
+        .init(["detail-full"], .largest, .dynamicType, "We'll tell you in the app the moment someone drops out.", "A11Y-06: reads at full AX5 size in the audit's screenshot; reported because it can't grow past the largest size"),
+        .pattern(["chat"], .standard, .dynamicType, #"^(Today|Yesterday|[A-Z][a-z]{2}, [A-Z][a-z]{2} \d{1,2})$"#, "Day pills near the top edge; which ones depends on the time of day. Below the fold at default size: the audit loses it as the text grows (scrolled into view it passes)"),
         .pattern(["chat"], .standard, .dynamicType, #"^.+ (took a spot( · .+)?|created the chat)$"#, "Older activity rows near the top edge; which ones depends on the time of day. Below the fold at default size: the audit loses it as the text grows (scrolled into view it passes)"),
         .init(["me"], .standard, .dynamicType, "Arena Borregos", "Below the fold at default size: the audit loses it as the text grows (scrolled into view it passes)"),
         .pattern(["me"], .standard, .dynamicType, #"^(Today|Tomorrow), \d{1,2}:\d{2}\s[AP]M · .+$"#, "Below the fold at default size: the audit loses it as the text grows (scrolled into view it passes)"),
@@ -348,7 +359,7 @@ struct AuditKnownIssue {
         .init(["settings"], .standard, .dynamicType, "official.masuno.app@gmail.com", "Below the fold at default size: the audit loses it as the text grows (scrolled into view it passes)"),
         .init(["who"], .largest, .textClipped, "Room for 4 more", "A11Y-06: at the bottom edge of a full-height sheet at AX5; the sheet scrolls it into view"),
 
-        // Dark mode (build 9), `testScreensInDarkMode`: contrast only, at the default size. Same categories as the light list.
+        // Dark mode (build 9), the `…InDarkMode` tests: contrast only, at the default size. Same categories as the light list.
         .init(["dark-filter", "dark-me", "dark-me-hosting", "dark-profile", "dark-onboarding-about"], .standard, .contrast, "⚽️", "Sport emoji (a color glyph, not text): hidden from VoiceOver since PR 13, but the audit still checks it"),
         .init(["dark-map", "dark-popup", "dark-filter", "dark-saved", "dark-me", "dark-me-hosting", "dark-profile", "dark-onboarding-about"], .standard, .contrast, "🎾", "Sport emoji (a color glyph, not text): hidden from VoiceOver since PR 13, but the audit still checks it"),
         .init(["dark-map", "dark-popup", "dark-search", "dark-filter", "dark-me", "dark-me-hosting", "dark-profile", "dark-onboarding-about"], .standard, .contrast, "🏀", "Sport emoji (a color glyph, not text): hidden from VoiceOver since PR 13, but the audit still checks it"),
@@ -356,7 +367,7 @@ struct AuditKnownIssue {
         .init(["dark-filter", "dark-profile", "dark-onboarding-about"], .standard, .contrast, "🏓", "Sport emoji (a color glyph, not text): hidden from VoiceOver since PR 13, but the audit still checks it"),
         .init(["dark-map", "dark-popup", "dark-search"], .standard, .contrast, "AR", "Dark mode (build 9): ink initials kept dark on the unchanged person colors (6.51–10.43:1 computed); the audit measures the white ring and what's behind the token"),
         .init(["dark-map", "dark-popup", "dark-saved"], .standard, .contrast, "DM", "Dark mode (build 9): ink initials kept dark on the unchanged person colors (6.51–10.43:1 computed); the audit measures the white ring and what's behind the token"),
-        .init(["dark-popup"], .standard, .contrast, "EG", "Dark mode (build 9): ink initials kept dark on the unchanged person colors (6.51–10.43:1 computed); the audit measures the white ring and what's behind the token"),
+        .init(["dark-popup", "dark-search"], .standard, .contrast, "EG", "Dark mode (build 9): ink initials kept dark on the unchanged person colors (6.51–10.43:1 computed); the audit measures the white ring and what's behind the token"),
         .init(["dark-popup", "dark-chat"], .standard, .contrast, "MC", "Dark mode (build 9): ink initials kept dark on the unchanged person colors (6.51–10.43:1 computed); the audit measures the white ring and what's behind the token"),
         .init(["dark-popup", "dark-chat", "dark-me"], .standard, .contrast, "NC", "Dark mode (build 9): ink initials kept dark on the unchanged person colors (6.51–10.43:1 computed); the audit measures the white ring and what's behind the token"),
         .init(["dark-map", "dark-popup", "dark-saved"], .standard, .contrast, "PS", "Dark mode (build 9): ink initials kept dark on the unchanged person colors (6.51–10.43:1 computed); the audit measures the white ring and what's behind the token"),
@@ -383,6 +394,6 @@ struct AuditKnownIssue {
         .init(["dark-chat"], .standard, .contrast, "Sam L.", "Dark mode (build 9): muted on the page (8.38:1 on black, 6.79 on a card computed); the audit's measurement, comes and goes"),
         .init(["dark-chat"], .standard, .contrast, "· Host", "Dark mode (build 9): muted on the page (8.38:1 on black, 6.79 on a card computed); the audit's measurement, comes and goes"),
         .pattern(["dark-chat"], .standard, .contrast, #"^· \d{1,2}:\d{2}\s[AP]M$"#, "Dark mode (build 9): muted on the page (8.38:1 on black, 6.79 on a card computed); the audit's measurement, comes and goes"),
-        .pattern(["dark-chat"], .standard, .contrast, #"^(Today|Yesterday)$"#, "Dark mode (build 9): muted day pill (4.67:1 on the separator computed; 5.94 under Increase Contrast); near the threshold, so it comes and goes"),
+        .pattern(["dark-chat"], .standard, .contrast, #"^(Today|Yesterday|[A-Z][a-z]{2}, [A-Z][a-z]{2} \d{1,2})$"#, "Dark mode (build 9): muted day pill (4.67:1 on the separator computed; 5.94 under Increase Contrast); near the threshold, so it comes and goes"),
     ]
 }
