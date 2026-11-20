@@ -211,7 +211,7 @@ Build Debug and Release with the 18.0 target and run the earliest supported OS w
 - [ ] Dark mode (Settings › Appearance › Dark, and System with the phone in dark): the iOS 18 material controls, sheets, dialogs, map and map thumbnails read well. The launch color follows the phone, not the in-app choice.
 - [ ] iOS 26+: glass controls, toolbar grouping and detail scrolling keep their existing appearance. iOS 27.1+: also run the iPhone Duo checks above.
 
-CI runs all mock unit/UI suites on iOS 18.6 with Xcode 26.3 (`macos-15-intel`) and iOS 26.5 with Xcode 26.6 (`macos-26-intel`). Both runtimes are preinstalled on their runner images. Each job builds the Release app and notification extension before testing on a fresh iPhone 16 Pro, and uploads logs, the result bundle, and screenshots even on failure.
+CI runs all mock unit/UI suites on iOS 18.6 with Xcode 26.3 (`macos-15`) and iOS 26.5 with Xcode 26.6 (`macos-26`), both Apple silicon. Both runtimes are preinstalled on their runner images. Each job builds the Release app and notification extension before testing on a fresh iPhone 16 Pro, and uploads logs, the result bundle, and screenshots even on failure.
 
 ## Notification tap and delivery regressions
 

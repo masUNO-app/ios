@@ -87,7 +87,9 @@ jobs:
 
   test-ios26:
     name: test-ios26
-    runs-on: macos-26-intel
+    # Apple silicon: on macos-26-intel the simulator wedged mid UI tests and starved the runner until
+    # it dropped off (Nov 20, twice). iOS 18's Apple silicon job runs the same suites in a third the time.
+    runs-on: macos-26
     timeout-minutes: 75
     defaults:
       run:
@@ -179,7 +181,7 @@ jobs:
           xcrun simctl terminate "$SIMULATOR" com.masuno.app || true
 
       # The AX5 core-loop and other UI tests. The accessibility audit (one launch per screen) runs on the
-      # iOS 27 job and locally: on this Intel runner, simulator launches wedged partway through its ~27
+      # iOS 27 job and locally: on the Intel runner this job used to run on, simulator launches wedged partway through its ~27
       # relaunches and hung the step (Nov 20). Launch timing is local only: on shared runners its numbers
       # swing with load, and its 6 launches cost a minute. A failed test runs once more: a launch that times out on a loaded runner passes the second time,
       # and a real failure fails twice.
