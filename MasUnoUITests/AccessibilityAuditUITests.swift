@@ -130,6 +130,11 @@ final class AccessibilityAuditUITests: XCTestCase {
         if let element, app.keyboards.firstMatch.exists, app.keyboards.firstMatch.frame.contains(element.frame) {
             return true
         }
+        // The keyboard's QuickType bar is the system's too. On iOS 27 it sits above the keyboard's
+        // frame, and whether it shows depends on the simulator's typing history (Nov 19).
+        if issue.detailedDescription.contains("TUIPrediction") {
+            return true
+        }
         let label = element.map { $0.label.isEmpty ? $0.identifier : $0.label } ?? ""
         if let index = allowances.firstIndex(where: { $0.type == issue.auditType && $0.element == label && $0.limits[screen] != nil }),
            used[index, default: 0] < allowances[index].limits[screen]! {

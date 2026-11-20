@@ -31,10 +31,15 @@ struct GameFormSheet: View {
         }
         // `-screen add-filled`: a filled-in Add game form (marketing screenshots).
         if UserDefaults.standard.string(forKey: "screen") == "add-filled" {
-            viewModel.name = "After-work hoops"
-            viewModel.time = Calendar.current.date(bySettingHour: 19, minute: 30, second: 0, of: .now) ?? .now
+            let shot = MockFixtures.isScreenshotWorld
+            viewModel.name = shot ? "Pickup after class" : "After-work hoops"
+            viewModel.time = Calendar.current.date(bySettingHour: shot ? 17 : 19, minute: 30, second: 0, of: .now) ?? .now
+            // Screenshots: today before 3 PM, tomorrow after, like the fixtures, so it's never in the past.
+            if shot, Calendar.current.component(.hour, from: .now) >= 15, viewModel.dayOptions.count > 1 {
+                viewModel.day = viewModel.dayOptions[1]
+            }
             viewModel.meetUpSpot = "By the north court bleachers"
-            viewModel.notes = "Casual 3-on-3. I have an extra ball."
+            viewModel.notes = shot ? "First time? Come anyway, we rotate every game." : "Casual 3-on-3. I have an extra ball."
             viewModel.place = MockFixtures.Places.basketballCourts
         }
         // `-screen picker`: straight into "Where's the game?" (`picker-map`: without the search).
