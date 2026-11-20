@@ -101,10 +101,11 @@ enum Theme {
         bar.largeTitleTextAttributes = [.font: UIFont.rounded(.largeTitle, weight: .bold), .foregroundColor: ink]
         bar.titleTextAttributes = [.font: UIFont.rounded(.headline, weight: .bold), .foregroundColor: ink]
 
-        // Me · Going / Hosting: mint track, card-white selection.
+        // Me · Going / Hosting: mint track, card-white selection. In dark mode the selection is a
+        // brighter mint, since the card color there is as dark as the track and hides the choice.
         let segmented = UISegmentedControl.appearance()
         segmented.backgroundColor = UIColor(resource: .accentSoft)
-        segmented.selectedSegmentTintColor = UIColor(resource: .card)
+        segmented.selectedSegmentTintColor = UIColor(resource: .segmentThumb)
         let font = UIFont.rounded(.footnote, weight: .bold)
         segmented.setTitleTextAttributes([.foregroundColor: UIColor(resource: .muted), .font: font], for: .normal)
         segmented.setTitleTextAttributes([.foregroundColor: ink, .font: font], for: .selected)
