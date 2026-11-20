@@ -115,9 +115,9 @@ struct ComponentGallery: View {
 
                 section("Fields") {
                     VStack(spacing: 12) {
-                        FieldBox("Game name", text: $name, prompt: Text(verbatim: "e.g. After-work hoops"))
+                        FieldBox("Game name", text: $name, prompt: Text(verbatim: "e.g. Pickup after class"))
                         FieldBox("Game name", error: "Add a name so people know what they're joining.") {
-                            Text(verbatim: "e.g. After-work hoops").foregroundStyle(Theme.muted)
+                            Text(verbatim: "e.g. Pickup after class").foregroundStyle(Theme.muted)
                         }
                         HStack(spacing: 10) {
                             FieldBox("Date", showsChevron: true) { Text(verbatim: "Sat, Oct 24") }

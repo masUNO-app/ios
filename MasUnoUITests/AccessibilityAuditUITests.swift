@@ -48,6 +48,9 @@ final class AccessibilityAuditUITests: XCTestCase {
         Allowance(type: .elementDetection, element: "",
                   limits: ["all-games": 2],
                   reason: "iOS 26 only, not identified: likely the map pins' emoji and tags behind the sheet, which their pin buttons read"),
+        Allowance(type: .elementDetection, element: "",
+                  limits: ["map": 1],
+                  reason: "iOS 27 only: the group pin's count (\"2\"). The pin is a button named \"N games here\" that VoiceOver reaches (MapAccessibilityUITests); the audit doesn't match a MapKit annotation's text to it. Found by elimination: blanking the count clears it, the tags and face tokens don't (Nov 19)"),
     ]
 
     // Grouped so each test stays short and reports on its own. Add a screen when it's built; never remove one.
@@ -133,7 +136,9 @@ final class AccessibilityAuditUITests: XCTestCase {
             used[index, default: 0] += 1
             return true
         }
-        print("AUDIT-ISSUE \(screen): \(issue.compactDescription), element \"\(label)\": \(issue.detailedDescription)")
+        // The frame says where an unnamed finding is; compare it with the audit's screenshot.
+        let frame = element.map { "\($0.frame)" } ?? "none"
+        print("AUDIT-ISSUE \(screen): \(issue.compactDescription), element \"\(label)\" at \(frame): \(issue.detailedDescription)")
         return false
     }
 }

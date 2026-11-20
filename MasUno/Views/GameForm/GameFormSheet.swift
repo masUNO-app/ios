@@ -87,7 +87,7 @@ struct GameFormSheet: View {
                 }
 
                 FieldBox(
-                    "Game name", text: $viewModel.name, prompt: Text("e.g. After-work hoops"),
+                    "Game name", text: $viewModel.name, prompt: Text("e.g. Pickup after class"),
                     error: viewModel.nameError, isFocused: focus == .name
                 ) { field in
                     field

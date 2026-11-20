@@ -60,25 +60,7 @@ struct SettingsView: View {
                         .buttonStyle(.plain)
                     }
                     if prefsLoaded {
-                        preference("Games that match your sports", key: \.interestMatch, systemImage: "sportscourt", color: Color(.sportSoccer).opacity(0.35))
-                        preference("A spot opens up", key: \.spotOpen, systemImage: "person.badge.plus", color: Color(.person4).opacity(0.45))
-                        preference("Game reminders", key: \.reminders, systemImage: "clock", color: Color(.person1).opacity(0.5))
-                        preference("Updates on games you host", key: \.hosting, systemImage: "megaphone", color: Color(.sportBasketball).opacity(0.35))
-                        preference("Group chat messages", key: \.chat, systemImage: "bubble.left.and.bubble.right", color: Color(.sportVolleyball).opacity(0.45))
-                        // Mentions have no switch: they notify even with this one off (NOTIF §3.5).
-                        Text("You're still notified when someone mentions you.")
-                            .font(.rounded(.footnote))
-                            .foregroundStyle(Theme.muted)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 14)
-                            .padding(.bottom, 8)
-                        preference("Tips to play", key: \.winback, systemImage: "sparkles", color: Theme.you.opacity(0.55))
-                        Text("Cancellations, changes and You're in are always on.")
-                            .font(.rounded(.footnote))
-                            .foregroundStyle(Theme.muted)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 14)
-                            .padding(.bottom, 8)
+                        notificationSwitches
                     } else if prefsFailed {
                         Button {
                             Task { await loadPrefs() }
@@ -93,9 +75,12 @@ struct SettingsView: View {
                         }
                         .buttonStyle(.plain)
                     } else {
-                        ProgressView()
+                        // The same rows, as placeholders, so nothing under them moves when they load.
+                        notificationSwitches
+                            .redacted(reason: .placeholder)
+                            .disabled(true)
+                            .accessibilityElement(children: .ignore)
                             .accessibilityLabel(Text("Loading notification settings"))
-                            .frame(maxWidth: .infinity).padding(.vertical, 12)
                     }
                 }
 
@@ -151,11 +136,15 @@ struct SettingsView: View {
         .background(Theme.background)
         .navigationTitle(String.app("Settings"))
         .navigationBarTitleDisplayMode(.large)
-        .task {
-            await push.refreshAuthorization()
-            await loadPrefs()
-        }
+        // Side by side: the preferences don't wait for the system's permission answer.
+        .task { await push.refreshAuthorization() }
+        .task { await loadPrefs() }
         .onAppear {
+            // Opened before: start from the account's last known settings, then refresh quietly.
+            if !prefsLoaded, let known = push.lastKnownPrefs {
+                prefQueue.replace(known)
+                prefsLoaded = true
+            }
             locationStatus = LocationService.authorizationStatus
             #if DEBUG
             switch UserDefaults.standard.string(forKey: "screen") {
@@ -278,14 +267,42 @@ struct SettingsView: View {
         }
     }
 
+    /// The six switches and their notes, in one column: loaded, or as the loading placeholder.
+    private var notificationSwitches: some View {
+        VStack(spacing: 0) {
+            preference("Games that match your sports", key: \.interestMatch, systemImage: "sportscourt", color: Color(.sportSoccer).opacity(0.35))
+            preference("A spot opens up", key: \.spotOpen, systemImage: "person.badge.plus", color: Color(.person4).opacity(0.45))
+            preference("Game reminders", key: \.reminders, systemImage: "clock", color: Color(.person1).opacity(0.5))
+            preference("Updates on games you host", key: \.hosting, systemImage: "megaphone", color: Color(.sportBasketball).opacity(0.35))
+            preference("Group chat messages", key: \.chat, systemImage: "bubble.left.and.bubble.right", color: Color(.sportVolleyball).opacity(0.45))
+            // Mentions have no switch: they notify even with this one off (NOTIF §3.5).
+            Text("You're still notified when someone mentions you.")
+                .font(.rounded(.footnote))
+                .foregroundStyle(Theme.muted)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 14)
+                .padding(.bottom, 8)
+            preference("Tips to play", key: \.winback, systemImage: "sparkles", color: Theme.you.opacity(0.55))
+            Text("Cancellations, changes and You're in are always on.")
+                .font(.rounded(.footnote))
+                .foregroundStyle(Theme.muted)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 14)
+                .padding(.bottom, 8)
+        }
+    }
+
     private func loadPrefs() async {
         prefsFailed = false
+        let edits = prefQueue.edits
         do {
-            prefQueue.replace(try await push.fetchPrefs())
+            let fresh = try await push.fetchPrefs()
+            // A switch flipped while this read was on its way is newer; its own save wins.
+            if prefQueue.edits == edits { prefQueue.replace(fresh) }
             prefsLoaded = true
         } catch {
-            prefsLoaded = false
-            prefsFailed = true
+            // Settings already on screen (from the last visit) stay; only a first load offers a retry.
+            if !prefsLoaded { prefsFailed = true }
         }
     }
 

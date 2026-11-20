@@ -156,17 +156,37 @@ final class PushNotificationService {
         lastUploaded = nil
     }
 
+    /// The signed-in account's notification settings as last read or saved, so a new Settings screen
+    /// opens with them instead of a spinner. In memory only, and any account change drops them:
+    /// `accountGeneration` moves on every sign-in, sign-out and deletion.
+    @ObservationIgnored private var knownPrefs: (generation: Int, prefs: NotificationPrefs)?
+
+    var lastKnownPrefs: NotificationPrefs? {
+        guard let knownPrefs, knownPrefs.generation == accountGeneration else { return nil }
+        return knownPrefs.prefs
+    }
+
     func fetchPrefs() async throws -> NotificationPrefs {
-        try await repository.fetchPrefs()
+        let generation = accountGeneration
+        let prefs = try await repository.fetchPrefs()
+        if generation == accountGeneration { knownPrefs = (generation, prefs) }
+        return prefs
     }
 
     func setPrefs(_ prefs: NotificationPrefs) async throws {
+        let generation = accountGeneration
         try await repository.setPrefs(prefs)
+        if generation == accountGeneration { knownPrefs = (generation, prefs) }
     }
 
     /// The primer's tips switch. Does not rewrite the other flags.
     func setWinback(_ on: Bool) async throws {
+        let generation = accountGeneration
         try await repository.setWinback(on)
+        if generation == accountGeneration, var prefs = lastKnownPrefs {
+            prefs.winback = on
+            knownPrefs = (generation, prefs)
+        }
     }
 
     /// Hide a banner for the chat or game already on screen. Everything else shows.

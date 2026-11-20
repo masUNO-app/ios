@@ -1,1 +1,1 @@
-"NSLocationWhenInUseUsageDescription" = "masUNO uses your location to show how far games are. It's never shared with other people.";
+"NSLocationWhenInUseUsageDescription" = "masUNO uses your location to center the map and show how far games are. It's only shared if you choose to post a game at your current location.";

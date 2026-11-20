@@ -88,7 +88,7 @@ jobs:
   test-ios26:
     name: test-ios26
     runs-on: macos-26-intel
-    timeout-minutes: 60
+    timeout-minutes: 75
     defaults:
       run:
         shell: bash
@@ -165,11 +165,26 @@ jobs:
             -enableCodeCoverage NO CODE_SIGNING_ALLOWED=NO \
             2>&1 | tee artifacts/unit-tests.log
 
+      # The first launch on a cold runner compiles MapKit's and the court art's shaders and loads the
+      # accessibility bundles. On Nov 19 it outlasted XCTest's launch timeout on both jobs, so pay for it
+      # once here, untimed by XCTest. Best effort: the tests still run if this step fails.
+      - name: Warm up the app
+        if: ${{ !cancelled() && steps.build-tests.outcome == 'success' && steps.boot-simulator.outcome == 'success' }}
+        timeout-minutes: 5
+        continue-on-error: true
+        run: |
+          xcrun simctl install "$SIMULATOR" build/Build/Products/Debug-iphonesimulator/masUNO.app
+          xcrun simctl launch "$SIMULATOR" com.masuno.app -liveAuth NO -mockLocation YES -screen map
+          sleep 45
+          xcrun simctl terminate "$SIMULATOR" com.masuno.app || true
+
       # Includes the accessibility audit (one launch per screen) and the AX5 core-loop tests. Launch timing
       # is local only: on shared runners its numbers swing with load, and its 6 launches cost a minute.
+      # A failed test runs once more: a launch that times out on a loaded runner passes the second time,
+      # and a real failure fails twice.
       - name: Run mock UI tests
         if: ${{ !cancelled() && steps.build-tests.outcome == 'success' && steps.boot-simulator.outcome == 'success' }}
-        timeout-minutes: 35
+        timeout-minutes: 45
         run: |
           test_runs=(build/Build/Products/*.xctestrun)
           [[ -f "${test_runs[0]}" && ${#test_runs[@]} -eq 1 ]]
@@ -178,6 +193,7 @@ jobs:
             -resultBundlePath artifacts/ui-tests.xcresult -only-testing:masUNOUITests \
             -skip-testing:masUNOUITests/LaunchPerformanceUITests \
             -parallel-testing-enabled NO -collect-test-diagnostics never \
+            -retry-tests-on-failure -test-iterations 2 \
             -test-timeouts-enabled YES \
             -default-test-execution-time-allowance 240 \
             -maximum-test-execution-time-allowance 300 \
@@ -219,7 +235,7 @@ jobs:
   test-ios27:
     name: test-ios27
     runs-on: xcode-27
-    timeout-minutes: 60
+    timeout-minutes: 75
     defaults:
       run:
         shell: bash
@@ -301,11 +317,26 @@ jobs:
             -enableCodeCoverage NO CODE_SIGNING_ALLOWED=NO \
             2>&1 | tee artifacts/unit-tests.log
 
+      # The first launch on a cold runner compiles MapKit's and the court art's shaders and loads the
+      # accessibility bundles. On Nov 19 it outlasted XCTest's launch timeout on both jobs, so pay for it
+      # once here, untimed by XCTest. Best effort: the tests still run if this step fails.
+      - name: Warm up the app
+        if: ${{ !cancelled() && steps.build-tests.outcome == 'success' && steps.boot-simulator.outcome == 'success' }}
+        timeout-minutes: 5
+        continue-on-error: true
+        run: |
+          xcrun simctl install "$SIMULATOR" build/Build/Products/Debug-iphonesimulator/masUNO.app
+          xcrun simctl launch "$SIMULATOR" com.masuno.app -liveAuth NO -mockLocation YES -screen map
+          sleep 45
+          xcrun simctl terminate "$SIMULATOR" com.masuno.app || true
+
       # Includes the accessibility audit (one launch per screen) and the AX5 core-loop tests. Launch timing
       # is local only: on shared runners its numbers swing with load, and its 6 launches cost a minute.
+      # A failed test runs once more: a launch that times out on a loaded runner passes the second time,
+      # and a real failure fails twice.
       - name: Run mock UI tests
         if: ${{ !cancelled() && steps.build-tests.outcome == 'success' && steps.boot-simulator.outcome == 'success' }}
-        timeout-minutes: 35
+        timeout-minutes: 45
         run: |
           test_runs=(build/Build/Products/*.xctestrun)
           [[ -f "${test_runs[0]}" && ${#test_runs[@]} -eq 1 ]]
@@ -314,6 +345,7 @@ jobs:
             -resultBundlePath artifacts/ui-tests.xcresult -only-testing:masUNOUITests \
             -skip-testing:masUNOUITests/LaunchPerformanceUITests \
             -parallel-testing-enabled NO -collect-test-diagnostics never \
+            -retry-tests-on-failure -test-iterations 2 \
             -test-timeouts-enabled YES \
             -default-test-execution-time-allowance 240 \
             -maximum-test-execution-time-allowance 300 \

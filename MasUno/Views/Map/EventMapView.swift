@@ -134,7 +134,7 @@ struct EventMapView: View {
             DialogCard(
                 systemImage: "mappin.and.ellipse", tone: .tinted(Color(.sportVolleyball)),
                 title: Text("See games near you"),
-                message: Text("We use your location only while the app is open, to show games within walking distance. Your exact spot is never shared."),
+                message: Text("We use your location only while the app is open, to show games within walking distance. It stays on your phone unless you post a game at your current spot."),
                 confirm: .init("Allow location") { allowLocation() },
                 cancel: .init("Not now") { declineLocation() }
             )

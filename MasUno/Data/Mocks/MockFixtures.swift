@@ -67,13 +67,23 @@ enum MockFixtures {
         return PersonSummary(id: id, firstName: first, lastInitial: initial, gradYear: year)
     }
 
-    static let alex = person(1, "Alex", "R", 2027)
-    static let priya = person(2, "Priya", "S", 2028)
-    static let diego = person(3, "Diego", "M", 2026)
-    static let sam = person(4, "Sam", "L", 2029)
-    static let maya = person(5, "Maya", "C", 2027)
-    static let ricardo = person(6, "Ricardo", "T", 2027)
-    static let nina = person(7, "Nina", "C", 2028)
+    /// `-screenshots YES`: App Store screenshots (docs/SUBMISSION.md §6). Invented people only (no one
+    /// on the team), college game names, afternoon and evening times, and no cancelled game. Off by
+    /// default, so tests and design review keep the fixtures they were written against.
+    static let isScreenshotWorld = UserDefaults.standard.bool(forKey: "screenshots")
+
+    /// The fixture's value, or `shot` under `-screenshots YES`.
+    private static func pick<Value>(_ fixture: Value, shot: Value) -> Value {
+        isScreenshotWorld ? shot : fixture
+    }
+
+    static let alex = pick(person(1, "Alex", "R", 2027), shot: person(1, "Sofía", "R", 2027))
+    static let priya = pick(person(2, "Priya", "S", 2028), shot: person(2, "Valeria", "G", 2028))
+    static let diego = pick(person(3, "Diego", "M", 2026), shot: person(3, "Diego", "T", 2026))
+    static let sam = pick(person(4, "Sam", "L", 2029), shot: person(4, "Mateo", "C", 2029))
+    static let maya = pick(person(5, "Maya", "C", 2027), shot: person(5, "Camila", "P", 2027))
+    static let ricardo = pick(person(6, "Ricardo", "T", 2027), shot: person(6, "Luis", "H", 2027))
+    static let nina = pick(person(7, "Nina", "C", 2028), shot: person(7, "Regina", "S", 2028))
     /// Who's going shows the badge next to these two (N37). Game cards don't carry it, so their
     /// hosted games don't either.
     static let betaTesterIDs: Set<UUID> = [priya.id, sam.id]
@@ -81,7 +91,7 @@ enum MockFixtures {
     static func world(now: Date) -> World {
         let me = Profile(
             id: UUID(uuidString: "00000000-0000-0000-0000-000000000099")!,
-            firstName: "Emilio", lastName: "Garza", gradYear: 2029, university: tec,
+            firstName: pick("Emilio", shot: "Andrea"), lastName: pick("Garza", shot: "Villarreal"), gradYear: 2029, university: tec,
             interests: [activity("basketball"), activity("soccer"), activity("tennis")],
             chatRulesAcceptedAt: now.addingTimeInterval(-24 * 3600)
         )
@@ -116,22 +126,42 @@ enum MockFixtures {
             }
         }
 
-        add(GameID.open, "After-work hoops", "basketball", minutes: 35, capacity: 6, roster: [alex, ricardo],
+        /// Screenshots: minutes from `now` to `hour:minute`, `day` days after a base day (today before
+        /// 3 PM, tomorrow after), so games read as afternoon and evening plans whenever they're taken.
+        func at(_ day: Int, _ hour: Int, _ minute: Int = 0) -> Double {
+            let calendar = Calendar.current
+            let baseDay = calendar.component(.hour, from: now) < 15 ? 0 : 1
+            let midnight = calendar.date(byAdding: .day, value: day + baseDay, to: calendar.startOfDay(for: now))!
+            return midnight.addingTimeInterval(Double(hour * 3600 + minute * 60)).timeIntervalSince(now) / 60
+        }
+
+        add(GameID.open, pick("After-work hoops", shot: "Pickup after class"), "basketball",
+            minutes: pick(35, shot: at(0, 17, 30)), capacity: 6, roster: [alex, ricardo],
             place: Places.basketballCourts, meetPoint: "Meet by the north court bleachers",
-            notes: "Casual 3-on-3 after work. Bring a ball if you have one, and some water.")
-        add(GameID.lastSpot, "Tennis doubles", "tennis", minutes: 135, capacity: 4, roster: [priya, diego, sam],
+            notes: pick("Casual 3-on-3 after work. Bring a ball if you have one, and some water.",
+                        shot: "First time? Come anyway, we rotate every game. Bring water."))
+        add(GameID.lastSpot, pick("Tennis doubles", shot: "Doubles, bring a racket"), "tennis",
+            minutes: pick(135, shot: at(0, 19)), capacity: 4, roster: [priya, diego, sam],
             place: Places.tennisCourts, notes: "Need one more for doubles. Rackets available.")
-        add(GameID.full, "Padel at Distrito Tec", "padel", minutes: 240, duration: 90, capacity: 4, roster: [nina, sam, maya, ricardo],
-            place: Places.park)
-        add(GameID.going, "Volleyball at the arena", "volleyball", minutes: 180, capacity: 12,
-            roster: [sam, nina, maya, priya, me.summary], place: Places.arena)
-        add(GameID.hosting, "Sunday pickup soccer", "soccer", minutes: 26 * 60, duration: 90, capacity: 10,
+        add(GameID.full, pick("Padel at Distrito Tec", shot: "Padel after class"), "padel",
+            minutes: pick(240, shot: at(1, 18)), duration: 90, capacity: 4, roster: [nina, sam, maya, ricardo],
+            place: pick(Places.park, shot: Places.sportsCenter))
+        add(GameID.going, pick("Volleyball at the arena", shot: "Sunset volleyball"), "volleyball",
+            minutes: pick(180, shot: at(0, 18, 45)), capacity: 12,
+            roster: [sam, nina, maya, priya, me.summary], place: pick(Places.arena, shot: Places.park),
+            meetPoint: pick(nil, shot: "Sand court, by the palm trees"))
+        add(GameID.hosting, pick("Sunday pickup soccer", shot: "Sunday 5v5"), "soccer",
+            minutes: pick(26 * 60, shot: at(2, 10)), duration: 90, capacity: 10,
             roster: [me.summary, diego, alex], place: Places.stadium, notes: "Coming alone is fine.")
-        add(GameID.ended, "Morning hoops", "basketball", minutes: -26 * 60, capacity: 6, roster: [alex, me.summary, maya],
+        add(GameID.ended, pick("Morning hoops", shot: "Shootaround before class"), "basketball",
+            minutes: pick(-26 * 60, shot: at(-1, 7)), capacity: 6, roster: [alex, me.summary, maya],
             place: Places.basketballCourts)
-        add(GameID.cancelled, "Rainy day soccer", "soccer", minutes: 300, capacity: 10, roster: [diego, sam],
-            place: Places.sportsCenter, cancelled: true)
-        add(GameID.bumped, "Pickup soccer", "soccer", minutes: 50, duration: 90, capacity: 10,
+        if !isScreenshotWorld {
+            add(GameID.cancelled, "Rainy day soccer", "soccer", minutes: 300, capacity: 10, roster: [diego, sam],
+                place: Places.sportsCenter, cancelled: true)
+        }
+        add(GameID.bumped, pick("Pickup soccer", shot: "Fútbol 7 after class"), "soccer",
+            minutes: pick(50, shot: at(0, 20)), duration: 90, capacity: 10,
             roster: [diego, nina, maya, alex], place: Places.stadium, repostedMinutesAgo: 25)
 
         // `-mockGames 150`: copies of the upcoming games you're not in, spread around campus, so pins,
@@ -162,7 +192,8 @@ enum MockFixtures {
                 createdAt: now.addingTimeInterval(-minutesAgo * 60), mentions: mentions
             ))
         }
-        say(GameID.going, sam, "Net's up on the far court. Bring water, it's hot in there.", minutesAgo: 95)
+        say(GameID.going, sam, pick("Net's up on the far court. Bring water, it's hot in there.",
+                                    shot: "Net's up on the sand court. Bring water 🏐"), minutesAgo: 95)
         say(GameID.going, maya, "I can bring a second ball", minutesAgo: 90)
         say(GameID.going, me.summary, "Perfect. First time playing with you all, see you there!", minutesAgo: 42)
         // A mention of you, highlighted in the chat (NOTIF §3.5).

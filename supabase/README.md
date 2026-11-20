@@ -24,6 +24,7 @@ projects from same-repository PRs and from `main`, as requested for this project
 | `20261120000000_chat_push_blocks` | Chat pushes no longer name a member who's in a blocked pair with the recipient (`private.chat_others`) |
 | `20261121000000_block_privacy` | Host/player blocks remove active RSVPs in either direction, old block pairs are reconciled, activity RLS hides blocked actors, and both notification claim protocols recheck all queued identities and current membership |
 | `20261123000000_chat_mentions` | Group chat @mentions: `chat_messages.mentions`, `send_message(…, p_mentions)` (old signature replaced, defaulted), `mentions` on `game_messages`, and the `chat_mention` push, which ignores the chat switch, mute and quiet hours but not blocks, membership, `chat_enabled` or reads (NOTIF §3.5) |
+| `20261124000000_delete_signup_request` | Deleting an account also deletes its `private.signup_requests` row, so the email doesn't outlive the account; the Sheet hears 'removed' |
 
 ## Local setup
 
@@ -91,6 +92,8 @@ Migrations don't carry dashboard settings, so do these on each project (B2, B12)
    Accounts made here skip the sign-up hook, so they're in straight away. The addresses are public in a
    migration, so anyone signing up with one from the app waits for approval: reject any such request you
    didn't make.
+   App Review often tests Delete account. If a review account is deleted, create it again here the same
+   way before the next submission, and check it still lands on the demo campus.
 6. **Report alerts (Discord) — set up on masuno-dev and masuno-prod (Nov 11).** On a new project,
    create a Discord channel webhook (Channel settings → Integrations → Webhooks → New Webhook),
    then in the SQL editor run

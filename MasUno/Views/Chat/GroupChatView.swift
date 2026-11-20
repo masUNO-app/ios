@@ -45,6 +45,16 @@ struct GroupChatView: View {
         let session: UUID
         let privacyRevision: Int
     }
+
+    /// What the timeline's first load ran for. A new privacy revision (every return to the app) or
+    /// session starts the wait again.
+    private struct LoadKey: Hashable {
+        let session: UUID
+        let privacyRevision: Int
+        let messaging: Bool
+    }
+    /// The key the game, its people and its activity last finished loading for.
+    @State private var loadedFor: LoadKey?
     @FocusState private var composerIsFocused: Bool
 
     /// How far the sport band reaches down from the top of the screen.
@@ -53,6 +63,23 @@ struct GroupChatView: View {
     init(eventID: UUID) {
         self.eventID = eventID
         _viewModel = State(initialValue: ChatViewModel(gameID: eventID))
+    }
+
+    private var loadKey: LoadKey {
+        LoadKey(session: store.sessionID, privacyRevision: store.privacyRevision, messaging: store.isChatEnabled)
+    }
+
+    /// Everything the timeline shows is current: the game, its activity and, with messaging on, the
+    /// latest page of messages, or its failure, so being offline never leaves a spinner. Until then
+    /// the timeline waits behind one loading state instead of filling in piece by piece (empty, then
+    /// system rows, then messages). The privacy guards still clear and re-check everything on a new
+    /// revision; this only decides when the result is shown.
+    private var isTimelineReady: Bool {
+        guard loadedFor == loadKey else { return false }
+        guard store.isChatEnabled else { return true }
+        if viewModel.hasLoaded { return true }
+        if case .failed = viewModel.state { return true }
+        return false
     }
 
     var body: some View {
@@ -95,8 +122,9 @@ struct GroupChatView: View {
         let lastJoin = Self.latestJoin(in: activity)
         let newest = Self.newestMessage(in: rows)
         let names = mentionNames()
+        let ready = isTimelineReady
 
-        let chat = messageList(event, rows: rows, names: names, lastJoin: lastJoin)
+        let chat = messageList(event, rows: rows, names: names, lastJoin: lastJoin, ready: ready)
         .safeAreaInset(edge: .top, spacing: 0) {
             pinnedCard(event, state: state)
                 .background(alignment: .top) { bandCover(event) }
@@ -141,6 +169,7 @@ struct GroupChatView: View {
             let privacy = store.privacyRevision
             await load(includeMessages: false)
             guard !Task.isCancelled, store.sessionID == session, store.privacyRevision == privacy else { return }
+            loadedFor = LoadKey(session: session, privacyRevision: privacy, messaging: store.isChatEnabled)
             guard let current = store.game(eventID), current.isGoing else { return }
             if store.isChatEnabled, current.isChatOpen(), let profile = store.profile, profile.chatRulesAcceptedAt == nil {
                 viewModel.asksForRules = true
@@ -153,6 +182,8 @@ struct GroupChatView: View {
         // Follow the conversation: a new last row scrolls into view; loading older pages doesn't.
         // While the chat is still loading, land on the newest message without a visible scroll.
         .onChange(of: rows.last?.id) {
+            // Rows arriving behind the loading state aren't news; the timeline opens at the bottom.
+            guard ready else { return }
             let sentHere: Bool = if case .pending = rows.last { true } else { false }
             if sentHere { followsLatest = true }
             if hasShownLatest {
@@ -162,6 +193,18 @@ struct GroupChatView: View {
                 position.scrollTo(id: Self.bottomID, anchor: .bottom)
             }
             if !store.isChatEnabled || viewModel.state == .loaded { hasShownLatest = true }
+        }
+        // A reload (a new privacy revision, every return to the app) rebuilds the timeline from
+        // nothing, so it opens like the first time: at the newest row, without animating to it, and
+        // without announcing rows that were already there.
+        .onChange(of: ready) { _, ready in
+            if ready {
+                hasShownLatest = true
+            } else {
+                hasShownLatest = false
+                followsLatest = true
+                position = ScrollPosition(edge: .bottom)
+            }
         }
         // An empty chat has no newest message to compare with, so remember that it loaded empty.
         .onChange(of: viewModel.state) {
@@ -180,9 +223,23 @@ struct GroupChatView: View {
         #endif
     }
 
+    /// The timeline once it's ready, and one loading state until then. The scroll view isn't there
+    /// while loading, so its geometry corrections don't run against a half-built timeline.
+    @ViewBuilder
+    private func messageList(_ event: Game, rows: [ChatViewModel.Row], names: [UUID: String], lastJoin: UUID?,
+                             ready: Bool) -> some View {
+        if ready {
+            timeline(event, rows: rows, names: names, lastJoin: lastJoin)
+        } else {
+            ProgressView()
+                .accessibilityLabel(Text("Loading chat"))
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+
     /// The conversation and how it follows the newest message. Split out of `content(_:)` so each
     /// part type-checks in reasonable time on older compilers (the iOS 18 job).
-    private func messageList(_ event: Game, rows: [ChatViewModel.Row], names: [UUID: String], lastJoin: UUID?) -> some View {
+    private func timeline(_ event: Game, rows: [ChatViewModel.Row], names: [UUID: String], lastJoin: UUID?) -> some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 9) {
                 if store.isChatEnabled { olderMessages }
