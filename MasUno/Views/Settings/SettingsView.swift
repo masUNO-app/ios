@@ -15,6 +15,7 @@ struct SettingsView: View {
     @State private var prefsFailed = false
     @State private var confirmsSignOut = false
     @State private var confirmsDelete = false
+    @State private var showsBuildNumber = false
     @State private var locationStatus = LocationService.authorizationStatus
     @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
@@ -115,7 +116,7 @@ struct SettingsView: View {
                         }
                         .accessibilityHint("Opens Mail")
                     }
-                    row("Version", subtitle: Text(verbatim: "\(AppConfig.currentVersion) (\(buildNumber))"), systemImage: "info", color: Theme.separator, trailing: nil)
+                    row("Version", subtitle: Text(verbatim: versionText), systemImage: "info", color: Theme.separator, trailing: nil)
                         .accessibilityElement(children: .combine)
                 }
 
@@ -139,6 +140,7 @@ struct SettingsView: View {
         // Side by side: the preferences don't wait for the system's permission answer.
         .task { await push.refreshAuthorization() }
         .task { await loadPrefs() }
+        .task { showsBuildNumber = !(await BuildChannel.isAppStore) }
         .onAppear {
             // Opened before: start from the account's last known settings, then refresh quietly.
             if !prefsLoaded, let known = push.lastKnownPrefs {
@@ -322,8 +324,12 @@ struct SettingsView: View {
         }
     }
 
-    private var buildNumber: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "0"
+    /// "0.9 (10)" everywhere but the public App Store, where it's just "0.9". It starts without the
+    /// build so an App Store install never flashes it.
+    private var versionText: String {
+        guard showsBuildNumber else { return AppConfig.currentVersion }
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "0"
+        return "\(AppConfig.currentVersion) (\(build))"
     }
 
     private func section(_ title: LocalizedStringKey, @ViewBuilder rows: () -> some View) -> some View {

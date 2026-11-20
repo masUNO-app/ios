@@ -24,4 +24,23 @@ enum BuildChannel {
             #endif
         }
     }
+
+    /// True only for an install from the public App Store, where Settings shows the version without
+    /// the build number. TestFlight (and App Review) installs are `.sandbox`, and Xcode, ad hoc and
+    /// simulator installs have no verified App Store transaction, so they all keep the build number.
+    /// Resolved once per launch, so Settings doesn't wait on StoreKit each time it opens.
+    static var isAppStore: Bool {
+        get async { await appStoreLookup.value }
+    }
+
+    private static let appStoreLookup = Task<Bool, Never> {
+        #if DEBUG || targetEnvironment(simulator)
+        return false
+        #else
+        if let result = try? await AppTransaction.shared, case .verified(let transaction) = result {
+            return transaction.environment == .production
+        }
+        return false
+        #endif
+    }
 }
