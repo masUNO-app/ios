@@ -430,7 +430,9 @@ begin
     end loop;
 end $$;
 
--- Replacing a function keeps its grants; repeat the earlier lock-down anyway.
+-- Replacing a function keeps its grants; repeat the earlier lock-down anyway. The version helper is
+-- new, so it starts with the default grant to everyone: take it away (activity_catalog runs as owner).
 revoke execute on function private.claim_notifications_ordered(integer), private.valid_game_input(text, text,
     timestamptz, integer, integer, text, text, text, double precision, double precision, text)
     from public, anon, authenticated, service_role;
+revoke execute on function private.version_at_least(text, text) from public, anon, authenticated;
