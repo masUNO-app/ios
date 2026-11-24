@@ -369,6 +369,11 @@ never wait, so codes don't matter to them.
   an FYI ("joined with Ana G.'s invite"), not an approval request. The refusals are returned, not raised: a
   raise would roll back the wrong-try count with the rest of the call. The app throws them as
   `.invalidInvite` and `.rateLimited`, then `refreshStatus()` moves `.pendingApproval` on.
+  From `20261125000000_master_invites` the code may also be a team **master code**, which works for many
+  people until its limit, end date or `revoke_master_invite` (`supabase/README.md`, Invites). A member's
+  code is checked first. A master code approves the request with `invited_by` null and records the use in
+  `private.master_invite_uses`; an ended, used-up or turned-off one is `'invalid_invite'` and counts as a
+  wrong try. Same signature and answers, so no build changes.
 - **`waitlist_position`** → `AuthService.waitlistPosition()`: your place among requests nobody has approved,
   by sign-up time (1 is next), or null when you aren't waiting. From `20261115000000_waitlist_sync` the line
   includes school emails that joined on the website, and a website join's time is your sign-up time
