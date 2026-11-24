@@ -76,33 +76,41 @@ struct LeaderboardView: View {
 
         return ScrollView(.horizontal) {
             HStack(spacing: 8) {
-                filterChip(String.app("All"), color: Color(.sportOther), value: nil)
+                filterChip(String.app("All"), color: Theme.accentSoft, showsDot: false, value: nil)
                 ForEach(sports) { filterChip($0.name, color: $0.color, value: $0.slug) }
                 ForEach(kinds) { filterChip($0.name, color: Color(.sportEsports), value: $0.slug) }
             }
-            .padding(.vertical, 2)
+            .padding(.vertical, 8)
         }
         .scrollIndicators(.hidden)
     }
 
-    private func filterChip(_ title: String, color: Color, value: String?) -> some View {
+    /// Liquid Glass like `SportToggle`: plain when off, tinted with its color when on.
+    private func filterChip(_ title: String, color: Color, showsDot: Bool = true, value: String?) -> some View {
         let isOn = filter == value
         return Button {
             filter = value
         } label: {
             HStack(spacing: 6) {
-                Circle().fill(color).frame(width: 10, height: 10).accessibilityHidden(true)
+                if showsDot {
+                    Circle().fill(color).frame(width: 9, height: 9)
+                        .overlay { Circle().strokeBorder(Theme.ink.opacity(0.15)) }
+                        .accessibilityHidden(true)
+                }
                 Text(verbatim: title)
             }
             .font(.rounded(.footnote, .bold))
-            .foregroundStyle(isOn ? Theme.background : Theme.ink)
+            .foregroundStyle(Theme.ink)
+            .inkOnColor(isOn)
             .padding(.horizontal, 12)
-            .frame(minHeight: 34)
-            .background(isOn ? Theme.ink : Theme.card, in: .capsule)
-            .overlay { Capsule().strokeBorder(isOn ? Theme.ink : Theme.hairline, lineWidth: 1.5) }
-            .tapTarget(.vertical, 5)
+            .padding(.vertical, 6)
+            .frame(minHeight: 32)
+            .appGlass(in: .capsule, tint: isOn ? color : nil, interactive: true)
+            .tapTarget(.vertical, 6)
         }
         .buttonStyle(.plain)
+        .padding(.vertical, -6)
+        .sensoryFeedback(.selection, trigger: isOn)
         .accessibilityAddTraits(isOn ? .isSelected : [])
     }
 

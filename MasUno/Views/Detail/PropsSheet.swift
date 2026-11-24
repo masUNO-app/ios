@@ -19,6 +19,9 @@ struct PropsSheet: View {
     @State private var error: String?
     @State private var reportsPlan = false
 
+    /// The plan's sport color, for the props that are on.
+    private var tint: Color { store.game(gameID)?.activity.color ?? Theme.accentSoft }
+
     /// Three people before "Show N more", like the design.
     private let firstShown = 3
 
@@ -125,9 +128,9 @@ struct PropsSheet: View {
                 }
             }
             .accessibilityElement(children: .combine)
-            FlowLayout(spacing: 6) {
+            FlowLayout(spacing: 8) {
                 ForEach(Prop.allCases) { prop in
-                    PropToggle(prop: prop, isOn: picks[peer.id, default: []].contains(prop)) {
+                    PropToggle(prop: prop, isOn: picks[peer.id, default: []].contains(prop), tint: tint) {
                         picks[peer.id, default: []].formSymmetricDifference([prop])
                     }
                     .accessibilityHint(Text("For \(peer.person.firstName)"))
@@ -168,6 +171,13 @@ struct PropsSheet: View {
             let loaded = try await store.propsToGive(gameID, round: round)
             props = loaded
             picks = Dictionary(uniqueKeysWithValues: loaded.people.map { ($0.id, $0.sent) })
+            #if DEBUG
+            // `-screen props-sheet`: a few picked, like the design.
+            if UserDefaults.standard.string(forKey: "screen") == "props-sheet", loaded.people.count >= 2 {
+                picks[loaded.people[0].id] = [.onTime]
+                picks[loaded.people[1].id] = [.goodSport, .teamPlayer]
+            }
+            #endif
         } catch {
             self.error = (error as? DomainError)?.message ?? DomainError.unknown("").message
         }
@@ -188,31 +198,37 @@ struct PropsSheet: View {
     }
 }
 
-/// One prop as a toggle: green with a check when on, plain when off.
+/// One prop as a toggle, in Liquid Glass like `SportToggle`: plain glass when off, tinted with the
+/// plan's sport color and a check when on.
 struct PropToggle: View {
     var prop: Prop
     var isOn: Bool
+    /// The plan's sport color.
+    var tint: Color
     var action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 5) {
+            HStack(spacing: 4) {
                 if isOn {
                     Image(systemName: "checkmark")
-                        .font(.rounded(.caption, .bold))
                         .accessibilityHidden(true)
                 }
                 Text(verbatim: prop.name)
             }
             .font(.rounded(.footnote, .bold))
-            .foregroundStyle(isOn ? Theme.onAccent : Theme.ink)
-            .padding(.horizontal, 13)
-            .frame(minHeight: 36)
-            .background(isOn ? Theme.accent : Theme.card, in: .capsule)
-            .overlay { Capsule().strokeBorder(isOn ? Theme.accent : Theme.hairline, lineWidth: 1.5) }
-            .tapTarget(.vertical, 4)
+            .foregroundStyle(Theme.ink)
+            // Off, it's plain glass that follows dark mode.
+            .inkOnColor(isOn)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .frame(minHeight: 32)
+            .appGlass(in: .capsule, tint: isOn ? tint : nil, interactive: true)
+            // 44 pt tall to tap; the rows don't move apart (A11Y-19).
+            .tapTarget(.vertical, 6)
         }
         .buttonStyle(.plain)
+        .padding(.vertical, -6)
         .sensoryFeedback(.selection, trigger: isOn)
         .accessibilityAddTraits(isOn ? .isSelected : [])
     }
