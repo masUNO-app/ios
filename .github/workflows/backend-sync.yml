@@ -1,13 +1,19 @@
 name: Sync Supabase
 
+# masuno-dev follows every PR, so database changes can be tried there from any branch.
+# masuno-prod changes only when a PR is merged into main or path-to-1.0, or when the workflow is
+# run by hand from one of them with "Also deploy masuno-prod" ticked.
 on:
   pull_request:
-  push:
-    branches: [main]
-    paths: ["supabase/**", ".github/workflows/backend-sync.yml", ".github/workflows/database.yml", ".github/scripts/sync-supabase.sh"]
+    types: [opened, synchronize, reopened, closed]
   schedule:
     - cron: "0 15 * * *"
   workflow_dispatch:
+    inputs:
+      prod:
+        description: Also deploy masuno-prod (only from main or path-to-1.0)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -19,16 +25,27 @@ concurrency:
 
 jobs:
   validate:
+    # A merge was validated on its PR already, and a closed PR's merge ref is gone.
+    if: github.event.action != 'closed'
     uses: ./.github/workflows/database.yml
 
   sync-dev:
     needs: validate
-    # Fork PRs run validation but cannot receive deployment credentials.
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    # Fork PRs run validation but cannot receive deployment credentials. A PR closed without
+    # merging deploys nothing.
+    if: >-
+      !cancelled()
+      && (needs.validate.result == 'success' || needs.validate.result == 'skipped')
+      && (github.event_name != 'pull_request'
+          || (github.event.pull_request.head.repo.full_name == github.repository
+              && (github.event.action != 'closed' || github.event.pull_request.merged)))
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          # After a merge, the commit that landed on the base branch.
+          ref: ${{ github.event.pull_request.merged && github.event.pull_request.merge_commit_sha || '' }}
       - uses: supabase/setup-cli@v1
         with:
           version: 3.1.0
@@ -40,10 +57,21 @@ jobs:
 
   sync-prod:
     needs: sync-dev
+    # Runs only after dev succeeded, and only for a merge into a release branch (main or
+    # path-to-1.0) or a manual run from one with the box ticked.
+    if: >-
+      !cancelled() && needs.sync-dev.result == 'success'
+      && ((github.event_name == 'pull_request' && github.event.action == 'closed'
+           && github.event.pull_request.merged
+           && contains(fromJSON('["main", "path-to-1.0"]'), github.event.pull_request.base.ref))
+          || (github.event_name == 'workflow_dispatch' && inputs.prod
+              && contains(fromJSON('["main", "path-to-1.0"]'), github.ref_name)))
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merged && github.event.pull_request.merge_commit_sha || '' }}
       - uses: supabase/setup-cli@v1
         with:
           version: 3.1.0
@@ -52,3 +80,20 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF: ${{ vars.PROD_SUPABASE_PROJECT_REF }}
         run: bash .github/scripts/sync-supabase.sh
+
+  # Free projects pause after a week without activity. The daily run reads prod's migration
+  # history, which keeps it awake without changing anything.
+  keep-prod-awake:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 3.1.0
+      - name: Read masuno-prod
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ vars.PROD_SUPABASE_PROJECT_REF }}
+        run: supabase migration list --remote="$SUPABASE_PROJECT_REF"

@@ -44,11 +44,18 @@ their `node:` imports. Deno Edge entrypoints remain checked separately with
 ## Automatic hosted sync
 
 [Sync Supabase](../.github/workflows/backend-sync.yml) replaces the old keep-awake job.
-It runs on every PR, relevant pushes to `main`, daily at 15:00 UTC, and manual dispatch.
-Database/pgTAP/concurrency tests and Edge Function checks run first. Then it applies pending
-migrations and deploys all local Edge Functions to **masuno-dev, then masuno-prod**. PRs from
-forks run validation only because GitHub does not expose deployment credentials to them.
-The daily database connection also keeps both projects active.
+Database/pgTAP/concurrency tests and Edge Function checks run first, then it applies pending
+migrations and deploys all local Edge Functions:
+
+- **masuno-dev** on every PR (opened, pushed to, reopened), daily at 15:00 UTC from `main`, and on
+  manual runs. Try database changes there from any branch.
+- **masuno-prod** only when a PR is **merged into `main` or `path-to-1.0`**, after dev succeeds, from
+  the merged commit. Pushing to a branch or a PR, including the open path-to-1.0 → main PR, never
+  touches prod. To deploy prod by hand, run the workflow from `main` or `path-to-1.0` with
+  "Also deploy masuno-prod" ticked.
+- The daily run also reads prod's migration history, without changing it, so prod doesn't pause.
+
+PRs from forks run validation only because GitHub does not expose deployment credentials to them.
 
 Repository configuration (Settings → Secrets and variables → Actions):
 
