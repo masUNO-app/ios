@@ -105,7 +105,7 @@ struct PropsRecapSection: View {
             }
             FlowLayout(spacing: 8) {
                 ForEach(tally.ranked, id: \.prop) { entry in
-                    PropCount(prop: entry.prop, count: entry.count)
+                    PropCount(prop: entry.prop, count: entry.count, tint: event.activity.color)
                 }
             }
             RowDivider()
@@ -135,26 +135,29 @@ struct PropsRecapSection: View {
     }
 }
 
-/// "Good sport 4": a prop and how many different people gave it.
+/// "Good sport 4": a prop and how many different people gave it, in Liquid Glass like `SportChip`.
 struct PropCount: View {
     var prop: Prop
     var count: Int
+    /// The plan's sport color.
+    var tint: Color
 
     var body: some View {
-        HStack(spacing: 7) {
+        HStack(spacing: 6) {
             Text(verbatim: prop.name)
-                .font(.rounded(.footnote, .bold))
-                .foregroundStyle(Theme.ink)
             Text(verbatim: "\(count)")
-                .font(.rounded(.caption, .bold))
-                .foregroundStyle(Theme.onAccent)
+                .monospacedDigit()
                 .padding(.horizontal, 6)
-                .frame(minWidth: 22, minHeight: 22)
-                .background(Theme.accent, in: .capsule)
+                .frame(minWidth: 20, minHeight: 20)
+                .background(Theme.ink.opacity(0.1), in: .capsule)
         }
-        .padding(.horizontal, 12)
-        .frame(minHeight: 34)
-        .background(Theme.accentSoft, in: .capsule)
+        .font(.rounded(.footnote, .bold))
+        .foregroundStyle(Theme.ink)
+        .inkOnColor()
+        .padding(.horizontal, 10)
+        .padding(.vertical, 4)
+        .frame(minHeight: 30)
+        .appGlass(in: .capsule, tint: tint)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(verbatim: count == 1
             ? String.app("\(prop.name), from 1 person")

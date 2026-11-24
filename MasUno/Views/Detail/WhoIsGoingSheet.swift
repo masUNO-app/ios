@@ -71,6 +71,9 @@ struct WhoIsGoingSheet: View {
         #endif
     }
 
+    /// The plan's sport color, for the props pills.
+    private var tint: Color { store.game(eventID)?.activity.color ?? Theme.accentSoft }
+
     private func row(_ attendee: Attendee) -> some View {
         let person = attendee.person
         let isMe = person.id == store.profile?.id
@@ -106,7 +109,7 @@ struct WhoIsGoingSheet: View {
                         .font(.rounded(.footnote))
                         .foregroundStyle(Theme.muted)
                     if let topProp {
-                        PropPill(prop: topProp.prop, people: topProp.people)
+                        PropPill(prop: topProp.prop, people: topProp.people, tint: tint)
                             .padding(.top, 2)
                     } else if isNew {
                         Text("New here")
@@ -142,23 +145,27 @@ struct WhoIsGoingSheet: View {
     }
 }
 
-/// "★ On time · 15" on Who's going: someone's most-given prop and from how many people.
+/// "★ On time · 15" on Who's going: someone's most-given prop and from how many people, in Liquid
+/// Glass like `SportChip`.
 struct PropPill: View {
     var prop: Prop
     var people: Int
+    /// The plan's sport color.
+    var tint: Color
 
     var body: some View {
-        HStack(spacing: 5) {
+        HStack(spacing: 4) {
             Image(systemName: "star.fill")
-                .font(.system(size: 10, weight: .bold))
-                .foregroundStyle(Theme.accentText)
+                .font(.system(size: 9, weight: .bold))
                 .accessibilityHidden(true)
             Text(verbatim: "\(prop.name) · \(people)")
-                .font(.rounded(.caption, .bold))
-                .foregroundStyle(Theme.ink)
         }
+        .font(.rounded(.caption, .bold))
+        .foregroundStyle(Theme.ink)
+        .inkOnColor()
         .padding(.horizontal, 9)
+        .padding(.vertical, 3)
         .frame(minHeight: 24)
-        .background(Theme.accentSoft, in: .capsule)
+        .appGlass(in: .capsule, tint: tint)
     }
 }
