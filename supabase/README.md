@@ -49,11 +49,12 @@ migrations and deploys all local Edge Functions:
 
 - **masuno-dev** on every PR (opened, pushed to, reopened), daily at 15:00 UTC from `main`, and on
   manual runs. Try database changes there from any branch.
-- **masuno-prod** only when a PR is **merged into `main` or `path-to-1.0`**, from the merged commit.
-  It runs after dev even if dev fails: dev often holds migrations still being tried on other branches,
-  and the PR's pushes already tried this one there. Don't merge a PR whose "Sync Supabase" is red. Pushing to a branch or a PR, including the open path-to-1.0 → main PR, never
-  touches prod. To deploy prod by hand, run the workflow from `main` or `path-to-1.0` with
-  "Also deploy masuno-prod" ticked.
+- **masuno-prod** only when a PR is **merged into `main`**, from the merged commit. Pushing to a
+  branch or a PR, or merging into any other branch (`path-to-1.0` included), never touches prod.
+  It runs after dev even if dev fails: dev often holds migrations still being tried on other
+  branches, and the PR's pushes already tried this one there. Don't merge a PR whose "Sync
+  Supabase" is red. To deploy prod by hand, run the workflow from `main` with "Also deploy
+  masuno-prod" ticked.
 - The daily run also reads prod's migration history, without changing it, so prod doesn't pause.
 
 PRs from forks run validation only because GitHub does not expose deployment credentials to them.
