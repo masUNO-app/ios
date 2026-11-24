@@ -187,6 +187,8 @@ struct MeView: View {
                 .padding(.top, 4)
             Button(viewModel.inviteTitle(for: store.invites)) { viewModel.showsInvites = true }
                 .pill(.quiet)
+            NavigationLink("Top teammates", value: Route.leaderboard)
+                .pill(.quiet)
         }
         .padding(18)
     }

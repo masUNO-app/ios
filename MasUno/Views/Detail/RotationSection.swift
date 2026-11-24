@@ -7,6 +7,14 @@ struct RotationSection: View {
     var event: Game
     var rotation: Rotation
     @State private var plan: RotationPlan?
+    /// The round whose props sheet is open (1.0).
+    @State private var propsFor: PropsRound?
+
+    private struct PropsRound: Identifiable {
+        var round: Int
+        var station: Int
+        var id: Int { round }
+    }
 
     /// You're in this game and may see who's in your groups.
     private var isMember: Bool { event.isGoing && !event.hidesPeople }
@@ -24,6 +32,7 @@ struct RotationSection: View {
                 try? await Task.sleep(for: .seconds(max(1, next.timeIntervalSinceNow)))
             }
         }
+        .sheet(item: $propsFor) { PropsSheet(gameID: event.id, round: $0.round, station: $0.station) }
     }
 
     /// Before the plan loads (or if it can't), the rounds' times alone.
@@ -57,6 +66,7 @@ struct RotationSection: View {
                         .padding(.leading, 14)
                 }
                 roundCard(round, now: now)
+                if !event.isCancelled { propsButton(round, phase: phase(of: round, now: now), now: now) }
             }
 
             if !event.hasEnded(now: now) {
@@ -158,6 +168,22 @@ struct RotationSection: View {
             .labelStyle(IconRowLabelStyle(iconWidth: 16, spacing: 6))
             .font(.rounded(.footnote))
             .foregroundStyle(Theme.mutedLarge)
+        }
+    }
+
+    // MARK: Props
+
+    /// After a round you played, in the break and for a day: props for your group that round.
+    @ViewBuilder
+    private func propsButton(_ round: RotationRound, phase: Phase, now: Date) -> some View {
+        if phase == .played, now < round.endsAt.addingTimeInterval(24 * 3600), isMember, let myID,
+           let mine = plan?.group(of: myID, in: round), !mine.people.isEmpty {
+            Button("Give props to Station \(mine.station)", systemImage: "hand.thumbsup") {
+                propsFor = PropsRound(round: round.index, station: mine.station)
+            }
+            .font(.rounded(.footnote, .bold))
+            .foregroundStyle(Theme.accentText)
+            .frame(minHeight: 44)
         }
     }
 

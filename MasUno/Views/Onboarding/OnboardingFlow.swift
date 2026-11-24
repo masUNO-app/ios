@@ -519,6 +519,8 @@ private struct VerifiedStep: View {
 private struct ProfileStep: View {
     @Environment(GameStore.self) private var store
     @Bindable var viewModel: OnboardingViewModel
+    /// Props leaderboard (1.0): off unless they turn it on here or later in Settings.
+    @State private var joinsLeaderboard = false
     @AccessibilityFocusState private var errorFocus: ProfileInput.Field?
 
     var body: some View {
@@ -559,6 +561,20 @@ private struct ProfileStep: View {
                     .font(.rounded(.footnote))
                     .foregroundStyle(Theme.muted)
             }
+
+            Toggle(isOn: $joinsLeaderboard) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Show me on the campus leaderboard")
+                        .font(.rounded(.callout, .bold))
+                        .foregroundStyle(Theme.ink)
+                    Text("Top teammates, by props from people you play with. You can change this in Settings.")
+                        .font(.rounded(.footnote))
+                        .foregroundStyle(Theme.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .tint(Theme.accent)
+            .padding(.top, 8)
         } footer: {
             WorkingButton("Let's go", isWorking: viewModel.isWorking) { submit() }
         }
@@ -568,6 +584,8 @@ private struct ProfileStep: View {
     private func submit() {
         Task {
             await viewModel.submitProfile()
+            // Saved: the step moved on. The switch is a nice-to-have, so a failure stays quiet.
+            if joinsLeaderboard, viewModel.path.last != .about { _ = try? await store.setPropsLeaderboardOptIn(true) }
             if let field = viewModel.firstInvalidProfileField { errorFocus = field }
             if let summary = viewModel.errorSummary(on: .about) { Announce.post(summary, priority: .high) }
         }

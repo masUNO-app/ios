@@ -16,6 +16,8 @@ struct SettingsView: View {
     @State private var confirmsSignOut = false
     @State private var confirmsDelete = false
     @State private var showsBuildNumber = false
+    /// `props_leaderboard_opt_in`; nil until it loads (or if props are off).
+    @State private var leaderboardOptIn: Bool?
     @State private var locationStatus = LocationService.authorizationStatus
     @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
@@ -97,6 +99,7 @@ struct SettingsView: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityHint("Opens iPhone Settings")
+                    if leaderboardOptIn != nil { leaderboardSwitch }
                     NavigationLink(value: Route.blockedPeople) {
                         row("Blocked people", subtitle: Text(blockedSubtitle), systemImage: "nosign", color: Color(.person5).opacity(0.5))
                     }
@@ -140,6 +143,7 @@ struct SettingsView: View {
         // Side by side: the preferences don't wait for the system's permission answer.
         .task { await push.refreshAuthorization() }
         .task { await loadPrefs() }
+        .task { leaderboardOptIn = try? await store.propsLeaderboardOptIn() }
         .task { showsBuildNumber = !(await BuildChannel.isAppStore) }
         .onAppear {
             // Opened before: start from the account's last known settings, then refresh quietly.
@@ -330,6 +334,41 @@ struct SettingsView: View {
         guard showsBuildNumber else { return AppConfig.currentVersion }
         let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "0"
         return "\(AppConfig.currentVersion) (\(build))"
+    }
+
+    /// "Show me on the leaderboard" (props, 1.0). Off by default; your own rank shows either way.
+    private var leaderboardSwitch: some View {
+        Toggle(isOn: Binding(
+            get: { leaderboardOptIn ?? false },
+            set: { newValue in
+                let previous = leaderboardOptIn
+                leaderboardOptIn = newValue
+                Task {
+                    do {
+                        try await store.setPropsLeaderboardOptIn(newValue)
+                    } catch {
+                        leaderboardOptIn = previous
+                        store.notice = (error as? DomainError)?.message ?? DomainError.unknown("").message
+                    }
+                }
+            }
+        )) {
+            HStack(spacing: 14) {
+                IconTile(systemImage: "trophy", color: Color(.person1).opacity(0.5))
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Show me on the leaderboard")
+                        .font(.rounded(.body))
+                        .foregroundStyle(Theme.ink)
+                    Text("Top teammates on campus, by props")
+                        .font(.rounded(.footnote))
+                        .foregroundStyle(Theme.muted)
+                }
+            }
+        }
+        .tint(Theme.accent)
+        .padding(.horizontal, 14)
+        .padding(.vertical, typeSize.isAccessibilitySize ? 8 : 0)
+        .frame(minHeight: 58)
     }
 
     private func section(_ title: LocalizedStringKey, @ViewBuilder rows: () -> some View) -> some View {

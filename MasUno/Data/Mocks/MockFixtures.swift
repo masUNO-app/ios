@@ -44,6 +44,8 @@ enum MockFixtures {
         static let roundNightOpen = UUID(uuidString: "00000000-0000-0000-0000-00000000E002")!
         /// Yesterday's, for the "who you played with" recap.
         static let roundNightEnded = UUID(uuidString: "00000000-0000-0000-0000-00000000E003")!
+        /// `-esports YES` (the 1.0 preview): a plan that ended an hour ago, so props are open.
+        static let justEnded = UUID(uuidString: "00000000-0000-0000-0000-00000000A009")!
     }
 
     enum Places {
@@ -212,6 +214,9 @@ enum MockFixtures {
             add(GameID.roundNightEnded, "Valorant night", "valorant", minutes: -26 * 60, capacity: 10,
                 roster: [p[2], me.summary, p[3], p[7], p[8], p[9], p[10], priya, sam, p[1]], place: Places.gameRoom,
                 rotation: Rotation(rounds: 2, roundMinutes: 45, breakMinutes: 15, groupSize: 5))
+            // Ended an hour ago: props are open (`MockBackend.propsToGive`).
+            add(GameID.justEnded, "Sunday 7v7 pickup", "soccer", minutes: -150, duration: 90, capacity: 10,
+                roster: [maya, me.summary, alex, diego, nina, sam, priya, ricardo], place: Places.stadium)
         }
 
         // `-mockGames 150`: copies of the upcoming games you're not in, spread around campus, so pins,
