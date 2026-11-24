@@ -56,11 +56,15 @@ jobs:
         run: bash .github/scripts/sync-supabase.sh
 
   sync-prod:
-    needs: sync-dev
-    # Runs only after dev succeeded, and only for a merge into a release branch (main or
-    # path-to-1.0) or a manual run from one with the box ticked.
+    needs: [validate, sync-dev]
+    # Only for a merge into a release branch (main or path-to-1.0) or a manual run from one with
+    # the box ticked. Runs after dev but not only if dev succeeded: dev often holds migrations
+    # still being tried on other branches, so its history can differ for reasons unrelated to this
+    # merge, and the PR's own pushes already tried this migration on dev. Prod's dry run still
+    # stops on prod drift. A manual run still needs the tests to pass (on a merge they ran on the PR).
     if: >-
-      !cancelled() && needs.sync-dev.result == 'success'
+      !cancelled()
+      && (needs.validate.result == 'success' || needs.validate.result == 'skipped')
       && ((github.event_name == 'pull_request' && github.event.action == 'closed'
            && github.event.pull_request.merged
            && contains(fromJSON('["main", "path-to-1.0"]'), github.event.pull_request.base.ref))
