@@ -66,6 +66,18 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
     /// Each round night's groups so far, as person IDs: locked when a round is revealed, so people
     /// who join later never reshuffle a round that's already out.
     private var rotationGroups: [UUID: [[[UUID]]]] = [:]
+    /// Props you gave, by plan, round (-1 for a whole plan) and person, like `private.props`.
+    private var givenProps: [PropsTarget: Set<Prop>] = [:]
+    /// `props_leaderboard_opt_in`.
+    private var propsOptIn = false
+    /// `app_config.props_enabled`.
+    var propsEnabled = true
+
+    private struct PropsTarget: Hashable {
+        var gameID: UUID
+        var round: Int
+        var personID: UUID
+    }
 
     /// `state` defaults to signed in with the Monterrey fixtures. Pass `.signedOut(expired: false)`
     /// to preview onboarding: the new account then has no profile until `completeProfile`.
@@ -407,6 +419,134 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
                     : nil
             )
         })
+    }
+
+    // MARK: Props
+
+    /// When props for a plan (round nil) or a round open, like `private.props_window_opens`.
+    private func propsOpen(_ game: Game, round: Int?) -> Date? {
+        guard !game.isCancelled else { return nil }
+        guard let rotation = game.rotation else { return round == nil ? game.endsAt : nil }
+        guard let round, (0..<rotation.rounds).contains(round) else { return nil }
+        return rotation.end(of: round, from: game.startsAt)
+    }
+
+    /// Who you played with: everyone going, or on a round night your group that round, without
+    /// anyone blocked either way.
+    private func propsPeers(_ game: Game, round: Int?) async throws -> [Attendee] {
+        let roster = attendees[game.id] ?? []
+        guard roster.contains(where: { $0.id == me.id }) else { return [] }
+        var ids = Set(roster.map(\.id))
+        if game.rotation != nil, let round {
+            _ = try await fetchRotation(gameID: game.id)
+            let groups = rotationGroups[game.id] ?? []
+            guard round < groups.count, let mine = groups[round].first(where: { $0.contains(me.id) }) else { return [] }
+            ids = Set(mine)
+        }
+        return roster.filter { $0.id != me.id && ids.contains($0.id) && !hasBlock(with: $0.id) }
+    }
+
+    func propsToGive(gameID: UUID, round: Int?) async throws -> PropsToGive {
+        try await begin()
+        let game = try visibleGame(gameID)
+        guard propsEnabled, let opens = propsOpen(game, round: round),
+              now >= opens, now < opens.addingTimeInterval(24 * 3600)
+        else { return PropsToGive(isOpen: false, opensAt: propsOpen(game, round: round), closesAt: nil, people: []) }
+        let peers = try await propsPeers(game, round: round)
+        let earlier = games.filter { $0.id != gameID && !$0.isCancelled && $0.hasEnded(now: now) }
+        return PropsToGive(
+            isOpen: true, opensAt: opens, closesAt: opens.addingTimeInterval(24 * 3600),
+            people: peers
+                .sorted { ($0.role == .host ? 0 : 1, $0.person.firstName) < ($1.role == .host ? 0 : 1, $1.person.firstName) }
+                .map { attendee in
+                    PropsPeer(
+                        person: attendee.person, isHost: attendee.role == .host,
+                        playedBefore: earlier.filter { other in
+                            let ids = (attendees[other.id] ?? []).map(\.id)
+                            return ids.contains(me.id) && ids.contains(attendee.id)
+                        }.count,
+                        sent: givenProps[PropsTarget(gameID: gameID, round: round ?? -1, personID: attendee.id)] ?? []
+                    )
+                }
+        )
+    }
+
+    func giveProps(gameID: UUID, round: Int?, _ props: [UUID: Set<Prop>]) async throws -> Int {
+        try await beginWrite()
+        let game = try visibleGame(gameID)
+        guard propsEnabled else { throw DomainError.propsDisabled }
+        guard let opens = propsOpen(game, round: round), now >= opens, now < opens.addingTimeInterval(24 * 3600) else {
+            throw DomainError.propsClosed
+        }
+        let peers = Set(try await propsPeers(game, round: round).map(\.id))
+        guard props.keys.allSatisfy(peers.contains) else { throw DomainError.invalidInput }
+        for (person, sent) in props {
+            givenProps[PropsTarget(gameID: gameID, round: round ?? -1, personID: person)] = sent.isEmpty ? nil : sent
+        }
+        return givenProps.filter { $0.key.gameID == gameID && $0.key.round == (round ?? -1) }.values.map(\.count).reduce(0, +)
+    }
+
+    /// Invented totals for some fixture people, so Who's going has props to show. Anyone else has
+    /// fewer than 3 givers, which `prop_counts` leaves out.
+    private static let seededPropCounts: [UUID: [Prop: Int]] = [
+        MockFixtures.alex.id: [.onTime: 15, .goodSport: 6],
+        MockFixtures.diego.id: [.teamPlayer: 8, .goodSport: 3],
+        MockFixtures.maya.id: [.madeItFun: 5, .goodSport: 4],
+        MockFixtures.nina.id: [.goodSport: 4],
+        MockFixtures.esportsPlayers[2].id: [.goodSport: 9, .teamPlayer: 7, .onTime: 6, .madeItFun: 3],
+    ]
+
+    func propCounts(for people: [UUID]) async throws -> [UUID: [Prop: Int]] {
+        try await begin()
+        guard propsEnabled else { return [:] }
+        return Self.seededPropCounts.filter { people.contains($0.key) && !hasBlock(with: $0.key) }
+    }
+
+    func myProps(gameID: UUID) async throws -> PropTally {
+        try await begin()
+        _ = try visibleGame(gameID)
+        // What the others gave you: invented for the plans you were in that ended.
+        guard propsEnabled, (attendees[gameID] ?? []).contains(where: { $0.id == me.id }),
+              let game = games.first(where: { $0.id == gameID }), game.hasEnded(now: now)
+        else { return .empty }
+        return PropTally(people: 5, counts: [.goodSport: 4, .teamPlayer: 3, .onTime: 2, .madeItFun: 1])
+    }
+
+    func propsLeaderboard(prop: Prop, filter: String?) async throws -> PropsLeaderboard {
+        try await begin()
+        guard propsEnabled else { throw DomainError.propsDisabled }
+        let people = [MockFixtures.alex, MockFixtures.esportsPlayers[1], MockFixtures.esportsPlayers[2], MockFixtures.esportsPlayers[4],
+                      MockFixtures.esportsPlayers[5], MockFixtures.maya, MockFixtures.esportsPlayers[9], MockFixtures.diego,
+                      MockFixtures.nina, MockFixtures.sam, MockFixtures.priya]
+        let mostly = ["basketball", "soccer", "valorant", "volleyball", "soccer", "padel", "valorant", "soccer", "tennis", "basketball", "padel"]
+        let counts = [21, 17, 14, 12, 11, 10, 9, 9, 8, 8, 7]
+        let shown = zip(people, zip(mostly, counts)).filter { entry in
+            guard let filter else { return true }
+            let slug = entry.1.0
+            return slug == filter || Catalog(kinds: ActivityKind.builtIn, activities: Activity.builtIn + Activity.esports)
+                .activity(slug: slug)?.kind == filter
+        }
+        var top: [PropsLeaderboard.Entry] = []
+        for (index, entry) in shown.enumerated() where !hasBlock(with: entry.0.id) {
+            let rank = top.last.map { $0.people == entry.1.1 ? $0.rank : index + 1 } ?? 1
+            top.append(PropsLeaderboard.Entry(rank: rank, person: entry.0, people: entry.1.1, mostly: entry.1.0))
+        }
+        let month = Calendar.current.dateInterval(of: .month, for: now)
+        return PropsLeaderboard(
+            month: month?.start ?? now, resetsAt: month?.end ?? now, top: top,
+            isOptedIn: propsOptIn, myRank: 14, myPeople: 6
+        )
+    }
+
+    func propsLeaderboardOptIn() async throws -> Bool {
+        try await begin()
+        return propsOptIn
+    }
+
+    func setPropsLeaderboardOptIn(_ on: Bool) async throws -> Bool {
+        try await beginWrite()
+        propsOptIn = on
+        return on
     }
 
     func createGame(_ draft: GameDraft) async throws -> Game {

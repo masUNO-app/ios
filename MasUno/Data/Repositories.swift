@@ -39,6 +39,22 @@ protocol GameRepository: AnyObject {
     /// that isn't one. The default below is for backends without round nights.
     func fetchRotation(gameID: UUID) async throws -> RotationPlan
 
+    // Props (1.0, `docs/API.md` "Props"). Defaults below for backends without them.
+
+    /// Who you can give props to after a plan (`round` nil) or a round night's round (from 0).
+    func propsToGive(gameID: UUID, round: Int?) async throws -> PropsToGive
+    /// Sends props: each person named gets exactly that set, replacing what you sent before.
+    /// - Returns: How many props you've now sent for this plan or round.
+    func giveProps(gameID: UUID, round: Int?, _ props: [UUID: Set<Prop>]) async throws -> Int
+    /// For Who's going: per person, how many different people gave each prop. Only people with 3+.
+    func propCounts(for people: [UUID]) async throws -> [UUID: [Prop: Int]]
+    /// The props you got for one plan.
+    func myProps(gameID: UUID) async throws -> PropTally
+    /// Your campus's top people for a prop this month. `filter`: a kind ("esports"), a slug, or nil.
+    func propsLeaderboard(prop: Prop, filter: String?) async throws -> PropsLeaderboard
+    func propsLeaderboardOptIn() async throws -> Bool
+    func setPropsLeaderboardOptIn(_ on: Bool) async throws -> Bool
+
     func createGame(_ draft: GameDraft) async throws -> Game
     func updateGame(id: UUID, _ draft: GameDraft) async throws -> Game
     func cancelGame(id: UUID) async throws -> Game
@@ -69,6 +85,16 @@ protocol GameRepository: AnyObject {
 }
 
 extension GameRepository {
+    // Props (1.0). Defaults for a backend without them: nothing to give, nothing to show.
+
+    func propsToGive(gameID: UUID, round: Int?) async throws -> PropsToGive { .closed }
+    func giveProps(gameID: UUID, round: Int?, _ props: [UUID: Set<Prop>]) async throws -> Int { throw DomainError.propsDisabled }
+    func propCounts(for people: [UUID]) async throws -> [UUID: [Prop: Int]] { [:] }
+    func myProps(gameID: UUID) async throws -> PropTally { .empty }
+    func propsLeaderboard(prop: Prop, filter: String?) async throws -> PropsLeaderboard { throw DomainError.propsDisabled }
+    func propsLeaderboardOptIn() async throws -> Bool { false }
+    func setPropsLeaderboardOptIn(_ on: Bool) async throws -> Bool { throw DomainError.propsDisabled }
+
     /// A backend without round nights.
     func fetchRotation(gameID: UUID) async throws -> RotationPlan {
         throw DomainError.notFound

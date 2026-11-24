@@ -54,6 +54,10 @@ struct WhoIsGoingSheet: View {
             }
         }
         .task { await store.loadAttendees(eventID) }
+        // Props (1.0): each person's top prop, once 3 or more people gave them any.
+        .task(id: store.attendees(of: eventID).map(\.id)) {
+            await store.loadPropCounts(for: store.attendees(of: eventID).map(\.id))
+        }
         .sheetChrome(detents: [.fraction(0.82), .large], background: Theme.card)
         .sheet(item: $reportTarget) { ReportSheet(target: $0) }
         .blockDialog($blockTarget)
@@ -76,6 +80,8 @@ struct WhoIsGoingSheet: View {
         var spoken = [name]
         if attendee.role == .host { spoken.append(String.app("host")) }
         if person.isBetaTester { spoken.append(String.app("beta")) }
+        let topProp = isMe ? nil : store.topProp(of: person.id)
+        let isNew = !isMe && topProp == nil && store.hasPropCounts(for: person.id)
 
         return HStack(spacing: 12) {
             // Two stops: the person ("Maya C., host, class of 2027"), then the ••• menu.
@@ -99,11 +105,20 @@ struct WhoIsGoingSheet: View {
                     Text("Class of \(String(person.gradYear))")
                         .font(.rounded(.footnote))
                         .foregroundStyle(Theme.muted)
+                    if let topProp {
+                        PropPill(prop: topProp.prop, people: topProp.people)
+                            .padding(.top, 2)
+                    } else if isNew {
+                        Text("New here")
+                            .font(.rounded(.caption))
+                            .foregroundStyle(Theme.muted)
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel(Text(verbatim: String.app("\(spoken.joined(separator: ", ")), class of \(String(person.gradYear))")))
+            .accessibilityLabel(Text(verbatim: String.app("\(spoken.joined(separator: ", ")), class of \(String(person.gradYear))")
+                + (topProp.map { ", " + String.app("\($0.prop.name) from \($0.people) people") } ?? "")))
             .accessibilityActions { if !isMe { reportAndBlock(person) } }
 
             if !isMe {
@@ -124,5 +139,26 @@ struct WhoIsGoingSheet: View {
     private func reportAndBlock(_ person: PersonSummary) -> some View {
         Button("Report \(person.firstName)", systemImage: "exclamationmark.bubble") { reportTarget = .person(person) }
         Button("Block \(person.firstName)", systemImage: "nosign", role: .destructive) { blockTarget = person }
+    }
+}
+
+/// "★ On time · 15" on Who's going: someone's most-given prop and from how many people.
+struct PropPill: View {
+    var prop: Prop
+    var people: Int
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Image(systemName: "star.fill")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(Theme.accentText)
+                .accessibilityHidden(true)
+            Text(verbatim: "\(prop.name) · \(people)")
+                .font(.rounded(.caption, .bold))
+                .foregroundStyle(Theme.ink)
+        }
+        .padding(.horizontal, 9)
+        .frame(minHeight: 24)
+        .background(Theme.accentSoft, in: .capsule)
     }
 }

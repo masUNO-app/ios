@@ -513,6 +513,9 @@ final class AppViewModel {
         case "detail-rounds": path = [.game(IDs.roundNight)]
         case "detail-rounds-open": path = [.game(IDs.roundNightOpen)]
         case "detail-rounds-ended": path = [.game(IDs.roundNightEnded)]
+        // Props (1.0), with `-esports YES`: a plan that ended an hour ago, and the leaderboard.
+        case "detail-props", "props-sheet": path = [.game(IDs.justEnded)]
+        case "leaderboard": path = [.leaderboard]
         case "saved", "popup-saved":
             if !store.isSaved(IDs.lastSpot) { store.toggleSaved(IDs.lastSpot) }
             if screen == "saved", !store.hasSpotAlert(IDs.full) { store.toggleSpotAlert(IDs.full) }

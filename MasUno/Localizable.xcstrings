@@ -6445,6 +6445,546 @@
           }
         }
       }
+    },
+    "Good sport" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buena onda"
+          }
+        }
+      }
+    },
+    "On time" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Puntual"
+          }
+        }
+      }
+    },
+    "Team player" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buen compañero"
+          }
+        }
+      }
+    },
+    "Made it fun" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lo hizo divertido"
+          }
+        }
+      }
+    },
+    "Nobody to give props to." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay a quién darle props."
+          }
+        }
+      }
+    },
+    "Props for this plan are closed." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los props de este plan ya cerraron."
+          }
+        }
+      }
+    },
+    "Props are off right now. Try again later." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los props están apagados por ahora. Inténtalo más tarde."
+          }
+        }
+      }
+    },
+    "Props for Station %lld?" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Props para la estación %lld?"
+          }
+        }
+      }
+    },
+    "How did it go?" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Cómo estuvo?"
+          }
+        }
+      }
+    },
+    "Props for this round?" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Props para esta ronda?"
+          }
+        }
+      }
+    },
+    "Open until %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abierto hasta %@"
+          }
+        }
+      }
+    },
+    "Give props to anyone who earned them. They see the props, not who sent them." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dale props a quien se los ganó. Ven los props, no quién los mandó."
+          }
+        }
+      }
+    },
+    "Same props as any plan, while your group is fresh. Skip anyone." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los mismos props que en cualquier plan, mientras tu grupo está fresco. Puedes saltarte a quien sea."
+          }
+        }
+      }
+    },
+    "Show %lld more people" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar %lld personas más"
+          }
+        }
+      }
+    },
+    "Something wrong? **Report it** instead. Only the team sees reports." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Algo salió mal? Mejor **repórtalo**. Solo el equipo ve los reportes."
+          }
+        }
+      }
+    },
+    "For %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Para %@"
+          }
+        }
+      }
+    },
+    "First time playing together" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Primera vez jugando juntos"
+          }
+        }
+      }
+    },
+    "Played together %lld times" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Han jugado juntos %lld veces"
+          }
+        }
+      }
+    },
+    "Send props" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mandar props"
+          }
+        }
+      }
+    },
+    "Send 1 prop" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mandar 1 prop"
+          }
+        }
+      }
+    },
+    "Send %lld props" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mandar %lld props"
+          }
+        }
+      }
+    },
+    "Props sent" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Props enviados"
+          }
+        }
+      }
+    },
+    "You played with %lld people, %lld new" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jugaste con %1$lld personas, %2$lld nuevas"
+          }
+        }
+      }
+    },
+    "You played with %lld people" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jugaste con %lld personas"
+          }
+        }
+      }
+    },
+    "%@, props sent" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, props enviados"
+          }
+        }
+      }
+    },
+    "Change your props" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cambiar tus props"
+          }
+        }
+      }
+    },
+    "Give props" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dar props"
+          }
+        }
+      }
+    },
+    "Give props to %lld more" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dar props a %lld más"
+          }
+        }
+      }
+    },
+    "Props you got" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Props que recibiste"
+          }
+        }
+      }
+    },
+    "from 1 person" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "de 1 persona"
+          }
+        }
+      }
+    },
+    "from %lld people" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "de %lld personas"
+          }
+        }
+      }
+    },
+    "Top teammates on campus" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mejores compañeros del campus"
+          }
+        }
+      }
+    },
+    "See all" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ver todo"
+          }
+        }
+      }
+    },
+    "%@, from 1 person" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, de 1 persona"
+          }
+        }
+      }
+    },
+    "%@, from %lld people" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@, de %2$lld personas"
+          }
+        }
+      }
+    },
+    "Prop" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prop"
+          }
+        }
+      }
+    },
+    "No one's on the list for this yet. Props from this month show up here." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Todavía no hay nadie en la lista. Aquí aparecen los props de este mes."
+          }
+        }
+      }
+    },
+    "Top teammates" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mejores compañeros"
+          }
+        }
+      }
+    },
+    "resets %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "se reinicia el %@"
+          }
+        }
+      }
+    },
+    "All" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Todos"
+          }
+        }
+      }
+    },
+    "Mostly %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Más que nada %@"
+          }
+        }
+      }
+    },
+    "%lld. %@, from %lld people" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld. %2$@, de %3$lld personas"
+          }
+        }
+      }
+    },
+    "You · 1 person" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tú · 1 persona"
+          }
+        }
+      }
+    },
+    "You · %lld people" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tú · %lld personas"
+          }
+        }
+      }
+    },
+    "1 more for the top 10" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 más para el top 10"
+          }
+        }
+      }
+    },
+    "%lld more for the top 10" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld más para el top 10"
+          }
+        }
+      }
+    },
+    "Only you see this" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solo tú ves esto"
+          }
+        }
+      }
+    },
+    "Show me on the leaderboard" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrarme en la tabla"
+          }
+        }
+      }
+    },
+    "Give props to Station %lld" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dar props a la estación %lld"
+          }
+        }
+      }
+    },
+    "New here" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuevo aquí"
+          }
+        }
+      }
+    },
+    "%@ from %lld people" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ de %2$lld personas"
+          }
+        }
+      }
+    },
+    "Top teammates on campus, by props" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mejores compañeros del campus, por props"
+          }
+        }
+      }
+    },
+    "Show me on the campus leaderboard" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrarme en la tabla del campus"
+          }
+        }
+      }
+    },
+    "Top teammates, by props from people you play with. You can change this in Settings." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mejores compañeros, por los props de la gente con la que juegas. Puedes cambiarlo en Ajustes."
+          }
+        }
+      }
     }
   },
   "version" : "1.1"

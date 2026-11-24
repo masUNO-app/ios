@@ -1005,3 +1005,215 @@ nonisolated struct RotationResponse: Decodable, Sendable {
         })
     }
 }
+
+// MARK: Props (1.0)
+
+/// `p_game_id` and `p_round` for `props_to_give`, and `p_props` too for `give_props`.
+nonisolated struct PropsParams: Encodable, Sendable {
+    let gameID: UUID
+    /// Nil for a whole plan; encoded as null so both RPCs resolve.
+    let round: Int?
+    let props: [String: [String]]?
+
+    enum CodingKeys: String, CodingKey {
+        case gameID = "p_game_id"
+        case round = "p_round"
+        case props = "p_props"
+    }
+
+    func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(gameID, forKey: .gameID)
+        try c.encode(round, forKey: .round)
+        if let props { try c.encode(props, forKey: .props) }
+    }
+}
+
+/// What `props_to_give` returns.
+nonisolated struct PropsToGiveResponse: Decodable, Sendable {
+    let open: Bool
+    let opensAt: Date?
+    let closesAt: Date?
+    let people: [PeerRow]
+
+    enum CodingKeys: String, CodingKey {
+        case open, people
+        case opensAt = "opens_at"
+        case closesAt = "closes_at"
+    }
+
+    init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        open = try c.decode(Bool.self, forKey: .open)
+        opensAt = try c.decodeServerTimeIfPresent(forKey: .opensAt)
+        closesAt = try c.decodeServerTimeIfPresent(forKey: .closesAt)
+        people = try c.decodeIfPresent([PeerRow].self, forKey: .people) ?? []
+    }
+
+    nonisolated struct PeerRow: Decodable, Sendable {
+        let id: UUID
+        let firstName: String
+        let lastInitial: String?
+        let gradYear: Int
+        let isHost: Bool
+        let playedBefore: Int
+        let sent: [String]
+
+        enum CodingKeys: String, CodingKey {
+            case id, sent
+            case firstName = "first_name"
+            case lastInitial = "last_initial"
+            case gradYear = "grad_year"
+            case isHost = "is_host"
+            case playedBefore = "played_before"
+        }
+    }
+
+    var props: PropsToGive {
+        PropsToGive(isOpen: open, opensAt: opensAt, closesAt: closesAt, people: people.map { row in
+            PropsPeer(
+                person: PersonSummary(id: row.id, firstName: row.firstName, lastInitial: row.lastInitial ?? "", gradYear: row.gradYear),
+                isHost: row.isHost, playedBefore: row.playedBefore,
+                // A prop this build doesn't know is left out rather than failing the sheet.
+                sent: Set(row.sent.compactMap(Prop.init(rawValue:)))
+            )
+        })
+    }
+}
+
+/// `give_props` returns how many props you've now sent for the plan or round.
+nonisolated struct GivePropsResponse: Decodable, Sendable {
+    let sent: Int
+}
+
+/// `p_user_ids` for `prop_counts`.
+nonisolated struct PropCountsParams: Encodable, Sendable {
+    let userIDs: [UUID]
+    enum CodingKeys: String, CodingKey { case userIDs = "p_user_ids" }
+}
+
+/// A row of `prop_counts`.
+nonisolated struct PropCountRow: Decodable, Sendable {
+    let userID: UUID
+    let prop: String
+    let people: Int
+
+    enum CodingKeys: String, CodingKey {
+        case prop, people
+        case userID = "user_id"
+    }
+
+    /// Rows into per-person counts, leaving out props this build doesn't know.
+    static func counts(_ rows: [PropCountRow]) -> [UUID: [Prop: Int]] {
+        rows.reduce(into: [:]) { counts, row in
+            guard let prop = Prop(rawValue: row.prop) else { return }
+            counts[row.userID, default: [:]][prop] = row.people
+        }
+    }
+}
+
+/// `p_game_id` alone, for `my_props_for_game`.
+nonisolated struct PropsGameParams: Encodable, Sendable {
+    let gameID: UUID
+    enum CodingKeys: String, CodingKey { case gameID = "p_game_id" }
+}
+
+/// What `my_props_for_game` returns.
+nonisolated struct MyPropsResponse: Decodable, Sendable {
+    let people: Int
+    let props: [String: Int]
+
+    var tally: PropTally {
+        PropTally(people: people, counts: props.reduce(into: [:]) { counts, pair in
+            if let prop = Prop(rawValue: pair.key) { counts[prop] = pair.value }
+        })
+    }
+}
+
+/// `p_prop` and `p_filter` for `props_leaderboard`.
+nonisolated struct PropsLeaderboardParams: Encodable, Sendable {
+    let prop: String
+    let filter: String?
+
+    enum CodingKeys: String, CodingKey {
+        case prop = "p_prop"
+        case filter = "p_filter"
+    }
+
+    func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(prop, forKey: .prop)
+        try c.encode(filter, forKey: .filter)
+    }
+}
+
+/// What `props_leaderboard` returns.
+nonisolated struct PropsLeaderboardResponse: Decodable, Sendable {
+    let month: String
+    let resetsAt: Date
+    let top: [EntryRow]
+    let me: MeRow
+
+    enum CodingKeys: String, CodingKey {
+        case month, top, me
+        case resetsAt = "resets_at"
+    }
+
+    init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        month = try c.decode(String.self, forKey: .month)
+        resetsAt = try c.decodeServerTime(forKey: .resetsAt)
+        top = try c.decode([EntryRow].self, forKey: .top)
+        me = try c.decode(MeRow.self, forKey: .me)
+    }
+
+    nonisolated struct EntryRow: Decodable, Sendable {
+        let rank: Int
+        let id: UUID
+        let firstName: String
+        let lastInitial: String?
+        let gradYear: Int
+        let people: Int
+        let mostly: String?
+
+        enum CodingKeys: String, CodingKey {
+            case rank, id, people, mostly
+            case firstName = "first_name"
+            case lastInitial = "last_initial"
+            case gradYear = "grad_year"
+        }
+    }
+
+    nonisolated struct MeRow: Decodable, Sendable {
+        let optedIn: Bool
+        let rank: Int?
+        let people: Int
+
+        enum CodingKeys: String, CodingKey {
+            case rank, people
+            case optedIn = "opted_in"
+        }
+    }
+
+    var leaderboard: PropsLeaderboard {
+        // "2026-11-01", the first of the month as the campus counts it; noon UTC keeps the day.
+        let month = (try? Date.ISO8601FormatStyle().year().month().day().parse(month)).map { $0.addingTimeInterval(12 * 3600) } ?? resetsAt
+        return PropsLeaderboard(
+            month: month, resetsAt: resetsAt,
+            top: top.map { row in
+                PropsLeaderboard.Entry(
+                    rank: row.rank,
+                    person: PersonSummary(id: row.id, firstName: row.firstName, lastInitial: row.lastInitial ?? "", gradYear: row.gradYear),
+                    people: row.people, mostly: row.mostly
+                )
+            },
+            isOptedIn: me.optedIn, myRank: me.rank, myPeople: me.people
+        )
+    }
+}
+
+/// `p_on` for `set_props_leaderboard`.
+nonisolated struct PropsOptInParams: Encodable, Sendable {
+    let on: Bool
+    enum CodingKeys: String, CodingKey { case on = "p_on" }
+}

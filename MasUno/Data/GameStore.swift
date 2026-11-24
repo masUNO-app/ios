@@ -25,6 +25,9 @@ final class GameStore {
     /// Kinds of plans and their activities (`activity_catalog`): the cached or built-in one until
     /// the first fetch.
     private(set) var activityCatalog: Catalog
+    /// For Who's going: per person, how many different people gave each prop (`loadPropCounts`).
+    /// Empty for anyone with fewer than 3.
+    private var propCountsByPerson: [UUID: [Prop: Int]] = [:]
     var activities: [Activity] { activityCatalog.activities }
     /// People you blocked, newest first.
     private(set) var blockedPeople: [PersonSummary] = [] {
@@ -249,6 +252,64 @@ final class GameStore {
     /// A kind's copy and switches. One this build has never seen still gets a name.
     func kind(_ slug: String) -> ActivityKind {
         activityCatalog.kind(slug)
+    }
+
+    // MARK: Props (1.0)
+
+    /// Who you can give props to after a plan, or a round night's round (from 0). Closed for a guest.
+    func propsToGive(_ gameID: UUID, round: Int? = nil) async throws -> PropsToGive {
+        guard !isGuest else { return .closed }
+        var props = try await games.propsToGive(gameID: gameID, round: round)
+        // People you just blocked go now, before the server has caught up.
+        props.people.removeAll { blockedIDs.contains($0.id) }
+        return props
+    }
+
+    /// Sends props; each person named gets exactly that set.
+    /// - Returns: How many props you've now sent for this plan or round.
+    @discardableResult
+    func giveProps(_ gameID: UUID, round: Int? = nil, _ props: [UUID: Set<Prop>]) async throws -> Int {
+        try await games.giveProps(gameID: gameID, round: round, props)
+    }
+
+    /// Fetches props for Who's going, for people it doesn't have yet. Quietly keeps what it has on
+    /// failure: props are a nice-to-have on that list.
+    func loadPropCounts(for people: [UUID]) async {
+        guard !isGuest else { return }
+        let missing = people.filter { propCountsByPerson[$0] == nil }
+        guard !missing.isEmpty, let fetched = try? await games.propCounts(for: missing) else { return }
+        for id in missing { propCountsByPerson[id] = fetched[id] ?? [:] }
+    }
+
+    /// Someone's most-given prop and from how many people, once 3 or more people gave them any.
+    func topProp(of personID: UUID) -> (prop: Prop, people: Int)? {
+        guard !blockedIDs.contains(personID), let counts = propCountsByPerson[personID] else { return nil }
+        return Prop.allCases.compactMap { prop in counts[prop].map { (prop, $0) } }.max { $0.1 < $1.1 }
+    }
+
+    /// Whether `loadPropCounts` has asked about this person yet.
+    func hasPropCounts(for personID: UUID) -> Bool {
+        propCountsByPerson[personID] != nil
+    }
+
+    func myProps(_ gameID: UUID) async throws -> PropTally {
+        guard !isGuest else { return .empty }
+        return try await games.myProps(gameID: gameID)
+    }
+
+    func propsLeaderboard(prop: Prop, filter: String?) async throws -> PropsLeaderboard {
+        var board = try await games.propsLeaderboard(prop: prop, filter: filter)
+        board.top.removeAll { blockedIDs.contains($0.id) }
+        return board
+    }
+
+    func propsLeaderboardOptIn() async throws -> Bool {
+        try await games.propsLeaderboardOptIn()
+    }
+
+    @discardableResult
+    func setPropsLeaderboardOptIn(_ on: Bool) async throws -> Bool {
+        try await games.setPropsLeaderboardOptIn(on)
     }
 
     /// A round night's rounds and groups. Not cached: groups come out as the night goes on.
@@ -1498,6 +1559,7 @@ final class GameStore {
     /// the campus alone: `reset()`, `load()` and `loadGuest` each decide what it should be.
     private func clearSession() {
         sessionID = UUID()
+        propCountsByPerson = [:]
         listReads.cancelAll()
         gameReads.cancelAll()
         attendeeReads.cancelAll()
