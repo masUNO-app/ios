@@ -2,7 +2,7 @@
 -- legacy row policy for 0.9, posting rules, colors that stay readable, and drawing names the app has.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(24);
+select plan(25);
 
 create function pg_temp.act_as(p_user uuid) returns void language sql as $$
     select set_config('request.jwt.claim.sub', coalesce(p_user::text, ''), true)
@@ -38,21 +38,22 @@ select is(
     (select array_agg(a->>'slug' order by ord) from jsonb_array_elements(public.activity_catalog('0.9')->'activities') with ordinality t(a, ord)),
     array['basketball', 'tennis', 'soccer', 'volleyball', 'padel'], 'and the five sports, in order');
 select is(
-    (select array_agg(k->>'slug' order by ord) from jsonb_array_elements(public.activity_catalog('0.10')->'kinds') with ordinality t(k, ord)),
-    array['sport', 'esports'], '0.10 gets esports too');
+    (select array_agg(k->>'slug' order by ord) from jsonb_array_elements(public.activity_catalog('1.0')->'kinds') with ordinality t(k, ord)),
+    array['sport', 'esports'], '1.0 gets esports too');
 select is(
-    (select array_agg(a->>'slug' order by ord) from jsonb_array_elements(public.activity_catalog('0.10')->'activities') with ordinality t(a, ord)),
+    (select array_agg(a->>'slug' order by ord) from jsonb_array_elements(public.activity_catalog('1.0')->'activities') with ordinality t(a, ord)),
     array['basketball', 'tennis', 'soccer', 'volleyball', 'padel', 'valorant', 'csgo', 'league'], 'with its three titles');
+select is(jsonb_array_length(public.activity_catalog('0.10')->'kinds'), 1, 'esports waits for 1.0 (20261126000200)');
 select is(jsonb_array_length(public.activity_catalog('not a version')->'kinds'), 1, 'a version that can''t be read gets the base catalog');
-select is(public.activity_catalog('0.10')->'kinds'->1->>'supports_rotation', 'true', 'esports turns round nights on');
-select is(public.activity_catalog('0.10')->'activities'->0->>'color', '#F2853A', 'basketball has its color from the app');
+select is(public.activity_catalog('1.0')->'kinds'->1->>'supports_rotation', 'true', 'esports turns round nights on');
+select is(public.activity_catalog('1.0')->'activities'->0->>'color', '#F2853A', 'basketball has its color from the app');
 
 -- 0.9 reads the table directly and sees no esports, signed out or in.
 set local role anon;
 select pg_temp.act_as(null);
 select is((select array_agg(slug order by sort_order) from public.activities),
     array['basketball', 'tennis', 'soccer', 'volleyball', 'padel'], 'signed out, 0.9 sees the five sports');
-select lives_ok($$ select public.activity_catalog('0.10') $$, 'signed out, a new build reads the catalog');
+select lives_ok($$ select public.activity_catalog('1.0') $$, 'signed out, a new build reads the catalog');
 select is((select count(*)::int from public.activity_kinds), 2, 'kinds are readable signed out');
 set local role authenticated;
 select pg_temp.act_as('a0000000-0000-4000-8000-00000000000a');
