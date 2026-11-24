@@ -22,7 +22,7 @@ struct CatalogTests {
       {"slug":"hackathon","label_en":"Hackathons","label_es":"Hackatones","item_label_en":"Event","item_label_es":"Evento",
        "title_placeholder_en":"e.g. Weekend build","title_placeholder_es":"p. ej., Build de fin de semana",
        "gear_en":null,"gear_es":null,"default_art":"whiteboard",
-       "supports_rotation":false,"min_app_version":"0.10","sort_order":3,"active":true}],
+       "supports_rotation":false,"min_app_version":"1.0","sort_order":3,"active":true}],
      "activities":[
       {"slug":"basketball","kind":"sport","label_en":"Basketball","label_es":"Básquetbol","emoji":"🏀","sort_order":1,
        "postable":true,"interest_selectable":true,"active":true,"color":"#F2853A","color_dark":null,"art":"basketball",
@@ -32,7 +32,7 @@ struct CatalogTests {
        "art":null,"min_app_version":"0.5"},
       {"slug":"hack_week","kind":"hackathon","label_en":"Hack week","label_es":"Semana de hackeo","emoji":"💻",
        "sort_order":300,"postable":true,"interest_selectable":false,"active":true,"color":null,"color_dark":null,
-       "art":null,"min_app_version":"0.10"}]}
+       "art":null,"min_app_version":"1.0"}]}
     """
 
     @Test func catalogResponseDecodes() throws {
