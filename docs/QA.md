@@ -240,3 +240,36 @@ CI runs all mock unit/UI suites on iOS 18.6 with Xcode 26.3 (`macos-15`) and iOS
 - Review onboarding, filters, game details, creation/editing, chat, profile and reports in Spanish,
   including long labels and singular/plural counts. User-written names, game titles and messages
   remain as written. Check the Spanish location permission explanation on a fresh install.
+
+## Weekly open plans (prod, 0.9 and later)
+
+The house account "masUNO" hosts these plans. See `supabase/README.md` → Weekly open plans.
+
+- [ ] The map shows one upcoming plan for each of fútbol, básquet, tenis and pádel at Centro Deportivo Borregos II (CDB II), each with every spot open. Each card says "Hosted by masUNO T."
+- [ ] Count me in works. Who's going lists only real people, with no Host tag and no masUNO row. The detail says "masUNO knows you're coming".
+- [ ] Leaving frees the spot. A plan can go back to nobody going.
+- [ ] Group chat works for the people in it. masUNO never posts.
+- [ ] With the sport in your interests, you get "New … at Tec" when a week is posted (at most 2 a day).
+- [ ] Skipping a week with `private.cancel_recurring_game` tells everyone going ("masUNO cancelled it"). The following week then appears within 15 minutes, on the map once it's within 7 days.
+- [ ] After a plan ends, the next week appears within 15 minutes.
+
+## 1.0: catalog, esports, round nights and props
+
+Run on a 1.0 build against dev, and once with a 0.9 build on the same project.
+
+- [ ] **Catalog:** sign-up interests, the form, the filters and the pins all come from the catalog, in each kind's colors.
+  - [ ] Esports (Valorant, CS:GO, League) shows on 1.0.
+  - [ ] **On 0.9 against the same project, esports isn't offered:** not in interests, the form or the filters. Esports plans that 1.0 users post still show on 0.9, with a placeholder look: a name from the slug ("Valorant", "Csgo", "League") and 🏅. Check that they open, join and chat normally.
+- [ ] **Round nights** (esports):
+  - [ ] Set rounds, length, break and group size. The length adds up, and a capacity too small for two groups is refused.
+  - [ ] Each round's groups appear when the round comes out, and someone who joins later doesn't reshuffle them.
+  - [ ] Changing the rounds or the start clears the groups picked so far.
+- [ ] **Props:**
+  - [ ] When a plan ends, the recap offers props to the people you played with, never yourself or anyone blocked. On a round night, it's your group for that round.
+  - [ ] Props close 24 h after the end, and a cancelled plan has none.
+  - [ ] Changing what you sent replaces it. Sending none takes them back.
+  - [ ] Pills on Who's going appear only once 3 or more people gave that prop.
+  - [ ] The "Top teammates" leaderboard lists only people who opted in. The opt-in in onboarding and Settings is off by default.
+  - [ ] With `props_enabled` off, nothing about props shows.
+  - [ ] On a weekly open plan, props go between the people who went, never to masUNO.
+- [ ] **Version:** Settings shows "1.0 (1)" on TestFlight and "1.0" on an App Store install.

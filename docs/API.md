@@ -155,6 +155,13 @@ do not listen on `campus:<id>:games`; they re-read `guest_games` on foreground a
 One row per game. The view doesn't hide cancelled, ended or full games, because Event detail shows
 them and game RPCs return them. RLS hides games whose host is in a blocked pair with the reader.
 
+**Weekly open plans** (`20261125000100_recurring_plans`) are ordinary rows whose host is the house account,
+"masUNO" (last initial `T`, class year 2026). The house account isn't a player:
+- It has no `rsvps` row, so `going_count` starts at 0 (`games_check` allows 0) and `game_attendees` never lists it.
+- No one's `my_role` is `host` on these plans, so nobody can edit or cancel them from the app.
+- The team skips a week with `private.cancel_recurring_game`. Members get the usual `game_cancelled`, and its actor is the house account.
+- The next week is posted when the current one ends, under 7 days ahead, so it's inside `fetchMapGames`'s window. After a skipped week, the replacement can be up to 14 days out and appears on the map once it's within 7 days.
+
 | Column | Type | Swift |
 | --- | --- | --- |
 | `id` | `uuid` | `id` |
@@ -191,7 +198,7 @@ How `GameRepository` reads it:
 
 `event_id`, `user_id`, `first_name`, `last_initial`, `grad_year`, `role`, `joined_at`, `is_beta_tester` (1.0;
 missing on an older server, read as `false`). Excludes anyone in a blocked pair with the reader. `going_count` still counts hidden peers in another host’s game. A host/player block removes the player from active games and frees the spot.
-`fetchAttendees` orders host first, then by `joined_at`.
+`fetchAttendees` orders host first, then by `joined_at`. A weekly open plan has no host row, so it starts with the first person who joined.
 
 ### `game_activity` → `GameActivityEntry`
 

@@ -58,6 +58,11 @@ copy and the Spanish.
 | 11 | `saved_soon` | **Still room in After-work hoops** · Starts in 2 h · room for 3 | People who saved a game they haven't joined | 2 h before start | Cron | A spot opens up | Passive |
 | 12 | `chat_mention` | *(Messages style)* **Sunday pickup soccer** · Maya C. mentioned you: @Sam L. can you bring the ball? | Each member the message mentions | New message with a mention | Right away, never merged, even in quiet hours | Always on, even with the chat switch off or the game muted (§3.5) | Active |
 
+**Weekly open plans** (`supabase/README.md`), which the house account "masUNO" hosts:
+- Each week's posting sends #7 `interest_match` like any new plan.
+- Skipping a week sends #1 `game_cancelled` ("masUNO cancelled it").
+- The house account's switches are all off, so #4 and #5 (host updates, full) and the rest are never queued for it.
+
 Kinds 1–7 are SPEC §8.7, with `game_full` split out. Kinds 8–11 are new: chat (SPEC Appendix A
 item 8), approval (it removes the "Check again" wait, N36), win-back, and a nudge for saved games
 that still have room. Kind 12, mentions, was added Nov 19 (§3.5).

@@ -19,6 +19,17 @@
 - **1.0 UI is built (E27):** sport colors, court headers, sport-tinted pins/popups/Me/chat, rounded type, and the 1.0 copy ("Count me in", "We're looking for you."). Sign-in still gates the app (R7-15).
 - `com.masuno.app` registered on the Boys & Girls Clubs of Chicago developer team (Oct 28).
 
+> **Status, Nov 24 (newer than rev. 7; this note wins where they differ).**
+> - **Releases:** 0.9 (build 10) is the App Store build, with group chat and notifications on in prod (`docs/SUBMISSION.md`). `path-to-1.0` is version 1.0 (build 1), and PR #20 takes it to `main` and prod.
+> - **Copy:** the app says "plan" instead of "game" (Nov 20). Code names are unchanged.
+> - **1.0 additions beyond §3** (API.md):
+>   - the server-driven activity catalog
+>   - esports (Valorant, CS:GO, League), gated to 1.0
+>   - round nights
+>   - props after every plan, with an opt-in leaderboard
+>   - master invite codes
+> - **Weekly open plans** at CDB II, with no host, are live on prod for 0.9 (`supabase/README.md`).
+
 > **How to read this.** §0–§6 are the plan: releases, scope, calendar, who does what, how we work. §7–§9 are the product and technical spec (§7.1–§7.6 = 0.5 UI, §7.7 = 1.0 UI). §10–§13 are release steps, risks, decisions and what comes after. Items marked **⚑** need sign-off (§12).
 >
 > **IDs:** **E** = Ethan, **B** = backend (Supabase is Emilio's; B5–B7 are Ethan's for 0.5), **D** = Arianna (design), **O** = Ricardo (outreach).
@@ -165,6 +176,7 @@ N1 builds at each demo day, 0.5 before Demo Day #3, 1.0 after it, launch Dec 16 
 | **0.1 Prototype** | 0.5 | TestFlight (internal) | Demo Day #1, Thu Nov 5 | Green design system and every 0.5 screen. Mock data. |
 | **0.5** | 0.5 | App Store (release on approval) + external TestFlight beta, submitted Thu Nov 12 (N34) | Demo Day #2, Thu Nov 19 (live, or from TestFlight if review is slow) | Everything in "0.5 scope" below, on `masuno-prod`. |
 | **0.6** | 0.5 | App Store, release on approval, Mon Nov 16 | Demo Day #3, Thu Dec 3 | Everything in "0.6 scope" below. |
+| **0.9** (build 10) | 1.0 | App Store (build prepared Nov 20) | Live now | 1.0 UI, group chat, notifications, synced Saved, Spanish, guest browse, invites and the waitlist, dark mode, padel (`docs/SUBMISSION.md`). |
 | **1.0 beta** | 1.0 | TestFlight | Demo Day #3 (sneak peek) | 1.0 UI + notifications and synced Saved working end to end. |
 | **1.0** | 1.0 | App Store, manual release | Product Launch, Wed Dec 16 | Everything in "1.0 scope" below. |
 
@@ -203,9 +215,16 @@ N1 builds at each demo day, 0.5 before Demo Day #3, 1.0 after it, launch Dec 16 
 - Group chat messaging, if it missed 0.5 (B20, E26, Appendix A), with **@mentions** (Nov 19): a mentioned member is notified even with group chat notifications off or the game muted (§7.6.9, NOTIF §3.5).
 - Full accessibility pass; metrics view; fixes from 0.5 feedback.
 - **Guest browse (R7-15):** map and game details without names; an account for join, save, host and Who's going.
+- **Added Nov 20–24** (API.md):
+  - "Plan" instead of "game" in the copy.
+  - The server-driven activity catalog (`activity_catalog`), with esports (Valorant, CS:GO, League) gated to 1.0.
+  - Round nights: rounds with groups picked each round.
+  - Props after every plan, with an opt-in monthly leaderboard behind `props_enabled`.
+  - Master invite codes.
+- **Weekly open plans (server-only, live for 0.9 on Nov 24):** hostless weekly plans at CDB II, posted by a job (`supabase/README.md`).
 
 ### After the program (§13)
-Chat push and retention, profile photos, calendar sync, name-visibility setting, links that open a specific game, organizer approval, recurring games, non-sport activities, new campuses, own domain/email.
+Chat push and retention, profile photos, calendar sync, name-visibility setting, links that open a specific game, organizer approval, recurring games that people host themselves (the team's weekly open plans already exist), more non-sport activities (esports is in 1.0), new campuses, own domain/email.
 
 ### Cut order if we slip
 - **0.5 → 0.6**, decided at the Sat Nov 7 evening check and again at the Sun Nov 8 noon go/no-go: (1) Edit profile & interests; (2) group chat — first fall back to read-only (drop the composer and mock messages), then hide its entry points if even that isn't live; (3) Invite a friend; (4) Past games; (5) sport filter; (6) map search; (7) offline banner (keep retry). Hide cut features in the Release build — never ship a button that does nothing.

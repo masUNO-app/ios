@@ -25,6 +25,12 @@ projects from same-repository PRs and from `main`, as requested for this project
 | `20261121000000_block_privacy` | Host/player blocks remove active RSVPs in either direction, old block pairs are reconciled, activity RLS hides blocked actors, and both notification claim protocols recheck all queued identities and current membership |
 | `20261123000000_chat_mentions` | Group chat @mentions: `chat_messages.mentions`, `send_message(…, p_mentions)` (old signature replaced, defaulted), `mentions` on `game_messages`, and the `chat_mention` push, which ignores the chat switch, mute and quiet hours but not blocks, membership, `chat_enabled` or reads (NOTIF §3.5) |
 | `20261124000000_delete_signup_request` | Deleting an account also deletes its `private.signup_requests` row, so the email doesn't outlive the account; the Sheet hears 'removed' |
+| `20261125000000_master_invites` | Team invite codes many people can use, with an optional limit and end date: `private.create_master_invite` / `revoke_master_invite`, typed into the same field as a member's code (Invites below) |
+| `20261125000100_recurring_plans` | Weekly open plans with no host: the house account "masUNO", `private.recurring_plans`, the `post-recurring-plans` job (every 15 min), `private.cancel_recurring_game`; `games.going_count` may be 0 (Weekly open plans below). Applied by hand to dev and prod on Nov 24 |
+| `20261126000000_activity_catalog` | Server-driven catalog (1.0): `activity_kinds`, colors, art and `min_app_version` on `activities`, `activity_catalog(p_app_version)`; a row policy keeps 0.9 on the five sports |
+| `20261126000100_round_nights` | Round nights (1.0): `rotation_*` on `games`, optional round parameters on `create_game` / `update_game`, `game_rotation` |
+| `20261126000200_esports_at_1_0` | Esports (Valorant, CS:GO, League) and its kind need 1.0 |
+| `20261127000000_props` | Props after every plan and the opt-in monthly leaderboard (1.0), behind `app_config.props_enabled` |
 
 ## Local setup
 
@@ -110,7 +116,7 @@ Migrations don't carry dashboard settings, so do these on each project (B2, B12)
    `select vault.create_secret('https://supabase.com/dashboard/project/<ref>/editor', 'report_alert_dashboard_url');`.
    File a test report and confirm the alert arrives within a minute. Without the first secret,
    reports still save and Postgres logs a warning.
-7. Check **Integrations → Cron** shows `refresh-demo-campus` (daily, 00:15 Monterrey) and `purge-old-chat` (daily, 00:45).
+7. Check **Integrations → Cron** shows `refresh-demo-campus` (daily, 00:15 Monterrey), `purge-old-chat` (daily, 00:45) and `post-recurring-plans` (every 15 minutes).
 8. **Group chat (0.6).** `db push` leaves it off. Check **Realtime → Policies** lists "game members receive chat
    broadcasts" on `realtime.messages`; if the push logged "realtime.messages is missing", open Realtime once in the
    dashboard and run that `create policy` block from the migration by hand. Then turn chat on with
