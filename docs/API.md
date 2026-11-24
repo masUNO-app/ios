@@ -422,6 +422,38 @@ Server-side columns, none readable by the app: `profiles.invite_allowance` (defa
 `private.invites` (`code`, `inviter_id`, `created_at`, `redeemed_email`, `redeemed_at`) and, on
 `private.signup_requests`, `invited_by`, `invite_attempts` and `invite_attempt_at`.
 
+## Props (1.0)
+
+Added by `20261127000000_props`. After a plan ends, people give each other props: `good_sport`,
+`on_time`, `team_player`, `made_it_fun`. These are never ratings and say nothing about skill. Problems
+still go to `report`. `app_config.props_enabled` (boolean, on by default) switches it all off.
+
+| RPC | Returns | Errors |
+| --- | --- | --- |
+| `props_to_give(p_game_id uuid, p_round int = null)` | `jsonb`: `{"open", "opens_at", "closes_at", "people": [{"id", "first_name", "last_initial", "grad_year", "is_host", "played_before", "sent": [prop]}]}` | `not_found` |
+| `give_props(p_game_id uuid, p_round int, p_props jsonb)` | `jsonb`: `{"sent": int}` | `props_disabled`, `props_closed`, `invalid_input`, `not_found` |
+| `prop_counts(p_user_ids uuid[])` (≤ 50) | set of `user_id`, `prop`, `people` | `invalid_input` |
+| `my_props_for_game(p_game_id uuid)` | `jsonb`: `{"people": int, "props": {prop: int}}` | — |
+| `props_leaderboard(p_prop text, p_filter text = null)` | `jsonb`: `{"month", "resets_at", "top": [{"rank", "id", "first_name", "last_initial", "grad_year", "people", "mostly"}], "me": {"opted_in", "rank", "people"}}` | `invalid_input` |
+| `props_leaderboard_opt_in()`, `set_props_leaderboard(p_on bool)` | `bool` | `invalid_input` |
+
+- **Who:** you can give props only to people you played with. On a plan that's everyone still going. On a
+  round night it's your group that round (`p_round`, from 0), and there are no whole-night props. Never
+  yourself, and never anyone blocked either way.
+- **When:** from the end of the plan (or the round) until 24 hours later, and never for a cancelled plan.
+  Outside that window, `props_to_give` answers `"open": false` with no people, and `give_props` answers
+  `props_closed`.
+- **Sending:** `give_props` takes `{"<user id>": [prop, …]}`. Each person named gets exactly that
+  list, replacing what you sent them before for this plan or round; `[]` takes their props back.
+  `played_before` counts earlier ended plans you were both in.
+- **Anonymous:** counts are always of different people and never say who. `prop_counts` (Who's going)
+  shows a person only once props come from 3 or more people, only to their campus, and never across
+  a block.
+- **Leaderboard:** it's monthly, in the campus's time zone, and on plans at your campus. `p_filter` is
+  an activity kind (`esports`) or slug (`soccer`). It lists only people with
+  `profiles.props_leaderboard_opt_in` (default off), at most 50. `me` is your own standing, listed or
+  not.
+
 ## Beta tester (1.0)
 
 Also in `20261114000000_invites_and_beta`. The first time a signed-in member opens a TestFlight build, the app
