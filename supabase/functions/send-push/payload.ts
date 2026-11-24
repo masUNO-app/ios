@@ -98,7 +98,13 @@ export function buildPush(
     }
     if (CHAT.has(row.kind)) {
         const count = row.kind === "chat_mention" ? 1 : data.count ?? 1;
-        body.game = { title: context.title ?? "", sport: context.sport ?? "" };
+        // The badge's look from the catalog, so a sport added on the server draws right in pushes.
+        // Builds that don't know these keys ignore them.
+        const game: Record<string, string> = { title: context.title ?? "", sport: context.sport ?? "" };
+        if (context.emoji) game.emoji = context.emoji;
+        if (context.color) game.color = context.color;
+        if (context.color_dark) game.color_dark = context.color_dark;
+        body.game = game;
         body.sender = {
             id: data.sender_id ?? data.actor_id ?? "",
             name: data.sender_name ?? "",

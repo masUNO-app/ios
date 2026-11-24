@@ -8,6 +8,9 @@ export interface NotificationContext {
     sport_en?: string;
     sport_es?: string;
     emoji?: string;
+    /** The activity's catalog color, "#RRGGBB", and its dark-mode one when it has one. */
+    color?: string | null;
+    color_dark?: string | null;
     starts_at?: string;
     place?: string;
     meet_point?: string | null;
