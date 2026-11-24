@@ -328,7 +328,7 @@ struct SettingsView: View {
         }
     }
 
-    /// "0.9 (10)" everywhere but the public App Store, where it's just "0.9". It starts without the
+    /// "1.0 (1)" everywhere but the public App Store, where it's just "1.0". It starts without the
     /// build so an App Store install never flashes it.
     private var versionText: String {
         guard showsBuildNumber else { return AppConfig.currentVersion }
