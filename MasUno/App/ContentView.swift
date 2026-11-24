@@ -183,6 +183,7 @@ struct ContentView: View {
                     case .settings: SettingsView()
                     case .blockedPeople: BlockedPeopleView()
                     case .guidelines: CommunityGuidelinesView()
+                    case .leaderboard: LeaderboardView()
                     #if DEBUG
                     case .gallery: ComponentGallery()
                     #endif

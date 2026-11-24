@@ -12,6 +12,8 @@ nonisolated enum DomainError: Error, Hashable, Sendable {
     case chatRulesRequired, chatDisabled, rateLimited
     // Returned by `redeem_invite` (1.0, N37).
     case invalidInvite
+    // Raised by `give_props` (1.0).
+    case propsClosed, propsDisabled
 
     // Raised by Supabase Auth or the auth hook; mapped in `AuthService` (B5).
     case emailNotAllowed, schoolApprovalNeeded, signInFailed, tooManyAttempts, invalidCredentials
@@ -42,6 +44,8 @@ nonisolated enum DomainError: Error, Hashable, Sendable {
         case "chat_disabled": .chatDisabled
         case "rate_limited": .rateLimited
         case "invalid_invite": .invalidInvite
+        case "props_closed": .propsClosed
+        case "props_disabled": .propsDisabled
         case "email_not_allowed": .emailNotAllowed
         default: .unknown(serverCode)
         }
@@ -68,6 +72,8 @@ nonisolated enum DomainError: Error, Hashable, Sendable {
         case .chatDisabled: String.app("Messages are off right now. Try again later.")
         case .rateLimited: String.app("You're sending messages too fast. Wait a minute.")
         case .invalidInvite: String.app("That invite code doesn't work. Check it and try again.")
+        case .propsClosed: String.app("Props for this plan are closed.")
+        case .propsDisabled: String.app("Props are off right now. Try again later.")
         case .emailNotAllowed: String.app("masUNO isn't open at your school yet.")
         case .schoolApprovalNeeded: String.app("Your school hasn't approved masUNO yet.")
         case .signInFailed: String.app("We couldn't sign you in. Try again.")

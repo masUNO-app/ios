@@ -66,7 +66,7 @@ final class UnavailableBackend: AuthService, GameRepository, ProfileRepository, 
     func updates(gameID: UUID) -> AsyncStream<ChatUpdate> { AsyncStream { $0.finish() } }
 
     func fetchAppConfig() async throws -> AppConfig { throw DomainError.offline }
-    func fetchActivities() async throws -> [Activity] { throw DomainError.offline }
+    func fetchCatalog() async throws -> Catalog { throw DomainError.offline }
     func fetchUniversities() async throws -> [University] { throw DomainError.offline }
 }
 #endif

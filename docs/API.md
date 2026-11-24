@@ -93,6 +93,31 @@ grant limited to these columns, so `student_email_pattern` stays private.
 `activities` is seeded with the slugs `basketball`, `tennis`, `soccer`, `volleyball`, `padel`,
 which `Activity.builtIn` repeats as the offline fallback.
 
+### Activity catalog (1.0)
+
+Added by `20261126000000_activity_catalog`. The server decides which kinds of plan exist and how each
+activity looks, within what the app ships. `activity_kinds` holds a kind's copy (`label_*`,
+`item_label_*`, `title_placeholder_*`, `gear_*`), its `default_art` and `supports_rotation`.
+`activities` gains `color`, `color_dark` ("#RRGGBB", ink must reach 4.5:1 on them), `art` (a `CourtKind`
+name; null uses the kind's) and `min_app_version`; kinds have one too.
+
+| RPC | Returns | Errors |
+| --- | --- | --- |
+| `activity_catalog(p_app_version text)` (also `anon`) | `jsonb`: `{"kinds": [...], "activities": [...]}`, every column of each row, by `sort_order` | — |
+
+- **`activity_catalog`** → `ActivityCatalog` via `LiveCatalog.fetchCatalog()`, as `Catalog`. It leaves out
+  any kind or activity whose `min_app_version` is above the calling build's version (versions compare
+  part by part, so 1.0 > 0.9 and 0.10 > 0.9; one that can't be read counts as 0.5). Inactive rows come too, so old plans
+  keep their look. The app caches the last catalog in the app group (`CatalogCache`), starts from it, and
+  fetches again when the app comes back after an hour, or when a game names an unknown slug (once a minute).
+- **0.9 and older** read `activities` directly. Its row policy shows them only rows whose activity and
+  kind are at or under 0.9: the five sports, never esports.
+- **Fallbacks:** a color the build doesn't get uses its asset colorset, then gray. An `art` it doesn't
+  have uses the kind's, then the plain court. A kind it doesn't know is named after its slug.
+- **Pushes:** chat pushes carry `game.emoji`, `game.color` and `game.color_dark`. The extension uses them,
+  then the cached catalog, then `AvatarPalette`.
+- Esports (`valorant`, `csgo`, `league`) and its kind are `min_app_version` 1.0 (`20261126000200`).
+
 ## Guests (1.0)
 
 Added by `20261113000000_guest_games` (SPEC R7-15). Signed out, people browse the map and game details,
@@ -197,6 +222,7 @@ Game writes return the updated `game_cards` row, so the app never needs a second
 | `accept_guidelines()` | `void` | — |
 | `create_game(p_activity_slug text, p_title text, p_starts_at timestamptz, p_duration_minutes int, p_capacity int, p_notes text, p_place_name text, p_place_address text, p_lat float8, p_lng float8, p_meet_point text, p_auto_repost bool)` | `game_cards` | `invalid_time`, `invalid_text`, `limit_reached`, `invalid_input` |
 | `update_game(p_id uuid, …same as create_game)` | `game_cards` | `not_found`, `not_allowed`, `cancelled`, `ended`, `capacity_below_going`, `invalid_time`, `invalid_text`, `invalid_input` |
+| `game_rotation(p_game_id uuid)` (1.0) | `jsonb`: `{"rounds": [{"index", "starts_at", "ends_at", "reveals_at", "groups"}]}` | `not_found` |
 | `cancel_game(p_id uuid)` | `game_cards` | `not_found`, `not_allowed`, `ended` |
 | `join_game(p_id uuid)` | `game_cards` | `full`, `cancelled`, `ended`, `blocked`, `not_found` |
 | `leave_game(p_id uuid)` | `game_cards` | `not_found`, `not_allowed`, `ended` |
@@ -205,6 +231,19 @@ Game writes return the updated `game_cards` row, so the app never needs a second
 | `my_blocks()` | set of `user_id`, `first_name`, `last_initial`, `grad_year`, newest first | — |
 
 Rules the signatures don't show:
+
+- **Round nights** (`20261126000100_round_nights`, 1.0): `create_game` and `update_game` also take
+  `p_rotation_rounds` (2–5), `p_rotation_round_minutes` (30, 45, 60), `p_rotation_break_minutes`
+  (10, 15, 20, 30) and `p_rotation_group_size` (2–6), all four or none, defaulting to null so 0.9 calls
+  are unchanged. With rounds, the activity's kind must have `supports_rotation`, `p_duration_minutes`
+  must equal rounds × length + breaks, and capacity must fit two groups; otherwise `invalid_input`.
+  `game_cards` ends with the four `rotation_*` columns (null for a plain plan) → `Game.rotation`. The app
+  sends them only for a round night. Changing the rounds or the start drops the groups picked so far.
+- **`game_rotation`** → `GameRepository.fetchRotation(gameID:)`, as `RotationPlan`. It picks a round's
+  groups when it comes out (the first at the start, the others as the break before them begins) from
+  whoever is going then, and keeps them, so later joiners never reshuffle a round. `groups` is null
+  until then; each person is `id`, `first_name`, `last_initial`, `grad_year`, without anyone who left or
+  anyone blocked either way. `not_found` also covers a plan that isn't a round night.
 
 - **`complete_profile`** sets the campus only when it creates the profile: from
   `auth_allowlist.university_id` if the address is listed (including a Tec test account used for App
@@ -382,6 +421,38 @@ never wait, so codes don't matter to them.
 Server-side columns, none readable by the app: `profiles.invite_allowance` (default 3),
 `private.invites` (`code`, `inviter_id`, `created_at`, `redeemed_email`, `redeemed_at`) and, on
 `private.signup_requests`, `invited_by`, `invite_attempts` and `invite_attempt_at`.
+
+## Props (1.0)
+
+Added by `20261127000000_props`. After a plan ends, people give each other props: `good_sport`,
+`on_time`, `team_player`, `made_it_fun`. These are never ratings and say nothing about skill. Problems
+still go to `report`. `app_config.props_enabled` (boolean, on by default) switches it all off.
+
+| RPC | Returns | Errors |
+| --- | --- | --- |
+| `props_to_give(p_game_id uuid, p_round int = null)` | `jsonb`: `{"open", "opens_at", "closes_at", "people": [{"id", "first_name", "last_initial", "grad_year", "is_host", "played_before", "sent": [prop]}]}` | `not_found` |
+| `give_props(p_game_id uuid, p_round int, p_props jsonb)` | `jsonb`: `{"sent": int}` | `props_disabled`, `props_closed`, `invalid_input`, `not_found` |
+| `prop_counts(p_user_ids uuid[])` (≤ 50) | set of `user_id`, `prop`, `people` | `invalid_input` |
+| `my_props_for_game(p_game_id uuid)` | `jsonb`: `{"people": int, "props": {prop: int}}` | — |
+| `props_leaderboard(p_prop text, p_filter text = null)` | `jsonb`: `{"month", "resets_at", "top": [{"rank", "id", "first_name", "last_initial", "grad_year", "people", "mostly"}], "me": {"opted_in", "rank", "people"}}` | `invalid_input` |
+| `props_leaderboard_opt_in()`, `set_props_leaderboard(p_on bool)` | `bool` | `invalid_input` |
+
+- **Who:** you can give props only to people you played with. On a plan that's everyone still going. On a
+  round night it's your group that round (`p_round`, from 0), and there are no whole-night props. Never
+  yourself, and never anyone blocked either way.
+- **When:** from the end of the plan (or the round) until 24 hours later, and never for a cancelled plan.
+  Outside that window, `props_to_give` answers `"open": false` with no people, and `give_props` answers
+  `props_closed`.
+- **Sending:** `give_props` takes `{"<user id>": [prop, …]}`. Each person named gets exactly that
+  list, replacing what you sent them before for this plan or round; `[]` takes their props back.
+  `played_before` counts earlier ended plans you were both in.
+- **Anonymous:** counts are always of different people and never say who. `prop_counts` (Who's going)
+  shows a person only once props come from 3 or more people, only to their campus, and never across
+  a block.
+- **Leaderboard:** it's monthly, in the campus's time zone, and on plans at your campus. `p_filter` is
+  an activity kind (`esports`) or slug (`soccer`). It lists only people with
+  `profiles.props_leaderboard_opt_in` (default off), at most 50. `me` is your own standing, listed or
+  not.
 
 ## Beta tester (1.0)
 

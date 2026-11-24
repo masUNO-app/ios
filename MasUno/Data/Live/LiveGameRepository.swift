@@ -96,12 +96,85 @@ final class LiveGameRepository: GameRepository {
         }
     }
 
+    /// A round night sends its rounds too (`20261126000100_round_nights`).
     func createGame(_ draft: GameDraft) async throws -> Game {
         try await write("create_game", GameDraftParams(draft))
     }
 
     func updateGame(id: UUID, _ draft: GameDraft) async throws -> Game {
         try await write("update_game", GameDraftParams(id: id, draft))
+    }
+
+    /// `game_rotation`: the rounds, and the groups of each round that's out. The server picks a
+    /// round's groups when it comes out and keeps them.
+    func fetchRotation(gameID: UUID) async throws -> RotationPlan {
+        try await liveRequest {
+            let response: RotationResponse = try await client
+                .rpc("game_rotation", params: GameRotationParams(gameID: gameID))
+                .execute().value
+            return response.plan
+        }
+    }
+
+    // MARK: Props (1.0)
+
+    func propsToGive(gameID: UUID, round: Int?) async throws -> PropsToGive {
+        try await liveRequest {
+            let response: PropsToGiveResponse = try await client
+                .rpc("props_to_give", params: PropsParams(gameID: gameID, round: round, props: nil))
+                .execute().value
+            return response.props
+        }
+    }
+
+    func giveProps(gameID: UUID, round: Int?, _ props: [UUID: Set<Prop>]) async throws -> Int {
+        let body = Dictionary(uniqueKeysWithValues: props.map { ($0.key.uuidString.lowercased(), $0.value.map(\.rawValue).sorted()) })
+        return try await liveRequest {
+            let response: GivePropsResponse = try await client
+                .rpc("give_props", params: PropsParams(gameID: gameID, round: round, props: body))
+                .execute().value
+            return response.sent
+        }
+    }
+
+    func propCounts(for people: [UUID]) async throws -> [UUID: [Prop: Int]] {
+        guard !people.isEmpty else { return [:] }
+        return try await liveRequest {
+            let rows: [PropCountRow] = try await client
+                .rpc("prop_counts", params: PropCountsParams(userIDs: Array(people.prefix(50))))
+                .execute().value
+            return PropCountRow.counts(rows)
+        }
+    }
+
+    func myProps(gameID: UUID) async throws -> PropTally {
+        try await liveRequest {
+            let response: MyPropsResponse = try await client
+                .rpc("my_props_for_game", params: PropsGameParams(gameID: gameID))
+                .execute().value
+            return response.tally
+        }
+    }
+
+    func propsLeaderboard(prop: Prop, filter: String?) async throws -> PropsLeaderboard {
+        try await liveRequest {
+            let response: PropsLeaderboardResponse = try await client
+                .rpc("props_leaderboard", params: PropsLeaderboardParams(prop: prop.rawValue, filter: filter))
+                .execute().value
+            return response.leaderboard
+        }
+    }
+
+    func propsLeaderboardOptIn() async throws -> Bool {
+        try await liveRequest {
+            try await client.rpc("props_leaderboard_opt_in").execute().value
+        }
+    }
+
+    func setPropsLeaderboardOptIn(_ on: Bool) async throws -> Bool {
+        try await liveRequest {
+            try await client.rpc("set_props_leaderboard", params: PropsOptInParams(on: on)).execute().value
+        }
     }
 
     func cancelGame(id: UUID) async throws -> Game {

@@ -61,6 +61,7 @@ nonisolated struct ContrastTests {
     static let onColor: [String] = [
         "Person1", "Person2", "Person3", "Person4", "Person5", "Person6", "Person7", "You",
         "SportBasketball", "SportOther", "SportPadel", "SportSoccer", "SportTennis", "SportVolleyball",
+        "SportEsports", "EsportsValorant", "EsportsCSGO", "EsportsLeague",
     ]
 
     @Test(arguments: text + nonText, Mode.allCases)

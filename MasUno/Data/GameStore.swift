@@ -22,7 +22,13 @@ final class GameStore {
     private(set) var isGuest = false
     /// Changes whenever account/guest context is cleared. Async readers must validate this after awaits.
     private(set) var sessionID = UUID()
-    private(set) var activities = Activity.builtIn
+    /// Kinds of plans and their activities (`activity_catalog`): the cached or built-in one until
+    /// the first fetch.
+    private(set) var activityCatalog: Catalog
+    /// For Who's going: per person, how many different people gave each prop (`loadPropCounts`).
+    /// Empty for anyone with fewer than 3.
+    private var propCountsByPerson: [UUID: [Prop: Int]] = [:]
+    var activities: [Activity] { activityCatalog.activities }
     /// People you blocked, newest first.
     private(set) var blockedPeople: [PersonSummary] = [] {
         didSet { blockedIDs = Set(blockedPeople.map(\.id)) }
@@ -91,7 +97,9 @@ final class GameStore {
     @ObservationIgnored private let profileReads = SharedReadPool<String, Profile?>(resource: "profile")
     @ObservationIgnored private let inviteReads = SharedReadPool<String, [Invite]>(resource: "invites")
     @ObservationIgnored private let peopleReads = SharedReadPool<String, [PersonSummary]>(resource: "blocked people")
-    @ObservationIgnored private let catalogReads = SharedReadPool<String, [Activity]>(resource: "activities")
+    @ObservationIgnored private let catalogReads = SharedReadPool<String, Catalog>(resource: "activities")
+    /// When a game last named a sport the catalog didn't have, so that refresh runs once a minute at most.
+    @ObservationIgnored private var unknownActivityRefreshAt: Date?
     @ObservationIgnored private let unreadReads = SharedReadPool<String, [UUID: Int]>(resource: "unread")
     @ObservationIgnored private var acknowledgementTasks: [UUID: Task<Void, Never>] = [:]
     @ObservationIgnored private let acknowledgementReads = SharedReadPool<UUID, Void>(resource: "read acknowledgement")
@@ -141,6 +149,7 @@ final class GameStore {
         self.safety = safety
         self.catalog = catalog
         self.defaults = defaults
+        activityCatalog = catalog.startingCatalog
         campus = rememberedCampus
     }
 
@@ -231,6 +240,88 @@ final class GameStore {
 
     var postableActivities: [Activity] {
         activities.filter { $0.postable && $0.active }.sorted { $0.sortOrder < $1.sortOrder }
+    }
+
+    /// The kinds that can be posted, in catalog order: sports, then esports on builds the server
+    /// gives it to. Make a plan shows a tab for each once there's more than one.
+    var activityKinds: [ActivityKind] {
+        let posted = Set(postableActivities.map(\.kind))
+        return activityCatalog.kinds.filter { $0.active && posted.contains($0.slug) }.sorted { $0.sortOrder < $1.sortOrder }
+    }
+
+    /// A kind's copy and switches. One this build has never seen still gets a name.
+    func kind(_ slug: String) -> ActivityKind {
+        activityCatalog.kind(slug)
+    }
+
+    // MARK: Props (1.0)
+
+    /// Who you can give props to after a plan, or a round night's round (from 0). Closed for a guest.
+    func propsToGive(_ gameID: UUID, round: Int? = nil) async throws -> PropsToGive {
+        guard !isGuest else { return .closed }
+        var props = try await games.propsToGive(gameID: gameID, round: round)
+        // People you just blocked go now, before the server has caught up.
+        props.people.removeAll { blockedIDs.contains($0.id) }
+        return props
+    }
+
+    /// Sends props; each person named gets exactly that set.
+    /// - Returns: How many props you've now sent for this plan or round.
+    @discardableResult
+    func giveProps(_ gameID: UUID, round: Int? = nil, _ props: [UUID: Set<Prop>]) async throws -> Int {
+        try await games.giveProps(gameID: gameID, round: round, props)
+    }
+
+    /// Fetches props for Who's going, for people it doesn't have yet. Quietly keeps what it has on
+    /// failure: props are a nice-to-have on that list.
+    func loadPropCounts(for people: [UUID]) async {
+        guard !isGuest else { return }
+        let missing = people.filter { propCountsByPerson[$0] == nil }
+        guard !missing.isEmpty, let fetched = try? await games.propCounts(for: missing) else { return }
+        for id in missing { propCountsByPerson[id] = fetched[id] ?? [:] }
+    }
+
+    /// Someone's most-given prop and from how many people, once 3 or more people gave them any.
+    func topProp(of personID: UUID) -> (prop: Prop, people: Int)? {
+        guard !blockedIDs.contains(personID), let counts = propCountsByPerson[personID] else { return nil }
+        return Prop.allCases.compactMap { prop in counts[prop].map { (prop, $0) } }.max { $0.1 < $1.1 }
+    }
+
+    /// Whether `loadPropCounts` has asked about this person yet.
+    func hasPropCounts(for personID: UUID) -> Bool {
+        propCountsByPerson[personID] != nil
+    }
+
+    func myProps(_ gameID: UUID) async throws -> PropTally {
+        guard !isGuest else { return .empty }
+        return try await games.myProps(gameID: gameID)
+    }
+
+    func propsLeaderboard(prop: Prop, filter: String?) async throws -> PropsLeaderboard {
+        var board = try await games.propsLeaderboard(prop: prop, filter: filter)
+        board.top.removeAll { blockedIDs.contains($0.id) }
+        return board
+    }
+
+    func propsLeaderboardOptIn() async throws -> Bool {
+        try await games.propsLeaderboardOptIn()
+    }
+
+    @discardableResult
+    func setPropsLeaderboardOptIn(_ on: Bool) async throws -> Bool {
+        try await games.setPropsLeaderboardOptIn(on)
+    }
+
+    /// A round night's rounds and groups. Not cached: groups come out as the night goes on.
+    /// People you just blocked are left out here too, before the server has caught up.
+    func rotationPlan(_ id: UUID) async throws -> RotationPlan {
+        var plan = try await games.fetchRotation(gameID: id)
+        for index in plan.rounds.indices {
+            plan.rounds[index].groups = plan.rounds[index].groups?.map { group in
+                group.filter { !blockedIDs.contains($0.id) }
+            }
+        }
+        return plan
     }
 
     var interestActivities: [Activity] {
@@ -378,7 +469,8 @@ final class GameStore {
         async let saved: Void = refreshSaved()
         async let unread: Void = refreshUnread()
         async let blocks: Void = loadBlockedPeople()
-        _ = await (map, mine, saved, unread, blocks)
+        async let kinds: Void = refreshCatalogIfStale()
+        _ = await (map, mine, saved, unread, blocks, kinds)
         guard context == sessionID, revision == privacyRevision, !Task.isCancelled else { return }
         // A blocked host's game may vanish from every list while its old detail/saved row is
         // still held in memory. Reauthorize every cached row, not just games still on the map.
@@ -850,10 +942,40 @@ final class GameStore {
     private func loadActivities() async {
         let context = sessionID
         do {
-            let fetched = try await catalogReads.value(for: "activities") { [catalog] in try await catalog.fetchActivities() }
-            guard context == sessionID, !Task.isCancelled, !fetched.isEmpty else { return }
-            activities = fetched
-        } catch { /* Retain the built-in catalog, including after cancellation. */ }
+            let fetched = try await catalogReads.value(for: "activities") { [catalog] in try await catalog.fetchCatalog() }
+            guard context == sessionID, !Task.isCancelled, !fetched.activities.isEmpty else { return }
+            activityCatalog = fetched
+            // Games already held keep the look they were fetched with; give them the new one.
+            for (id, game) in cache {
+                if let fresh = fetched.activity(slug: game.activity.slug), fresh != game.activity {
+                    cache[id]?.activity = fresh
+                }
+            }
+        } catch { /* Retain the cached or built-in catalog, including after cancellation. */ }
+    }
+
+    /// Before sign-up's interest picker, which can come before the first `load()`. Fetches only
+    /// when nothing has come from the server yet.
+    func loadCatalogIfNeeded() async {
+        guard activityCatalog.fetchedAt == nil else { return }
+        await loadActivities()
+    }
+
+    /// On coming back to the app: a catalog over an hour old is fetched again, so a sport added on
+    /// the server shows without a relaunch.
+    func refreshCatalogIfStale(now: Date = .now) async {
+        if let fetched = activityCatalog.fetchedAt, now.timeIntervalSince(fetched) < 3600 { return }
+        await loadActivities()
+    }
+
+    /// A game named a sport the catalog doesn't have: added on the server mid-session. At most once a
+    /// minute, so a slug the server doesn't list either can't loop.
+    private func refreshCatalogForUnknown(_ fetched: [Game], now: Date = .now) {
+        guard fetched.contains(where: { activityCatalog.activity(slug: $0.activity.slug) == nil }),
+              unknownActivityRefreshAt.map({ now.timeIntervalSince($0) >= 60 }) ?? true
+        else { return }
+        unknownActivityRefreshAt = now
+        Task { await loadActivities() }
     }
 
     private func loadBlockedPeople() async {
@@ -871,6 +993,7 @@ final class GameStore {
     }
 
     private func store(_ fetched: [Game], updateBookmarks: Bool = true) {
+        refreshCatalogForUnknown(fetched)
         var alertsChanged = false
         var savedChanged = false
         for game in fetched {
@@ -1436,6 +1559,7 @@ final class GameStore {
     /// the campus alone: `reset()`, `load()` and `loadGuest` each decide what it should be.
     private func clearSession() {
         sessionID = UUID()
+        propCountsByPerson = [:]
         listReads.cancelAll()
         gameReads.cancelAll()
         attendeeReads.cancelAll()

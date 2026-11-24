@@ -38,6 +38,14 @@ enum MockFixtures {
         static let ended = UUID(uuidString: "00000000-0000-0000-0000-00000000A006")!
         static let cancelled = UUID(uuidString: "00000000-0000-0000-0000-00000000A007")!
         static let bumped = UUID(uuidString: "00000000-0000-0000-0000-00000000A008")!
+        /// `-esports YES`: a round night you're in, in its second round.
+        static let roundNight = UUID(uuidString: "00000000-0000-0000-0000-00000000E001")!
+        /// One with open spots, in two days.
+        static let roundNightOpen = UUID(uuidString: "00000000-0000-0000-0000-00000000E002")!
+        /// Yesterday's, for the "who you played with" recap.
+        static let roundNightEnded = UUID(uuidString: "00000000-0000-0000-0000-00000000E003")!
+        /// `-esports YES` (the 1.0 preview): a plan that ended an hour ago, so props are open.
+        static let justEnded = UUID(uuidString: "00000000-0000-0000-0000-00000000A009")!
     }
 
     enum Places {
@@ -46,11 +54,12 @@ enum MockFixtures {
         static let arena = Place(name: "Arena Borregos", address: "Av. Junco de la Vega, Tecnológico, Monterrey, N.L.", latitude: 25.6531, longitude: -100.2925)
         static let tennisCourts = Place(name: MockFixtures.spanishShot("Tec tennis courts", "Canchas de tenis del Tec"), address: "Av. Eugenio Garza Sada 2501 Sur, Tecnológico, Monterrey, N.L.", latitude: 25.6502, longitude: -100.2918)
         static let park = Place(name: "Parque Distrito Tec", address: "Calle Profr. Moisés Sáenz, Tecnológico, Monterrey, N.L.", latitude: 25.6553, longitude: -100.2889)
+        static let gameRoom = Place(name: "Tec game room", address: "Centro Estudiantil, Tecnológico, Monterrey, N.L.", latitude: 25.6510, longitude: -100.2899)
         static let sportsCenter = Place(name: "Centro Deportivo Tec", address: "Av. Fernando García Roel, Tecnológico, Monterrey, N.L.", latitude: 25.6475, longitude: -100.2905)
     }
 
     static func activity(_ slug: String) -> Activity {
-        Activity.builtIn.first { $0.slug == slug }!
+        (Activity.builtIn + Activity.esports).first { $0.slug == slug }!
     }
 
     struct World {
@@ -71,6 +80,16 @@ enum MockFixtures {
     /// on the team), college game names, afternoon and evening times, and no cancelled game. Off by
     /// default, so tests and design review keep the fixtures they were written against.
     static let isScreenshotWorld = UserDefaults.standard.bool(forKey: "screenshots")
+
+    /// `-esports YES`: esports games and round nights (`Rotation`). Off by default, like screenshots.
+    static let isEsportsWorld = UserDefaults.standard.bool(forKey: "esports")
+
+    /// Players for the round nights: invented, enough for 16.
+    static let esportsPlayers = [
+        ("Lucía", "M"), ("Iker", "S"), ("Renata", "P"), ("Bruno", "A"), ("Fernanda", "O"),
+        ("Tomás", "V"), ("Daniela", "R"), ("Andrés", "G"), ("Paola", "N"), ("Héctor", "L"),
+        ("Mariana", "T"), ("Emiliano", "C"), ("Sara", "B"), ("Joaquín", "F"), ("Isabela", "D"),
+    ].enumerated().map { index, name in person(31 + index, name.0, name.1, 2026 + index % 4) }
 
     /// The fixture's value, or `shot` under `-screenshots YES`.
     private static func pick<Value>(_ fixture: Value, shot: Value) -> Value {
@@ -102,7 +121,7 @@ enum MockFixtures {
     /// hosted games don't either.
     static let betaTesterIDs: Set<UUID> = [priya.id, sam.id]
 
-    static func world(now: Date) -> World {
+    static func world(now: Date, esports: Bool = false) -> World {
         let me = Profile(
             id: UUID(uuidString: "00000000-0000-0000-0000-000000000099")!,
             firstName: pick("Emilio", shot: "Andrea"), lastName: pick("Garza", shot: "Villarreal"), gradYear: 2029, university: tec,
@@ -117,8 +136,10 @@ enum MockFixtures {
         func add(
             _ id: UUID, _ title: String, _ slug: String, minutes: Double, duration: Int = 60,
             capacity: Int, roster: [PersonSummary], place: Place, meetPoint: String? = nil,
-            notes: String? = nil, cancelled: Bool = false, repostedMinutesAgo: Double? = nil
+            notes: String? = nil, cancelled: Bool = false, repostedMinutesAgo: Double? = nil,
+            rotation: Rotation? = nil
         ) {
+            let duration = rotation?.totalMinutes ?? duration
             let start = now.addingTimeInterval(minutes * 60)
             let host = roster[0]
             let joined = now.addingTimeInterval(-3 * 3600)
@@ -131,7 +152,7 @@ enum MockFixtures {
                 meetPoint: meetPoint, cancelledAt: cancelled ? now.addingTimeInterval(-600) : nil,
                 autoRepost: true, repostedAt: repostedMinutesAgo.map { now.addingTimeInterval(-$0 * 60) },
                 createdAt: now.addingTimeInterval(-6 * 3600), myRole: myRole,
-                myJoinedAt: myRole == nil ? nil : joined, hasBlockedAttendee: false
+                myJoinedAt: myRole == nil ? nil : joined, hasBlockedAttendee: false, rotation: rotation
             ))
             attendees[id] = roster.enumerated().map { index, person in
                 var person = person
@@ -178,6 +199,25 @@ enum MockFixtures {
         add(GameID.bumped, pick("Pickup soccer", shot: "Fútbol 7 after class", es: "Fútbol 7 después de clase"), "soccer",
             minutes: pick(50, shot: at(0, 20)), duration: 90, capacity: 10,
             roster: [diego, nina, maya, alex], place: Places.stadium, repostedMinutesAgo: 25)
+
+        if esports {
+            let p = esportsPlayers
+            // Started 85 minutes ago: round 1 is played and round 2 began 5 minutes ago.
+            add(GameID.roundNight, "League night: new squads", "league", minutes: -85, capacity: 16,
+                roster: p + [me.summary], place: Places.gameRoom, meetPoint: "Stations are numbered on the screens",
+                notes: "Three rounds, new squad each time. PCs are set up, bring your own headset if you like.",
+                rotation: .standard)
+            add(GameID.roundNightOpen, "CS:GO round robin", "csgo", minutes: 49 * 60, capacity: 16,
+                roster: [p[11], p[12], p[13], p[14], alex, diego, nina, p[4], p[5]], place: Places.gameRoom,
+                notes: "Four short rounds. First time? Perfect.",
+                rotation: Rotation(rounds: 4, roundMinutes: 30, breakMinutes: 10, groupSize: 4))
+            add(GameID.roundNightEnded, "Valorant night", "valorant", minutes: -26 * 60, capacity: 10,
+                roster: [p[2], me.summary, p[3], p[7], p[8], p[9], p[10], priya, sam, p[1]], place: Places.gameRoom,
+                rotation: Rotation(rounds: 2, roundMinutes: 45, breakMinutes: 15, groupSize: 5))
+            // Ended an hour ago: props are open (`MockBackend.propsToGive`).
+            add(GameID.justEnded, "Sunday 7v7 pickup", "soccer", minutes: -150, duration: 90, capacity: 10,
+                roster: [maya, me.summary, alex, diego, nina, sam, priya, ricardo], place: Places.stadium)
+        }
 
         // `-mockGames 150`: copies of the upcoming games you're not in, spread around campus, so pins,
         // groups, filters and search have real work when profiling. Nothing changes without it.
@@ -228,7 +268,11 @@ enum MockFixtures {
             Invite(code: "JUMP3ZRS", createdAt: now.addingTimeInterval(-9 * 24 * 3600)),
         ]
 
-        let people = Dictionary(uniqueKeysWithValues: all.map { ($0.id, $0) })
+        if esports {
+            say(GameID.roundNight, esportsPlayers[0], "Round 2 groups are up! Check your station number.", minutesAgo: 6)
+        }
+
+        let people = Dictionary(uniqueKeysWithValues: (all + (esports ? esportsPlayers : [])).map { ($0.id, $0) })
         return World(me: me, games: games, attendees: attendees, people: people, messages: messages, invites: invites)
     }
 }

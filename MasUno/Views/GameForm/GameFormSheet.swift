@@ -61,6 +61,8 @@ struct GameFormSheet: View {
         }
         .sheetChrome()
         .cancelGameDialog($cancelling) { dismiss() }
+        // Kinds' copy and switches (round nights) come from the server's catalog.
+        .onChange(of: store.activityCatalog.kinds, initial: true) { _, kinds in viewModel.kinds = kinds }
         #if DEBUG
         .onAppear {
             // `-screen cancel-game`: the confirmation over Edit game.
@@ -77,24 +79,29 @@ struct GameFormSheet: View {
                 SheetHeader(title: Text(viewModel.title), subtitle: Text(viewModel.subtitle)) { dismiss() }
                     .padding(.bottom, 2)
 
-                Menu {
-                    Picker("Sport", selection: $viewModel.sport) {
-                        ForEach(store.postableActivities) { sport in
-                            Text("\(sport.emoji) \(sport.name)")
-                                .accessibilityLabel(Text(sport.name))
-                                .tag(sport)
+                if store.activityKinds.count > 1 {
+                    kindPicker
+                } else {
+                    Menu {
+                        Picker("Sport", selection: $viewModel.sport) {
+                            ForEach(store.postableActivities) { sport in
+                                Text("\(sport.emoji) \(sport.name)")
+                                    .accessibilityLabel(Text(sport.name))
+                                    .tag(sport)
+                            }
                         }
-                    }
-                } label: {
-                    FieldBox("Sport", showsChevron: true) {
-                        // The name alone: the emoji would be read too (A11Y-11).
-                        Text("\(viewModel.sport.emoji)  \(viewModel.sport.name)")
-                            .accessibilityLabel(Text(viewModel.sport.name))
+                    } label: {
+                        FieldBox("Sport", showsChevron: true) {
+                            // The name alone: the emoji would be read too (A11Y-11).
+                            Text("\(viewModel.sport.emoji)  \(viewModel.sport.name)")
+                                .accessibilityLabel(Text(viewModel.sport.name))
+                        }
                     }
                 }
 
                 FieldBox(
-                    "What's the plan?", text: $viewModel.name, prompt: Text("e.g. Pickup after class"),
+                    "What's the plan?", text: $viewModel.name,
+                    prompt: Text(verbatim: viewModel.kind.titlePlaceholder),
                     error: viewModel.nameError, isFocused: focus == .name
                 ) { field in
                     field
@@ -118,6 +125,8 @@ struct GameFormSheet: View {
                 }
 
                 playersCard
+
+                if viewModel.supportsRotation { rotationCard }
 
                 Toggle(isOn: $viewModel.autoRepost) {
                     VStack(alignment: .leading, spacing: 1) {
@@ -210,12 +219,17 @@ struct GameFormSheet: View {
                     }
                 }
 
-                Menu {
-                    Picker("Duration", selection: $viewModel.duration) {
-                        ForEach(GameFormViewModel.durations, id: \.self) { Text(EventFormat.duration($0)).tag($0) }
+                if viewModel.usesRotation {
+                    // Set by the rounds below.
+                    FieldBox("Ends", isCompact: true) { Text(verbatim: viewModel.endLabel) }
+                } else {
+                    Menu {
+                        Picker("Duration", selection: $viewModel.duration) {
+                            ForEach(GameFormViewModel.durations, id: \.self) { Text(EventFormat.duration($0)).tag($0) }
+                        }
+                    } label: {
+                        FieldBox("Duration", showsChevron: true, isCompact: true) { Text(EventFormat.duration(viewModel.duration)) }
                     }
-                } label: {
-                    FieldBox("Duration", showsChevron: true, isCompact: true) { Text(EventFormat.duration(viewModel.duration)) }
                 }
             }
             if let timeError = viewModel.timeError {
@@ -358,6 +372,145 @@ struct GameFormSheet: View {
             @unknown default: break
             }
         }
+    }
+
+    /// Sports | Esports | …, then that kind's activities as chips. Only once the catalog has more
+    /// than one kind.
+    private var kindPicker: some View {
+        let kind = Binding(
+            get: { viewModel.sport.kind },
+            set: { kind in withAnimation(.snappy) { viewModel.setKind(kind, from: store.postableActivities) } }
+        )
+        let choices = store.postableActivities.filter { $0.kind == viewModel.sport.kind }
+
+        return VStack(alignment: .leading, spacing: 12) {
+            Picker("Type", selection: kind) {
+                ForEach(store.activityKinds) { Text(verbatim: $0.name).tag($0.slug) }
+            }
+            .pickerStyle(.segmented)
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text(verbatim: viewModel.kind.itemName)
+                    .font(.rounded(.caption))
+                    .foregroundStyle(Theme.muted)
+                FlowLayout(spacing: 8) {
+                    ForEach(choices) { activity in
+                        SportToggle(sport: activity, isOn: viewModel.sport == activity) {
+                            withAnimation(.snappy) { viewModel.sport = activity }
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .cardSurface(radius: Theme.Radius.field)
+        }
+    }
+
+    /// Rotate groups: rounds, their length, the break and the group size, with the night's
+    /// timeline under them.
+    private var rotationCard: some View {
+        @Bindable var viewModel = viewModel
+
+        return VStack(alignment: .leading, spacing: 12) {
+            Toggle(isOn: $viewModel.rotates.animation(.snappy)) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Rotate groups")
+                        .font(.rounded(.body, .bold))
+                        .foregroundStyle(Theme.ink)
+                    Text("Play a round, take a break, then play with a new group.")
+                        .font(.rounded(.caption))
+                        .foregroundStyle(Theme.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .tint(Theme.accent)
+
+            if viewModel.rotates {
+                stacksAt(spacing: 8) {
+                    rotationMenu("Rounds", selection: $viewModel.rotation.rounds, options: Rotation.roundCounts) { Text(verbatim: "\($0)") }
+                    rotationMenu("Each round", selection: $viewModel.rotation.roundMinutes, options: Rotation.roundLengths) { Text(EventFormat.duration($0)) }
+                }
+                stacksAt(spacing: 8) {
+                    rotationMenu("Break", selection: $viewModel.rotation.breakMinutes, options: Rotation.breakLengths) { Text(EventFormat.duration($0)) }
+                    rotationMenu("Group size", selection: $viewModel.rotation.groupSize, options: Rotation.groupSizes) { Text(verbatim: "\($0)") }
+                }
+
+                roundTimeline
+
+                Label {
+                    Text("Everyone plays with up to \(viewModel.mostNewPeople) new people. Groups are shuffled so nobody repeats.")
+                        .fixedSize(horizontal: false, vertical: true)
+                } icon: {
+                    Image(systemName: "person.2.wave.2")
+                }
+                .labelStyle(IconRowLabelStyle(iconWidth: 22, spacing: 10))
+                .font(.rounded(.footnote))
+                .foregroundStyle(Theme.ink)
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color(.sportEsports).opacity(0.22), in: .rect(cornerRadius: 14))
+
+                if let error = viewModel.rotationError {
+                    Text(verbatim: error)
+                        .font(.rounded(.caption))
+                        .foregroundStyle(Theme.error)
+                        .accessibilityFocused($errorFocus, equals: .rotation)
+                }
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(Theme.card, in: .rect(cornerRadius: Theme.Radius.field))
+        .overlay {
+            RoundedRectangle(cornerRadius: Theme.Radius.field)
+                .strokeBorder(
+                    viewModel.rotationError != nil ? Theme.error : viewModel.rotates ? Color(.sportEsports) : Theme.hairline,
+                    lineWidth: viewModel.rotates ? 1.5 : 1
+                )
+        }
+    }
+
+    private func rotationMenu<Choice: View>(
+        _ title: LocalizedStringKey, selection: Binding<Int>, options: [Int], label: @escaping (Int) -> Choice
+    ) -> some View {
+        Menu {
+            Picker(title, selection: selection.animation(.snappy)) {
+                ForEach(options, id: \.self) { label($0).tag($0) }
+            }
+        } label: {
+            FieldBox(title, showsChevron: true, isCompact: true) { label(selection.wrappedValue) }
+        }
+    }
+
+    /// Round 1 · break · Round 2 …, at the times the start picked gives them.
+    private var roundTimeline: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(viewModel.roundTimes, id: \.round) { round in
+                if round.round > 1 {
+                    HStack(spacing: 8) {
+                        Rectangle().fill(Color(.sportEsports)).frame(width: 2, height: 14).padding(.horizontal, 4)
+                        Text("\(viewModel.rotation.breakMinutes) min break, new groups")
+                            .font(.rounded(.caption))
+                            .foregroundStyle(Theme.muted)
+                    }
+                    .accessibilityElement(children: .combine)
+                }
+                HStack(spacing: 8) {
+                    Circle().fill(Color(.sportEsports)).frame(width: 10, height: 10)
+                    Text("Round \(round.round)")
+                        .font(.rounded(.subheadline, .bold))
+                        .foregroundStyle(Theme.ink)
+                    Spacer(minLength: 8)
+                    Text(verbatim: round.time)
+                        .font(.rounded(.subheadline))
+                        .foregroundStyle(Theme.ink)
+                }
+                .accessibilityElement(children: .combine)
+            }
+        }
+        .padding(.vertical, 2)
     }
 
     /// "What would help someone new say yes?", with one-tap suggestions that add to the note.

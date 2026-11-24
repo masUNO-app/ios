@@ -174,6 +174,13 @@ struct EventDetailView: View {
             VStack(alignment: .leading, spacing: 12) {
                 if let notes = event.notes { hostNote(notes, event: event) }
                 detailsCard(event, state: state)
+                if let rotation = event.rotation {
+                    RotationSection(event: event, rotation: rotation)
+                }
+                // Props once a plan you were in has ended (1.0).
+                if event.isGoing, !event.isCancelled, !event.hidesPeople, event.hasEnded() {
+                    PropsRecapSection(event: event)
+                }
             }
         }
     }
