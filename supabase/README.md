@@ -164,6 +164,17 @@ approval" alert its sign-up posted a moment earlier needs nothing.
 More than 5 wrong codes in an hour locks that account's redeeming until the hour is up. Banning a member
 stops their unused codes working.
 
+**Master codes** (`20261125000000_master_invites`) work for any number of people, typed in the same field
+as a member's code, so every app version takes them. Each use posts "<email> joined with the team code
+MASUNO (3 used)". Anyone with a school email who sees one gets in, so give it a limit or an end date when
+it's going somewhere public. Letters (no accents) and digits, 4 to 32 of them; case, spaces and dashes don't matter.
+
+- Make one: `select private.create_master_invite('MASUNO');`, or with a limit, an end date and a note:
+  `select private.create_master_invite('POSTERS', 50, now() + interval '30 days', 'launch posters');`
+- Turn one off (people it let in stay in): `select private.revoke_master_invite('POSTERS');`
+- How they're doing: `select m.code, m.note, m.max_uses, m.expires_at, m.revoked_at, count(u.id) as uses from private.master_invites m left join private.master_invite_uses u using (code) group by m.code order by m.created_at;`
+- Who used one: `select email, redeemed_at from private.master_invite_uses where code = 'POSTERS' order by redeemed_at;`
+
 ## Moderation
 
 - New reports post to the team Discord (step 6 above). Act within 24 h and set `resolved_at`.
