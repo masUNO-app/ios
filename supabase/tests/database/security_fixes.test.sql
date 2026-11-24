@@ -172,8 +172,8 @@ reset role;
 select is_empty($$
     select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public' and has_function_privilege('anon', p.oid, 'execute')
-      and p.proname not in ('guest_games', 'waitlist_join', 'waitlist_export')
-$$, 'anon can execute nothing else in public');
+      and p.proname not in ('guest_games', 'waitlist_join', 'waitlist_export', 'activity_catalog')
+$$, 'anon can execute nothing else in public (activity_catalog, 20261126000000, is public data)');
 
 select * from finish();
 rollback;

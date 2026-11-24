@@ -120,6 +120,23 @@ test("a mention reaches the phone as chat the extension redraws", () => {
     const chat = buildPush({ ...row, kind: "chat_message", collapse_id: "chat:game-1" },
         { token: "abc", environment: "production", locale: "en-US" });
     assert.equal(chat.body.mention, undefined);
+    assert.deepEqual(chat.body.game, { title: "Sunday pickup soccer", sport: "soccer" });
+});
+
+test("a chat push carries the activity's emoji and colors for its badge", () => {
+    const row = {
+        id: 12,
+        user_id: "user",
+        kind: "chat_message",
+        event_id: "game-2",
+        payload: { sender_id: "a21b", sender_name: "Maya C.", sender_initials: "MC", body: "gg", count: 1 },
+        collapse_id: "chat:game-2",
+        expires_at: "2026-11-16T19:30:00-06:00",
+        tokens: [],
+        context: { ...game, sport: "valorant", emoji: "🎯", color: "#F06F7E", color_dark: null },
+    };
+    const push = buildPush(row, { token: "abc", environment: "production", locale: "en-US" });
+    assert.deepEqual(push.body.game, { title: "Sunday pickup soccer", sport: "valorant", emoji: "🎯", color: "#F06F7E" });
 });
 
 test("a spot alert is time-sensitive and carries the game", () => {
