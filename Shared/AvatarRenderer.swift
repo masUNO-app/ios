@@ -18,17 +18,24 @@ nonisolated enum AvatarRenderer {
         }
     }
 
-    /// The sport pin as a circle: sport color, emoji in the middle.
-    /// - Parameter slug: An `activities.slug`, such as `soccer`.
+    /// The sport pin as a circle: sport color, emoji in the middle. Each comes from the push first,
+    /// then the catalog the app last saw, then the built-in palette (a push queued before the
+    /// server sent colors, or a sport the app has never fetched).
+    /// - Parameters:
+    ///   - slug: An `activities.slug`, such as `soccer`.
+    ///   - emoji: The push's `game.emoji`, if it had one.
+    ///   - color: The push's `game.color`, "#RRGGBB", if it had one.
     /// - Returns: PNG bytes for the group image.
-    static func sport(slug: String) -> Data {
-        image { context, size in
+    static func sport(slug: String, emoji: String? = nil, color: String? = nil) -> Data {
+        let cached = CatalogBadges.badge(for: slug)
+        let fill = AvatarPalette.rgb(hex: color) ?? AvatarPalette.rgb(hex: cached?.color) ?? AvatarPalette.sport(slug)
+        let mark = emoji.flatMap { $0.isEmpty ? nil : $0 } ?? cached?.emoji ?? AvatarPalette.emoji(for: slug)
+        return image { context, size in
             let rect = CGRect(origin: .zero, size: size)
-            AvatarPalette.sport(slug).color.setFill()
+            fill.color.setFill()
             context.cgContext.fillEllipse(in: rect.insetBy(dx: 2, dy: 2))
             strokeRing(in: context, rect: rect)
-            let emoji = AvatarPalette.emoji(for: slug)
-            draw(emoji, in: rect, size: size.width * 0.46, context: context)
+            draw(mark, in: rect, size: size.width * 0.46, context: context)
         }
     }
 

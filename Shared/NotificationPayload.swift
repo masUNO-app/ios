@@ -64,6 +64,23 @@ nonisolated struct NotificationPayload: Codable, Sendable {
     nonisolated struct GameInfo: Codable, Sendable {
         var title: String
         var sport: String
+        /// The activity's emoji and catalog colors, from servers since the activity catalog.
+        var emoji: String?
+        var color: String?
+        var colorDark: String?
+
+        init(title: String, sport: String, emoji: String? = nil, color: String? = nil, colorDark: String? = nil) {
+            self.title = title
+            self.sport = sport
+            self.emoji = emoji
+            self.color = color
+            self.colorDark = colorDark
+        }
+
+        enum CodingKeys: String, CodingKey {
+            case title, sport, emoji, color
+            case colorDark = "color_dark"
+        }
     }
 
     nonisolated struct Sender: Codable, Sendable {

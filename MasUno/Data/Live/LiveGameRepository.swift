@@ -96,15 +96,24 @@ final class LiveGameRepository: GameRepository {
         }
     }
 
+    /// A round night sends its rounds too (`20261126000100_round_nights`).
     func createGame(_ draft: GameDraft) async throws -> Game {
-        // `create_game` has no round nights yet; never post one as a plain game.
-        guard draft.rotation == nil else { throw DomainError.invalidInput }
-        return try await write("create_game", GameDraftParams(draft))
+        try await write("create_game", GameDraftParams(draft))
     }
 
     func updateGame(id: UUID, _ draft: GameDraft) async throws -> Game {
-        guard draft.rotation == nil else { throw DomainError.invalidInput }
-        return try await write("update_game", GameDraftParams(id: id, draft))
+        try await write("update_game", GameDraftParams(id: id, draft))
+    }
+
+    /// `game_rotation`: the rounds, and the groups of each round that's out. The server picks a
+    /// round's groups when it comes out and keeps them.
+    func fetchRotation(gameID: UUID) async throws -> RotationPlan {
+        try await liveRequest {
+            let response: RotationResponse = try await client
+                .rpc("game_rotation", params: GameRotationParams(gameID: gameID))
+                .execute().value
+            return response.plan
+        }
     }
 
     func cancelGame(id: UUID) async throws -> Game {

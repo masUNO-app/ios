@@ -9,10 +9,12 @@ final class LiveCatalog: AppConfigRepository {
 
     init(client: SupabaseClient) {
         self.client = client
-        activities = ActivityCatalog {
+        activities = ActivityCatalog(cache: .appGroup) {
             try await liveRequest {
-                let rows: [ActivityRow] = try await client.from("activities").select().order("sort_order").execute().value
-                return rows.map(\.activity)
+                let response: CatalogResponse = try await client
+                    .rpc("activity_catalog", params: CatalogParams(appVersion: AppConfig.currentVersion))
+                    .execute().value
+                return response.catalog(fetchedAt: .now)
             }
         }
     }
@@ -24,9 +26,11 @@ final class LiveCatalog: AppConfigRepository {
         }
     }
 
-    func fetchActivities() async throws -> [Activity] {
+    func fetchCatalog() async throws -> Catalog {
         try await activities.refresh()
     }
+
+    var startingCatalog: Catalog { activities.catalog }
 
     func fetchUniversities() async throws -> [University] {
         try await liveRequest {

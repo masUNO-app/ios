@@ -75,9 +75,18 @@ final class GameFormViewModel {
         return usesRotation ? String.app("Create round night") : String.app("Create plan")
     }
 
-    // MARK: Esports and round nights
+    // MARK: Kinds and round nights
 
-    var isEsports: Bool { sport.isEsport }
+    /// The catalog's kinds (`GameStore.activityCatalog`); the sheet sets them when it opens.
+    var kinds: [ActivityKind] = ActivityKind.builtIn
+
+    /// The picked activity's kind: its copy and which features it turns on.
+    var kind: ActivityKind {
+        kinds.first { $0.slug == sport.kind } ?? .fallback(sport.kind)
+    }
+
+    /// Round nights are on for this kind (esports today).
+    var supportsRotation: Bool { kind.supportsRotation }
 
     /// Sports | Esports | …: picks the first of that kind, unless the current pick already is one.
     func setKind(_ kind: String, from activities: [Activity]) {
@@ -85,8 +94,8 @@ final class GameFormViewModel {
         sport = first
     }
 
-    /// Rounds are only for esports; switching to a sport keeps the setting for switching back.
-    var usesRotation: Bool { isEsports && rotates }
+    /// Rounds only for a kind that has them; switching away keeps the setting for switching back.
+    var usesRotation: Bool { supportsRotation && rotates }
 
     /// The game's length: the picked duration, or every round and break.
     var effectiveDuration: Int {
@@ -163,10 +172,11 @@ final class GameFormViewModel {
     /// One-tap answers to "What would help someone new say yes?" (SPEC §7.7.3).
     var suggestions: [String] {
         [
-            isEsports ? String.app("I have a spare headset") : String.app("I have an extra ball"),
+            kind.gearLine,
             String.app("Coming alone is fine"),
             String.app("Come for part of it"),
         ]
+        .compactMap { $0 }
         .filter { !notes.localizedCaseInsensitiveContains($0) }
     }
 

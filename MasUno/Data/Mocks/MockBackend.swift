@@ -785,9 +785,13 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         return config
     }
 
-    func fetchActivities() async throws -> [Activity] {
+    func fetchCatalog() async throws -> Catalog {
         try await begin()
-        return Activity.builtIn + (esportsEnabled ? Activity.esports : [])
+        return Catalog(
+            kinds: esportsEnabled ? ActivityKind.builtIn : [.sport],
+            activities: Activity.builtIn + (esportsEnabled ? Activity.esports : []),
+            fetchedAt: now
+        )
     }
 
     func fetchUniversities() async throws -> [University] {

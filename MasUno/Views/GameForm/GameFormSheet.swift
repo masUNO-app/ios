@@ -61,6 +61,8 @@ struct GameFormSheet: View {
         }
         .sheetChrome()
         .cancelGameDialog($cancelling) { dismiss() }
+        // Kinds' copy and switches (round nights) come from the server's catalog.
+        .onChange(of: store.activityCatalog.kinds, initial: true) { _, kinds in viewModel.kinds = kinds }
         #if DEBUG
         .onAppear {
             // `-screen cancel-game`: the confirmation over Edit game.
@@ -99,7 +101,7 @@ struct GameFormSheet: View {
 
                 FieldBox(
                     "What's the plan?", text: $viewModel.name,
-                    prompt: viewModel.isEsports ? Text("e.g. Valorant night at the game room") : Text("e.g. Pickup after class"),
+                    prompt: Text(verbatim: viewModel.kind.titlePlaceholder),
                     error: viewModel.nameError, isFocused: focus == .name
                 ) { field in
                     field
@@ -124,7 +126,7 @@ struct GameFormSheet: View {
 
                 playersCard
 
-                if viewModel.isEsports { rotationCard }
+                if viewModel.supportsRotation { rotationCard }
 
                 Toggle(isOn: $viewModel.autoRepost) {
                     VStack(alignment: .leading, spacing: 1) {
@@ -383,12 +385,12 @@ struct GameFormSheet: View {
 
         return VStack(alignment: .leading, spacing: 12) {
             Picker("Type", selection: kind) {
-                ForEach(store.activityKinds, id: \.self) { Text(verbatim: Activity.kindName($0)).tag($0) }
+                ForEach(store.activityKinds) { Text(verbatim: $0.name).tag($0.slug) }
             }
             .pickerStyle(.segmented)
 
             VStack(alignment: .leading, spacing: 10) {
-                Text(verbatim: Activity.itemName(viewModel.sport.kind))
+                Text(verbatim: viewModel.kind.itemName)
                     .font(.rounded(.caption))
                     .foregroundStyle(Theme.muted)
                 FlowLayout(spacing: 8) {

@@ -68,7 +68,8 @@ extension AppConfig {
     }
 }
 
-/// A row in `activities`.
+/// A row in `activities`, inside `activity_catalog`. The look columns are missing on a server from
+/// before the catalog.
 nonisolated struct ActivityRow: Decodable, Sendable {
     let slug: String
     let kind: String
@@ -79,21 +80,100 @@ nonisolated struct ActivityRow: Decodable, Sendable {
     let postable: Bool
     let interestSelectable: Bool
     let active: Bool
+    let color: String?
+    let colorDark: String?
+    let art: String?
 
     enum CodingKeys: String, CodingKey {
-        case slug, kind, emoji, postable, active
+        case slug, kind, emoji, postable, active, color, art
         case labelEN = "label_en"
         case labelES = "label_es"
         case sortOrder = "sort_order"
         case interestSelectable = "interest_selectable"
+        case colorDark = "color_dark"
+    }
+
+    init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        slug = try c.decode(String.self, forKey: .slug)
+        kind = try c.decode(String.self, forKey: .kind)
+        labelEN = try c.decode(String.self, forKey: .labelEN)
+        labelES = try c.decode(String.self, forKey: .labelES)
+        emoji = try c.decode(String.self, forKey: .emoji)
+        sortOrder = try c.decode(Int.self, forKey: .sortOrder)
+        postable = try c.decode(Bool.self, forKey: .postable)
+        interestSelectable = try c.decode(Bool.self, forKey: .interestSelectable)
+        active = try c.decode(Bool.self, forKey: .active)
+        color = try c.decodeIfPresent(String.self, forKey: .color)
+        colorDark = try c.decodeIfPresent(String.self, forKey: .colorDark)
+        art = try c.decodeIfPresent(String.self, forKey: .art)
     }
 
     var activity: Activity {
         Activity(
             slug: slug, kind: kind, labelEN: labelEN, labelES: labelES, emoji: emoji, sortOrder: sortOrder,
-            postable: postable, interestSelectable: interestSelectable, active: active
+            postable: postable, interestSelectable: interestSelectable, active: active,
+            colorHex: color, colorDarkHex: colorDark, art: art
         )
     }
+}
+
+/// A row in `activity_kinds`, inside `activity_catalog`.
+nonisolated struct ActivityKindRow: Decodable, Sendable {
+    let slug: String
+    let labelEN: String
+    let labelES: String
+    let itemLabelEN: String
+    let itemLabelES: String
+    let titlePlaceholderEN: String
+    let titlePlaceholderES: String
+    let gearEN: String?
+    let gearES: String?
+    let defaultArt: String
+    let supportsRotation: Bool
+    let sortOrder: Int
+    let active: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case slug, active
+        case labelEN = "label_en"
+        case labelES = "label_es"
+        case itemLabelEN = "item_label_en"
+        case itemLabelES = "item_label_es"
+        case titlePlaceholderEN = "title_placeholder_en"
+        case titlePlaceholderES = "title_placeholder_es"
+        case gearEN = "gear_en"
+        case gearES = "gear_es"
+        case defaultArt = "default_art"
+        case supportsRotation = "supports_rotation"
+        case sortOrder = "sort_order"
+    }
+
+    var kind: ActivityKind {
+        ActivityKind(
+            slug: slug, labelEN: labelEN, labelES: labelES, itemLabelEN: itemLabelEN, itemLabelES: itemLabelES,
+            titlePlaceholderEN: titlePlaceholderEN, titlePlaceholderES: titlePlaceholderES, gearEN: gearEN,
+            gearES: gearES, defaultArt: defaultArt, supportsRotation: supportsRotation, sortOrder: sortOrder,
+            active: active
+        )
+    }
+}
+
+/// What `activity_catalog(p_app_version)` returns: the kinds and activities this build can show.
+nonisolated struct CatalogResponse: Decodable, Sendable {
+    let kinds: [ActivityKindRow]
+    let activities: [ActivityRow]
+
+    func catalog(fetchedAt: Date) -> Catalog {
+        Catalog(kinds: kinds.map(\.kind), activities: activities.map(\.activity), fetchedAt: fetchedAt)
+    }
+}
+
+/// `p_app_version` for `activity_catalog`: this build's version, so the server leaves out what it
+/// can't show.
+nonisolated struct CatalogParams: Encodable, Sendable {
+    let appVersion: String
+    enum CodingKeys: String, CodingKey { case appVersion = "p_app_version" }
 }
 
 /// The part of `my_profile` that decides the next step after sign-in. Timestamps stay strings:
@@ -241,6 +321,8 @@ nonisolated struct GameCardRow: Decodable, Sendable {
     let isBookmarked: Bool
     let spotAlert: Bool
     let chatMuted: Bool
+    /// Missing on a server from before round nights, and null for a plain game.
+    let rotation: Rotation?
 
     enum CodingKeys: String, CodingKey {
         case id, title, capacity, notes, lat, lng
@@ -267,6 +349,10 @@ nonisolated struct GameCardRow: Decodable, Sendable {
         case isBookmarked = "is_bookmarked"
         case spotAlert = "spot_alert"
         case chatMuted = "my_chat_muted"
+        case rotationRounds = "rotation_rounds"
+        case rotationRoundMinutes = "rotation_round_minutes"
+        case rotationBreakMinutes = "rotation_break_minutes"
+        case rotationGroupSize = "rotation_group_size"
     }
 
     init(from decoder: any Decoder) throws {
@@ -300,6 +386,14 @@ nonisolated struct GameCardRow: Decodable, Sendable {
         isBookmarked = try c.decodeIfPresent(Bool.self, forKey: .isBookmarked) ?? false
         spotAlert = try c.decodeIfPresent(Bool.self, forKey: .spotAlert) ?? false
         chatMuted = try c.decodeIfPresent(Bool.self, forKey: .chatMuted) ?? false
+        if let rounds = try c.decodeIfPresent(Int.self, forKey: .rotationRounds),
+           let roundMinutes = try c.decodeIfPresent(Int.self, forKey: .rotationRoundMinutes),
+           let breakMinutes = try c.decodeIfPresent(Int.self, forKey: .rotationBreakMinutes),
+           let groupSize = try c.decodeIfPresent(Int.self, forKey: .rotationGroupSize) {
+            rotation = Rotation(rounds: rounds, roundMinutes: roundMinutes, breakMinutes: breakMinutes, groupSize: groupSize)
+        } else {
+            rotation = nil
+        }
     }
 
     func game(activity: (String) -> Activity) -> Game {
@@ -313,7 +407,7 @@ nonisolated struct GameCardRow: Decodable, Sendable {
             autoRepost: autoRepost, repostedAt: repostedAt, createdAt: createdAt,
             myRole: myRole.flatMap(GameRole.init(rawValue:)), myJoinedAt: myJoinedAt,
             hasBlockedAttendee: hasBlockedAttendee, isBookmarked: isBookmarked, spotAlert: spotAlert,
-            chatMuted: chatMuted
+            chatMuted: chatMuted, rotation: rotation
         )
     }
 }
@@ -629,6 +723,10 @@ nonisolated struct GameDraftParams: Encodable, Sendable {
         case lng = "p_lng"
         case meetPoint = "p_meet_point"
         case autoRepost = "p_auto_repost"
+        case rotationRounds = "p_rotation_rounds"
+        case rotationRoundMinutes = "p_rotation_round_minutes"
+        case rotationBreakMinutes = "p_rotation_break_minutes"
+        case rotationGroupSize = "p_rotation_group_size"
     }
 
     init(id: UUID? = nil, _ draft: GameDraft) {
@@ -651,6 +749,13 @@ nonisolated struct GameDraftParams: Encodable, Sendable {
         try c.encode(draft.place.longitude, forKey: .lng)
         try c.encode(optionalText(draft.meetPoint), forKey: .meetPoint)
         try c.encode(draft.autoRepost, forKey: .autoRepost)
+        // Only a round night sends these, so a plain plan still matches a server from before them.
+        if let rotation = draft.rotation {
+            try c.encode(rotation.rounds, forKey: .rotationRounds)
+            try c.encode(rotation.roundMinutes, forKey: .rotationRoundMinutes)
+            try c.encode(rotation.breakMinutes, forKey: .rotationBreakMinutes)
+            try c.encode(rotation.groupSize, forKey: .rotationGroupSize)
+        }
     }
 }
 
@@ -836,4 +941,67 @@ nonisolated func chatChannelName(gameID: UUID) -> String {
 /// Must match the topic in `20261112000000_games_realtime`, which only lets the campus's people listen.
 nonisolated func gamesChannelName(campus: UUID) -> String {
     "campus:\(campus.uuidString.lowercased()):games"
+}
+
+/// `p_game_id` for `game_rotation`.
+nonisolated struct GameRotationParams: Encodable, Sendable {
+    let gameID: UUID
+    enum CodingKeys: String, CodingKey { case gameID = "p_game_id" }
+}
+
+/// What `game_rotation(p_game_id)` returns: every round, and the groups of those that are out.
+nonisolated struct RotationResponse: Decodable, Sendable {
+    let rounds: [RoundRow]
+
+    nonisolated struct RoundRow: Decodable, Sendable {
+        let index: Int
+        let startsAt: Date
+        let endsAt: Date
+        let revealsAt: Date
+        let groups: [[PersonRow]]?
+
+        enum CodingKeys: String, CodingKey {
+            case index, groups
+            case startsAt = "starts_at"
+            case endsAt = "ends_at"
+            case revealsAt = "reveals_at"
+        }
+
+        init(from decoder: any Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            index = try c.decode(Int.self, forKey: .index)
+            startsAt = try c.decodeServerTime(forKey: .startsAt)
+            endsAt = try c.decodeServerTime(forKey: .endsAt)
+            revealsAt = try c.decodeServerTime(forKey: .revealsAt)
+            groups = try c.decodeIfPresent([[PersonRow]].self, forKey: .groups)
+        }
+    }
+
+    /// Someone in a group: first name, last initial and class year, never more.
+    nonisolated struct PersonRow: Decodable, Sendable {
+        let id: UUID
+        let firstName: String
+        let lastInitial: String?
+        let gradYear: Int
+
+        enum CodingKeys: String, CodingKey {
+            case id
+            case firstName = "first_name"
+            case lastInitial = "last_initial"
+            case gradYear = "grad_year"
+        }
+
+        var person: PersonSummary {
+            PersonSummary(id: id, firstName: firstName, lastInitial: lastInitial ?? "", gradYear: gradYear)
+        }
+    }
+
+    var plan: RotationPlan {
+        RotationPlan(rounds: rounds.map { round in
+            RotationRound(
+                index: round.index, startsAt: round.startsAt, endsAt: round.endsAt, revealsAt: round.revealsAt,
+                groups: round.groups?.map { $0.map(\.person) }
+            )
+        })
+    }
 }

@@ -149,11 +149,11 @@ struct RotationTests {
             defaults: UserDefaults(suiteName: "RotationTests.\(UUID().uuidString)")!
         )
         await store.load()
-        #expect(store.activityKinds == [Activity.sportKind, Activity.esportsKind])
+        #expect(store.activityKinds.map(\.slug) == [Activity.sportKind, Activity.esportsKind])
 
         let form = GameFormViewModel()
         form.setKind(Activity.esportsKind, from: store.postableActivities)
-        #expect(form.isEsports)
+        #expect(form.supportsRotation)
         #expect(form.saveButtonTitle == "Create plan")
         form.rotates = true
         #expect(form.players == 16)
