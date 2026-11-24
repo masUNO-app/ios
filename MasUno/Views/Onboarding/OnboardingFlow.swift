@@ -517,6 +517,7 @@ private struct VerifiedStep: View {
 
 /// Figma "Make it yours": your token, name, class year and what you play, on one screen.
 private struct ProfileStep: View {
+    @Environment(GameStore.self) private var store
     @Bindable var viewModel: OnboardingViewModel
     @AccessibilityFocusState private var errorFocus: ProfileInput.Field?
 
@@ -544,10 +545,12 @@ private struct ProfileStep: View {
                 .accessibilityAddTraits(.isHeader)
                 .padding(.top, 4)
             FlowLayout(spacing: 8) {
-                ForEach(Activity.builtIn.filter(\.interestSelectable)) { sport in
+                // The server's catalog, so a sport added there can be picked at sign-up.
+                ForEach(store.interestActivities) { sport in
                     SportToggle(sport: sport, isOn: viewModel.interests.contains(sport)) { viewModel.toggle(sport) }
                 }
             }
+            .task { await store.loadCatalogIfNeeded() }
             if let error = viewModel.profileError {
                 Text(verbatim: error).font(.rounded(.caption)).foregroundStyle(Theme.error)
                     .accessibilityFocused($errorFocus, equals: .interests)

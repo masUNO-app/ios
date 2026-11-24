@@ -38,7 +38,18 @@ nonisolated enum AvatarPalette {
         people[index(for: id)]
     }
 
-    /// Pin colors. A sport the palette doesn't know gets the neutral.
+    /// A catalog color, "#RRGGBB". Nil for anything else.
+    static func rgb(hex: String?) -> RGB? {
+        guard let hex, hex.count == 7, hex.first == "#", let value = UInt32(hex.dropFirst(), radix: 16) else { return nil }
+        return RGB(
+            red: Double((value >> 16) & 0xFF) / 255,
+            green: Double((value >> 8) & 0xFF) / 255,
+            blue: Double(value & 0xFF) / 255
+        )
+    }
+
+    /// Pin colors for the built-in sports, the last fallback after the push and the cached catalog.
+    /// A sport the palette doesn't know gets the neutral.
     static func sport(_ slug: String) -> RGB {
         switch slug {
         case "basketball": RGB(red: 0.949, green: 0.522, blue: 0.227)

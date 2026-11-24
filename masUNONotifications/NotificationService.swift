@@ -78,7 +78,7 @@ nonisolated final class NotificationService: UNNotificationServiceExtension {
             sender: senderPerson,
             attachments: nil
         )
-        intent.setImage(INImage(imageData: AvatarRenderer.sport(slug: game.sport)), forParameterNamed: \.speakableGroupName)
+        intent.setImage(INImage(imageData: AvatarRenderer.sport(slug: game.sport, emoji: game.emoji, color: game.color)), forParameterNamed: \.speakableGroupName)
         // A mention (iOS 15 and later, so every supported version).
         if let metadata = payload.donationMetadata(recipients: 1 + others.count) { intent.donationMetadata = metadata }
         let interaction = INInteraction(intent: intent, response: nil)

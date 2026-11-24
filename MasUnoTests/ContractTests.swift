@@ -893,7 +893,7 @@ struct LiveGameContractTests {
         return try #require(JSONSerialization.jsonObject(with: data, options: .fragmentsAllowed) as? [String: Any])
     }
 
-    private let catalog = ActivityCatalog { Activity.builtIn }
+    private let catalog = ActivityCatalog { Catalog.builtIn }
 
     /// A `game_cards` row the way Postgres formats it: microseconds and `+00:00`.
     private let card = """
@@ -1013,7 +1013,7 @@ struct LiveGameContractTests {
 
         var served = Activity.builtIn
         served[0].labelEN = "Hoops"
-        let live = ActivityCatalog { served }
+        let live = ActivityCatalog { Catalog(kinds: ActivityKind.builtIn, activities: served) }
         await live.loadIfNeeded()
         #expect(live.activity(slug: "basketball").labelEN == "Hoops")
     }
@@ -1274,7 +1274,7 @@ struct LiveInviteContractTests {
         try JSONDecoder().decode(Row.self, from: Data(json.utf8))
     }
 
-    private let catalog = ActivityCatalog { Activity.builtIn }
+    private let catalog = ActivityCatalog { Catalog.builtIn }
 
     @Test func inviteRowsBecomeInvites() throws {
         let rows: [InviteRow] = try decode("""

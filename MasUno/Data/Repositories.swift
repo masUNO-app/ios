@@ -36,7 +36,7 @@ protocol GameRepository: AnyObject {
     func fetchActivity(gameID: UUID) async throws -> [GameActivityEntry]
 
     /// A round night's rounds and, once each is revealed, its groups. Throws `.notFound` for a game
-    /// that isn't one. Only `MockBackend` has rotations so far; the default below is for the rest.
+    /// that isn't one. The default below is for backends without round nights.
     func fetchRotation(gameID: UUID) async throws -> RotationPlan
 
     func createGame(_ draft: GameDraft) async throws -> Game
@@ -69,7 +69,7 @@ protocol GameRepository: AnyObject {
 }
 
 extension GameRepository {
-    /// No server has round nights yet.
+    /// A backend without round nights.
     func fetchRotation(gameID: UUID) async throws -> RotationPlan {
         throw DomainError.notFound
     }
@@ -131,10 +131,21 @@ protocol SafetyRepository: AnyObject {
 /// Read-only reference data. Both work signed out: the version gate runs before sign-in.
 protocol AppConfigRepository: AnyObject {
     func fetchAppConfig() async throws -> AppConfig
-    func fetchActivities() async throws -> [Activity]
+    /// Kinds of plans and their activities this build can show (`activity_catalog`).
+    func fetchCatalog() async throws -> Catalog
     /// Find your school (`university_lookup`): every campus, open or closed, so existing accounts
     /// can sign back in at a closed one. Hidden demo campuses aren't listed.
     func fetchUniversities() async throws -> [University]
+    /// What's known before any fetch: the cached catalog, or the built-in one.
+    var startingCatalog: Catalog { get }
+}
+
+extension AppConfigRepository {
+    var startingCatalog: Catalog { .builtIn }
+
+    func fetchActivities() async throws -> [Activity] {
+        try await fetchCatalog().activities
+    }
 }
 
 /// Strict history boundary. The original server timestamp preserves PostgreSQL microsecond precision.

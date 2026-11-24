@@ -16,6 +16,13 @@ nonisolated enum AppGroupStore {
         set { defaults.set(newValue, forKey: "myID") }
     }
 
+    /// The last activity catalog the app fetched, as JSON (`CatalogCache`), so a push can draw a
+    /// sport the build doesn't know in its real color and emoji (`CatalogBadges`).
+    static var catalogData: Data? {
+        get { defaults.data(forKey: "activityCatalog") }
+        set { defaults.set(newValue, forKey: "activityCatalog") }
+    }
+
     /// The chat currently on screen. A banner for this chat is hidden.
     /// Memory only: a killed app must not keep hiding that chat's banners.
     nonisolated(unsafe) static var openChatID: String?

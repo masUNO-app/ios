@@ -2,7 +2,8 @@ import Foundation
 
 /// A round night: one game played in rounds, with a break between them and new groups each round,
 /// so everyone plays with as many new people as the night allows. The game's own start and end
-/// span every round. Mock only for now: `create_game` has no rotation yet.
+/// span every round. Only for a kind with `supportsRotation` (esports); the server stores it on the
+/// game (`20261126000100_round_nights`) and picks the groups (`game_rotation`).
 nonisolated struct Rotation: Hashable, Sendable {
     static let roundCounts = [2, 3, 4, 5]
     /// No round goes past an hour.
@@ -97,7 +98,8 @@ nonisolated struct RotationPlan: Hashable, Sendable {
 }
 
 /// Picks a round's groups so people meet as many new faces as possible. Deterministic for a seed,
-/// so the same night always shuffles the same way.
+/// so the same night always shuffles the same way. The mocks use it; the server's
+/// `private.pick_rotation_groups` does the same greedy fill.
 nonisolated enum RotationPlanner {
     /// - Parameters:
     ///   - ids: Everyone playing this round.
