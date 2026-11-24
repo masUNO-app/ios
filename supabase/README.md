@@ -184,6 +184,46 @@ it's going somewhere public. Letters (no accents) and digits, 4 to 32 of them; c
 - How they're doing: `select m.code, m.note, m.max_uses, m.expires_at, m.revoked_at, count(u.id) as uses from private.master_invites m left join private.master_invite_uses u using (code) group by m.code order by m.created_at;`
 - Who used one: `select email, redeemed_at from private.master_invite_uses where code = 'POSTERS' order by redeemed_at;`
 
+## Weekly open plans
+
+Weekly plans with no host (`20261125000100_recurring_plans`): suggested hangouts anyone can fill. The
+`post-recurring-plans` job runs every 15 minutes. For each active row in `private.recurring_plans` it
+posts that week's plan as an ordinary game, so 0.9 shows them with no app update. Only one plan per row
+is upcoming at a time, and the next week appears once the current one ends. People with that sport in
+their interests get the usual "New … at Tec" push.
+
+0.9 needs a host on every game, so these games are hosted by the house account **masUNO** (shown as "masUNO T."
+on cards, "masUNO" elsewhere). Nobody can sign in as it. It isn't a player: plans start with 0 going, and it
+never appears in Who's going or the chat and gets no notifications. Weeks nobody joined are deleted a day
+after they end. Weeks people went to stay in their Past.
+
+The plans aren't in the migration, so test databases never post them. These are the ones on dev and prod
+(Nov 24). CDB II is from the Wellness Center list and Apple Maps:
+
+```sql
+insert into private.recurring_plans (university_id, host_id, activity_slug, title, weekday, local_time,
+                                     duration_minutes, capacity, notes, place_name, place_address, lat, lng)
+select u.id, '5e000000-0000-4000-8000-000000000001', v.slug, v.title, v.weekday, v.local_time, v.minutes, v.spots,
+       'Plan semanal abierto, sin anfitrión: únete para apartar tu lugar y nos vemos en la cancha.',
+       'Centro Deportivo Borregos II (CDB II)', 'Calle Luis Elizondo 427, Narvarte, 64700 Monterrey, N.L.',
+       25.65080, -100.28579
+from public.universities u
+cross join (values
+    ('tennis',     'Tenis dobles abierto', 1, time '18:00', 60, 4),   -- Monday
+    ('basketball', 'Básquet 5v5 abierto',  2, time '19:00', 60, 10),  -- Tuesday
+    ('padel',      'Pádel dobles abierto', 3, time '18:00', 90, 4),   -- Wednesday
+    ('soccer',     'Fútbol 7 abierto',     4, time '18:30', 90, 14)   -- Thursday
+) as v(slug, title, weekday, local_time, minutes, spots)
+where u.email_domain = 'tec.mx';
+select private.post_recurring_plans();  -- post now instead of waiting for the next tick
+```
+
+- **See them:** `select p.title, p.weekday, p.local_time, p.active, g.id, g.starts_at, g.going_count, g.cancelled_at from private.recurring_plans p left join private.recurring_plan_games l on l.plan_id = p.id left join public.games g on g.id = l.game_id order by p.weekday, g.starts_at;`
+- **Skip a week (holiday):** `select private.cancel_recurring_game('<game id>');`. Everyone going is told, and the job posts the following week.
+- **Change the time, spots or text:** update the row. The change applies from the next week posted. To change the week already up, skip it, or update that game directly.
+- **Pause or stop one:** `update private.recurring_plans set active = false where title = '…';`. The week already posted stays, so skip it too if needed.
+- **Later: ping pong and e-sports at the Wellness Center** (Av. Junco de la Vega 2501, Tecnológico, 25.65208, -100.28871). Add these only once an app version people have knows those sports. 0.9 doesn't, and e-sports is 1.0-only (`20261126000200_esports_at_1_0`).
+
 ## Moderation
 
 - New reports post to the team Discord (step 6 above). Act within 24 h and set `resolved_at`.
