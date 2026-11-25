@@ -38,13 +38,13 @@ enum MockFixtures {
         static let ended = UUID(uuidString: "00000000-0000-0000-0000-00000000A006")!
         static let cancelled = UUID(uuidString: "00000000-0000-0000-0000-00000000A007")!
         static let bumped = UUID(uuidString: "00000000-0000-0000-0000-00000000A008")!
-        /// `-esports YES`: a round night you're in, in its second round.
+        /// Unless `-esports NO`: a round night you're in, in its second round.
         static let roundNight = UUID(uuidString: "00000000-0000-0000-0000-00000000E001")!
         /// One with open spots, in two days.
         static let roundNightOpen = UUID(uuidString: "00000000-0000-0000-0000-00000000E002")!
         /// Yesterday's, for the "who you played with" recap.
         static let roundNightEnded = UUID(uuidString: "00000000-0000-0000-0000-00000000E003")!
-        /// `-esports YES` (the 1.0 preview): a plan that ended an hour ago, so props are open.
+        /// Unless `-esports NO`: a plan that ended an hour ago, so props are open.
         static let justEnded = UUID(uuidString: "00000000-0000-0000-0000-00000000A009")!
     }
 
@@ -81,8 +81,9 @@ enum MockFixtures {
     /// default, so tests and design review keep the fixtures they were written against.
     static let isScreenshotWorld = UserDefaults.standard.bool(forKey: "screenshots")
 
-    /// `-esports YES`: esports games and round nights (`Rotation`). Off by default, like screenshots.
-    static let isEsportsWorld = UserDefaults.standard.bool(forKey: "esports")
+    /// Esports games and round nights (`Rotation`): on since 1.0. `-esports NO` turns them off, which
+    /// the tests and screenshots do, so they keep the fixtures they were written against.
+    static let isEsportsWorld = UserDefaults.standard.object(forKey: "esports") == nil || UserDefaults.standard.bool(forKey: "esports")
 
     /// Players for the round nights: invented, enough for 16.
     static let esportsPlayers = [

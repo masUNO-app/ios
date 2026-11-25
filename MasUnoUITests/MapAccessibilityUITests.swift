@@ -9,7 +9,7 @@ final class MapAccessibilityUITests: XCTestCase {
         continueAfterFailure = false
         let app = XCUIApplication()
         app.launchArguments = [
-            "-liveAuth", "NO", "-mockLocation", "YES", "-screen", screen,
+            "-liveAuth", "NO", "-esports", "NO", "-mockLocation", "YES", "-screen", screen,
             "-notificationSettingsDelay", "60",
             "-appLanguage", "system", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"
         ]
@@ -41,6 +41,26 @@ final class MapAccessibilityUITests: XCTestCase {
         let summary = app.otherElements.matching(NSPredicate(format: "label BEGINSWITH %@", "After-work hoops, Basketball")).firstMatch
         XCTAssertTrue(summary.waitForExistence(timeout: 20))
         XCTAssertTrue(app.buttons["Basketball: After-work hoops"].isSelected)
+    }
+
+    /// Tapping a second pin while a popup is open moves the popup to it, without closing the first.
+    @MainActor
+    func testTappingAnotherPinMovesThePopup() {
+        let app = launch(screen: "popup")
+        defer { app.terminate() }
+
+        let first = app.buttons["Basketball: After-work hoops"]
+        XCTAssertTrue(app.otherElements.matching(NSPredicate(format: "label BEGINSWITH %@", "After-work hoops, Basketball"))
+            .firstMatch.waitForExistence(timeout: 20))
+        let pins = app.buttons.matching(NSPredicate(format: "value CONTAINS %@ AND label != %@", "Room for", first.label))
+        let second = pins.allElementsBoundByIndex.first { $0.isHittable }
+        guard let second else { return XCTFail("No second pin on screen") }
+        let title = String(second.label.split(separator: ":", maxSplits: 1).last ?? "").trimmingCharacters(in: .whitespaces)
+        second.tap()
+
+        XCTAssertTrue(app.otherElements.matching(NSPredicate(format: "label BEGINSWITH %@", title + ","))
+            .firstMatch.waitForExistence(timeout: 10), "The popup moved to \(title)")
+        XCTAssertEqual(app.state, .runningForeground)
     }
 
     @MainActor

@@ -51,7 +51,7 @@ the template and verifies compilation; it does not verify production configurati
 Debug builds accept a `-screen` launch argument to jump straight to a screen for design review:
 `popup`, `popup-saved`, `guest`, `guest-popup`, `guest-detail`, `guest-prompt`, `saved`, `add`, `form-error`, `edit`, `picker`, `detail-open|in|full|hosting|ended|cancelled`
 (add `-raceJoin YES` to `detail-open` for the last-spot race; `-mockLocation YES` pins you at Tec), `who`, `who-beta`, `report`, `blocked`, `me`,
-`me-hosting`, `invites`, `profile`, `onboarding-primer|sheet|signup|pending|pending-code|campus|school|review|verified|about|interests|guidelines`, `calendar`, `chat`, `chat-unavailable`, `chat-host`, `meetup`, `repost`, `settings`, `update`, `signed-out`, `session-expired`, `suspended`, `gallery`, and with `-esports YES` `detail-props`, `props-sheet`, `leaderboard`. The full list is in the comment above `openDebugScreen` in `AppViewModel.swift`.
+`me-hosting`, `invites`, `profile`, `onboarding-primer|sheet|signup|pending|pending-code|campus|school|review|verified|about|interests|guidelines`, `calendar`, `chat`, `chat-unavailable`, `chat-host`, `meetup`, `repost`, `settings`, `update`, `signed-out`, `session-expired`, `suspended`, `gallery`, and, unless `-esports NO`, `detail-props`, `props-sheet`, `leaderboard`. The full list is in the comment above `openDebugScreen` in `AppViewModel.swift`.
 
 Add `-mockGames 150` to any mock launch to copy the fixture games around campus, so the map, search and filters have real work when profiling. `AccessibilityAuditUITests` runs Apple's accessibility audit on these screens for missing labels, tap targets, traits and unreadable text (the few accepted findings, with their reasons, are at the top of the file). Contrast is checked exactly from the color tokens in `MasUnoTests/ContrastTests.swift`, and `LargeTextUITests` runs the core loop at AX5.
 
@@ -170,7 +170,7 @@ steadier Settings.
   - The activity catalog, read through `activity_catalog` and cached.
   - Esports and round nights, with the esports kind gated to 1.0 on the server.
   - Props after every plan, with the "Top teammates" leaderboard.
-- **On mocks:** `-esports YES` shows the 1.0 world, with the debug screens `detail-props`, `props-sheet` and `leaderboard`.
+- **On mocks:** the 1.0 world is on by default (`-esports NO` for sports-only fixtures), with the debug screens `detail-props`, `props-sheet` and `leaderboard`.
 - **The server keeps 0.9 phones working:**
   - The catalog filters by the version each phone sends.
   - 0.9 reads only the five sports.

@@ -19,7 +19,7 @@ struct PropsRecapSection: View {
         .task(id: event.id) {
             await load()
             #if DEBUG
-            // `-screen props-sheet` (with `-esports YES`): the sheet over the plan that just ended.
+            // `-screen props-sheet` (unless `-esports NO`): the sheet over the plan that just ended.
             if UserDefaults.standard.string(forKey: "screen") == "props-sheet", props?.isOpen == true { givesProps = true }
             #endif
         }

@@ -5,7 +5,7 @@ final class ChatMentionUITests: XCTestCase {
     @MainActor func testTypingAtPickingAMemberAndSending() {
         continueAfterFailure = false
         let app = XCUIApplication()
-        app.launchArguments = ["-liveAuth", "NO", "-mockLocation", "YES", "-screen", "chat",
+        app.launchArguments = ["-liveAuth", "NO", "-esports", "NO", "-mockLocation", "YES", "-screen", "chat",
                                "-notificationSettingsDelay", "60",
                                "-appLanguage", "system", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launch()

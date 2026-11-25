@@ -8,7 +8,7 @@ final class CompatibilityUITests: XCTestCase {
         continueAfterFailure = false
         let app = XCUIApplication()
         app.launchArguments = [
-            "-liveAuth", "NO", "-mockLocation", "YES", "-screen", screen,
+            "-liveAuth", "NO", "-esports", "NO", "-mockLocation", "YES", "-screen", screen,
             "-notificationSettingsDelay", "60",
             "-appLanguage", "system", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"
         ]

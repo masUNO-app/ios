@@ -5,7 +5,7 @@ final class ChatScrollUITests: XCTestCase {
     @MainActor private func launchChat() -> XCUIApplication {
         continueAfterFailure = false
         let app = XCUIApplication()
-        app.launchArguments = ["-liveAuth", "NO", "-mockLocation", "YES", "-screen", "chat-long",
+        app.launchArguments = ["-liveAuth", "NO", "-esports", "NO", "-mockLocation", "YES", "-screen", "chat-long",
                                "-chatScrollUITest", "YES",
                                "-appLanguage", "system", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launch()

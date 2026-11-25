@@ -3,7 +3,7 @@ import XCTest
 /// Settings › Appearance: System, Light or Dark, applied at once and kept across launches.
 final class AppearanceUITests: XCTestCase {
     @MainActor private func launch(_ app: XCUIApplication, appearance: String? = nil) {
-        app.launchArguments = ["-liveAuth", "NO", "-mockLocation", "YES", "-screen", "settings",
+        app.launchArguments = ["-liveAuth", "NO", "-esports", "NO", "-mockLocation", "YES", "-screen", "settings",
                                "-appLanguage", "system", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         if let appearance { app.launchArguments += ["-appearance", appearance] }
         app.launch()

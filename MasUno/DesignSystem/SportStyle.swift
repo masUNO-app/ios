@@ -18,7 +18,7 @@ extension Activity {
     var color: Color {
         if let light = AvatarPalette.rgb(hex: colorHex) {
             let dark = AvatarPalette.rgb(hex: colorDarkHex) ?? light
-            return Color(UIColor { traits in traits.userInterfaceStyle == .dark ? dark.color : light.color })
+            return Color(AvatarPalette.color(light: light, dark: dark))
         }
         return assetColor
     }

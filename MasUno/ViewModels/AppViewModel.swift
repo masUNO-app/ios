@@ -509,11 +509,11 @@ final class AppViewModel {
         case "detail-hosting": path = [.game(IDs.hosting)]
         case "detail-ended": path = [.game(IDs.ended)]
         case "detail-cancelled": path = [.game(IDs.cancelled)]
-        // With `-esports YES`: a round night in its second round, one open to join, yesterday's recap.
+        // Unless `-esports NO`: a round night in its second round, one open to join, yesterday's recap.
         case "detail-rounds": path = [.game(IDs.roundNight)]
         case "detail-rounds-open": path = [.game(IDs.roundNightOpen)]
         case "detail-rounds-ended": path = [.game(IDs.roundNightEnded)]
-        // Props (1.0), with `-esports YES`: a plan that ended an hour ago, and the leaderboard.
+        // Props (1.0), unless `-esports NO`: a plan that ended an hour ago, and the leaderboard.
         case "detail-props", "props-sheet": path = [.game(IDs.justEnded)]
         case "leaderboard": path = [.leaderboard]
         case "saved", "popup-saved":

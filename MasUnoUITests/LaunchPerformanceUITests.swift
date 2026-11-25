@@ -5,7 +5,7 @@ import XCTest
 final class LaunchPerformanceUITests: XCTestCase {
     @MainActor func testLaunchPerformance() {
         let app = XCUIApplication()
-        app.launchArguments = ["-liveAuth", "NO", "-mockLocation", "YES",
+        app.launchArguments = ["-liveAuth", "NO", "-esports", "NO", "-mockLocation", "YES",
                                "-appLanguage", "system", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         measure(metrics: [XCTApplicationLaunchMetric()]) { app.launch() }
         app.terminate()

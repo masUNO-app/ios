@@ -8,7 +8,7 @@ enum UITestApp {
     @MainActor
     static func launch(screen: String, _ extra: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["-liveAuth", "NO", "-mockLocation", "YES", "-screen", screen,
+        app.launchArguments = ["-liveAuth", "NO", "-esports", "NO", "-mockLocation", "YES", "-screen", screen,
                                "-notificationSettingsDelay", "60",
                                "-appLanguage", "system", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"] + extra
         app.launch()

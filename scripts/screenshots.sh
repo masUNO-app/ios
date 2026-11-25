@@ -36,7 +36,7 @@ display_args=()
 
 for screen in $SCREENS; do
   xcrun simctl terminate "$UDID" "$BUNDLE" >/dev/null 2>&1 || true
-  xcrun simctl launch "$UDID" "$BUNDLE" -liveAuth NO -mockLocation YES -appearance light \
+  xcrun simctl launch "$UDID" "$BUNDLE" -liveAuth NO -esports NO -mockLocation YES -appearance light \
     -screenshots YES -screen "$screen" -appLanguage system "${LANG_ARGS[@]}" >/dev/null
   # The map and court art settle in a few seconds; a cold first launch on the Duo takes about ten.
   sleep "${SETTLE:-10}"

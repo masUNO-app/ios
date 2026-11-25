@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import masUNO
 
-/// Esports and round nights (`-esports YES`): the planner, the mock's rules and the form.
+/// Esports and round nights (`MockBackend(esports: true)`): the planner, the mock's rules and the form.
 @MainActor
 struct RotationTests {
     private func ids(_ count: Int) -> [UUID] {

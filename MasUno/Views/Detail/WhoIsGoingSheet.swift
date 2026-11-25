@@ -125,8 +125,7 @@ struct WhoIsGoingSheet: View {
             .accessibilityActions { if !isMe { reportAndBlock(person) } }
 
             if !isMe {
-                Menu("Report or block \(person.displayName)", systemImage: "ellipsis") { reportAndBlock(person) }
-                    .glassCircle()
+                GlassCircleMenu("Report or block \(person.displayName)", systemImage: "ellipsis") { reportAndBlock(person) }
             }
         }
         .frame(minHeight: 66)

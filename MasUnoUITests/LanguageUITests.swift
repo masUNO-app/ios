@@ -4,7 +4,7 @@ final class LanguageUITests: XCTestCase {
     @MainActor private func launch(languages: String, preference: String? = "system", screen: String = "settings") -> XCUIApplication {
         continueAfterFailure = false
         let app = XCUIApplication()
-        app.launchArguments = ["-liveAuth", "NO", "-mockLocation", "YES", "-screen", screen,
+        app.launchArguments = ["-liveAuth", "NO", "-esports", "NO", "-mockLocation", "YES", "-screen", screen,
                                "-AppleLanguages", languages, "-AppleLocale", "en_US"]
         if let preference { app.launchArguments += ["-appLanguage", preference] }
         app.launch()
@@ -52,7 +52,7 @@ final class LanguageUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Ajustes"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.switches["Mensajes del grupo"].exists)
         app.terminate()
-        app.launchArguments = ["-liveAuth", "NO", "-mockLocation", "YES", "-screen", "settings",
+        app.launchArguments = ["-liveAuth", "NO", "-esports", "NO", "-mockLocation", "YES", "-screen", "settings",
                                "-AppleLanguages", "(en-US)", "-AppleLocale", "en_US"]
         app.launch()
         XCTAssertTrue(app.navigationBars["Ajustes"].waitForExistence(timeout: 20))

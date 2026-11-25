@@ -373,12 +373,21 @@ struct EventDetailView: View {
         }
     }
 
-    /// The sticky bar: one green action, with a mint one beside it once you're in.
+    /// The sticky bar: one green action, with a mint one beside it once you're in. None once a plan
+    /// is cancelled, or has ended and its chat has closed: there's nothing left to do from here.
     @ViewBuilder
     private func actionBar(_ event: Game, state: GameStatus) -> some View {
+        if state == .cancelled || (state == .ended && !event.isChatOpen()) {
+            EmptyView()
+        } else {
+            openActionBar(event, state: state)
+        }
+    }
+
+    private func openActionBar(_ event: Game, state: GameStatus) -> some View {
         let canInvite = AppConfig.inviteURL != nil
 
-        Group {
+        return Group {
             switch state {
             case .open:
                 barColumn(caption: store.isGuest
@@ -435,7 +444,14 @@ struct EventDetailView: View {
                     .pill(isOn ? .secondary : .primary)
                     .sensoryFeedback(.selection, trigger: isOn)
                 }
-            case .ended, .cancelled:
+            case .ended:
+                // Only while the chat is open (`actionBar`): the after-game "good game" and photos.
+                barColumn(caption: "The chat stays open for 24 hours after the plan wraps.") {
+                    Button("Open group chat") { appViewModel.path.append(.chat(event.id)) }
+                        .pill(.primary)
+                        .accessibilityIdentifier("detail-open-chat")
+                }
+            case .cancelled:
                 EmptyView()
             }
         }

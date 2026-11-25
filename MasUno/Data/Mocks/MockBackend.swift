@@ -29,7 +29,7 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
     var losesNextJoinRace = false
     /// `app_config.chat_enabled`. Off, `sendMessage` answers `chat_disabled`.
     var chatEnabled = true
-    /// `-esports YES`: esports games in `activities`, and round nights in the fixtures.
+    /// On unless `-esports NO`: esports games in `activities`, and round nights in the fixtures.
     let esportsEnabled: Bool
 
     let me: PersonSummary
@@ -519,8 +519,13 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
                       MockFixtures.esportsPlayers[5], MockFixtures.maya, MockFixtures.esportsPlayers[9], MockFixtures.diego,
                       MockFixtures.nina, MockFixtures.sam, MockFixtures.priya]
         let mostly = ["basketball", "soccer", "valorant", "volleyball", "soccer", "padel", "valorant", "soccer", "tennis", "basketball", "padel"]
-        let counts = [21, 17, 14, 12, 11, 10, 9, 9, 8, 8, 7]
-        let shown = zip(people, zip(mostly, counts)).filter { entry in
+        // Each prop has its own order and counts, as on the server: the same people, shifted along.
+        let index = Prop.allCases.firstIndex(of: prop) ?? 0
+        let shift = index * 3
+        let ranked = Array(zip(people, mostly).dropFirst(shift)) + Array(zip(people, mostly).prefix(shift))
+        let counts = [[21, 17, 14, 12, 11, 10, 9, 9, 8, 8, 7], [16, 15, 12, 10, 10, 8, 7, 6, 6, 5, 4],
+                      [19, 13, 12, 12, 9, 8, 8, 7, 5, 5, 4], [24, 18, 15, 11, 9, 9, 8, 6, 6, 5, 3]][index % 4]
+        let shown = zip(ranked.map(\.0), zip(ranked.map(\.1), counts)).filter { entry in
             guard let filter else { return true }
             let slug = entry.1.0
             return slug == filter || Catalog(kinds: ActivityKind.builtIn, activities: Activity.builtIn + Activity.esports)
@@ -534,7 +539,7 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         let month = Calendar.current.dateInterval(of: .month, for: now)
         return PropsLeaderboard(
             month: month?.start ?? now, resetsAt: month?.end ?? now, top: top,
-            isOptedIn: propsOptIn, myRank: 14, myPeople: 6
+            isOptedIn: propsOptIn, myRank: [14, 13, 15, 17][index % 4], myPeople: [6, 3, 3, 2][index % 4]
         )
     }
 

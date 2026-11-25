@@ -47,7 +47,7 @@ nonisolated struct Activity: Identifiable, Hashable, Sendable, Codable {
         Activity(slug: "padel", labelEN: "Padel", labelES: "Pádel", emoji: "🏓", sortOrder: 5, colorHex: "#56BDE8", art: "padel"),
     ]
 
-    /// The esports titles the catalog serves to 1.0 and later; the mocks serve them with `-esports YES`.
+    /// The esports titles the catalog serves to 1.0 and later; the mocks serve them unless `-esports NO`.
     static let esports: [Activity] = [
         Activity(slug: "valorant", kind: esportsKind, labelEN: "Valorant", labelES: "Valorant", emoji: "🎯", sortOrder: 100, colorHex: "#F06F7E"),
         Activity(slug: "csgo", kind: esportsKind, labelEN: "CS:GO", labelES: "CS:GO", emoji: "💣", sortOrder: 101, colorHex: "#E8B33A"),

@@ -1,296 +1,6 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "%lld groups" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld grupos"
-          }
-        }
-      }
-    },
-    "%lld groups of %lld" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$lld grupos de %2$lld"
-          }
-        }
-      }
-    },
-    "%lld groups of %lld–%lld" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$lld grupos de %2$lld–%3$lld"
-          }
-        }
-      }
-    },
-    "%lld min break, new groups" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Descanso de %lld min, grupos nuevos"
-          }
-        }
-      }
-    },
-    "Activities" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Actividades"
-          }
-        }
-      }
-    },
-    "Activity" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Actividad"
-          }
-        }
-      }
-    },
-    "Break" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Descanso"
-          }
-        }
-      }
-    },
-    "Create round night" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Crear noche de rondas"
-          }
-        }
-      }
-    },
-    "e.g. Valorant night at the game room" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "p. ej., Noche de Valorant en la sala de videojuegos"
-          }
-        }
-      }
-    },
-    "Each round" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cada ronda"
-          }
-        }
-      }
-    },
-    "Ends" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Termina"
-          }
-        }
-      }
-    },
-    "Esports" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Esports"
-          }
-        }
-      }
-    },
-    "Everyone plays with up to %lld new people." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cada quien juega con hasta %lld personas nuevas."
-          }
-        }
-      }
-    },
-    "Everyone plays with up to %lld new people. Groups are shuffled so nobody repeats." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cada quien juega con hasta %lld personas nuevas. Mezclamos los grupos para que nadie se repita."
-          }
-        }
-      }
-    },
-    "Game" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Juego"
-          }
-        }
-      }
-    },
-    "Group size" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tamaño del grupo"
-          }
-        }
-      }
-    },
-    "Groups come out at %@" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Los grupos salen a las %@"
-          }
-        }
-      }
-    },
-    "I have a spare headset" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tengo audífonos extra"
-          }
-        }
-      }
-    },
-    "Now" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ahora"
-          }
-        }
-      }
-    },
-    "Play a round, take a break, then play with a new group." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Juega una ronda, toma un descanso y luego juega con un grupo nuevo."
-          }
-        }
-      }
-    },
-    "Played" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Jugada"
-          }
-        }
-      }
-    },
-    "Room for 2 groups needed" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Se necesita lugar para 2 grupos"
-          }
-        }
-      }
-    },
-    "Rotate groups" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rotar grupos"
-          }
-        }
-      }
-    },
-    "Round %lld" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ronda %lld"
-          }
-        }
-      }
-    },
-    "Round nights need at least %lld people, for two groups." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Las noches de rondas necesitan al menos %lld personas, para dos grupos."
-          }
-        }
-      }
-    },
-    "Rounds" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rondas"
-          }
-        }
-      }
-    },
-    "Station %lld" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Estación %lld"
-          }
-        }
-      }
-    },
-    "Type" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tipo"
-          }
-        }
-      }
-    },
-    "You played with %lld new people" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Jugaste con %lld personas nuevas"
-          }
-        }
-      }
-    },
     "· Host" : {
       "localizations" : {
         "es" : {
@@ -441,6 +151,16 @@
         }
       }
     },
+    "%@ from %lld people" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ de %2$lld personas"
+          }
+        }
+      }
+    },
     "%@ has already passed today. Pick a later time." : {
       "comment" : "A localized error message that appears when the start time of a game has already passed. The argument is the time of the game.",
       "isCommentAutoGenerated" : true,
@@ -583,12 +303,42 @@
         }
       }
     },
+    "%@, from %lld people" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@, de %2$lld personas"
+          }
+        }
+      }
+    },
+    "%@, from 1 person" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, de 1 persona"
+          }
+        }
+      }
+    },
     "%@, host: %@" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@, organizador: %@"
+          }
+        }
+      }
+    },
+    "%@, props sent" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, props enviados"
           }
         }
       }
@@ -631,92 +381,6 @@
         }
       }
     },
-    "%lld plans" : {
-      "localizations" : {
-        "en" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld plan"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld plans"
-                }
-              }
-            }
-          }
-        },
-        "es" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld plan"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld planes"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "%lld plans here" : {
-      "comment" : "The text shown in the annotation bubble for a group pin. The argument is the number of games in the group.",
-      "isCommentAutoGenerated" : true,
-      "localizations" : {
-        "es" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld plan aquí"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld planes aquí"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "%lld plans nearby" : {
-      "localizations" : {
-        "es" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld plan cerca"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld planes cerca"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "%lld going" : {
       "localizations" : {
         "es" : {
@@ -735,6 +399,36 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "%lld groups" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld grupos"
+          }
+        }
+      }
+    },
+    "%lld groups of %lld" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld grupos de %2$lld"
+          }
+        }
+      }
+    },
+    "%lld groups of %lld–%lld" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld grupos de %2$lld–%3$lld"
           }
         }
       }
@@ -849,6 +543,16 @@
         }
       }
     },
+    "%lld min break, new groups" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Descanso de %lld min, grupos nuevos"
+          }
+        }
+      }
+    },
     "%lld more" : {
       "comment" : "A description of a lineup of people and open spots.",
       "isCommentAutoGenerated" : true,
@@ -857,6 +561,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld más"
+          }
+        }
+      }
+    },
+    "%lld more for the top 10" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld más para el top 10"
           }
         }
       }
@@ -909,12 +623,108 @@
         }
       }
     },
+    "%lld plans" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld plan"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld plans"
+                }
+              }
+            }
+          }
+        },
+        "es" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld plan"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld planes"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld plans here" : {
+      "comment" : "The text shown in the annotation bubble for a group pin. The argument is the number of games in the group.",
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "es" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld plan aquí"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld planes aquí"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld plans nearby" : {
+      "localizations" : {
+        "es" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld plan cerca"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld planes cerca"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "%lld things to fix. %@" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Hay %lld cosas por corregir. %@"
+          }
+        }
+      }
+    },
+    "%lld. %@, from %lld people" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld. %2$@, de %3$lld personas"
           }
         }
       }
@@ -929,24 +739,22 @@
         }
       }
     },
-    "1 plan nearby" : {
-      "comment" : "A description of the number of games nearby.",
-      "isCommentAutoGenerated" : true,
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "1 plan cerca"
-          }
-        }
-      }
-    },
     "1 hour" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "1 hora"
+          }
+        }
+      }
+    },
+    "1 more for the top 10" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 más para el top 10"
           }
         }
       }
@@ -971,6 +779,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "1 persona"
+          }
+        }
+      }
+    },
+    "1 plan nearby" : {
+      "comment" : "A description of the number of games nearby.",
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 plan cerca"
           }
         }
       }
@@ -1053,14 +873,23 @@
         }
       }
     },
-    "Make a plan" : {
-      "comment" : "A button that adds a game.",
-      "isCommentAutoGenerated" : true,
+    "Activities" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Arma un plan"
+            "value" : "Actividades"
+          }
+        }
+      }
+    },
+    "Activity" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actividad"
           }
         }
       }
@@ -1155,6 +984,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Avísame si se abre un lugar"
+          }
+        }
+      }
+    },
+    "All" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Todos"
           }
         }
       }
@@ -1457,6 +1296,16 @@
         }
       }
     },
+    "Break" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Descanso"
+          }
+        }
+      }
+    },
     "Browse another campus" : {
       "comment" : "Button title to browse another campus.",
       "isCommentAutoGenerated" : true,
@@ -1501,6 +1350,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Todavía no se pueden explorar planes en ningún campus. Crea una cuenta para unirte a la lista de espera."
+          }
+        }
+      }
+    },
+    "Can't go below the number of people going." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No puede ser menor al número de personas que ya van."
           }
         }
       }
@@ -1561,18 +1420,6 @@
         }
       }
     },
-    "Chill, all levels welcome. Coming alone is fine." : {
-      "comment" : "A text field for adding notes to a game.",
-      "isCommentAutoGenerated" : true,
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tranqui, todos los niveles. Puedes venir solo."
-          }
-        }
-      }
-    },
     "Change" : {
       "localizations" : {
         "es" : {
@@ -1589,6 +1436,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cambiar ubicación"
+          }
+        }
+      }
+    },
+    "Change your props" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cambiar tus props"
           }
         }
       }
@@ -1633,6 +1490,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Revisa los datos e inténtalo de nuevo."
+          }
+        }
+      }
+    },
+    "Chill, all levels welcome. Coming alone is fine." : {
+      "comment" : "A text field for adding notes to a game.",
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tranqui, todos los niveles. Puedes venir solo."
           }
         }
       }
@@ -1863,16 +1732,6 @@
         }
       }
     },
-    "Couldn't load plans." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No pudimos cargar los planes."
-          }
-        }
-      }
-    },
     "Couldn't load messages." : {
       "localizations" : {
         "es" : {
@@ -1889,6 +1748,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No pudimos cargar los ajustes de notificaciones"
+          }
+        }
+      }
+    },
+    "Couldn't load plans." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No pudimos cargar los planes."
           }
         }
       }
@@ -2045,6 +1914,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Crear plan"
+          }
+        }
+      }
+    },
+    "Create round night" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crear noche de rondas"
           }
         }
       }
@@ -2227,8 +2106,21 @@
         }
       }
     },
+    "e.g. By the big tree outside the library" : {
+      "comment" : "A hint for a user to enter a meet-up spot.",
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "p. ej., Junto al árbol grande afuera de la biblioteca"
+          }
+        }
+      }
+    },
     "e.g. Pickup after class" : {
       "comment" : "A hint for a game name.",
+      "extractionState" : "stale",
       "isCommentAutoGenerated" : true,
       "localizations" : {
         "es" : {
@@ -2239,14 +2131,23 @@
         }
       }
     },
-    "e.g. By the big tree outside the library" : {
-      "comment" : "A hint for a user to enter a meet-up spot.",
-      "isCommentAutoGenerated" : true,
+    "e.g. Valorant night at the game room" : {
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "p. ej., Junto al árbol grande afuera de la biblioteca"
+            "value" : "p. ej., Noche de Valorant en la sala de videojuegos"
+          }
+        }
+      }
+    },
+    "Each round" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cada ronda"
           }
         }
       }
@@ -2293,22 +2194,22 @@
         }
       }
     },
-    "Edit plan" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Editar plan"
-          }
-        }
-      }
-    },
     "Edit meet-up spot" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Editar punto de encuentro"
+          }
+        }
+      }
+    },
+    "Edit plan" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Editar plan"
           }
         }
       }
@@ -2355,6 +2256,27 @@
         }
       }
     },
+    "Ends" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Termina"
+          }
+        }
+      }
+    },
+    "Esports" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esports"
+          }
+        }
+      }
+    },
     "Every spot is taken. See you there." : {
       "comment" : "Text displayed in a game detail view when the game is full.",
       "isCommentAutoGenerated" : true,
@@ -2363,6 +2285,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Todos los lugares están ocupados. Nos vemos allá."
+          }
+        }
+      }
+    },
+    "Everyone plays with up to %lld new people." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cada quien juega con hasta %lld personas nuevas."
+          }
+        }
+      }
+    },
+    "Everyone plays with up to %lld new people. Groups are shuffled so nobody repeats." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cada quien juega con hasta %lld personas nuevas. Mezclamos los grupos para que nadie se repita."
           }
         }
       }
@@ -2465,6 +2407,26 @@
         }
       }
     },
+    "First time playing together" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Primera vez jugando juntos"
+          }
+        }
+      }
+    },
+    "For %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Para %@"
+          }
+        }
+      }
+    },
     "Forgot your password? Contact us" : {
       "comment" : "A link that takes the user to the support email.",
       "isCommentAutoGenerated" : true,
@@ -2473,6 +2435,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "¿Olvidaste tu contraseña? Contáctanos"
+          }
+        }
+      }
+    },
+    "from %lld people" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "de %lld personas"
+          }
+        }
+      }
+    },
+    "from 1 person" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "de 1 persona"
           }
         }
       }
@@ -2499,98 +2481,13 @@
         }
       }
     },
-    "Plan cancelled · Chat closed" : {
+    "Game" : {
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Plan cancelado · Chat cerrado"
-          }
-        }
-      }
-    },
-    "Plan cancelled. We let everyone going know." : {
-      "comment" : "Confirmation message when a game is cancelled.",
-      "isCommentAutoGenerated" : true,
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Plan cancelado. Ya avisamos a quienes iban."
-          }
-        }
-      }
-    },
-    "it's full" : {
-      "comment" : "The same, for the middle of a line: \"room for 4 more\", \"room for one more\", \"game is full\".",
-      "isCommentAutoGenerated" : true,
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ya está lleno"
-          }
-        }
-      }
-    },
-    "What's the plan?" : {
-      "comment" : "Label for the game name field in the game form.",
-      "isCommentAutoGenerated" : true,
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "¿Cuál es el plan?"
-          }
-        }
-      }
-    },
-    "Plan reminders" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Recordatorios de planes"
-          }
-        }
-      }
-    },
-    "It's full · %lld of %lld" : {
-      "comment" : "Text displayed in a game's details when it's full. The first argument is the number of players who showed up. The second argument is the total capacity.",
-      "isCommentAutoGenerated" : true,
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "It's full · %1$lld of %2$lld"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ya está lleno · %lld de %lld"
-          }
-        }
-      }
-    },
-    "Plans near you" : {
-      "comment" : "Title for the list of games when the user is not filtering by sport.",
-      "isCommentAutoGenerated" : true,
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Planes cerca de ti"
-          }
-        }
-      }
-    },
-    "Plans that match your interests" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Planes de lo que te gusta"
+            "value" : "Juego"
           }
         }
       }
@@ -2617,12 +2514,62 @@
         }
       }
     },
+    "Give props" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dar props"
+          }
+        }
+      }
+    },
+    "Give props to %lld more" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dar props a %lld más"
+          }
+        }
+      }
+    },
+    "Give props to anyone who earned them. They see the props, not who sent them." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dale props a quien se los ganó. Ven los props, no quién los mandó."
+          }
+        }
+      }
+    },
+    "Give props to Station %lld" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dar props a la estación %lld"
+          }
+        }
+      }
+    },
     "Going" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Voy"
+          }
+        }
+      }
+    },
+    "Good sport" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buena onda"
           }
         }
       }
@@ -2709,6 +2656,26 @@
         }
       }
     },
+    "Group size" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tamaño del grupo"
+          }
+        }
+      }
+    },
+    "Groups come out at %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los grupos salen a las %@"
+          }
+        }
+      }
+    },
     "Harassment or hateful language" : {
       "comment" : "The word \"Harassment\" is used in the context of a person.",
       "isCommentAutoGenerated" : true,
@@ -2765,18 +2732,6 @@
         }
       }
     },
-    "Start a plan in under a minute. Most plans just need one more." : {
-      "comment" : "Text displayed in a button on the Me screen, inviting the user to host a game.",
-      "isCommentAutoGenerated" : true,
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Arma un plan en menos de un minuto. A la mayoría solo les falta una persona más."
-          }
-        }
-      }
-    },
     "Host with a student account" : {
       "comment" : "Text on a button that opens a new game.",
       "isCommentAutoGenerated" : true,
@@ -2795,6 +2750,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Organizo"
+          }
+        }
+      }
+    },
+    "How did it go?" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Cómo estuvo?"
           }
         }
       }
@@ -2833,8 +2798,20 @@
         }
       }
     },
+    "I have a spare headset" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tengo audífonos extra"
+          }
+        }
+      }
+    },
     "I have an extra ball" : {
       "comment" : "One-tap answer to \"What would help someone new say yes?\" (SPEC §7.7.3).",
+      "extractionState" : "stale",
       "isCommentAutoGenerated" : true,
       "localizations" : {
         "es" : {
@@ -2881,6 +2858,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Incluyéndote"
+          }
+        }
+      }
+    },
+    "Into" : {
+      "comment" : "A heading for the sports you play.",
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le gusta"
           }
         }
       }
@@ -2967,6 +2956,36 @@
         }
       }
     },
+    "it's full" : {
+      "comment" : "The same, for the middle of a line: \"room for 4 more\", \"room for one more\", \"game is full\".",
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ya está lleno"
+          }
+        }
+      }
+    },
+    "It's full · %lld of %lld" : {
+      "comment" : "Text displayed in a game's details when it's full. The first argument is the number of players who showed up. The second argument is the total capacity.",
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "It's full · %1$lld of %2$lld"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ya está lleno · %lld de %lld"
+          }
+        }
+      }
+    },
     "It's on the map now with %@." : {
       "comment" : "The game is on the map, but not full yet.",
       "isCommentAutoGenerated" : true,
@@ -3007,18 +3026,6 @@
         }
       }
     },
-    "Keep plan" : {
-      "comment" : "The label of a button that keeps a game after cancelling the cancellation.",
-      "isCommentAutoGenerated" : true,
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Conservar plan"
-          }
-        }
-      }
-    },
     "Keep it about the plan: timing, where to meet, who's bringing what." : {
       "localizations" : {
         "es" : {
@@ -3037,6 +3044,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Conservar mi cuenta"
+          }
+        }
+      }
+    },
+    "Keep plan" : {
+      "comment" : "The label of a button that keeps a game after cancelling the cancellation.",
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conservar plan"
           }
         }
       }
@@ -3185,22 +3204,22 @@
         }
       }
     },
-    "Loading plan" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cargando plan"
-          }
-        }
-      }
-    },
     "Loading notification settings" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cargando ajustes de notificaciones"
+          }
+        }
+      }
+    },
+    "Loading plan" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cargando plan"
           }
         }
       }
@@ -3227,12 +3246,34 @@
         }
       }
     },
+    "Made it fun" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lo hizo divertido"
+          }
+        }
+      }
+    },
     "Made me feel unsafe" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Me hizo sentir en peligro"
+          }
+        }
+      }
+    },
+    "Make a plan" : {
+      "comment" : "A button that adds a game.",
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Arma un plan"
           }
         }
       }
@@ -3477,6 +3518,16 @@
         }
       }
     },
+    "Mostly %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Más que nada %@"
+          }
+        }
+      }
+    },
     "Mute chat" : {
       "comment" : "A button that mutes or unmutes the chat.",
       "isCommentAutoGenerated" : true,
@@ -3499,6 +3550,16 @@
         }
       }
     },
+    "New here" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuevo aquí"
+          }
+        }
+      }
+    },
     "Next, tell us what you're into so the right plans show up first." : {
       "comment" : "A description of the next step in the onboarding process.",
       "isCommentAutoGenerated" : true,
@@ -3507,6 +3568,60 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ahora dinos qué te gusta para mostrarte primero los planes que te interesan."
+          }
+        }
+      }
+    },
+    "No invites yet" : {
+      "comment" : "Title of a card that says there are no invites.",
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Todavía no hay invitaciones"
+          }
+        }
+      }
+    },
+    "No meet-up spot yet" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aún no hay punto de encuentro"
+          }
+        }
+      }
+    },
+    "No one" : {
+      "comment" : "A subtitle for the blocked people section of the settings.",
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nadie"
+          }
+        }
+      }
+    },
+    "No one blocked" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay personas bloqueadas"
+          }
+        }
+      }
+    },
+    "No one's on the list for this yet. Props from this month show up here." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Todavía no hay nadie en la lista. Aquí aparecen los props de este mes."
           }
         }
       }
@@ -3559,50 +3674,6 @@
         }
       }
     },
-    "No invites yet" : {
-      "comment" : "Title of a card that says there are no invites.",
-      "isCommentAutoGenerated" : true,
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Todavía no hay invitaciones"
-          }
-        }
-      }
-    },
-    "No meet-up spot yet" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aún no hay punto de encuentro"
-          }
-        }
-      }
-    },
-    "No one" : {
-      "comment" : "A subtitle for the blocked people section of the settings.",
-      "isCommentAutoGenerated" : true,
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nadie"
-          }
-        }
-      }
-    },
-    "No one blocked" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No hay personas bloqueadas"
-          }
-        }
-      }
-    },
     "No spot yet" : {
       "comment" : "A label displayed when a location has not been selected.",
       "isCommentAutoGenerated" : true,
@@ -3623,6 +3694,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Todavía no se ha unido nadie. El plan se quitará del mapa y el chat del grupo se cerrará."
+          }
+        }
+      }
+    },
+    "Nobody to give props to." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay a quién darle props."
           }
         }
       }
@@ -3735,6 +3816,16 @@
         }
       }
     },
+    "Now" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ahora"
+          }
+        }
+      }
+    },
     "Number %lld in line" : {
       "localizations" : {
         "es" : {
@@ -3763,6 +3854,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Aceptar"
+          }
+        }
+      }
+    },
+    "On time" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Puntual"
           }
         }
       }
@@ -3835,6 +3936,16 @@
         }
       }
     },
+    "Only you see this" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solo tú ves esto"
+          }
+        }
+      }
+    },
     "Only you see what you're into." : {
       "comment" : "A description of the privacy of the user's sports.",
       "isCommentAutoGenerated" : true,
@@ -3883,6 +3994,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Abrir Ajustes"
+          }
+        }
+      }
+    },
+    "Open until %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abierto hasta %@"
           }
         }
       }
@@ -4011,6 +4132,16 @@
         }
       }
     },
+    "People" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Personas"
+          }
+        }
+      }
+    },
     "People to mention" : {
       "localizations" : {
         "es" : {
@@ -4097,6 +4228,48 @@
         }
       }
     },
+    "Pinned at the top of the chat so nobody has to ask." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se fija al inicio del chat para que nadie tenga que preguntar."
+          }
+        }
+      }
+    },
+    "Plan cancelled · Chat closed" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plan cancelado · Chat cerrado"
+          }
+        }
+      }
+    },
+    "Plan cancelled. We let everyone going know." : {
+      "comment" : "Confirmation message when a game is cancelled.",
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plan cancelado. Ya avisamos a quienes iban."
+          }
+        }
+      }
+    },
+    "Plan reminders" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recordatorios de planes"
+          }
+        }
+      }
+    },
     "Plans around %@ that are just one or two people short. Grab the open spot and tag along today." : {
       "comment" : "A welcome message that appears on the \"Welcome\" screen.",
       "isCommentAutoGenerated" : true,
@@ -4105,6 +4278,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Planes cerca de %@ a los que les faltan una o dos personas. Toma el lugar libre y súmate hoy."
+          }
+        }
+      }
+    },
+    "Plans near you" : {
+      "comment" : "Title for the list of games when the user is not filtering by sport.",
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Planes cerca de ti"
           }
         }
       }
@@ -4121,66 +4306,42 @@
         }
       }
     },
-    "Pinned at the top of the chat so nobody has to ask." : {
+    "Plans that match your interests" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Se fija al inicio del chat para que nadie tenga que preguntar."
+            "value" : "Planes de lo que te gusta"
           }
         }
       }
     },
-    "Run it back" : {
-      "comment" : "A button that lets you play a game again.",
-      "isCommentAutoGenerated" : true,
+    "Play a round, take a break, then play with a new group." : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Repetir"
+            "value" : "Juega una ronda, toma un descanso y luego juega con un grupo nuevo."
           }
         }
       }
     },
-    "Run it back, %@" : {
+    "Played" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Repetir, %@"
+            "value" : "Jugada"
           }
         }
       }
     },
-    "People" : {
+    "Played together %lld times" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Personas"
-          }
-        }
-      }
-    },
-    "Can't go below the number of people going." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No puede ser menor al número de personas que ya van."
-          }
-        }
-      }
-    },
-    "Into" : {
-      "comment" : "A heading for the sports you play.",
-      "isCommentAutoGenerated" : true,
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Le gusta"
+            "value" : "Han jugado juntos %lld veces"
           }
         }
       }
@@ -4221,6 +4382,76 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Privacidad y términos"
+          }
+        }
+      }
+    },
+    "Prop" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prop"
+          }
+        }
+      }
+    },
+    "Props are off right now. Try again later." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los props están apagados por ahora. Inténtalo más tarde."
+          }
+        }
+      }
+    },
+    "Props for Station %lld?" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Props para la estación %lld?"
+          }
+        }
+      }
+    },
+    "Props for this plan are closed." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los props de este plan ya cerraron."
+          }
+        }
+      }
+    },
+    "Props for this round?" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Props para esta ronda?"
+          }
+        }
+      }
+    },
+    "Props sent" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Props enviados"
+          }
+        }
+      }
+    },
+    "Props you got" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Props que recibiste"
           }
         }
       }
@@ -4353,16 +4584,6 @@
         }
       }
     },
-    "Report plan" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reportar plan"
-          }
-        }
-      }
-    },
     "Report message" : {
       "localizations" : {
         "es" : {
@@ -4379,6 +4600,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Reportar o bloquear a %@"
+          }
+        }
+      }
+    },
+    "Report plan" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reportar plan"
           }
         }
       }
@@ -4461,6 +4692,16 @@
         }
       }
     },
+    "resets %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "se reinicia el %@"
+          }
+        }
+      }
+    },
     "room for %lld" : {
       "comment" : "The number in the plural form is the number of available spots.",
       "isCommentAutoGenerated" : true,
@@ -4497,6 +4738,16 @@
         }
       }
     },
+    "Room for 2 groups needed" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se necesita lugar para 2 grupos"
+          }
+        }
+      }
+    },
     "room for one more" : {
       "comment" : "The same, for the middle of a line: \"room for 4 more\", \"room for one more\", \"game is full\".",
       "isCommentAutoGenerated" : true,
@@ -4517,6 +4768,78 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Hay lugar para una persona más"
+          }
+        }
+      }
+    },
+    "Rotate groups" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rotar grupos"
+          }
+        }
+      }
+    },
+    "Round %lld" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ronda %lld"
+          }
+        }
+      }
+    },
+    "Round nights need at least %lld people, for two groups." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las noches de rondas necesitan al menos %lld personas, para dos grupos."
+          }
+        }
+      }
+    },
+    "Rounds" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rondas"
+          }
+        }
+      }
+    },
+    "Run it back" : {
+      "comment" : "A button that lets you play a game again.",
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Repetir"
+          }
+        }
+      }
+    },
+    "Run it back, %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Repetir, %@"
+          }
+        }
+      }
+    },
+    "Same props as any plan, while your group is fresh. Skip anyone." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los mismos props que en cualquier plan, mientras tu grupo está fresco. Puedes saltarte a quien sea."
           }
         }
       }
@@ -4687,6 +5010,16 @@
         }
       }
     },
+    "See all" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ver todo"
+          }
+        }
+      }
+    },
     "See plans near you" : {
       "localizations" : {
         "es" : {
@@ -4715,6 +5048,36 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Enviar"
+          }
+        }
+      }
+    },
+    "Send %lld props" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mandar %lld props"
+          }
+        }
+      }
+    },
+    "Send 1 prop" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mandar 1 prop"
+          }
+        }
+      }
+    },
+    "Send props" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mandar props"
           }
         }
       }
@@ -4783,18 +5146,6 @@
         }
       }
     },
-    "Share plan" : {
-      "comment" : "A button that shares a game.",
-      "isCommentAutoGenerated" : true,
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Compartir plan"
-          }
-        }
-      }
-    },
     "Share link" : {
       "comment" : "A button that shares a link to invite friends to play masUNO.",
       "isCommentAutoGenerated" : true,
@@ -4807,12 +5158,34 @@
         }
       }
     },
+    "Share plan" : {
+      "comment" : "A button that shares a game.",
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compartir plan"
+          }
+        }
+      }
+    },
     "Show" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Mostrar"
+          }
+        }
+      }
+    },
+    "Show %lld more people" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar %lld personas más"
           }
         }
       }
@@ -4849,6 +5222,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Mostrar 1 plan"
+          }
+        }
+      }
+    },
+    "Show me on the campus leaderboard" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrarme en la tabla del campus"
+          }
+        }
+      }
+    },
+    "Show me on the leaderboard" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrarme en la tabla"
           }
         }
       }
@@ -5013,6 +5406,16 @@
         }
       }
     },
+    "Something wrong? **Report it** instead. Only the team sees reports." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Algo salió mal? Mejor **repórtalo**. Solo el equipo ve los reportes."
+          }
+        }
+      }
+    },
     "Soon" : {
       "localizations" : {
         "es" : {
@@ -5045,6 +5448,7 @@
     },
     "Sports" : {
       "comment" : "A heading for the sports filter.",
+      "extractionState" : "stale",
       "isCommentAutoGenerated" : true,
       "localizations" : {
         "es" : {
@@ -5073,6 +5477,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Lugar disponible"
+          }
+        }
+      }
+    },
+    "Start a plan in under a minute. Most plans just need one more." : {
+      "comment" : "Text displayed in a button on the Me screen, inviting the user to host a game.",
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Arma un plan en menos de un minuto. A la mayoría solo les falta una persona más."
           }
         }
       }
@@ -5123,6 +5539,16 @@
         }
       }
     },
+    "Station %lld" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estación %lld"
+          }
+        }
+      }
+    },
     "Stay in" : {
       "localizations" : {
         "es" : {
@@ -5161,6 +5587,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Toca el ícono de guardar de un plan para verlo aquí."
+          }
+        }
+      }
+    },
+    "Team player" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buen compañero"
           }
         }
       }
@@ -5209,22 +5645,22 @@
         }
       }
     },
-    "That plan just filled up." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ese plan se acaba de llenar."
-          }
-        }
-      }
-    },
     "That invite code doesn't work. Check it and try again." : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ese código de invitación no funciona. Revísalo e inténtalo de nuevo."
+          }
+        }
+      }
+    },
+    "That plan just filled up." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ese plan se acaba de llenar."
           }
         }
       }
@@ -5467,6 +5903,46 @@
         }
       }
     },
+    "Top teammates" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mejores compañeros"
+          }
+        }
+      }
+    },
+    "Top teammates on campus" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mejores compañeros del campus"
+          }
+        }
+      }
+    },
+    "Top teammates on campus, by props" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mejores compañeros del campus, por props"
+          }
+        }
+      }
+    },
+    "Top teammates, by props from people you play with. You can change this in Settings." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mejores compañeros, por los props de la gente con la que juegas. Puedes cambiarlo en Ajustes."
+          }
+        }
+      }
+    },
     "Touch and hold a message to report it, or report anyone from the Who's going list." : {
       "localizations" : {
         "es" : {
@@ -5551,6 +6027,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Desactiva la alerta de lugares"
+          }
+        }
+      }
+    },
+    "Type" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tipo"
           }
         }
       }
@@ -5983,6 +6469,18 @@
         }
       }
     },
+    "What's the plan?" : {
+      "comment" : "Label for the game name field in the game form.",
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Cuál es el plan?"
+          }
+        }
+      }
+    },
     "When" : {
       "comment" : "A picker that lets the user choose a time range.",
       "isCommentAutoGenerated" : true,
@@ -6067,67 +6565,32 @@
         }
       }
     },
-    "You created the chat" : {
-      "comment" : "A system row in a group chat: you created the game's chat.",
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Creaste el chat"
-          }
-        }
-      }
-    },
-    "You left · a spot opened" : {
-      "comment" : "A system row in a group chat: you left the game, so a spot opened.",
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Te saliste · se abrió un lugar"
-          }
-        }
-      }
-    },
-    "You took a spot" : {
-      "comment" : "A system row in a group chat: you joined the game.",
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Te apuntaste"
-          }
-        }
-      }
-    },
-    "You took a spot · %@" : {
-      "comment" : "The \"+1\" pill in a group chat when you joined. The argument is how much room is left, like \"room for 3 more\".",
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Te apuntaste · %@"
-          }
-        }
-      }
-    },
-    "You took the last spot · it's full" : {
-      "comment" : "The \"+1\" pill in a group chat when you took the game's last spot.",
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tomaste el último lugar · ya está lleno"
-          }
-        }
-      }
-    },
     "You" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tú"
+          }
+        }
+      }
+    },
+    "You · %lld people" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tú · %lld personas"
+          }
+        }
+      }
+    },
+    "You · 1 person" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tú · 1 persona"
           }
         }
       }
@@ -6190,6 +6653,103 @@
         }
       }
     },
+    "You created the chat" : {
+      "comment" : "A system row in a group chat: you created the game's chat.",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Creaste el chat"
+          }
+        }
+      }
+    },
+    "You left · a spot opened" : {
+      "comment" : "A system row in a group chat: you left the game, so a spot opened.",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Te saliste · se abrió un lugar"
+          }
+        }
+      }
+    },
+    "You played with %lld new people" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jugaste con %lld personas nuevas"
+          }
+        }
+      }
+    },
+    "You played with %lld people" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jugaste con %lld personas"
+          }
+        }
+      }
+    },
+    "You played with %lld people, %lld new" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jugaste con %1$lld personas, %2$lld nuevas"
+          }
+        }
+      }
+    },
+    "You said" : {
+      "comment" : "Label for the note when the user is the host.",
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dijiste"
+          }
+        }
+      }
+    },
+    "You took a spot" : {
+      "comment" : "A system row in a group chat: you joined the game.",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Te apuntaste"
+          }
+        }
+      }
+    },
+    "You took a spot · %@" : {
+      "comment" : "The \"+1\" pill in a group chat when you joined. The argument is how much room is left, like \"room for 3 more\".",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Te apuntaste · %@"
+          }
+        }
+      }
+    },
+    "You took the last spot · it's full" : {
+      "comment" : "The \"+1\" pill in a group chat when you took the game's last spot.",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tomaste el último lugar · ya está lleno"
+          }
+        }
+      }
+    },
     "You went · %lld showed up" : {
       "comment" : "The second argument is the number of people who showed up.",
       "isCommentAutoGenerated" : true,
@@ -6210,18 +6770,6 @@
                 }
               }
             }
-          }
-        }
-      }
-    },
-    "You said" : {
-      "comment" : "Label for the note when the user is the host.",
-      "isCommentAutoGenerated" : true,
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dijiste"
           }
         }
       }
@@ -6446,542 +6994,12 @@
         }
       }
     },
-    "Good sport" : {
+    "The chat stays open for 24 hours after the plan wraps." : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Buena onda"
-          }
-        }
-      }
-    },
-    "On time" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Puntual"
-          }
-        }
-      }
-    },
-    "Team player" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Buen compañero"
-          }
-        }
-      }
-    },
-    "Made it fun" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Lo hizo divertido"
-          }
-        }
-      }
-    },
-    "Nobody to give props to." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No hay a quién darle props."
-          }
-        }
-      }
-    },
-    "Props for this plan are closed." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Los props de este plan ya cerraron."
-          }
-        }
-      }
-    },
-    "Props are off right now. Try again later." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Los props están apagados por ahora. Inténtalo más tarde."
-          }
-        }
-      }
-    },
-    "Props for Station %lld?" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "¿Props para la estación %lld?"
-          }
-        }
-      }
-    },
-    "How did it go?" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "¿Cómo estuvo?"
-          }
-        }
-      }
-    },
-    "Props for this round?" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "¿Props para esta ronda?"
-          }
-        }
-      }
-    },
-    "Open until %@" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Abierto hasta %@"
-          }
-        }
-      }
-    },
-    "Give props to anyone who earned them. They see the props, not who sent them." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dale props a quien se los ganó. Ven los props, no quién los mandó."
-          }
-        }
-      }
-    },
-    "Same props as any plan, while your group is fresh. Skip anyone." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Los mismos props que en cualquier plan, mientras tu grupo está fresco. Puedes saltarte a quien sea."
-          }
-        }
-      }
-    },
-    "Show %lld more people" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mostrar %lld personas más"
-          }
-        }
-      }
-    },
-    "Something wrong? **Report it** instead. Only the team sees reports." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "¿Algo salió mal? Mejor **repórtalo**. Solo el equipo ve los reportes."
-          }
-        }
-      }
-    },
-    "For %@" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Para %@"
-          }
-        }
-      }
-    },
-    "First time playing together" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Primera vez jugando juntos"
-          }
-        }
-      }
-    },
-    "Played together %lld times" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Han jugado juntos %lld veces"
-          }
-        }
-      }
-    },
-    "Send props" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mandar props"
-          }
-        }
-      }
-    },
-    "Send 1 prop" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mandar 1 prop"
-          }
-        }
-      }
-    },
-    "Send %lld props" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mandar %lld props"
-          }
-        }
-      }
-    },
-    "Props sent" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Props enviados"
-          }
-        }
-      }
-    },
-    "You played with %lld people, %lld new" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Jugaste con %1$lld personas, %2$lld nuevas"
-          }
-        }
-      }
-    },
-    "You played with %lld people" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Jugaste con %lld personas"
-          }
-        }
-      }
-    },
-    "%@, props sent" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@, props enviados"
-          }
-        }
-      }
-    },
-    "Change your props" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cambiar tus props"
-          }
-        }
-      }
-    },
-    "Give props" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dar props"
-          }
-        }
-      }
-    },
-    "Give props to %lld more" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dar props a %lld más"
-          }
-        }
-      }
-    },
-    "Props you got" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Props que recibiste"
-          }
-        }
-      }
-    },
-    "from 1 person" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "de 1 persona"
-          }
-        }
-      }
-    },
-    "from %lld people" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "de %lld personas"
-          }
-        }
-      }
-    },
-    "Top teammates on campus" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mejores compañeros del campus"
-          }
-        }
-      }
-    },
-    "See all" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ver todo"
-          }
-        }
-      }
-    },
-    "%@, from 1 person" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@, de 1 persona"
-          }
-        }
-      }
-    },
-    "%@, from %lld people" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$@, de %2$lld personas"
-          }
-        }
-      }
-    },
-    "Prop" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Prop"
-          }
-        }
-      }
-    },
-    "No one's on the list for this yet. Props from this month show up here." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Todavía no hay nadie en la lista. Aquí aparecen los props de este mes."
-          }
-        }
-      }
-    },
-    "Top teammates" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mejores compañeros"
-          }
-        }
-      }
-    },
-    "resets %@" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "se reinicia el %@"
-          }
-        }
-      }
-    },
-    "All" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Todos"
-          }
-        }
-      }
-    },
-    "Mostly %@" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Más que nada %@"
-          }
-        }
-      }
-    },
-    "%lld. %@, from %lld people" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$lld. %2$@, de %3$lld personas"
-          }
-        }
-      }
-    },
-    "You · 1 person" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tú · 1 persona"
-          }
-        }
-      }
-    },
-    "You · %lld people" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tú · %lld personas"
-          }
-        }
-      }
-    },
-    "1 more for the top 10" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "1 más para el top 10"
-          }
-        }
-      }
-    },
-    "%lld more for the top 10" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld más para el top 10"
-          }
-        }
-      }
-    },
-    "Only you see this" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Solo tú ves esto"
-          }
-        }
-      }
-    },
-    "Show me on the leaderboard" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mostrarme en la tabla"
-          }
-        }
-      }
-    },
-    "Give props to Station %lld" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dar props a la estación %lld"
-          }
-        }
-      }
-    },
-    "New here" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nuevo aquí"
-          }
-        }
-      }
-    },
-    "%@ from %lld people" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$@ de %2$lld personas"
-          }
-        }
-      }
-    },
-    "Top teammates on campus, by props" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mejores compañeros del campus, por props"
-          }
-        }
-      }
-    },
-    "Show me on the campus leaderboard" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mostrarme en la tabla del campus"
-          }
-        }
-      }
-    },
-    "Top teammates, by props from people you play with. You can change this in Settings." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mejores compañeros, por los props de la gente con la que juegas. Puedes cambiarlo en Ajustes."
+            "value" : "El chat sigue abierto 24 horas después de que termina el plan."
           }
         }
       }

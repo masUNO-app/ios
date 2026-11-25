@@ -99,8 +99,9 @@ Migrations don't carry dashboard settings, so do these on each project (B2, B12)
 3. **Auth → Providers → Email:** on, with **Confirm email off** and sign-ups allowed, and **Minimum password
    length 8** (the app checks the same; `config.toml` only sets it locally). The app's Create account
    needs a session straight back from `signUp`; approval by hand replaces the confirmation email (N36).
-   Sign-up alerts go to the report alerts' webhook (step 6) unless you add a separate one:
-   `select vault.create_secret('<discord-webhook-url>', 'signup_alert_webhook_url');`.
+   Account alerts (sign-ups waiting, invite and team-code joins) go to their own Discord channel:
+   `select vault.create_secret('<account-channel-webhook-url>', 'signup_alert_webhook_url');`.
+   Without it they fall back to the reports channel (step 6).
    *School SSO, unused until a school approves it:* **Auth → Providers → Azure:** client ID and secret from the Entra app; Azure Tenant URL `https://login.microsoftonline.com/organizations` until Tec's tenant is confirmed (O4), then lock it to Tec before real students sign in on prod. Never `common`.
 4. **Auth → URL Configuration:** add `masuno://auth-callback` to Redirect URLs.
 5. **Auth → Users:** create the three allowlisted password accounts with "Auto confirm" on: `official.masuno.app+review1@gmail.com`, `+review2`, `+qa1`. Passwords go in the shared password manager.
@@ -112,7 +113,7 @@ Migrations don't carry dashboard settings, so do these on each project (B2, B12)
 6. **Report alerts (Discord) — set up on masuno-dev and masuno-prod (Nov 11).** On a new project,
    create a Discord channel webhook (Channel settings → Integrations → Webhooks → New Webhook),
    then in the SQL editor run
-   `select vault.create_secret('<discord-webhook-url>', 'report_alert_webhook_url');` and
+   `select vault.create_secret('<reports-channel-webhook-url>', 'report_alert_webhook_url');` and
    `select vault.create_secret('https://supabase.com/dashboard/project/<ref>/editor', 'report_alert_dashboard_url');`.
    File a test report and confirm the alert arrives within a minute. Without the first secret,
    reports still save and Postgres logs a warning.

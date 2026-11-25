@@ -196,17 +196,19 @@ schemes:
       # on in-memory mocks; without real keys the app falls back to mocks by itself.
       commandLineArguments:
         "-liveAuth YES": true
-        # Esports and round nights on the mocks: untick -liveAuth YES and tick both of these.
+        # The mocks include esports and round nights; tick -esports NO too for the sports-only fixtures.
         "-liveAuth NO": false
-        "-esports YES": false
+        "-esports NO": false
     test:
       config: Debug
       targets:
         - masUNOTests
         - masUNOUITests
-      # Unit tests stay on mocks: their host app never calls the backend.
+      # Unit tests stay on mocks: their host app never calls the backend. Sports-only fixtures,
+      # which they were written against; tests that need esports pass `esports: true`.
       commandLineArguments:
         "-liveAuth NO": true
+        "-esports NO": true
     profile:
       config: Release
     analyze:

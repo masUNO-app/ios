@@ -48,6 +48,14 @@ nonisolated enum AvatarPalette {
         )
     }
 
+    /// `light`, or `dark` in dark mode. Made here, outside the main actor, because SwiftUI resolves
+    /// the color on its render thread while animating (the map popup), and a main-actor closure
+    /// traps there.
+    static func color(light: RGB, dark: RGB) -> UIColor {
+        let light = light.color, dark = dark.color
+        return UIColor { @Sendable traits in traits.userInterfaceStyle == .dark ? dark : light }
+    }
+
     /// Pin colors for the built-in sports, the last fallback after the push and the cached catalog.
     /// A sport the palette doesn't know gets the neutral.
     static func sport(_ slug: String) -> RGB {

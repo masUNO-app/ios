@@ -223,26 +223,29 @@ struct GroupChatView: View {
         #endif
     }
 
-    /// The timeline once it's ready, and one loading state until then. The scroll view isn't there
-    /// while loading, so its geometry corrections don't run against a half-built timeline.
-    @ViewBuilder
+    /// The timeline, empty under one loading state until it's ready. Its rows wait for `ready`, so
+    /// geometry corrections never run against a half-built timeline, but the scroll view is there
+    /// from the start: the navigation bar attaches to it, and one inserted just after the push made
+    /// the bar rebuild its items (the title, bell and faces blinked out and faded back).
     private func messageList(_ event: Game, rows: [ChatViewModel.Row], names: [UUID: String], lastJoin: UUID?,
                              ready: Bool) -> some View {
-        if ready {
-            timeline(event, rows: rows, names: names, lastJoin: lastJoin)
-        } else {
-            ProgressView()
-                .accessibilityLabel(Text("Loading chat"))
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
+        timeline(event, rows: ready ? rows : [], names: names, lastJoin: lastJoin, ready: ready)
+            .overlay {
+                if !ready {
+                    ProgressView()
+                        .accessibilityLabel(Text("Loading chat"))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+            }
     }
 
     /// The conversation and how it follows the newest message. Split out of `content(_:)` so each
     /// part type-checks in reasonable time on older compilers (the iOS 18 job).
-    private func timeline(_ event: Game, rows: [ChatViewModel.Row], names: [UUID: String], lastJoin: UUID?) -> some View {
+    private func timeline(_ event: Game, rows: [ChatViewModel.Row], names: [UUID: String], lastJoin: UUID?,
+                          ready: Bool) -> some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 9) {
-                if store.isChatEnabled { olderMessages }
+                if ready, store.isChatEnabled { olderMessages }
                 ForEach(rows) { row in
                     rowView(row, in: event, lastJoin: lastJoin, names: names)
                 }

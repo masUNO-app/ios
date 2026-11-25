@@ -76,7 +76,9 @@ struct LeaderboardView: View {
 
         return ScrollView(.horizontal) {
             HStack(spacing: 8) {
-                filterChip(String.app("All"), color: Theme.accentSoft, showsDot: false, value: nil)
+                // The light mint in both modes: like the sport colors, it's a pastel under ink. Dark
+                // mode's accentSoft is a deep green, and ink on it was unreadable.
+                filterChip(String.app("All"), color: Color(Theme.accentSoft.resolve(in: EnvironmentValues())), showsDot: false, value: nil)
                 ForEach(sports) { filterChip($0.name, color: $0.color, value: $0.slug) }
                 ForEach(kinds) { filterChip($0.name, color: Color(.sportEsports), value: $0.slug) }
             }

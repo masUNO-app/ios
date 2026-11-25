@@ -39,6 +39,42 @@ extension View {
     }
 }
 
+/// A `Menu` drawn like `glassCircle()`: report and block on Who's going. Not the glass button style:
+/// a menu morphs back into its button as it closes, and with that style it lands as a capsule for
+/// half a second before `.circle` applies. The label carries the size and the hit shape, since a
+/// menu only answers taps on its label.
+struct GlassCircleMenu<Content: View>: View {
+    var title: LocalizedStringKey
+    var systemImage: String
+    @ViewBuilder var content: () -> Content
+    /// The size of `glassCircle()` at the default text size.
+    @ScaledMetric(relativeTo: .body) private var diameter: CGFloat = 36
+
+    init(_ title: LocalizedStringKey, systemImage: String, @ViewBuilder content: @escaping () -> Content) {
+        self.title = title
+        self.systemImage = systemImage
+        self.content = content
+    }
+
+    var body: some View {
+        if #available(iOS 26, *) {
+            Menu {
+                content()
+            } label: {
+                Label(title, systemImage: systemImage)
+                    .labelStyle(.iconOnly)
+                    .frame(width: diameter, height: diameter)
+                    .contentShape(.circle)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(Theme.ink)
+            .glassEffect(.regular.interactive(), in: .circle)
+        } else {
+            Menu(title, systemImage: systemImage, content: content).glassCircle()
+        }
+    }
+}
+
 extension EnvironmentValues {
     /// Every pill fills the width it's given, whatever its call site asked for: set where pills
     /// stack, so a narrow "Leave" doesn't sit alone above a full-width "Group chat" (A11Y-06).
