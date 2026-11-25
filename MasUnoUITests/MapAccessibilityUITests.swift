@@ -70,15 +70,17 @@ final class MapAccessibilityUITests: XCTestCase {
 
         // `-screen groups` zooms out until games share pins. How many pins depends on the screen and
         // the OS's map (iOS 18 can leave a soccer-only group beside the mixed one), so take the
-        // biggest group.
+        // biggest group. The map is still clustering at first, so wait for the pins to settle rather
+        // than reading them once.
         let groups = app.buttons.matching(NSPredicate(format: "label ENDSWITH %@", "plans here"))
         XCTAssertTrue(groups.firstMatch.waitForExistence(timeout: 20))
-        let group = groups.allElementsBoundByIndex.max {
+        let mixed = groups.matching(NSPredicate(format: "value CONTAINS %@ AND value CONTAINS %@", "Basketball", " and "))
+        let settled = mixed.firstMatch.waitForExistence(timeout: 10)
+        let all = groups.allElementsBoundByIndex.map { "\($0.label): \($0.value as? String ?? "")" }.joined(separator: " | ")
+        XCTAssertTrue(settled, all)
+        let group = mixed.allElementsBoundByIndex.max {
             (Int($0.label.split(separator: " ").first ?? "") ?? 0) < (Int($1.label.split(separator: " ").first ?? "") ?? 0)
         } ?? groups.firstMatch
-        let value = group.value as? String ?? ""
-        let all = groups.allElementsBoundByIndex.map { "\($0.label): \($0.value as? String ?? "")" }.joined(separator: " | ")
-        XCTAssertTrue(value.contains("Basketball") && value.contains(" and "), all)
 
         group.tap()
         XCTAssertTrue(app.staticTexts["Close enough to share a pin. Zoom in to see each one."].waitForExistence(timeout: 5))
