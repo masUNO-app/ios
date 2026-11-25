@@ -100,9 +100,10 @@ Migrations don't carry dashboard settings, so do these on each project (B2, B12)
 2. **Auth → Hooks:** register `public.before_user_created` as the **Before User Created** hook.
 3. **Auth → Providers → Email:** on, with **Confirm email on** and sign-ups allowed, **Minimum password
    length 8** (the app checks the same; `config.toml` only sets it locally), **Email OTP length 6** and
-   **Email OTP expiration 900** seconds (N39). Turn Confirm email on only together with the
-   `20261128000000_email_codes` migration and a 1.0 build: earlier builds need a session straight back from
-   `signUp`, so raise `min_supported_version` to 1.0 at the same time.
+   **Email OTP expiration 900** seconds (N39). "Confirm email" itself is under **Authentication → Sign In /
+   Providers → User Signups**, with its own Save; reload to check it stuck. On prod it waits for **release
+   day** (below): builds before 1.0 need a session straight back from `signUp`, so they can't sign up once it's
+   on. Until then the email-code migrations are safe on prod: a new sign-up just joins the waitlist.
    **Auth → Emails → Templates:** paste `supabase/templates/confirmation.html` into "Confirm signup" and
    `recovery.html` into "Reset password", with the subjects from `config.toml`. They show the code
    (`{{ .Token }}`) and no link; Spanish when the app sent `locale: es`.
@@ -158,6 +159,28 @@ Migrations don't carry dashboard settings, so do these on each project (B2, B12)
    each change. To change the secret, update it in Vault (`select vault.update_secret(id, '<new>') from
    vault.secrets where name = 'waitlist_sync_secret';`) and in the Apps Script together.
 10. **Prod only:** add GitHub repository secrets `PROD_SUPABASE_URL` and `PROD_SUPABASE_ANON_KEY` so `.github/workflows/keep-alive.yml` stops the free project from pausing, and run `supabase db dump` weekly into private storage (it contains personal data).
+
+## Release day for 1.0 (email codes and the version gate)
+
+Do these on **masuno-prod**, in this order, and only once 1.0 is **live on the App Store**: approved,
+released, and showing in the store listing (allow a few hours). Raising the minimum version earlier shows
+every current user **Update masUNO** ("This version is no longer supported"), which blocks the whole app,
+with nothing to update to.
+
+1. Check that `20261128000000_email_codes` and `20261128000100_email_codes_fail_closed` are applied (the merge
+   into `main` applies them) and that Gmail SMTP, the two templates, OTP length 6 / expiry 900 and the
+   60-an-hour email limit are set (hosted checklist step 3).
+2. In the SQL editor, check the project name first, then:
+   `update public.app_config set value = '"1.0"' where key = 'min_supported_version';`
+   (the inner double quotes are needed: the value is JSON text, like `"0.5"`). Check it with
+   `select value from public.app_config where key = 'min_supported_version';`, which should show `"1.0"`.
+3. **Authentication → Sign In / Providers → User Signups:** turn **Confirm email** on, save, reload and check.
+4. Sign up on a phone with an alias of the team Gmail that's on the allowlist (or a teammate's Tec address)
+   and check the code arrives.
+
+To undo the version gate, run step 2 with `'"0.9"'`. If Confirm email has to go off again (say, Gmail's daily
+limit), sign-ups keep working but wait for approval with an "email NOT verified" alert. To see the gate
+before release, run the app with `-screen update`.
 
 ## Sign-up approvals
 

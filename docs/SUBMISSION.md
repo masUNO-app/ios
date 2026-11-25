@@ -95,6 +95,7 @@ All eight are small. About **12–15 focused hours** across the team, most of it
 | F4 | **Chat and push watch after launch.** Both ship in 0.9; 1.0 is when real volume arrives. | `docs/NOTIF.md` throttles, the report-alert channel | Review the push throttles and quiet hours against real use. Check the moderation load from message reports after the Dec 16 launch. | 1 h | Emilio, Ricardo |
 | F5 | **Repeatable screenshots.** | new `scripts/screenshots.sh` (proposal in §6) | Commit the script and the `-screenshots` world. Optionally an `XCUITest` that does the same. | 1–2 h | Ethan |
 | F6 | **Partially-open and inner-portrait poses** weren't captured in this audit (only folded and open landscape). | QA.md §11 | Run the §11 checklist in all four poses before 1.0. | 1 h | Ethan |
+| F7 | **Version gate and email codes on release day.** Raising `min_supported_version` before 1.0 is live locks every current user on Update masUNO; turning on Confirm email before then breaks sign-up on 0.x builds. | prod `app_config`, Auth settings | Once 1.0 is live on the App Store: `min_supported_version` to `"1.0"`, then Confirm email on (`supabase/README.md`, "Release day for 1.0"). | 15 min | Emilio, Ethan |
 
 ---
 
