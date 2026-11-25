@@ -137,7 +137,7 @@ select pg_temp.sign_up('80000000-0000-4000-8000-000000000008', 'later@tec.mx');
 update auth.users set created_at = now() - interval '2 days'
 where id in ('60000000-0000-4000-8000-000000000006', '80000000-0000-4000-8000-000000000008');
 select is(private.delete_unverified_signups(), 1, 'one stale account is deleted');
-select is((select array_agg(email order by email) from auth.users where email in ('stale@tec.mx', 'fresh@tec.mx', 'later@tec.mx')),
+select is((select array_agg(email::text order by email) from auth.users where email in ('stale@tec.mx', 'fresh@tec.mx', 'later@tec.mx')),
     array['fresh@tec.mx', 'later@tec.mx'], 'a recent one stays, and so does one holding a website place');
 
 -- Only the team runs these.
