@@ -4,8 +4,9 @@ The boundary between the app and Supabase (SPEC §8.5), matched by the Swift pro
 `MasUno/Data/` and the models in `MasUno/Models/`. A change to either side is one PR reviewed
 by both coders. If this file and the spec disagree, this file wins.
 
-**Status: frozen Fri Nov 6; sign-in amended the same day (SPEC N33) and again Nov 11 (SPEC N36: email and
-password with manual approval; school SSO kept but unused).** The backend (PR #12) and the live
+**Status: frozen Fri Nov 6; sign-in amended the same day (SPEC N33), again Nov 11 (SPEC N36: email and
+password with manual approval; school SSO kept but unused), and Nov 25 (SPEC N39: an emailed code proves the
+address, and resets a password).** The backend (PR #12) and the live
 repositories (B7) are built to this file and checked against `masuno-dev` by `LiveIntegrationTests`. From here
 on, a change is a new migration plus the matching Swift change.
 
@@ -28,7 +29,7 @@ An RPC fails with `raise exception '<code>'`, so PostgREST returns the code as `
 | --- | --- | --- |
 | `not_authenticated` | `.notAuthenticated` | No valid session. Any RPC. |
 | `suspended` | `.suspended` | `banned_at` is set. Any write RPC. The app shows the suspended screen. Reads return no rows except `my_profile` and your own blocks, bookmarks and preferences. |
-| `pending_approval` | `.pendingApproval` | The account signed up with a password and the team hasn't approved it yet (N36). Any write RPC, including `complete_profile`. The app shows "We're checking your account". |
+| `pending_approval` | `.pendingApproval` | The account signed up with a password and hasn't entered its email code (N39) or hasn't been let in yet (N36, N37). Any write RPC, including `complete_profile`. The app shows the waitlist. |
 | `full` | `.full` | No spots left. |
 | `cancelled` | `.cancelled` | The game is cancelled. |
 | `ended` | `.ended` | The game has ended. |
@@ -60,10 +61,13 @@ These come from Supabase Auth and the auth hook, not from RPCs. `AuthService` (B
 | `ASWebAuthenticationSessionError.canceledLogin` (the person closes the web sheet) | None: back to Find your school, with no message |
 | Callback says consent was denied or is required | `.schoolApprovalNeeded` (new) |
 | Any other error from the web sheet or callback | `.signInFailed` (new) |
-| `over_request_rate_limit` | `.tooManyAttempts` |
+| `over_request_rate_limit`, or `over_email_send_rate_limit` (a second code within a minute) | `.tooManyAttempts` |
 | `invalid_credentials` | `.invalidCredentials` |
 | `user_already_exists` or `email_exists` on sign-up | `.emailTaken` (new, N36) |
 | `weak_password` on sign-up | `.weakPassword` (new, N36) |
+| `otp_expired` on a sign-up or reset code (wrong and expired codes both say this) | `.invalidCode` (new, N39) |
+| `email_not_confirmed` on sign-in | `.emailNotVerified` (new, N39): the app sends a new code and opens Check your email instead of showing it |
+| `same_password` when a reset sets the password it already had | None: treated as done |
 
 OAuth failures come back in the callback URL's `error`, `error_code` and `error_description`, and
 `auth.signInWithOAuth` throws them as `AuthError.pkceGrantCodeExchange`. B5 checks the exact text for a
@@ -348,31 +352,49 @@ re-reads don't arrive together, and the app also re-reads when it comes back to 
 
 ## Sign-in
 
-Email and password, with each new account approved by hand (SPEC N36). School SSO is below as "kept, unused".
+Email and password, with the address proven by an emailed 6-digit code (SPEC N39), then the waitlist unless an
+invite code or open sign-up lets the account in (N36, N37). School SSO is below as "kept, unused".
 
-1. **Create account:** `auth.signUp(email, password)`. The Before User Created hook lets through a school
-   address at an open campus (`universities.email_domain`, `signup_enabled`, not `is_demo`, `student_email_pattern`)
-   and refuses anything else with `email_not_allowed`. For a school address it also adds a row to
-   `private.signup_requests` and posts "New sign-up waiting for approval" to the team Discord. "Confirm email" is
-   off, so `signUp` returns a session straight away. The app checks 8 characters before sending.
-2. **Sign in:** `auth.signInWithPassword(email, password)`, for students and for the `auth_allowlist` accounts.
-3. **Next step:** `my_profile` first. No row → RPC `signup_status()` (returns `'pending'` or `'approved'`, raises
-   `not_authenticated`): `'pending'` → `.pendingApproval` ("We're checking your account"), otherwise
-   `.needsProfile`. With a row: `banned_at` set → `.suspended`; `guidelines_accepted_at` null →
+1. **Create account:** `auth.signUp(email, password, data: {"locale": "en" | "es"})`. The Before User Created hook
+   lets through a school address at an open campus (`universities.email_domain`, `signup_enabled`, not `is_demo`,
+   `student_email_pattern`) and refuses anything else with `email_not_allowed`. "Confirm email" is on, so there's
+   no session: Supabase emails a code (`supabase/templates/confirmation.html`, in the `locale` language). An
+   address that already has a verified account comes back as a user with no `identities` and gets no email; the
+   app shows `.emailTaken`. Signing up again before entering the code sends a new one. The app checks 8
+   characters before sending.
+2. **Enter the code:** `auth.verifyOTP(email, token, type: .signup)` returns the session. A trigger on `auth.users`
+   (`auth_users_email_verified`, when `email_confirmed_at` is first set on an `email` account we sent a code to)
+   runs `private.signup_verified`: it adds the row to `private.signup_requests` (a website request keeps its
+   place) with `verified_at`, and posts "New sign-up waiting for approval (email verified)" to the team Discord.
+   An allowlisted address is approved instead, quietly. While `app_config.signup_auto_approve` is `true`, every
+   verified account is approved and the team gets an FYI. **Send a new code:** `auth.resend(email, type: .signup)`,
+   once a minute. Codes last 15 minutes. Accounts that never enter one are deleted after 24 hours
+   (`delete-unverified-signups`, hourly), unless they hold a waitlist place.
+3. **Sign in:** `auth.signInWithPassword(email, password)`, for students and for the `auth_allowlist` accounts.
+   An account without its code gets `email_not_confirmed`; the app resends and opens Check your email.
+4. **Next step:** `my_profile` first. No row → RPC `signup_status()` (returns `'unverified'`, `'pending'` or
+   `'approved'`, raises `not_authenticated`): `'unverified'` → `.needsEmailVerification` (a saved session from an
+   account that was waiting before N39; the app sends a code), `'pending'` → `.pendingApproval` (the waitlist),
+   otherwise `.needsProfile`. With a row: `banned_at` set → `.suspended`; `guidelines_accepted_at` null →
    `.needsGuidelines`; otherwise `.signedIn`.
-4. **While pending:** every write RPC raises `pending_approval`, so there's no profile, and without a profile RLS
+5. **While pending:** every write RPC raises `pending_approval`, so there's no profile, and without a profile RLS
    shows nothing. The app asks again (`AuthService.refreshStatus()`) on "Check again" and whenever it comes back
    to the front. Once approved it shows "You're in", then Set up profile. From 1.0 this wait is the waitlist,
    and a member's invite code ends it without the team (Invites and the waitlist, below).
-5. **Approving** is the team's job, in the SQL editor: `select private.approve_signup('<email>');` or
-   `select private.reject_signup('<email>');` (deletes the unapproved account). Both lines are in the Discord
-   alert. See `supabase/README.md`, "Sign-up approvals".
+6. **Approving** is the team's job while sign-up is invite-only, in the SQL editor:
+   `select private.approve_signup('<email>');` or `select private.reject_signup('<email>');` (deletes the
+   unapproved account). Both lines are in the Discord alert. `select private.set_signup_auto_approve(true);` opens
+   sign-up (and lets in everyone verified and waiting); `false` closes it again. See `supabase/README.md`,
+   "Sign-up approvals".
 
-There's no password reset email: Sign in links to Contact us, and the team resets a password in the dashboard.
+**Forgot your password:** `auth.resetPasswordForEmail(email)` emails a code (`supabase/templates/recovery.html`)
+and answers the same for an address with no account. `auth.verifyOTP(email, token, type: .recovery)` signs in,
+then `auth.update(user: {password})` sets the new password, and the app moves on as after signing in. A reset
+also verifies an account that never entered its sign-up code (the trigger above runs for it too).
 
 Allowlisted accounts (`auth_allowlist`: `email`, `note`, `university_id`, usually the demo campus) never wait
 for approval, and `complete_profile` places them on their campus. They're password accounts Emilio created
-with the email already confirmed.
+with the email already confirmed, so no code is sent and no request is made.
 
 ### School SSO (kept, unused)
 

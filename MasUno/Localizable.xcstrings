@@ -7003,6 +7003,193 @@
           }
         }
       }
+    },
+    "That code doesn't work or has expired. Check it or send a new one." : {
+      "comment" : "Error when the emailed sign-up or reset code is wrong or expired.",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ese código no funciona o ya venció. Revísalo o pide uno nuevo."
+          }
+        }
+      }
+    },
+    "Confirm your email with the code we sent you." : {
+      "comment" : "Error when signing in to an account that hasn't entered its email code.",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirma tu correo con el código que te enviamos."
+          }
+        }
+      }
+    },
+    "We sent a new code to %@." : {
+      "comment" : "Notice after sending a new email code. The argument is the email address.",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Te enviamos un código nuevo a %@."
+          }
+        }
+      }
+    },
+    "Type your email first, and we'll send it a code." : {
+      "comment" : "Error on Forgot your password when the email field is empty.",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Primero escribe tu correo y te enviaremos un código."
+          }
+        }
+      }
+    },
+    "Check your email" : {
+      "comment" : "Title of the step where the user enters the 6-digit code from the sign-up email.",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Revisa tu correo"
+          }
+        }
+      }
+    },
+    "We sent a 6-digit code to %@. Enter it here to confirm it's your school email." : {
+      "comment" : "Message on Check your email. The argument is the email address.",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enviamos un código de 6 dígitos a %@. Escríbelo aquí para confirmar que es tu correo escolar."
+          }
+        }
+      }
+    },
+    "Can't find it? Check your spam or junk folder." : {
+      "comment" : "Hint under the email code field.",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿No lo encuentras? Revisa tu carpeta de spam o correo no deseado."
+          }
+        }
+      }
+    },
+    "Continue" : {
+      "comment" : "Button that submits the email code.",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continuar"
+          }
+        }
+      }
+    },
+    "Use a different email" : {
+      "comment" : "Button on Check your email that goes back to Create account.",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usar otro correo"
+          }
+        }
+      }
+    },
+    "Forgot your password?" : {
+      "comment" : "Button on Sign in that emails a password reset code.",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Olvidaste tu contraseña?"
+          }
+        }
+      }
+    },
+    "Choose a new password" : {
+      "comment" : "Title of the password reset step.",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elige una contraseña nueva"
+          }
+        }
+      }
+    },
+    "If there's an account for %@, we sent it a 6-digit code. Enter it with your new password." : {
+      "comment" : "Message on the password reset step. The argument is the email address.",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Si hay una cuenta con %@, le enviamos un código de 6 dígitos. Escríbelo junto con tu contraseña nueva."
+          }
+        }
+      }
+    },
+    "New password" : {
+      "comment" : "Label of the new password field on the reset step.",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contraseña nueva"
+          }
+        }
+      }
+    },
+    "Save password" : {
+      "comment" : "Button that saves the new password on the reset step.",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guardar contraseña"
+          }
+        }
+      }
+    },
+    "Code" : {
+      "comment" : "Label of the 6-digit email code field.",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Código"
+          }
+        }
+      }
+    },
+    "Send a new code" : {
+      "comment" : "Button that emails a new code.",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enviar un código nuevo"
+          }
+        }
+      }
+    },
+    "Send a new code in %llds" : {
+      "comment" : "Disabled resend button counting down the seconds until another code can be sent.",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enviar un código nuevo en %lld s"
+          }
+        }
+      }
     }
   },
   "version" : "1.1"

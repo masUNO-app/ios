@@ -278,13 +278,17 @@ struct MockAuthTests {
         #expect(auth.state == .signedOut(expired: false))
     }
 
-    /// N36: a school address signs up with a password and waits for the team.
+    /// N36, N39: a school address signs up with a password, enters the emailed code, and waits for the team.
     @Test func passwordSignUpWaitsForApproval() async throws {
         let auth = MockBackend(state: .signedOut(expired: false))
         await #expect(throws: DomainError.emailNotAllowed) { try await auth.signUp(email: "someone@gmail.com", password: "long-enough") }
         #expect(auth.state == .signedOut(expired: false))
 
         try await auth.signUp(email: "A0123@tec.mx", password: "long-enough")
+        #expect(auth.state == .signedOut(expired: false))
+        await #expect(throws: DomainError.emailNotVerified) { try await auth.signIn(email: "a0123@tec.mx", password: "long-enough") }
+        await #expect(throws: DomainError.invalidCode) { try await auth.verifyEmail("a0123@tec.mx", code: "000000") }
+        try await auth.verifyEmail("a0123@tec.mx", code: MockFixtures.emailCode)
         #expect(auth.state == .pendingApproval)
         await #expect(throws: DomainError.pendingApproval) { try await auth.completeProfile(input) }
         await #expect(throws: DomainError.emailTaken) { try await auth.signUp(email: "a0123@tec.mx", password: "another-one") }
@@ -693,6 +697,8 @@ struct OnboardingFlowTests {
     @Test func comingBackPicksUpWhereTheSessionIs() {
         #expect(model(.signedOut(expired: false)).0.path.isEmpty)
         #expect(model(.signedOut(expired: true)).0.path == [.signIn])
+        #expect(model(.needsEmailVerification(email: "a0123@tec.mx")).0.path == [.verifyEmail])
+        #expect(model(.needsEmailVerification(email: "a0123@tec.mx")).0.codeEmail == "a0123@tec.mx")
         #expect(model(.pendingApproval).0.path == [.pending])
         #expect(model(.needsProfile).0.path == [.about])
         #expect(model(.needsProfile).0.firstName == "Emilio")
@@ -723,12 +729,12 @@ struct OnboardingFlowTests {
 
         model.email = " A0123@Tec.mx "
         model.password = "short"
-        await model.submitSignUp()
+        await model.signUpWithCode()
         #expect(model.passwordError == "Pick a stronger password: at least 8 characters.")
         #expect(auth.state == .signedOut(expired: false))
 
         model.password = "long-enough"
-        await model.submitSignUp()
+        await model.signUpWithCode()
         #expect(model.passwordError == nil)
         #expect(auth.state == .pendingApproval)
         #expect(model.path == [.pending])
@@ -748,7 +754,7 @@ struct OnboardingFlowTests {
         let (model, auth) = model()
         model.email = "someone@gmail.com"
         model.password = "long-enough"
-        await model.submitSignUp()
+        await model.signUpWithCode()
         #expect(model.signUpError == "masUNO is just for Tec students right now. Use your Tec school account.")
         #expect(auth.state == .signedOut(expired: false))
     }
@@ -757,7 +763,7 @@ struct OnboardingFlowTests {
         let (model, auth) = model()
         model.email = "a0123@tec.mx"
         model.password = "long-enough"
-        await model.submitSignUp()
+        await model.signUpWithCode()
         await model.signOutWhilePending()
         #expect(auth.state == .signedOut(expired: false))
         #expect(model.path.isEmpty)
@@ -779,6 +785,221 @@ struct OnboardingFlowTests {
 }
 
 /// The wire formats in `docs/API.md`, with no server involved.
+/// N39: the emailed code at sign-up and for a forgotten password, against the mock (code 123456).
+@MainActor
+struct EmailCodeTests {
+    private func model(_ state: AuthState = .signedOut(expired: false)) -> (OnboardingViewModel, MockBackend) {
+        let auth = MockBackend(state: state)
+        return (OnboardingViewModel(auth: auth, catalog: auth, campus: MockFixtures.tec), auth)
+    }
+
+    private func signedUp() async -> (OnboardingViewModel, MockBackend) {
+        let (model, auth) = model()
+        model.path = [.signUp]
+        model.email = " A0123@Tec.mx "
+        model.password = "long-enough"
+        await model.submitSignUp()
+        return (model, auth)
+    }
+
+    @Test func createAccountAsksForTheCodeBeforeAnythingElse() async {
+        let (model, auth) = await signedUp()
+        #expect(model.path == [.signUp, .verifyEmail])
+        #expect(model.codeEmail == "a0123@tec.mx")
+        #expect(model.codeSentAt != nil)
+        #expect(model.password.isEmpty)
+        #expect(auth.state == .signedOut(expired: false))
+    }
+
+    @Test func aWrongOrShortCodeSaysSoAndPointsAtTheField() async {
+        let (model, auth) = await signedUp()
+        model.code = "123"
+        await model.submitCode()
+        #expect(model.codeError == DomainError.invalidCode.message)
+        #expect(auth.state == .signedOut(expired: false))
+
+        model.code = "000000"
+        await model.submitCode()
+        #expect(model.codeError == DomainError.invalidCode.message)
+        #expect(model.firstInvalidField(on: .verifyEmail) == .code)
+        #expect(model.errorSummary(on: .verifyEmail) == DomainError.invalidCode.message)
+        #expect(model.path == [.signUp, .verifyEmail])
+    }
+
+    @Test func theRightCodeJoinsTheWaitlist() async {
+        let (model, auth) = await signedUp()
+        model.code = MockFixtures.emailCode
+        await model.submitCode()
+        #expect(model.codeError == nil)
+        #expect(model.code.isEmpty)
+        #expect(auth.state == .pendingApproval)
+        #expect(model.path == [.pending])
+    }
+
+    @Test func anInviteCodeFromCreateAccountIsUsedOnceTheEmailIsVerified() async {
+        let (model, auth) = model()
+        model.email = "a0123@tec.mx"
+        model.password = "long-enough"
+        model.inviteCode = "play-4nwe"
+        await model.submitSignUp()
+        #expect(model.inviteCode == "play-4nwe")
+        model.code = MockFixtures.emailCode
+        await model.submitCode()
+        #expect(auth.state == .needsProfile)
+        #expect(model.path == [.verified])
+        #expect(model.inviteCode.isEmpty)
+    }
+
+    @Test func withSignUpOpenTheCodeIsEnoughToGetIn() async {
+        let (model, auth) = model()
+        auth.autoApprovesSignUps = true
+        model.email = "a0123@tec.mx"
+        model.password = "long-enough"
+        await model.signUpWithCode()
+        #expect(auth.state == .needsProfile)
+        #expect(model.path == [.verified])
+        #expect(model.firstName == "Emilio")
+    }
+
+    @Test func aNewCodeWaitsAMinute() async {
+        let (model, _) = await signedUp()
+        await model.resendCode()
+        #expect(model.codeError == DomainError.tooManyAttempts.message)
+        let sent = Date(timeIntervalSinceReferenceDate: 1000)
+        #expect(model.secondsUntilResend(at: sent.addingTimeInterval(0.5), sentAt: sent) == 60)
+        #expect(model.secondsUntilResend(at: sent.addingTimeInterval(30), sentAt: sent) == 30)
+        #expect(model.secondsUntilResend(at: sent.addingTimeInterval(60), sentAt: sent) == 0)
+        #expect(model.secondsUntilResend(at: sent, sentAt: nil) == 0)
+    }
+
+    @Test func aNewCodeAfterTheMinuteSaysWhereItWent() async {
+        let (model, auth) = await signedUp()
+        auth.now = auth.now.addingTimeInterval(61)
+        await model.resendCode()
+        #expect(model.codeError == nil)
+        #expect(model.codeNotice == "We sent a new code to a0123@tec.mx.")
+    }
+
+    @Test func signingInBeforeTheCodeOpensTheCodeStep() async {
+        let (first, auth) = await signedUp()
+        _ = first
+        let model = OnboardingViewModel(auth: auth, catalog: auth, campus: MockFixtures.tec)
+        model.path = [.signIn]
+        model.email = "a0123@tec.mx"
+        model.password = "long-enough"
+        await model.submitSignIn()
+        #expect(model.signInError == nil)
+        #expect(model.path == [.signIn, .verifyEmail])
+        #expect(model.codeEmail == "a0123@tec.mx")
+        model.code = MockFixtures.emailCode
+        await model.submitCode()
+        #expect(auth.state == .pendingApproval)
+        #expect(model.path == [.pending])
+    }
+
+    @Test func aDifferentEmailGoesBackToCreateAccountWithTheAddressToFix() async {
+        let (model, _) = await signedUp()
+        await model.useDifferentEmail()
+        #expect(model.path == [.signUp])
+        #expect(model.email == "a0123@tec.mx")
+        #expect(model.codeEmail == "a0123@tec.mx")
+        #expect(model.codeSentAt == nil)
+    }
+
+    @Test func aSavedSessionWithoutItsCodeSignsOutToUseAnotherEmail() async {
+        let (model, auth) = model(.needsEmailVerification(email: "a0123@tec.mx"))
+        await model.sendFirstCodeIfNeeded()
+        await model.useDifferentEmail()
+        #expect(auth.state == .signedOut(expired: false))
+        #expect(model.path == [.signUp])
+    }
+
+    @Test func codesAreSixDigitsWhateverTheSpacing() {
+        #expect(OnboardingViewModel.completeCode("123456") == "123456")
+        #expect(OnboardingViewModel.completeCode(" 123 456 ") == "123456")
+        #expect(OnboardingViewModel.completeCode("123-456") == "123456")
+        #expect(OnboardingViewModel.completeCode("12345") == nil)
+        #expect(OnboardingViewModel.completeCode("1234567") == nil)
+        #expect(OnboardingViewModel.completeCode("12345a") == nil)
+        #expect(OnboardingViewModel.completeCode("١٢٣٤٥٦") == nil)
+    }
+
+    // MARK: Forgot your password
+
+    @Test func forgotPasswordNeedsAnEmailFirst() async {
+        let (model, _) = model()
+        model.path = [.signIn]
+        await model.forgotPassword()
+        #expect(model.signInEmailError == "Type your email first, and we'll send it a code.")
+        #expect(model.firstInvalidField(on: .signIn) == .email)
+        #expect(model.path == [.signIn])
+    }
+
+    @Test func aResetCodeSetsANewPasswordAndSignsIn() async {
+        let (model, auth) = await signedUp()
+        model.code = MockFixtures.emailCode
+        await model.submitCode()
+        await model.signOutWhilePending()
+        auth.now = auth.now.addingTimeInterval(61)
+
+        model.path = [.signIn]
+        model.email = "a0123@tec.mx"
+        await model.forgotPassword()
+        #expect(model.path == [.signIn, .resetPassword])
+        #expect(model.resetEmail == "a0123@tec.mx")
+
+        model.resetCode = "000000"
+        model.newPassword = "brand-new-one"
+        await model.submitReset()
+        #expect(model.resetError == DomainError.invalidCode.message)
+        #expect(model.firstInvalidField(on: .resetPassword) == .code)
+
+        model.resetCode = MockFixtures.emailCode
+        model.newPassword = "short"
+        await model.submitReset()
+        #expect(model.newPasswordError == DomainError.weakPassword.message)
+        #expect(model.firstInvalidField(on: .resetPassword) == .newPassword)
+
+        model.newPassword = "brand-new-one"
+        await model.submitReset()
+        #expect(model.resetError == nil)
+        #expect(auth.state == .pendingApproval)
+        #expect(model.path == [.pending])
+        #expect(model.newPassword.isEmpty)
+
+        try? await auth.signOut()
+        await #expect(throws: DomainError.invalidCredentials) { try await auth.signIn(email: "a0123@tec.mx", password: "long-enough") }
+        try? await auth.signIn(email: "a0123@tec.mx", password: "brand-new-one")
+        #expect(auth.state == .pendingApproval)
+    }
+
+    @Test func aResetAlsoVerifiesAnAccountThatNeverEnteredItsCode() async {
+        let (model, auth) = await signedUp()
+        auth.now = auth.now.addingTimeInterval(61)
+        model.path = [.signIn]
+        await model.forgotPassword()
+        model.resetCode = MockFixtures.emailCode
+        model.newPassword = "brand-new-one"
+        await model.submitReset()
+        #expect(auth.state == .pendingApproval)
+        #expect(model.path == [.pending])
+    }
+
+    @Test func anUnknownAddressGetsTheSameAnswer() async {
+        let (model, auth) = model()
+        model.path = [.signIn]
+        model.email = "nobody@tec.mx"
+        await model.forgotPassword()
+        #expect(model.signInError == nil)
+        #expect(model.path == [.signIn, .resetPassword])
+        model.resetCode = MockFixtures.emailCode
+        model.newPassword = "brand-new-one"
+        await model.submitReset()
+        #expect(model.resetError == DomainError.invalidCode.message)
+        #expect(auth.state == .signedOut(expired: false))
+    }
+}
+
 @MainActor
 struct LiveContractTests {
     private func decode<Row: Decodable>(_ json: String) throws -> Row {
@@ -1112,6 +1333,7 @@ struct InviteTests {
     private func waiting() async throws -> MockBackend {
         let auth = MockBackend(state: .signedOut(expired: false))
         try await auth.signUp(email: "a0123@tec.mx", password: "long-enough")
+        try await auth.verifyEmail("a0123@tec.mx", code: MockFixtures.emailCode)
         return auth
     }
 
@@ -1166,7 +1388,7 @@ struct InviteTests {
         model.email = "a0123@tec.mx"
         model.password = "long-enough"
         model.inviteCode = " play-4nwe "
-        await model.submitSignUp()
+        await model.signUpWithCode()
         #expect(auth.state == .needsProfile)
         #expect(model.path == [.verified])
         #expect(model.inviteError == nil)
@@ -1179,7 +1401,7 @@ struct InviteTests {
         model.email = "a0123@tec.mx"
         model.password = "long-enough"
         model.inviteCode = "NOPE-NOPE"
-        await model.submitSignUp()
+        await model.signUpWithCode()
         #expect(auth.state == .pendingApproval)
         #expect(model.path == [.pending])
         #expect(model.signUpError == nil)
@@ -1191,7 +1413,7 @@ struct InviteTests {
         let (model, auth) = model()
         model.email = "a0123@tec.mx"
         model.password = "long-enough"
-        await model.submitSignUp()
+        await model.signUpWithCode()
         #expect(auth.state == .pendingApproval)
         #expect(model.path == [.pending])
         #expect(model.inviteError == nil)
@@ -1203,7 +1425,7 @@ struct InviteTests {
         let (model, auth) = model()
         model.email = "a0123@tec.mx"
         model.password = "long-enough"
-        await model.submitSignUp()
+        await model.signUpWithCode()
         await model.loadWaitlistPosition()
 
         model.inviteCode = MockFixtures.usedInviteCode
@@ -1224,7 +1446,7 @@ struct InviteTests {
         let (model, _) = model()
         model.email = "a0123@tec.mx"
         model.password = "long-enough"
-        await model.submitSignUp()
+        await model.signUpWithCode()
         for _ in 1...5 {
             model.inviteCode = "WRONGONE"
             await model.redeemInviteWhileWaiting()
@@ -1260,7 +1482,7 @@ struct InviteTests {
         model.email = "a0123@tec.mx"
         model.password = "long-enough"
         model.inviteCode = " - "
-        await model.submitSignUp()
+        await model.signUpWithCode()
         await model.redeemInviteWhileWaiting()
         #expect(model.inviteError == nil)
         #expect(auth.state == .pendingApproval)
@@ -1341,5 +1563,16 @@ struct LiveInviteContractTests {
         let backend = MockBackend()
         let going = try await backend.fetchAttendees(gameID: MockFixtures.GameID.going)
         #expect(Set(going.filter(\.person.isBetaTester).map(\.id)) == MockFixtures.betaTesterIDs)
+    }
+}
+
+extension OnboardingViewModel {
+    /// Create account, then the code from the email, as a student does (N39). Stops after Create
+    /// account if that didn't reach Check your email.
+    func signUpWithCode() async {
+        await submitSignUp()
+        guard path.last == .verifyEmail else { return }
+        code = MockFixtures.emailCode
+        await submitCode()
     }
 }

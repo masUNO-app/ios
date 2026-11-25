@@ -50,6 +50,15 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
     private var passwords: [String: String] = [:]
     /// Signed up and nobody has run `approveSignUp()` yet.
     private var isAwaitingApproval = false
+    /// Signed up and the code from the email (`MockFixtures.emailCode`) isn't in yet (N39).
+    private var unverifiedEmails: Set<String> = []
+    /// When each address was last sent each kind of code, for the minute between sends. Supabase
+    /// times sign-up and reset codes separately (`confirmation_sent_at`, `recovery_sent_at`).
+    private var codeSentAt: [String: Date] = [:]
+    /// Addresses that asked for a password reset code.
+    private var resetRequested: Set<String> = []
+    /// `app_config.signup_auto_approve`: on, entering the sign-up code is enough to get in.
+    var autoApprovesSignUps = false
     /// The signed-in student's codes (`my_invites`). A waiting account redeems from the same list.
     private(set) var invites: [Invite]
     /// When each wrong code was typed, for the 5-an-hour limit on `redeem_invite`.
@@ -222,19 +231,76 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         state = profile == nil ? .needsProfile : .signedIn(userID: me.id)
     }
 
-    /// Like the auth hook: a school address at an open campus gets in and waits for approval.
+    /// Like the auth hook and Supabase: a school address at an open campus gets an account and a
+    /// code by email, and nothing else until the code is in. Signing up again before then sends a
+    /// new code, as Supabase does.
     func signUp(email: String, password: String) async throws {
         try await begin()
         let email = email.lowercased()
         guard let campus = campus(for: email, in: universities), campus.signupEnabled else {
             throw DomainError.emailNotAllowed
         }
-        guard passwords[email] == nil else { throw DomainError.emailTaken }
+        if passwords[email] != nil {
+            guard unverifiedEmails.contains(email) else { throw DomainError.emailTaken }
+            return try sendCode(.signUp, to: email)
+        }
         passwords[email] = password
-        signInCampus = campus
+        unverifiedEmails.insert(email)
+        try sendCode(.signUp, to: email)
+    }
+
+    /// Like the trigger on auth.users: the code puts the account on the waitlist, or straight in
+    /// while sign-up is open.
+    func verifyEmail(_ email: String, code: String) async throws {
+        try await begin()
+        let email = email.lowercased()
+        guard unverifiedEmails.contains(email), code == MockFixtures.emailCode else { throw DomainError.invalidCode }
+        unverifiedEmails.remove(email)
+        enterVerified(email)
+    }
+
+    func resendVerification(to email: String) async throws {
+        try await begin()
+        let email = email.lowercased()
+        // Supabase answers the same for an address it has nothing to send to.
+        guard unverifiedEmails.contains(email) else { return }
+        try sendCode(.signUp, to: email)
+    }
+
+    func requestPasswordReset(for email: String) async throws {
+        try await begin()
+        let email = email.lowercased()
+        guard passwords[email] != nil else { return }
+        try sendCode(.reset, to: email)
+        resetRequested.insert(email)
+    }
+
+    /// A reset code proves the inbox, so an account that never verified is verified now too.
+    func resetPassword(email: String, code: String, newPassword: String) async throws {
+        try await begin()
+        let email = email.lowercased()
+        guard resetRequested.contains(email), code == MockFixtures.emailCode else { throw DomainError.invalidCode }
+        guard newPassword.count >= 8 else { throw DomainError.weakPassword }
+        resetRequested.remove(email)
+        passwords[email] = newPassword
+        if unverifiedEmails.remove(email) != nil { return enterVerified(email) }
+        state = isAwaitingApproval ? .pendingApproval : profile == nil ? .needsProfile : .signedIn(userID: me.id)
+    }
+
+    private enum CodeKind: String { case signUp, reset }
+
+    /// The code email, at most once a minute per address and kind.
+    private func sendCode(_ kind: CodeKind, to email: String) throws {
+        let key = "\(kind.rawValue):\(email)"
+        if let last = codeSentAt[key], now.timeIntervalSince(last) < 60 { throw DomainError.tooManyAttempts }
+        codeSentAt[key] = now
+    }
+
+    private func enterVerified(_ email: String) {
+        signInCampus = campus(for: email, in: universities) ?? signInCampus
         profile = nil
-        isAwaitingApproval = true
-        state = .pendingApproval
+        isAwaitingApproval = !autoApprovesSignUps
+        state = autoApprovesSignUps ? .needsProfile : .pendingApproval
     }
 
     func refreshStatus() async throws {
@@ -270,6 +336,7 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
     func signIn(email: String, password: String) async throws {
         try await begin()
         if let saved = passwords[email.lowercased()], saved == password {
+            if unverifiedEmails.contains(email.lowercased()) { throw DomainError.emailNotVerified }
             if isAwaitingApproval {
                 state = .pendingApproval
             } else {

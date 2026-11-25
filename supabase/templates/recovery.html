@@ -1,0 +1,14 @@
+<!-- Password reset code (N39). Supabase Auth fills in {{ .Token }}; {{ .Data.locale }} is what the app
+     sent with signUp. No links on purpose: the code is typed in the app. Paste into Dashboard → Auth →
+     Emails → "Reset password" on each hosted project when this changes. -->
+{{ if eq .Data.locale "es" }}
+<h2>Restablece tu contraseña de masUNO</h2>
+<p>Escribe este código en la app para elegir una contraseña nueva:</p>
+<p style="font-size: 32px; font-weight: bold; letter-spacing: 6px;">{{ .Token }}</p>
+<p>Vence en 15 minutos. Si no lo pediste, ignora este correo: tu contraseña no cambia.</p>
+{{ else }}
+<h2>Reset your masUNO password</h2>
+<p>Enter this code in the app to choose a new password:</p>
+<p style="font-size: 32px; font-weight: bold; letter-spacing: 6px;">{{ .Token }}</p>
+<p>It expires in 15 minutes. If you didn't ask for this, you can ignore this email: your password stays the same.</p>
+{{ end }}

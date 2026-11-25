@@ -150,7 +150,7 @@ final class AppViewModel {
         switch auth.state {
         case .loading: return .launching
         case .signedOut where isBrowsingAsGuest: return .guest
-        case .signedOut, .pendingApproval, .needsProfile, .needsGuidelines: return .onboarding
+        case .signedOut, .needsEmailVerification, .pendingApproval, .needsProfile, .needsGuidelines: return .onboarding
         case .suspended: return .suspended
         case .signedIn: return .signedIn
         }

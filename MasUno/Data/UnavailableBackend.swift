@@ -13,6 +13,10 @@ final class UnavailableBackend: AuthService, GameRepository, ProfileRepository, 
     func signIn(at school: University) async throws { throw DomainError.offline }
     func signUp(email: String, password: String) async throws { throw DomainError.offline }
     func signIn(email: String, password: String) async throws { throw DomainError.offline }
+    func verifyEmail(_ email: String, code: String) async throws { throw DomainError.offline }
+    func resendVerification(to email: String) async throws { throw DomainError.offline }
+    func requestPasswordReset(for email: String) async throws { throw DomainError.offline }
+    func resetPassword(email: String, code: String, newPassword: String) async throws { throw DomainError.offline }
     func refreshStatus() async throws { throw DomainError.offline }
     func redeemInvite(_ code: String) async throws { throw DomainError.offline }
     func waitlistPosition() async throws -> Int? { throw DomainError.offline }

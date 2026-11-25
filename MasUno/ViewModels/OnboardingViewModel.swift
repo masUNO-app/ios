@@ -2,12 +2,18 @@ import Observation
 import SwiftUI
 
 /// Onboarding (E5, SPEC §7.5), driven by `AuthService`: sign up with a school email and a
-/// password, wait for the team's approval (N36), then `complete_profile` and `accept_guidelines`.
+/// password, enter the code from the email (N39), wait on the waitlist until the team or an invite
+/// lets you in (N36, N37), then `complete_profile` and `accept_guidelines`. A forgotten password is
+/// reset with an emailed code from Sign in.
 /// The school SSO step (`findSchool`, `continueWithSchool`) is kept but nothing opens it.
 @Observable
 final class OnboardingViewModel {
     enum Step: Hashable {
         case signUp, signIn, pending, verified, guidelines
+        /// "Check your email": the 6-digit sign-up code (N39).
+        case verifyEmail
+        /// Forgot your password: the emailed code and a new password.
+        case resetPassword
         /// "Make it yours": name, class year and sports on one screen.
         case about
         /// School SSO. Unreachable while sign-in is email and password (N36).
@@ -18,15 +24,17 @@ final class OnboardingViewModel {
         /// Past sign-in there's nothing to go back to, and past the profile it's already saved.
         var hidesBackButton: Bool {
             switch self {
-            case .pending, .verified, .about, .guidelines: true
-            case .signUp, .signIn, .findSchool, .guestCampus: false
+            // The code step offers "Use a different email" instead, so a restored session can't land
+            // on Welcome while still signed in.
+            case .verifyEmail, .pending, .verified, .about, .guidelines: true
+            case .signUp, .signIn, .resetPassword, .findSchool, .guestCampus: false
             }
         }
     }
 
     /// The account fields a step can send VoiceOver to after a failed submit.
     enum Field: Hashable {
-        case email, password, inviteCode
+        case email, password, inviteCode, code, newPassword
     }
 
     var path: [Step] = []
@@ -42,13 +50,38 @@ final class OnboardingViewModel {
 
     /// At least this many characters, checked before the server's own rule.
     static let minimumPasswordLength = 8
+    /// Digits in an emailed code (`otp_length`, supabase/config.toml).
+    static let codeLength = 6
+    /// Supabase sends at most one code a minute to an address (`max_frequency`).
+    static let resendInterval: TimeInterval = 60
 
     // Sign up and Sign in share these.
     var email = ""
     var password = ""
     /// A member's invite code (N37), typed on Create account or on the waitlist. Optional: without
-    /// one, the account waits for the team.
+    /// one, the account waits for the team. One typed on Create account is held until the email
+    /// code is in, because redeeming needs the session the code brings.
     var inviteCode = ""
+
+    // The code steps (N39).
+    /// The address the sign-up code went to.
+    private(set) var codeEmail: String?
+    var code = ""
+    var codeError: String?
+    /// "We sent a new code", after Send a new code.
+    private(set) var codeNotice: String?
+    /// When the last sign-up code went out, for the minute before another can.
+    private(set) var codeSentAt: Date?
+    /// A restored session that still needs its code: none has been sent yet (`sendFirstCodeIfNeeded`).
+    @ObservationIgnored private var needsFirstCode = false
+    /// The address the reset code went to.
+    private(set) var resetEmail: String?
+    var resetCode = ""
+    var newPassword = ""
+    var resetError: String?
+    var newPasswordError: String?
+    private(set) var resetNotice: String?
+    private(set) var resetSentAt: Date?
 
     // Only write back when the value changes: in an @Observable class an unconditional
     // write in didSet calls didSet again, forever.
@@ -58,6 +91,8 @@ final class OnboardingViewModel {
     var interests: Set<Activity> = []
 
     var signInError: String?
+    /// Forgot your password with no email typed.
+    var signInEmailError: String?
     var signUpError: String?
     var passwordError: String?
     /// "Check again" came back still waiting.
@@ -92,6 +127,10 @@ final class OnboardingViewModel {
         switch auth.state {
         case .signedOut(expired: true):
             path = [.signIn]
+        case .needsEmailVerification(let email):
+            codeEmail = email
+            needsFirstCode = true
+            path = [.verifyEmail]
         case .pendingApproval:
             path = [.pending]
         case .needsProfile:
@@ -189,8 +228,10 @@ final class OnboardingViewModel {
     func firstInvalidField(on step: Step) -> Field? {
         switch step {
         case .signUp: signUpError != nil ? .email : passwordError != nil ? .password : nil
-        case .signIn: signInError != nil ? .password : nil
+        case .signIn: signInEmailError != nil ? .email : signInError != nil ? .password : nil
         case .pending: inviteError != nil ? .inviteCode : nil
+        case .verifyEmail: codeError != nil ? .code : nil
+        case .resetPassword: resetError != nil ? .code : newPasswordError != nil ? .newPassword : nil
         default: nil
         }
     }
@@ -207,8 +248,10 @@ final class OnboardingViewModel {
     func errorSummary(on step: Step) -> String? {
         switch step {
         case .signUp: signUpError ?? passwordError
-        case .signIn: signInError
+        case .signIn: signInEmailError ?? signInError
         case .pending: inviteError ?? pendingError
+        case .verifyEmail: codeError
+        case .resetPassword: resetError ?? newPasswordError
         case .about: aboutError ?? profileError
         default: nil
         }
@@ -277,9 +320,8 @@ final class OnboardingViewModel {
         await app.browseAsGuest(campus: guestCampusChoice, store: store)
     }
 
-    /// Creates the account and lands on the waitlist ("We're checking your account"); an allowlisted
-    /// address skips the wait. With an invite code it goes straight on to You're in. A refused code
-    /// still leaves the account made, on the waitlist with `inviteError`, where it can try again.
+    /// Creates the account and opens Check your email, where the code moves it on (`submitCode`).
+    /// The invite code waits there too.
     func submitSignUp() async {
         guard !trimmedEmail.isEmpty, !password.isEmpty, !isWorking else { return }
         signUpError = nil
@@ -290,20 +332,78 @@ final class OnboardingViewModel {
             return
         }
         await work {
+            let before = auth.state
             try await auth.signUp(email: trimmedEmail, password: password)
             password = ""
-            // Redeemed before moving on, so the waitlist doesn't flash past on the way to You're in.
-            if auth.state == .pendingApproval, hasInviteCode {
-                do {
-                    try await auth.redeemInvite(inviteCode)
-                    inviteCode = ""
-                    return enterAfterApproval()
-                } catch {
-                    inviteError = inviteMessage(for: error as? DomainError ?? .offline)
-                }
-            }
-            advance()
+            // Signed in straight away: the project has "Confirm email" off, so there's no code.
+            guard auth.state == before else { return await enterNewAccount() }
+            showCodeStep(for: trimmedEmail, sentAt: .now)
         } onError: { signUpError = $0 }
+    }
+
+    /// **Continue** on Check your email: the account is verified, then on to the waitlist, You're in
+    /// (allowlisted, sign-up open, or with an invite code), as the server says.
+    func submitCode() async {
+        guard let codeEmail, !isWorking else { return }
+        codeError = nil
+        codeNotice = nil
+        guard let typed = Self.completeCode(code) else {
+            codeError = DomainError.invalidCode.message
+            return
+        }
+        await work {
+            try await auth.verifyEmail(codeEmail, code: typed)
+            code = ""
+            await enterNewAccount()
+        } onError: { codeError = $0 }
+    }
+
+    /// **Send a new code**, once a minute.
+    func resendCode() async {
+        guard let codeEmail, !isWorking else { return }
+        codeError = nil
+        codeNotice = nil
+        await work {
+            try await auth.resendVerification(to: codeEmail)
+            codeSentAt = .now
+            codeNotice = String.app("We sent a new code to \(codeEmail).")
+        } onError: { codeError = $0 }
+    }
+
+    /// A restored session that still needs its code has had none sent yet, so the step sends one.
+    /// Quiet: if it fails, Send a new code is right there.
+    func sendFirstCodeIfNeeded() async {
+        guard needsFirstCode, let codeEmail, !codeEmail.isEmpty else { return }
+        needsFirstCode = false
+        do {
+            try await auth.resendVerification(to: codeEmail)
+            codeSentAt = .now
+        } catch {}
+    }
+
+    /// **Use a different email** on Check your email: back to Create account with the address to fix.
+    /// A restored session is signed out first, so nobody is left signed in on Welcome.
+    func useDifferentEmail() async {
+        codeError = nil
+        await work {
+            if case .needsEmailVerification = auth.state { try await auth.signOut() }
+            if let codeEmail { email = codeEmail }
+            resetCodeStep()
+            password = ""
+            path = [.signUp]
+        } onError: { codeError = $0 }
+    }
+
+    /// Seconds until Send a new code works again; 0 when it does.
+    func secondsUntilResend(at date: Date, sentAt: Date?) -> Int {
+        guard let sentAt else { return 0 }
+        return max(0, Int((sentAt.addingTimeInterval(Self.resendInterval).timeIntervalSince(date)).rounded(.up)))
+    }
+
+    /// The digits of a full code, ignoring spaces and dashes; nil until all of them are there.
+    static func completeCode(_ text: String) -> String? {
+        let digits = text.filter(\.isASCII).filter(\.isNumber)
+        return digits.count == codeLength && digits.count == text.filter { !$0.isWhitespace && $0 != "-" }.count ? digits : nil
     }
 
     /// **Use code** on the waitlist. On success it's You're in, as when the team approves.
@@ -401,15 +501,82 @@ final class OnboardingViewModel {
 
     // MARK: Sign in and profile
 
+    /// An account that never entered its sign-up code gets a new one and the code step, rather
+    /// than an error.
     func submitSignIn() async {
         guard !trimmedEmail.isEmpty, !password.isEmpty, !isWorking else { return }
         signInError = nil
+        signInEmailError = nil
         await work {
-            try await auth.signIn(email: trimmedEmail, password: password)
+            do {
+                try await auth.signIn(email: trimmedEmail, password: password)
+            } catch DomainError.emailNotVerified {
+                password = ""
+                return try await sendCodeAndShowStep(for: trimmedEmail)
+            }
             noteIfSignedIn()
             password = ""
             advance()
         } onError: { signInError = $0 }
+    }
+
+    /// **Forgot your password?** on Sign in: emails a code to the address typed there.
+    func forgotPassword() async {
+        guard !isWorking else { return }
+        signInError = nil
+        signInEmailError = nil
+        guard !trimmedEmail.isEmpty else {
+            signInEmailError = String.app("Type your email first, and we'll send it a code.")
+            return
+        }
+        await work {
+            try await auth.requestPasswordReset(for: trimmedEmail)
+            resetEmail = trimmedEmail
+            resetSentAt = .now
+            resetCode = ""
+            newPassword = ""
+            resetError = nil
+            newPasswordError = nil
+            resetNotice = nil
+            path.append(.resetPassword)
+        } onError: { signInError = $0 }
+    }
+
+    /// **Send a new code** on the reset step, once a minute.
+    func resendResetCode() async {
+        guard let resetEmail, !isWorking else { return }
+        resetError = nil
+        resetNotice = nil
+        await work {
+            try await auth.requestPasswordReset(for: resetEmail)
+            resetSentAt = .now
+            resetNotice = String.app("We sent a new code to \(resetEmail).")
+        } onError: { resetError = $0 }
+    }
+
+    /// **Save password**: the code and a new password, then on as after signing in.
+    func submitReset() async {
+        guard let resetEmail, !isWorking else { return }
+        resetError = nil
+        newPasswordError = nil
+        resetNotice = nil
+        guard let typed = Self.completeCode(resetCode) else {
+            resetError = DomainError.invalidCode.message
+            return
+        }
+        guard newPassword.count >= Self.minimumPasswordLength else {
+            newPasswordError = DomainError.weakPassword.message
+            return
+        }
+        await work {
+            try await auth.resetPassword(email: resetEmail, code: typed, newPassword: newPassword)
+            resetCode = ""
+            newPassword = ""
+            password = ""
+            noteIfSignedIn()
+            // A reset can also be how an account first verifies, so it may be new.
+            await enterNewAccount()
+        } onError: { resetError = $0 }
     }
 
     /// Checks the name before anything goes to the server. Returns whether it's fine.
@@ -473,6 +640,10 @@ final class OnboardingViewModel {
     /// The step after sign-in or the profile. Signed in needs nothing: the root swaps to the map.
     private func advance() {
         switch auth.state {
+        case .needsEmailVerification(let email):
+            codeEmail = email
+            needsFirstCode = true
+            path = [.verifyEmail]
         case .pendingApproval:
             path = [.pending]
         case .needsProfile:
@@ -494,6 +665,48 @@ final class OnboardingViewModel {
     }
 
     private var hasInviteCode: Bool { !Invite.normalized(inviteCode).isEmpty }
+
+    /// Where a new account goes once it's signed in. A held invite code is redeemed first, so the
+    /// waitlist doesn't flash past on the way to You're in. A refused code leaves the account on the
+    /// waitlist with `inviteError`, where it can try again.
+    private func enterNewAccount() async {
+        if auth.state == .pendingApproval, hasInviteCode {
+            do {
+                try await auth.redeemInvite(inviteCode)
+                inviteCode = ""
+                return enterAfterApproval()
+            } catch {
+                inviteError = inviteMessage(for: error as? DomainError ?? .offline)
+            }
+        }
+        if auth.state == .needsProfile { return enterAfterApproval() }
+        advance()
+    }
+
+    private func showCodeStep(for email: String, sentAt: Date?) {
+        resetCodeStep()
+        codeEmail = email
+        codeSentAt = sentAt
+        path.append(.verifyEmail)
+    }
+
+    /// From Sign in. A code that went out less than a minute ago is still good, so that's no failure.
+    private func sendCodeAndShowStep(for email: String) async throws {
+        do {
+            try await auth.resendVerification(to: email)
+            showCodeStep(for: email, sentAt: .now)
+        } catch DomainError.tooManyAttempts {
+            showCodeStep(for: email, sentAt: .now)
+        }
+    }
+
+    private func resetCodeStep() {
+        code = ""
+        codeError = nil
+        codeNotice = nil
+        codeSentAt = nil
+        needsFirstCode = false
+    }
 
     /// A starting point from the school's sign-in, never over something already typed.
     private func fillInName() {

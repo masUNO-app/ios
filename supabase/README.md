@@ -31,6 +31,7 @@ projects from same-repository PRs and from `main`, as requested for this project
 | `20261126000100_round_nights` | Round nights (1.0): `rotation_*` on `games`, optional round parameters on `create_game` / `update_game`, `game_rotation` |
 | `20261126000200_esports_at_1_0` | Esports (Valorant, CS:GO, League) and its kind need 1.0 |
 | `20261127000000_props` | Props after every plan and the opt-in monthly leaderboard (1.0), behind `app_config.props_enabled` |
+| `20261128000000_email_codes` | Email codes (1.0, N39): the request starts when the sign-up code is entered (`auth_users_email_verified` → `private.signup_verified`), `signup_requests.verified_at`, `signup_status()` answers `'unverified'`, `app_config.signup_auto_approve` and `private.set_signup_auto_approve`, the hourly `delete-unverified-signups`, and accounts waiting from before enter a code on their next sign-in |
 
 ## Local setup
 
@@ -96,18 +97,32 @@ Migrations don't carry dashboard settings, so do these on each project (B2, B12)
    Leave `push_enabled` false until a phone has registered and `docs/QA.md` §12 passes, then
    `update public.app_config set value = 'true' where key = 'push_enabled';`.
 2. **Auth → Hooks:** register `public.before_user_created` as the **Before User Created** hook.
-3. **Auth → Providers → Email:** on, with **Confirm email off** and sign-ups allowed, and **Minimum password
-   length 8** (the app checks the same; `config.toml` only sets it locally). The app's Create account
-   needs a session straight back from `signUp`; approval by hand replaces the confirmation email (N36).
+3. **Auth → Providers → Email:** on, with **Confirm email on** and sign-ups allowed, **Minimum password
+   length 8** (the app checks the same; `config.toml` only sets it locally), **Email OTP length 6** and
+   **Email OTP expiration 900** seconds (N39). Turn Confirm email on only together with the
+   `20261128000000_email_codes` migration and a 1.0 build: earlier builds need a session straight back from
+   `signUp`, so raise `min_supported_version` to 1.0 at the same time.
+   **Auth → Emails → Templates:** paste `supabase/templates/confirmation.html` into "Confirm signup" and
+   `recovery.html` into "Reset password", with the subjects from `config.toml`. They show the code
+   (`{{ .Token }}`) and no link; Spanish when the app sent `locale: es`.
+   **Auth → Emails → SMTP Settings:** custom SMTP is required: Supabase's own mailer only sends to the
+   project's team. masUNO sends from the team Gmail: host `smtp.gmail.com`, port `465`, username the full
+   Gmail address, password a Google **App Password** for that account (Google Account → Security → 2-Step
+   Verification must be on → App passwords; never the account password), sender email the same Gmail
+   address (Gmail replaces any other From address), sender name `masUNO`. The App Password lives only in the
+   dashboard and the shared password manager. Use the same account on dev and prod, or a second Gmail for dev.
+   **Auth → Rate Limits → "Rate limit for sending emails":** 60 an hour. Gmail sends to at most about 500
+   recipients a day from a personal account (2,000 with Google Workspace), shared between dev, prod and
+   anything else that account sends, and over that it stops sending for up to a day. Raise this only on a
+   Workspace account.
    Account alerts (sign-ups waiting, invite and team-code joins) go to their own Discord channel:
    `select vault.create_secret('<account-channel-webhook-url>', 'signup_alert_webhook_url');`.
    Without it they fall back to the reports channel (step 6).
    *School SSO, unused until a school approves it:* **Auth → Providers → Azure:** client ID and secret from the Entra app; Azure Tenant URL `https://login.microsoftonline.com/organizations` until Tec's tenant is confirmed (O4), then lock it to Tec before real students sign in on prod. Never `common`.
 4. **Auth → URL Configuration:** add `masuno://auth-callback` to Redirect URLs.
 5. **Auth → Users:** create the three allowlisted password accounts with "Auto confirm" on: `official.masuno.app+review1@gmail.com`, `+review2`, `+qa1`. Passwords go in the shared password manager.
-   Accounts made here skip the sign-up hook, so they're in straight away. The addresses are public in a
-   migration, so anyone signing up with one from the app waits for approval: reject any such request you
-   didn't make.
+   Accounts made here skip the sign-up hook and are sent no code, so they're in straight away. The addresses
+   are public in a migration, but signing up with one from the app now needs the code from that inbox (N39).
    App Review often tests Delete account. If a review account is deleted, create it again here the same
    way before the next submission, and check it still lands on the demo campus.
 6. **Report alerts (Discord) — set up on masuno-dev and masuno-prod (Nov 11).** On a new project,
@@ -145,15 +160,16 @@ Migrations don't carry dashboard settings, so do these on each project (B2, B12)
 
 ## Sign-up approvals
 
-Students sign up with their school email and a password (N36). Each new one posts "New sign-up waiting for
-approval" to the team Discord with a masked address (`a•••@tec.mx`) and two lines to paste into the SQL
+Students sign up with their school email and a password and enter the 6-digit code emailed to it (N36, N39).
+Nothing is recorded until the code is in. Then each new one posts "New sign-up waiting for approval (email
+verified)" to the team Discord with a masked address (`a•••@tec.mx`) and two lines to paste into the SQL
 editor. The lines name the request by its id and look the email up there, so no address is stored in Discord.
 By email, when you have it:
 
 - Approve: `select private.approve_signup('<email>');`
 - Reject: `select private.reject_signup('<email>');` deletes the unapproved account, so the address can ask again.
 - Everyone still waiting: `select email, requested_at from private.signup_requests where approved_at is null order by requested_at;`
-- Approve everyone waiting: `update private.signup_requests set approved_at = now() where approved_at is null;` (one statement, so the Sheet gets one update instead of one per person)
+- Approve everyone waiting: `update private.signup_requests set approved_at = now() where approved_at is null;` (one statement, so the Sheet gets one update instead of one per person). To let everyone in from now on instead, open sign-up (below).
 - Approve someone who joined on the website before they have an account: `select private.approve_signup('<email>');` works the same. When they create their account in the app it goes straight in, with no alert.
 
 The website's waitlist is the same queue (N38). A school email that joins on the website appears here with
@@ -162,9 +178,18 @@ account to approve yet. When the person creates their account in the app, the us
 request keeps its website time and source. Rejecting a website request that has no account just removes it
 (and its Sheet row says "Removed"). Non-school emails stay in the Sheet as launch news and never appear here.
 
-Nobody checks that the person owns the address: there's no confirmation email (no custom SMTP yet). Approve
-only addresses you can vouch for. If the alert doesn't arrive, the request is still in the table and
-Postgres logs a warning. A forgotten password is reset in **Auth → Users**.
+The code proves the person owns the address, so approving is a question of how fast to let people in, not
+of vouching for them. If the alert doesn't arrive, the request is still in the table and Postgres logs a
+warning. Students reset a forgotten password themselves, with a code from **Forgot your password?** on Sign in.
+
+**Opening sign-up.** `select private.set_signup_auto_approve(true);` makes the code enough to get in: every
+verified account goes straight in (the channel gets "a•••@tec.mx joined" FYIs), and everyone verified and
+already waiting is let in at once, each with the "You're in" push. Website joins with no account keep waiting
+until they sign up. `select private.set_signup_auto_approve(false);` goes back to invite-only; nobody already
+in is affected. Invite codes work either way.
+
+- Waiting but never entered a code (website joins, and accounts from before 1.0): `select email, source from private.signup_requests where approved_at is null and verified_at is null;`
+- Accounts that never entered their code are deleted after a day by the hourly `delete-unverified-signups`, unless they hold a waitlist place. They can sign up again.
 
 ### Invites (1.0)
 

@@ -1,5 +1,5 @@
 -- Security review fixes (20261119000000): blocks hide attendance both ways, bans close reads,
--- allowlisted password sign-ups wait, device tokens stay with their install, Discord gets no emails,
+-- allowlisted password sign-ups prove the inbox first (20261128000000), device tokens stay with their install, Discord gets no emails,
 -- and signed-out callers run only what's meant for them.
 begin;
 create extension if not exists pgtap with schema extensions;
@@ -88,12 +88,14 @@ select is((select first_name from public.my_profile), 'Carla', 'but still reads 
 select pg_temp.act_as('a0000000-0000-4000-8000-00000000000a');
 select is((select count(*)::int from public.game_messages), 1, 'an active member still reads the chat');
 
--- An allowlisted address signing up with a password waits for approval.
+-- An allowlisted address signing up with a password gets in once it enters the emailed code (N39),
+-- which proves the inbox: the wait was only there because the allowlist is public.
 reset role;
 select is(public.before_user_created('{"user":{"email":"official.masuno.app+review2@gmail.com","app_metadata":{"provider":"email"}}}'),
     '{}'::jsonb, 'an allowlisted address can still sign up with a password');
-select is((select count(*)::int from private.signup_requests where email = 'official.masuno.app+review2@gmail.com' and approved_at is null), 1,
-    'but it waits for approval like anyone else');
+select private.signup_verified('official.masuno.app+review2@gmail.com');
+select is((select count(*)::int from private.signup_requests where email = 'official.masuno.app+review2@gmail.com' and approved_at is not null), 1,
+    'and is let in once its code is entered');
 select is(public.before_user_created('{"user":{"email":"official.masuno.app+qa1@gmail.com","app_metadata":{"provider":"azure"}}}'),
     '{}'::jsonb, 'through an SSO provider it still goes straight in');
 select is((select count(*)::int from private.signup_requests where email = 'official.masuno.app+qa1@gmail.com'), 0,

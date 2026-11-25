@@ -23,6 +23,8 @@ enum MockFixtures {
     )
     static let reviewEmail = "official.masuno.app+review1@gmail.com"
     static let reviewPassword = "review-password"
+    /// The code every mock sign-up and reset email carries (N39).
+    static let emailCode = "123456"
     /// One of the signed-in student's unused codes: a waiting account that types it gets in (N37).
     static let inviteCode = "PLAY4NWE"
     /// Their code that Priya already used.

@@ -132,6 +132,7 @@ Placeholders that still need a real answer. Card IDs refer to SPEC §5.
 
 ### Waiting on backend
 - [x] Sign-in for real students: school email and password, approved by hand from the Discord alert (N36). School SSO (B21, B22, K19) is kept in the code, unused, in case Tec IT approves the Entra app.
+- [ ] Email codes (N39): on dev and then prod, Gmail SMTP with an App Password, Confirm email on, the two templates and the email rate limit (`supabase/README.md`, hosted checklist step 3); prod's `min_supported_version` to 1.0 at the same time.
 - [x] Migrations reach the hosted projects through `backend-sync`: dev from every PR, prod only on a merge into `main` (#23, #24, `supabase/README.md`).
 - [x] Group chat messaging (E26, B20): `chat_enabled` and `push_enabled` are on in prod (Nov 20).
 - [x] Website waitlist sync (N38): store the shared secret and the Apps Script URL in Vault, and give the secret to whoever deploys the website's script (`supabase/README.md`, step 9).

@@ -32,6 +32,8 @@ struct OnboardingFlow: View {
                         switch step {
                         case .signUp: SignUpStep(viewModel: viewModel)
                         case .signIn: SignInStep(viewModel: viewModel)
+                        case .verifyEmail: VerifyEmailStep(viewModel: viewModel)
+                        case .resetPassword: ResetPasswordStep(viewModel: viewModel)
                         case .pending: PendingStep(viewModel: viewModel)
                         case .findSchool: FindSchoolStep(viewModel: viewModel)
                         case .guestCampus: GuestCampusStep(viewModel: viewModel)
@@ -112,9 +114,10 @@ struct OnboardingFlow: View {
     }
 
     #if DEBUG
-    /// `-screen onboarding-sheet|signup|signin|pending|pending-code|school|campus|verified|about|guidelines`
-    /// opens a step with sample input. `pending` is the waitlist with its place in line;
-    /// `pending-code` is the same after a refused invite code.
+    /// `-screen onboarding-sheet|signup|signin|verify|reset|pending|pending-code|school|campus|verified|about|guidelines`
+    /// opens a step with sample input. `verify` is Check your email after Create account; `reset` is
+    /// the reset step after Forgot your password. `pending` is the waitlist with its place in line;
+    /// `pending-code` is the same after a refused invite code. The mock's code is 123456.
     private func openDebugStep() {
         guard let step = UserDefaults.standard.string(forKey: "screen"), step.hasPrefix("onboarding-") else { return }
         viewModel.firstName = "Emilio"
@@ -124,14 +127,36 @@ struct OnboardingFlow: View {
         case "sheet": viewModel.getStarted()
         case "signup": viewModel.path = [.signUp]
         case "signin", "review": viewModel.path = [.signIn]
+        case "verify":
+            Task {
+                viewModel.path = [.signUp]
+                viewModel.email = "a0123@tec.mx"
+                viewModel.password = "long-enough"
+                await viewModel.submitSignUp()
+            }
+        case "reset":
+            // The mock has to know the address, so it signs up and verifies first, then signs out.
+            Task {
+                viewModel.email = "a0123@tec.mx"
+                viewModel.password = "long-enough"
+                await viewModel.submitSignUp()
+                viewModel.code = MockFixtures.emailCode
+                await viewModel.submitCode()
+                await viewModel.signOutWhilePending()
+                viewModel.email = "a0123@tec.mx"
+                viewModel.path = [.signIn]
+                await viewModel.forgotPassword()
+            }
         case "pending", "pending-code":
-            // Through sign-up, so the mock account is really waiting and its place in line loads.
+            // Through sign-up and the code, so the mock account is really waiting and its place in line loads.
             let refused = step.hasSuffix("-code")
             Task {
                 viewModel.email = "a0123@tec.mx"
                 viewModel.password = "long-enough"
                 viewModel.inviteCode = refused ? "WRONG-ONE" : ""
                 await viewModel.submitSignUp()
+                viewModel.code = MockFixtures.emailCode
+                await viewModel.submitCode()
             }
         case "school": viewModel.path = [.findSchool]
         case "campus": viewModel.path = [.guestCampus]
@@ -215,13 +240,17 @@ private struct SignInStep: View {
 
     var body: some View {
         OnboardingPage(title: "Sign in", message: "Welcome back. Use the email and password you signed up with.") {
-            FieldBox("Email", text: $viewModel.email, prompt: Text(verbatim: viewModel.emailPlaceholder), isFocused: focus == 0) { field in
+            FieldBox(
+                "Email", text: $viewModel.email, prompt: Text(verbatim: viewModel.emailPlaceholder),
+                error: viewModel.signInEmailError, isFocused: focus == 0
+            ) { field in
                 field
                     .keyboardType(.emailAddress)
                     .textContentType(.username)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .focused($focus, equals: 0)
+                    .accessibilityFocused($errorFocus, equals: .email)
             }
             FieldBox(
                 "Password", text: $viewModel.password, prompt: Text("Password"),
@@ -233,18 +262,26 @@ private struct SignInStep: View {
                     .accessibilityFocused($errorFocus, equals: .password)
                     .onSubmit { submit() }
             }
-            // No reset email yet: the team resets a password by hand.
-            if let mail = appViewModel.config.supportMailURL {
-                Link(destination: mail) {
-                    Text("Forgot your password? Contact us")
+            // A code to the email typed above (N39); Contact us stays for anything a code can't fix.
+            HStack(spacing: 16) {
+                Button { forgot() } label: {
+                    Text("Forgot your password?")
                         .buttonShapeUnderline()
                         .tapTarget(.vertical, 15)
                 }
-                .font(.rounded(.footnote))
-                .foregroundStyle(Theme.mutedLarge)
-                // 44 pt tall to tap, in the same place: the 16 pt gaps above and below take it (A11Y-19).
-                .padding(.vertical, -15)
+                .disabled(viewModel.isWorking)
+                if let mail = appViewModel.config.supportMailURL {
+                    Link(destination: mail) {
+                        Text("Contact us")
+                            .buttonShapeUnderline()
+                            .tapTarget(.vertical, 15)
+                    }
+                }
             }
+            .font(.rounded(.footnote))
+            .foregroundStyle(Theme.mutedLarge)
+            // 44 pt tall to tap, in the same place: the 16 pt gaps above and below take it (A11Y-19).
+            .padding(.vertical, -15)
         } footer: {
             VStack(spacing: 10) {
                 WorkingButton("Sign in", isWorking: viewModel.isWorking) { submit() }
@@ -261,6 +298,169 @@ private struct SignInStep: View {
             await viewModel.submitSignIn()
             if let field = viewModel.firstInvalidField(on: .signIn) { errorFocus = field }
             if let summary = viewModel.errorSummary(on: .signIn) { Announce.post(summary, priority: .high) }
+        }
+    }
+
+    private func forgot() {
+        Task {
+            await viewModel.forgotPassword()
+            if let field = viewModel.firstInvalidField(on: .signIn) { errorFocus = field }
+            if let summary = viewModel.errorSummary(on: .signIn) { Announce.post(summary, priority: .high) }
+        }
+    }
+}
+
+/// "Check your email" (N39): the 6-digit code Supabase sent to the new account's address. iOS can
+/// fill it in from Mail. Entering it moves the account on to the waitlist or You're in.
+private struct VerifyEmailStep: View {
+    @Bindable var viewModel: OnboardingViewModel
+    @FocusState private var isCodeFocused: Bool
+    @AccessibilityFocusState private var errorFocus: OnboardingViewModel.Field?
+
+    var body: some View {
+        OnboardingPage(
+            systemImage: "envelope.badge",
+            title: "Check your email",
+            message: "We sent a 6-digit code to \(viewModel.codeEmail ?? ""). Enter it here to confirm it's your school email."
+        ) {
+            // The number pad has no return key: Continue is the way on.
+            CodeField(code: $viewModel.code, error: viewModel.codeError, isFocused: $isCodeFocused)
+                .accessibilityFocused($errorFocus, equals: .code)
+            if let notice = viewModel.codeNotice {
+                Text(verbatim: notice).font(.rounded(.footnote)).foregroundStyle(Theme.muted)
+            } else {
+                Text("Can't find it? Check your spam or junk folder.").font(.rounded(.footnote)).foregroundStyle(Theme.muted)
+            }
+        } footer: {
+            VStack(spacing: 10) {
+                WorkingButton("Continue", isWorking: viewModel.isWorking) { submit() }
+                    .disabled(OnboardingViewModel.completeCode(viewModel.code) == nil)
+                ResendButton(sentAt: viewModel.codeSentAt, viewModel: viewModel) {
+                    Task {
+                        await viewModel.resendCode()
+                        if let summary = viewModel.codeNotice ?? viewModel.errorSummary(on: .verifyEmail) {
+                            Announce.post(summary, priority: .high)
+                        }
+                    }
+                }
+                Button("Use a different email") { Task { await viewModel.useDifferentEmail() } }
+                    .pill(.quiet)
+                    .disabled(viewModel.isWorking)
+            }
+        }
+        .task {
+            await viewModel.sendFirstCodeIfNeeded()
+            isCodeFocused = true
+        }
+    }
+
+    private func submit() {
+        Task {
+            await viewModel.submitCode()
+            if let field = viewModel.firstInvalidField(on: .verifyEmail) { errorFocus = field }
+            if let summary = viewModel.errorSummary(on: .verifyEmail) { Announce.post(summary, priority: .high) }
+        }
+    }
+}
+
+/// Forgot your password (N39): the code emailed to the address from Sign in, and a new password.
+/// Saving signs you in.
+private struct ResetPasswordStep: View {
+    @Bindable var viewModel: OnboardingViewModel
+    @FocusState private var isCodeFocused: Bool
+    @FocusState private var isPasswordFocused: Bool
+    @AccessibilityFocusState private var errorFocus: OnboardingViewModel.Field?
+
+    var body: some View {
+        OnboardingPage(
+            title: "Choose a new password",
+            message: "If there's an account for \(viewModel.resetEmail ?? ""), we sent it a 6-digit code. Enter it with your new password."
+        ) {
+            CodeField(code: $viewModel.resetCode, error: viewModel.resetError, isFocused: $isCodeFocused)
+                .accessibilityFocused($errorFocus, equals: .code)
+            FieldBox(
+                "New password", text: $viewModel.newPassword, prompt: Text("At least 8 characters"),
+                error: viewModel.newPasswordError, isFocused: isPasswordFocused, secure: true
+            ) { field in
+                field
+                    .textContentType(.newPassword)
+                    .focused($isPasswordFocused)
+                    .accessibilityFocused($errorFocus, equals: .newPassword)
+                    .onSubmit { submit() }
+            }
+            if let notice = viewModel.resetNotice {
+                Text(verbatim: notice).font(.rounded(.footnote)).foregroundStyle(Theme.muted)
+            }
+        } footer: {
+            VStack(spacing: 10) {
+                WorkingButton("Save password", isWorking: viewModel.isWorking) { submit() }
+                    .disabled(OnboardingViewModel.completeCode(viewModel.resetCode) == nil || viewModel.newPassword.isEmpty)
+                ResendButton(sentAt: viewModel.resetSentAt, viewModel: viewModel) {
+                    Task {
+                        await viewModel.resendResetCode()
+                        if let summary = viewModel.resetNotice ?? viewModel.errorSummary(on: .resetPassword) {
+                            Announce.post(summary, priority: .high)
+                        }
+                    }
+                }
+            }
+        }
+        .task { isCodeFocused = true }
+    }
+
+    private func submit() {
+        Task {
+            await viewModel.submitReset()
+            if let field = viewModel.firstInvalidField(on: .resetPassword) { errorFocus = field }
+            if let summary = viewModel.errorSummary(on: .resetPassword) { Announce.post(summary, priority: .high) }
+        }
+    }
+}
+
+/// The 6-digit field on both code steps. Digits only, and iOS offers the code from Mail.
+private struct CodeField: View {
+    @Binding var code: String
+    var error: String?
+    var isFocused: FocusState<Bool>.Binding
+
+    var body: some View {
+        FieldBox(
+            "Code", text: $code, prompt: Text(verbatim: "123456"),
+            error: error, isFocused: isFocused.wrappedValue
+        ) { field in
+            field
+                .keyboardType(.numberPad)
+                .textContentType(.oneTimeCode)
+                .autocorrectionDisabled()
+                .font(.rounded(.title2, .bold).monospacedDigit())
+                .focused(isFocused)
+                .onChange(of: code) { _, new in
+                    // Keep it to the digits of one code, whatever was pasted.
+                    let digits = String(new.filter(\.isNumber).prefix(OnboardingViewModel.codeLength))
+                    if digits != new { code = digits }
+                }
+        }
+    }
+}
+
+/// "Send a new code", counting down the minute Supabase makes you wait between codes.
+private struct ResendButton: View {
+    var sentAt: Date?
+    var viewModel: OnboardingViewModel
+    var action: () -> Void
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            let wait = viewModel.secondsUntilResend(at: context.date, sentAt: sentAt)
+            Button(action: action) {
+                if wait > 0 {
+                    Text("Send a new code in \(wait)s")
+                } else {
+                    Text("Send a new code")
+                }
+            }
+            .pill(.secondary)
+            .disabled(wait > 0 || viewModel.isWorking)
         }
     }
 }

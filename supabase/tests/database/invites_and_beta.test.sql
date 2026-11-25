@@ -8,16 +8,16 @@ create function pg_temp.act_as(p_user uuid) returns void language sql as $$
     select set_config('request.jwt.claim.sub', coalesce(p_user::text, ''), true)
 $$;
 
--- Alice and Bruno are members. Pía, Pablo and Paco signed up with a password and are waiting.
+-- Alice and Bruno are members. Pía, Pablo and Paco signed up with a password, entered their code and are waiting.
 insert into auth.users (id, email) values
     ('a0000000-0000-4000-8000-00000000000a', 'alice@tec.mx'),
     ('b0000000-0000-4000-8000-00000000000b', 'bruno@tec.mx'),
     ('10000000-0000-4000-8000-000000000001', 'pia@tec.mx'),
     ('20000000-0000-4000-8000-000000000002', 'pablo@tec.mx'),
     ('30000000-0000-4000-8000-000000000003', 'paco@tec.mx');
-select public.before_user_created('{"user":{"email":"pia@tec.mx","app_metadata":{"provider":"email"}}}');
-select public.before_user_created('{"user":{"email":"pablo@tec.mx","app_metadata":{"provider":"email"}}}');
-select public.before_user_created('{"user":{"email":"paco@tec.mx","app_metadata":{"provider":"email"}}}');
+select private.signup_verified('pia@tec.mx');
+select private.signup_verified('pablo@tec.mx');
+select private.signup_verified('paco@tec.mx');
 -- One transaction has one now(), so spread the requests out by hand.
 update private.signup_requests set requested_at = now() - interval '3 hours' where email = 'pablo@tec.mx';
 update private.signup_requests set requested_at = now() - interval '2 hours' where email = 'pia@tec.mx';

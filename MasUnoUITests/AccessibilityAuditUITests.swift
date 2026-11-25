@@ -87,6 +87,8 @@ final class AccessibilityAuditUITests: XCTestCase {
     @MainActor static let onboarding = [
         Screen("onboarding-signup") { $0.buttons["Create account"] },
         Screen("onboarding-signin") { $0.buttons["Sign in"] },
+        Screen("onboarding-verify") { $0.buttons["Use a different email"] },
+        Screen("onboarding-reset") { $0.buttons["Save password"] },
         Screen("onboarding-pending") { $0.buttons["Check again"] },
         Screen("onboarding-about") { $0.buttons["Let's go"] },
         Screen("onboarding-guidelines") { $0.buttons["I agree"] },

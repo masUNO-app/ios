@@ -23,6 +23,10 @@ private final class StickyAuth: AuthService {
     func signIn(at school: University) async throws {}
     func signUp(email: String, password: String) async throws {}
     func signIn(email: String, password: String) async throws {}
+    func verifyEmail(_ email: String, code: String) async throws {}
+    func resendVerification(to email: String) async throws {}
+    func requestPasswordReset(for email: String) async throws {}
+    func resetPassword(email: String, code: String, newPassword: String) async throws {}
     func refreshStatus() async throws {}
     func redeemInvite(_ code: String) async throws {}
     func waitlistPosition() async throws -> Int? { nil }

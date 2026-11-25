@@ -18,6 +18,12 @@ nonisolated enum DomainError: Error, Hashable, Sendable {
     // Raised by Supabase Auth or the auth hook; mapped in `AuthService` (B5).
     case emailNotAllowed, schoolApprovalNeeded, signInFailed, tooManyAttempts, invalidCredentials
     case emailTaken, weakPassword
+    /// The 6-digit code from the sign-up or reset email is wrong or expired (N39). Supabase says
+    /// `otp_expired` for both.
+    case invalidCode
+    /// Signing in to an account that hasn't entered its sign-up code. Onboarding sends a new code and
+    /// opens the code step instead of showing this.
+    case emailNotVerified
 
     // Client side.
     case offline
@@ -81,6 +87,8 @@ nonisolated enum DomainError: Error, Hashable, Sendable {
         case .invalidCredentials: String.app("That email and password don't match.")
         case .emailTaken: String.app("There's already an account with that email. Sign in instead.")
         case .weakPassword: String.app("Pick a stronger password: at least 8 characters.")
+        case .invalidCode: String.app("That code doesn't work or has expired. Check it or send a new one.")
+        case .emailNotVerified: String.app("Confirm your email with the code we sent you.")
         case .offline: String.app("You're offline. Try again when you're connected.")
         case .unknown: String.app("Something went wrong. Try again.")
         }

@@ -8,17 +8,17 @@ create function pg_temp.act_as(p_user uuid) returns void language sql as $$
     select set_config('request.jwt.claim.sub', coalesce(p_user::text, ''), true)
 $$;
 
--- Alice is a member. Pía, Pablo, Paco and Pepa signed up with a password and are waiting.
+-- Alice is a member. Pía, Pablo, Paco and Pepa signed up with a password, entered their code and are waiting.
 insert into auth.users (id, email) values
     ('a0000000-0000-4000-8000-00000000000a', 'alice@tec.mx'),
     ('10000000-0000-4000-8000-000000000001', 'pia@tec.mx'),
     ('20000000-0000-4000-8000-000000000002', 'pablo@tec.mx'),
     ('30000000-0000-4000-8000-000000000003', 'paco@tec.mx'),
     ('40000000-0000-4000-8000-000000000004', 'pepa@tec.mx');
-select public.before_user_created('{"user":{"email":"pia@tec.mx","app_metadata":{"provider":"email"}}}');
-select public.before_user_created('{"user":{"email":"pablo@tec.mx","app_metadata":{"provider":"email"}}}');
-select public.before_user_created('{"user":{"email":"paco@tec.mx","app_metadata":{"provider":"email"}}}');
-select public.before_user_created('{"user":{"email":"pepa@tec.mx","app_metadata":{"provider":"email"}}}');
+select private.signup_verified('pia@tec.mx');
+select private.signup_verified('pablo@tec.mx');
+select private.signup_verified('paco@tec.mx');
+select private.signup_verified('pepa@tec.mx');
 
 set local role authenticated;
 select pg_temp.act_as('a0000000-0000-4000-8000-00000000000a');
