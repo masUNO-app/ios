@@ -366,7 +366,10 @@ invite code or open sign-up lets the account in (N36, N37). School SSO is below 
    (`auth_users_email_verified`, when `email_confirmed_at` is first set on an `email` account we sent a code to)
    runs `private.signup_verified`: it adds the row to `private.signup_requests` (a website request keeps its
    place) with `verified_at`, and posts "New sign-up waiting for approval (email verified)" to the team Discord.
-   An allowlisted address is approved instead, quietly. While `app_config.signup_auto_approve` is `true`, every
+   An allowlisted address is approved instead, quietly. If an `email` account is confirmed with no code sent
+   ("Confirm email" off, or made in the dashboard), the same trigger falls back to N36: an unverified request
+   that waits, with an alert saying so (allowlisted addresses excepted). A password account with no profile,
+   no request and no allowlist entry is always `'pending'`, so nothing gets in unrecorded. While `app_config.signup_auto_approve` is `true`, every
    verified account is approved and the team gets an FYI. **Send a new code:** `auth.resend(email, type: .signup)`,
    once a minute. Codes last 15 minutes. Accounts that never enter one are deleted after 24 hours
    (`delete-unverified-signups`, hourly), unless they hold a waitlist place.

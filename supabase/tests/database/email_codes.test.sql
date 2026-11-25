@@ -63,18 +63,20 @@ update auth.users set email_confirmed_at = null where id = 'a0000000-0000-4000-8
 select pg_temp.enter_code('a0000000-0000-4000-8000-00000000000a');
 select is(pg_temp.alerts(), 1::bigint, 'verifying again changes nothing');
 
--- Accounts we never emailed a code to don't get a request: the dashboard's "Auto confirm" and SSO.
+-- An SSO account gets no request: the school proved the address. A password account confirmed without
+-- a code we sent (the dashboard's "Auto confirm", or "Confirm email" off) waits unverified, as in N36
+-- (20261128000100; email_codes_fail_closed covers the rest).
 insert into auth.users (id, email, raw_app_meta_data) values
     ('d0000000-0000-4000-8000-00000000000d', 'dash@tec.mx', '{"provider": "email"}'),
     ('e0000000-0000-4000-8000-00000000000e', 'sso@tec.mx', '{"provider": "azure"}');
 update auth.users set confirmation_sent_at = now() where id = 'e0000000-0000-4000-8000-00000000000e';
 select pg_temp.enter_code('d0000000-0000-4000-8000-00000000000d');
 select pg_temp.enter_code('e0000000-0000-4000-8000-00000000000e');
-select is((select count(*) from private.signup_requests where email in ('dash@tec.mx', 'sso@tec.mx')), 0::bigint,
-    'a dashboard or SSO account goes straight in, with no request');
+select is((select count(*) from private.signup_requests where email = 'sso@tec.mx'), 0::bigint,
+    'an SSO account goes straight in, with no request');
 set local role authenticated;
 select pg_temp.act_as('d0000000-0000-4000-8000-00000000000d');
-select is(public.signup_status(), 'approved', 'and is approved');
+select is(public.signup_status(), 'pending', 'a password account confirmed without a code waits');
 reset role;
 
 -- Wendy joined on the website first; verifying in the app keeps her place.

@@ -32,6 +32,7 @@ projects from same-repository PRs and from `main`, as requested for this project
 | `20261126000200_esports_at_1_0` | Esports (Valorant, CS:GO, League) and its kind need 1.0 |
 | `20261127000000_props` | Props after every plan and the opt-in monthly leaderboard (1.0), behind `app_config.props_enabled` |
 | `20261128000000_email_codes` | Email codes (1.0, N39): the request starts when the sign-up code is entered (`auth_users_email_verified` → `private.signup_verified`), `signup_requests.verified_at`, `signup_status()` answers `'unverified'`, `app_config.signup_auto_approve` and `private.set_signup_auto_approve`, the hourly `delete-unverified-signups`, and accounts waiting from before enter a code on their next sign-in |
+| `20261128000100_email_codes_fail_closed` | Email codes fail closed: a password account confirmed without a code (Confirm email off, or made in the dashboard and not allowlisted) waits for approval as in N36, with an alert saying it isn't verified; a password account with no record waits; `approve_signup` approves one with no request |
 
 ## Local setup
 
@@ -179,7 +180,9 @@ request keeps its website time and source. Rejecting a website request that has 
 (and its Sheet row says "Removed"). Non-school emails stay in the Sheet as launch news and never appear here.
 
 The code proves the person owns the address, so approving is a question of how fast to let people in, not
-of vouching for them. If the alert doesn't arrive, the request is still in the table and Postgres logs a
+of vouching for them. An alert that says **email NOT verified** means the account got in without a code:
+"Confirm email" is off on that project (turn it back on), or someone made a non-allowlisted account in the
+dashboard. Nothing gets in unrecorded either way: those accounts wait like any other. If the alert doesn't arrive, the request is still in the table and Postgres logs a
 warning. Students reset a forgotten password themselves, with a code from **Forgot your password?** on Sign in.
 
 **Opening sign-up.** `select private.set_signup_auto_approve(true);` makes the code enough to get in: every
