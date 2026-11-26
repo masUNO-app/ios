@@ -104,7 +104,7 @@ final class CompatibilityUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Your account"].waitForExistence(timeout: 5))
 
         app.buttons["Create account"].tap()
-        XCTAssertTrue(app.staticTexts["Create your account"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Make it official"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.secureTextFields["At least 8 characters"].exists)
         // The older-system pill style must preserve the underlying button's disabled state.
         XCTAssertFalse(app.buttons["Create account"].isEnabled)
