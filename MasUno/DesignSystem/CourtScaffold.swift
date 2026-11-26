@@ -10,7 +10,7 @@ struct CourtScaffold<Sheet: View>: View {
     var capacity: Int
     var holdsYou: Bool
     var showsOpenSpots: Bool
-    /// Tapping the court. Without one the court is only a picture: no taps, hidden from VoiceOver.
+    /// Tapping the court. Without one the court is only a picture: no taps, read as an image of who's on it.
     var onTap: (() -> Void)?
     /// What the tap does, for VoiceOver.
     var tapHint: LocalizedStringKey
@@ -95,11 +95,11 @@ struct CourtScaffold<Sheet: View>: View {
                 // Over the content column, not under a side bar.
                 CourtHeader(
                     activity: activity, lineup: lineup, capacity: capacity, scale: scale,
-                    holdsYou: holdsYou, showsOpenSpots: showsOpenSpots, tapHint: tapHint, onTap: onTap ?? {}
+                    holdsYou: holdsYou, showsOpenSpots: showsOpenSpots, tapHint: tapHint, onTap: onTap ?? {},
+                    isPicture: onTap == nil
                 )
                 .environment(\.courtDecorationVisible, courtIsVisible)
                 .allowsHitTesting(onTap != nil)
-                .accessibilityHidden(onTap == nil)
                 .frame(maxHeight: .infinity, alignment: .top)
                 // Sport color behind the court for the pull-down bounce. A color background
                 // also fills the safe areas: the side bar's, the bottom bar's.

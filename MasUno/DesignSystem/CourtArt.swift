@@ -323,6 +323,8 @@ struct CourtHeader: View {
     /// What a tap does, for VoiceOver: a guest gets the account prompt instead of the list.
     var tapHint: LocalizedStringKey = "Shows who's going"
     var onTap: () -> Void = {}
+    /// Only a picture (onboarding): VoiceOver reads who's on it as an image, with nothing to do.
+    var isPicture = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Counts the times you joined while the court was on screen; each one sets off a hop.
@@ -375,10 +377,7 @@ struct CourtHeader: View {
         .modifier(CourtMotionPolicy())
         .accessibilityElement()
         .accessibilityLabel(Text(verbatim: lineup.accessibilityLabel))
-        .accessibilityAddTraits(.isButton)
-        .accessibilityHint(tapHint)
-        // Its own action rather than a simulated tap on the middle of the court (A11Y-20).
-        .accessibilityAction { onTap() }
+        .modifier(CourtAccessibility(isPicture: isPicture, hint: tapHint, onTap: onTap))
     }
 
     /// One spot on the court. People keep their identity as others come and go, and an open
@@ -457,6 +456,26 @@ struct CourtHeader: View {
     private func labelOffset(_ place: Place, slots: CourtLayout.Slots) -> CGFloat {
         if case .person = place.kind, slots.showsNames { return 9 * scale }
         return 0
+    }
+}
+
+/// A court that can be tapped is a button with Who's going as its action; a picture is an image.
+/// Either way it's one element named for who's on it, so the initials on it aren't left unread.
+private struct CourtAccessibility: ViewModifier {
+    var isPicture: Bool
+    var hint: LocalizedStringKey
+    var onTap: () -> Void
+
+    func body(content: Content) -> some View {
+        if isPicture {
+            content.accessibilityAddTraits(.isImage)
+        } else {
+            content
+                .accessibilityAddTraits(.isButton)
+                .accessibilityHint(hint)
+                // Its own action rather than a simulated tap on the middle of the court (A11Y-20).
+                .accessibilityAction { onTap() }
+        }
     }
 }
 

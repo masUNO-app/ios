@@ -189,7 +189,7 @@ extension GuideRow where Icon == AnyView {
 
 /// A court at the top, its content as the sheet, and a pinned bottom action (J3, You're all set).
 /// When the sheet runs on under the buttons, a hint says there's more.
-/// The court is only a picture: no taps, hidden from VoiceOver.
+/// The court is only a picture: no taps, read by VoiceOver as an image of who's on it.
 struct CourtPage<Content: View, Footer: View>: View {
     var activity: Activity
     var lineup: Lineup
