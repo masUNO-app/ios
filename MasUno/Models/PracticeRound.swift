@@ -42,29 +42,45 @@ enum PracticeRound {
 
     // MARK: Welcome carousel
 
-    /// The five courts Welcome cycles through, as on the website's hero.
+    /// The built-in sports, for the practice map's other pins.
     static var welcomeSports: [Activity] { Activity.builtIn.sorted { $0.sortOrder < $1.sortOrder } }
+
+    /// The courts Welcome cycles through, as on the website's hero: every active activity in the
+    /// server's catalog, which serves esports to 1.0 and later (`activity_catalog`). Before the
+    /// catalog loads, the built-in sports.
+    static func welcomeSports(from catalog: [Activity]) -> [Activity] {
+        let active = catalog.filter(\.active).sorted { $0.sortOrder < $1.sortOrder }
+        return active.isEmpty ? welcomeSports : active
+    }
 
     /// Who's already on each Welcome court, and how many spots it has. One open spot is the one
     /// you can take ("Be the +1").
     static func welcomeCourt(for sport: Activity) -> (people: [PersonSummary], capacity: Int) {
         switch sport.slug {
+        case "basketball": ([alex, ricardo], 6)
         case "tennis": ([priya, ben], 4)
         case "soccer": ([diego, sam, nina, jules, leo, maya, ben], 10)
         case "volleyball": ([sam, nina, jules, leo, maya, priya, diego], 11)
         case "padel": ([sofia, nina, ben], 4)
+        // A 5-stack around the screen, as on the website: four in, one to go.
+        case _ where sport.isEsport: ([ricardo, maya, sofia, diego], 5)
         default: ([alex, ricardo], 6)
         }
     }
 
-    /// The speech bubble over each Welcome court.
+    /// The speech bubble over each Welcome court; the website's lines.
     static func welcomeCall(for sport: Activity) -> String {
         switch sport.slug {
+        case "basketball": String.app("Need 1 more for 3v3")
         case "tennis": String.app("Need one more for doubles!")
         case "soccer": String.app("Need 1 more for 5-a-side")
         case "volleyball": String.app("One more and we can start")
         case "padel": String.app("Need a fourth for padel")
-        default: String.app("Need 1 more for 3v3")
+        case "valorant": String.app("Need a fifth for Valorant")
+        case "csgo": String.app("One more for a 5-stack")
+        case "league": String.app("Need a support for League")
+        // An activity added on the server after this build.
+        default: String.app("Need one more for \(sport.name)")
         }
     }
 
@@ -88,7 +104,7 @@ enum PracticeRound {
         case "soccer": (String.app("5-a-side kickabout"), String.app("Ball and bibs covered. Just show up."))
         case "volleyball": (String.app("Sunset volleyball"), String.app("Casual games, everyone rotates in."))
         case "padel": (String.app("Padel, need a fourth"), String.app("Spare racket if you need one."))
-        default: (String.app("Game night"), String.app("Chill games, all levels welcome."))
+        default: (String.app("\(sport.name) night"), String.app("Chill games, all levels welcome."))
         }
         return PracticePlan(activity: sport, title: title, capacity: capacity(for: sport), notes: notes)
     }
@@ -173,6 +189,7 @@ enum PracticeRound {
         case "soccer": String.app("\(campusName) soccer field")
         case "volleyball": String.app("\(campusName) volleyball courts")
         case "padel": String.app("\(campusName) padel courts")
+        case _ where sport.isEsport: String.app("\(campusName) game room")
         default: String.app("\(campusName) student center")
         }
         let center = campus?.center ?? CLLocationCoordinate2D(latitude: 0, longitude: 0)

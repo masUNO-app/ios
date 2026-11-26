@@ -6,6 +6,7 @@ import SwiftUI
 /// only things to do here are the buttons under it.
 struct WelcomeScreen: View {
     @Environment(AppViewModel.self) private var appViewModel
+    @Environment(GameStore.self) private var store
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
     @Environment(\.scenePhase) private var scenePhase
@@ -27,9 +28,10 @@ struct WelcomeScreen: View {
 
     /// How long each sport stays up, as on the website.
     static let interval: Duration = .milliseconds(4200)
-    private let sports = PracticeRound.welcomeSports
+    /// The catalog's activities: esports too from 1.0.
+    private var sports: [Activity] { PracticeRound.welcomeSports(from: store.activities) }
 
-    private var sport: Activity { sports[sportIndex] }
+    private var sport: Activity { sports[sportIndex % sports.count] }
     private var court: (people: [PersonSummary], capacity: Int) { PracticeRound.welcomeCourt(for: sport) }
 
     private var lineup: Lineup {
@@ -94,6 +96,7 @@ struct WelcomeScreen: View {
         .animation(.easeOut(duration: 0.2), value: hasMore)
         .toolbar(.hidden, for: .navigationBar)
         .task(id: CycleKey(index: sportIndex, isCycling: isCycling)) { await runTimer() }
+        .task { await store.loadCatalogIfNeeded() }
     }
 
     private func scrollToEnd() {
@@ -156,7 +159,7 @@ struct WelcomeScreen: View {
                 .position(x: inset + spot.x * scale, y: spot.y * scale + (tagIsAbove ? -shift : shift))
                 .animation(reduceMotion ? nil : .spring(duration: 0.5, bounce: 0.25), value: sportIndex)
 
-            SportDots(sports: sports, selection: sportIndex, fill: fill)
+            SportDots(sports: sports, selection: sportIndex % sports.count, fill: fill)
                 .position(x: width / 2, y: sheetTop - 30)
         }
         .frame(width: width, alignment: .topLeading)

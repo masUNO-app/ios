@@ -1,6 +1,66 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@ game room" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sala de juegos del %@"
+          }
+        }
+      }
+    },
+    "%@ night" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Noche de %@"
+          }
+        }
+      }
+    },
+    "Need a fifth for Valorant" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Falta el quinto para Valorant"
+          }
+        }
+      }
+    },
+    "Need a support for League" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Falta un support para League"
+          }
+        }
+      }
+    },
+    "Need one more for %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Falta uno para %@"
+          }
+        }
+      }
+    },
+    "One more for a 5-stack" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uno más y somos cinco"
+          }
+        }
+      }
+    },
     "You on a court, with %@ and %@" : {
       "localizations" : {
         "en" : {
@@ -2966,16 +3026,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Juego"
-          }
-        }
-      }
-    },
-    "Game night" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Noche de juegos"
           }
         }
       }

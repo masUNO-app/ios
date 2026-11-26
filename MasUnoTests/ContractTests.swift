@@ -875,6 +875,24 @@ struct OnboardingFlowTests {
         #expect(model.waitlistAheadLine == (ahead == 0 ? "You're next" : ahead == 1 ? "1 person ahead of you" : "\(ahead) people ahead of you"))
     }
 
+    /// 1.0: Welcome's carousel is the server's catalog, so esports join it once the catalog serves them.
+    @Test func welcomeCarouselFollowsTheCatalog() {
+        #expect(PracticeRound.welcomeSports(from: []) == PracticeRound.welcomeSports)
+        let carousel = PracticeRound.welcomeSports(from: Activity.esports + Activity.builtIn)
+        #expect(carousel.map(\.slug) == ["basketball", "tennis", "soccer", "volleyball", "padel", "valorant", "csgo", "league"])
+
+        var retired = MockFixtures.activity("padel")
+        retired.active = false
+        #expect(!PracticeRound.welcomeSports(from: Activity.builtIn.filter { $0.slug != "padel" } + [retired]).contains(retired))
+
+        let valorant = MockFixtures.activity("valorant")
+        let court = PracticeRound.welcomeCourt(for: valorant)
+        #expect(court.capacity == 5)
+        #expect(court.people.count == 4)
+        #expect(PracticeRound.welcomeCall(for: valorant) == "Need a fifth for Valorant")
+        #expect(PracticeRound.suggestedPlan(for: valorant).title == "Valorant night")
+    }
+
     @Test func practicePlansAreOnlyPretend() {
         let soccer = MockFixtures.activity("soccer")
         let now = Date.now

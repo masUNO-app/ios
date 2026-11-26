@@ -237,6 +237,10 @@ nonisolated enum CourtLayout {
         case (_, 3...4):
             let points = [(111, 184), (295, 178), (126, 314), (287, 308)]
             return Slots(points: Array(points.prefix(count)).map(point), tokenSize: 44, showsNames: true, featured: 2)
+        case (.screen, 4...5):
+            // Around the screen as on the website's esports hero, clear of the bottom of the court.
+            let points = [(52, 246), (92, 168), (262, 164), (262, 280), (346, 214)]
+            return Slots(points: Array(points.prefix(count)).map(point), tokenSize: 44, showsNames: true, featured: 1)
         case (.soccer, 9...10):
             let points = [(62, 163), (155, 155), (252, 166), (344, 155), (105, 250), (201, 242), (299, 252), (78, 337), (201, 328), (322, 339)]
             return Slots(points: Array(points.prefix(count)).map(point), tokenSize: 44, showsNames: true, featured: 5)
