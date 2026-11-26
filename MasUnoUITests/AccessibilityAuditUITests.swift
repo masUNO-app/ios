@@ -40,6 +40,9 @@ final class AccessibilityAuditUITests: XCTestCase {
                   limits: ["detail-open": 1, "detail-hosting": 1, "who": 1, "report": 1, "me": 1, "me-hosting": 1, "blocked": 1],
                   reason: "Person token initials, hidden from VoiceOver on purpose: the name is read from the row or card. Un-hiding them clears these (checked Nov 19)"),
         Allowance(type: .elementDetection, element: "",
+                  limits: ["onboarding-welcome": 2, "onboarding-join3": 1, "onboarding-allset": 1],
+                  reason: "Onboarding's courts are pictures, hidden from VoiceOver: the people's initials and first names on them. Likely, not confirmed by elimination (Nov 25)"),
+        Allowance(type: .elementDetection, element: "",
                   limits: ["profile": 4, "invites": 3, "onboarding-about": 1],
                   reason: "Not identified: the audit names no element, and it isn't the person tokens. Recheck in Accessibility Inspector"),
         Allowance(type: .elementDetection, element: "",
@@ -85,12 +88,19 @@ final class AccessibilityAuditUITests: XCTestCase {
         Screen("blocked") { $0.buttons["Unblock Sam L."] },
     ]
     @MainActor static let onboarding = [
+        Screen("onboarding-welcome") { $0.buttons["Show me how it works"] },
+        Screen("onboarding-sports") { $0.buttons["Continue"] },
+        Screen("onboarding-start") { $0.buttons["Start practice round"] },
+        Screen("onboarding-join1") { $0.buttons["End practice round"] },
+        Screen("onboarding-join3") { $0.buttons["Make it official"] },
+        Screen("onboarding-host2") { $0.buttons["Create plan"] },
+        Screen("onboarding-allset") { $0.buttons["Go to the map"] },
         Screen("onboarding-signup") { $0.buttons["Create account"] },
         Screen("onboarding-signin") { $0.buttons["Sign in"] },
         Screen("onboarding-verify") { $0.buttons["Use a different email"] },
         Screen("onboarding-reset") { $0.buttons["Save password"] },
-        Screen("onboarding-pending") { $0.buttons["Check again"] },
-        Screen("onboarding-about") { $0.buttons["Let's go"] },
+        Screen("onboarding-pending") { $0.buttons["Sign out"] },
+        Screen("onboarding-about") { $0.buttons["Continue"] },
         Screen("onboarding-guidelines") { $0.buttons["I agree"] },
     ]
 

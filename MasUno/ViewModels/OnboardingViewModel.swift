@@ -1,15 +1,28 @@
 import Observation
 import SwiftUI
 
-/// Onboarding (E5, SPEC §7.5), driven by `AuthService`: sign up with a school email and a
-/// password, enter the code from the email (N39), wait on the waitlist until the team or an invite
-/// lets you in (N36, N37), then `complete_profile` and `accept_guidelines`. A forgotten password is
-/// reset with an emailed code from Sign in.
+/// Onboarding (E5, SPEC §7.5; Figma "Onboarding, reimagined", 0R), driven by `AuthService`. It
+/// starts with a practice round that teaches by doing: Welcome → What do you play? → How do you want
+/// to start? → a pretend plan to join or make. Then the account: sign up with a school email and a
+/// password ("Make it official"), enter the code from the email (N39), wait in line until the team
+/// or an invite lets you in (N36, N37), then `complete_profile` and `accept_guidelines`, and You're
+/// all set before the map. A forgotten password is reset with an emailed code from Sign in.
 /// The school SSO step (`findSchool`, `continueWithSchool`) is kept but nothing opens it.
 @Observable
 final class OnboardingViewModel {
     enum Step: Hashable {
-        case signUp, signIn, pending, verified, guidelines
+        /// "What do you play?": the sports, the first of them for the practice round.
+        case sports
+        /// "How do you want to start?": join or make a pretend plan, or skip the tour.
+        case start
+        /// The practice map: find the pin and take the spot, or make a plan.
+        case practice(PracticeMode)
+        /// "That's it. You're in!": the pretend plan's court with you on it.
+        case practiceJoined
+        /// "Make it official" is `signUp`.
+        case signUp, signIn, pending, guidelines
+        /// "You're all set": signed in, the last screen before the map.
+        case allSet
         /// "Check your email": the 6-digit sign-up code (N39).
         case verifyEmail
         /// Forgot your password: the emailed code and a new password.
@@ -26,8 +39,8 @@ final class OnboardingViewModel {
             switch self {
             // The code step offers "Use a different email" instead, so a restored session can't land
             // on Welcome while still signed in.
-            case .verifyEmail, .pending, .verified, .about, .guidelines: true
-            case .signUp, .signIn, .resetPassword, .findSchool, .guestCampus: false
+            case .verifyEmail, .pending, .about, .guidelines, .allSet: true
+            case .sports, .start, .practice, .practiceJoined, .signUp, .signIn, .resetPassword, .findSchool, .guestCampus: false
             }
         }
     }
@@ -38,7 +51,25 @@ final class OnboardingViewModel {
     }
 
     var path: [Step] = []
-    var isSignInSheetPresented = false
+
+    // The practice round.
+    /// The sports picked on What do you play?, in the order they were tapped: the first is the
+    /// practice round's. The profile starts from these (`interests`).
+    private(set) var picks: [Activity] = []
+    /// Join or make a plan, picked on How do you want to start?
+    var practiceMode: PracticeMode = .join
+    /// What the practice round ended with, for the "Practice round done" note on Make it official.
+    private(set) var practiceOutcome: PracticeMode?
+    /// Make a plan's fields in the practice. Kept from the first time they're filled in.
+    var practicePlan: PracticePlan?
+    /// "Keep this plan": Make a plan opens with `practicePlan` once the account is in.
+    private(set) var keepsPracticePlan = false
+    /// The campus under the practice map: the only open one, or the first open one once loaded.
+    private(set) var mapCampus: University?
+    #if DEBUG
+    /// `-screen onboarding-join2` and the like open the practice map at that stage.
+    var debugPracticeStage: PracticeMapStep.Stage?
+    #endif
 
     private(set) var schools: [University] = []
     private(set) var isLoadingSchools = false
@@ -112,6 +143,9 @@ final class OnboardingViewModel {
 
     /// Set by the root. A finished sign-in keeps the session, even if an earlier sign-out could not drop the token.
     @ObservationIgnored var onSignedIn: (() -> Void)?
+    /// Set by the root: true keeps onboarding up after the account is signed in, for You're all
+    /// set; false lets the map take over.
+    @ObservationIgnored var holdsOnboarding: ((Bool) -> Void)?
 
     @ObservationIgnored private let auth: any AuthService
     @ObservationIgnored private let catalog: any AppConfigRepository
@@ -124,6 +158,7 @@ final class OnboardingViewModel {
         self.auth = auth
         self.catalog = catalog
         self.campus = campus
+        mapCampus = campus
         switch auth.state {
         case .signedOut(expired: true):
             path = [.signIn]
@@ -146,8 +181,61 @@ final class OnboardingViewModel {
     // MARK: Presentation
 
     var welcomeMessage: LocalizedStringKey {
-        if let campus { return "Plans around \(campus.shortName) that are just one or two people short. Grab the open spot and tag along today." }
-        return "Plans on campus that are just one or two people short. Grab the open spot and tag along today."
+        if let campus { return "Plans around \(campus.shortName) that are one or two people short. Take the open spot, or post your own." }
+        return "Plans on campus that are one or two people short. Take the open spot, or post your own."
+    }
+
+    /// The practice round's sport: the first one picked, else the first of the built-in ones.
+    var practiceSport: Activity {
+        picks.first ?? Activity.builtIn[0]
+    }
+
+    /// The plan made in the practice: what was typed, or the suggestion for the sport.
+    var currentPracticePlan: PracticePlan {
+        if let practicePlan, practicePlan.activity == practiceSport { return practicePlan }
+        return PracticeRound.suggestedPlan(for: practiceSport)
+    }
+
+    /// The plan to open in Make a plan once the account is in, if "Keep this plan" was tapped.
+    var planToPost: PracticePlan? {
+        keepsPracticePlan ? currentPracticePlan : nil
+    }
+
+    /// "Practice round done" on Make it official: what it saves.
+    var practiceDoneLine: String? {
+        switch practiceOutcome {
+        case .join: String.app("Now you know how to take a spot.")
+        case .host: String.app("Once you're in, we'll open your plan to post it.")
+        case nil: nil
+        }
+    }
+
+    /// Under "Make it official".
+    var makeItOfficialMessage: LocalizedStringKey {
+        if let campus { return "Use your \(campus.shortName) email (@\(campus.emailDomain)). Got a friend's invite code? You skip the waitlist." }
+        return "Use your school email. Got a friend's invite code? You skip the waitlist."
+    }
+
+    /// Under "You're #12 in line".
+    var waitlistMessage: LocalizedStringKey {
+        if let campus { return "\(campus.shortName) students get in in waves. We'll let you know the moment it's your turn." }
+        return "Students get in in waves. We'll let you know the moment it's your turn."
+    }
+
+    /// "11 people ahead of you", under the line on the waitlist.
+    var waitlistAheadLine: String? {
+        guard let waitlistPosition else { return nil }
+        switch waitlistPosition - 1 {
+        case ..<1: return String.app("You're next")
+        case 1: return String.app("1 person ahead of you")
+        case let ahead: return String.app("\(ahead) people ahead of you")
+        }
+    }
+
+    /// "You're all set, Emilio!"
+    var allSetTitle: String {
+        let first = firstName.trimmingCharacters(in: .whitespaces)
+        return first.isEmpty ? String.app("You're all set!") : String.app("You're all set, \(first)!")
     }
 
     /// The open campuses a guest can browse, narrowed by the search.
@@ -168,29 +256,6 @@ final class OnboardingViewModel {
                 $0.range(of: query, options: [.caseInsensitive, .diacriticInsensitive]) != nil
             }
         }
-    }
-
-    /// "Welcome to masUNO, Emilio." when the school told us a name; otherwise just the welcome.
-    var verifiedWelcome: String {
-        let first = firstName.trimmingCharacters(in: .whitespaces)
-        return first.isEmpty ? String.app("Welcome to masUNO.") : String.app("Welcome to masUNO, \(first).")
-    }
-
-    /// "Tec de Monterrey · school account", under "Verified student".
-    var verifiedSchoolLine: String {
-        guard let school = selectedSchool ?? campus else { return String.app("School account") }
-        return String.app("\(school.name) · school account")
-    }
-
-    /// The name from the school's sign-in, if it gave one.
-    var verifiedName: String? {
-        let name = "\(firstName) \(lastName)".trimmingCharacters(in: .whitespaces)
-        return name.isEmpty ? nil : name
-    }
-
-    var signUpMessage: LocalizedStringKey {
-        if let campus { return "masUNO is invite-only for now. Use your \(campus.shortName) email (@\(campus.emailDomain)). With an invite code you're in right away; without one you join the waitlist." }
-        return "masUNO is invite-only for now. Use your school email. With an invite code you're in right away; without one you join the waitlist."
     }
 
     /// The rate limit on codes is per hour, so it says so; the chat's "too fast" wording doesn't fit here.
@@ -259,19 +324,83 @@ final class OnboardingViewModel {
 
     // MARK: Intents
 
-    /// **Get started** on Welcome: "Quick check before you join". Location is asked on the map (C11).
-    func getStarted() {
-        isSignInSheetPresented = true
+    /// **Show me how it works** on Welcome. Location is asked on the map (C11).
+    func showHowItWorks() {
+        path.append(.sports)
     }
 
-    func createAccount() {
-        isSignInSheetPresented = false
+    /// **I already have an account**, on Welcome and Make it official.
+    func haveAnAccount() {
+        path.append(.signIn)
+    }
+
+    /// A sport on What do you play? The first one still picked is the practice round's.
+    func togglePick(_ sport: Activity) {
+        if let index = picks.firstIndex(of: sport) {
+            picks.remove(at: index)
+        } else {
+            picks.append(sport)
+        }
+        interests = Set(picks)
+    }
+
+    /// **Continue** on What do you play?
+    func continueFromSports() {
+        guard !picks.isEmpty else { return }
+        path.append(.start)
+    }
+
+    /// **Start practice round**.
+    func startPractice() {
+        path.append(.practice(practiceMode))
+    }
+
+    /// **Skip the tour** and **Skip tour**: straight to Make it official.
+    func skipTour() {
         path.append(.signUp)
     }
 
-    func haveAnAccount() {
-        isSignInSheetPresented = false
-        path.append(.signIn)
+    /// The practice round's ✕: back to How do you want to start?
+    func endPractice() {
+        guard let start = path.lastIndex(of: .start) else { return path = [] }
+        path = Array(path.prefix(through: start))
+    }
+
+    /// The practice map's campus when several are open: the first open one. Quiet: without it
+    /// the map is a plain background.
+    func loadMapCampus() async {
+        guard mapCampus == nil else { return }
+        mapCampus = try? await catalog.fetchUniversities().first(where: \.signupEnabled)
+    }
+
+    /// **Count me in** on the practice plan.
+    func takePracticeSpot() {
+        practiceOutcome = .join
+        path.append(.practiceJoined)
+    }
+
+    /// **Create plan** in the practice.
+    func makePracticePlan(_ plan: PracticePlan) {
+        practicePlan = plan
+        practiceOutcome = .host
+    }
+
+    /// **Try hosting a plan too** / **Try joining a plan too**.
+    func tryOtherPractice(_ mode: PracticeMode) {
+        practiceMode = mode
+        path.append(.practice(mode))
+    }
+
+    /// **Make it official** after joining the practice plan.
+    func makeItOfficial() {
+        path.append(.signUp)
+    }
+
+    /// **Keep this plan**: on to the account, and Make a plan opens with it once that's done.
+    func keepPracticePlan() {
+        keepsPracticePlan = true
+        practiceOutcome = .host
+        path.append(.signUp)
     }
 
     /// After guest browse: jump straight to Create account or Sign in.
@@ -441,7 +570,7 @@ final class OnboardingViewModel {
             isStillPending = auth.state == .pendingApproval && !quietly
             if auth.state == .needsProfile {
                 fillInName()
-                path = [.verified]
+                path = [.about]
             } else {
                 advance()
             }
@@ -461,7 +590,6 @@ final class OnboardingViewModel {
     // MARK: School SSO (unused, N36)
 
     func findMySchool() {
-        isSignInSheetPresented = false
         path.append(.findSchool)
     }
 
@@ -490,7 +618,7 @@ final class OnboardingViewModel {
             switch auth.state {
             case .needsProfile:
                 fillInName()
-                path.append(.verified)
+                path.append(.about)
             case .needsGuidelines:
                 path.append(.guidelines)
             default:
@@ -622,12 +750,27 @@ final class OnboardingViewModel {
         } onError: { profileError = $0 }
     }
 
+    /// **I agree**: signs the account in, and You're all set shows before the map.
     func agreeToGuidelines() async {
         guidelinesError = nil
+        holdsOnboarding?(true)
         await work {
             try await auth.acceptGuidelines()
             noteIfSignedIn()
-        } onError: { guidelinesError = $0 }
+            if case .signedIn = auth.state {
+                path.append(.allSet)
+            } else {
+                holdsOnboarding?(false)
+            }
+        } onError: {
+            holdsOnboarding?(false)
+            guidelinesError = $0
+        }
+    }
+
+    /// **Go to the map** on You're all set.
+    func finishOnboarding() {
+        holdsOnboarding?(false)
     }
 
     // MARK: Helpers
@@ -656,12 +799,12 @@ final class OnboardingViewModel {
         }
     }
 
-    /// Approved while waiting, by the team or an invite: You're in, then the profile.
+    /// Approved while waiting, by the team or an invite: on to Make it yours.
     private func enterAfterApproval() {
         guard auth.state == .needsProfile else { return advance() }
         waitlistPosition = nil
         fillInName()
-        path = [.verified]
+        path = [.about]
     }
 
     private var hasInviteCode: Bool { !Invite.normalized(inviteCode).isEmpty }

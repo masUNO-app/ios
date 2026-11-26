@@ -68,6 +68,10 @@ struct ContentView: View {
                 Task {
                     await appViewModel.finishPendingSignOutIfNeeded()
                     guard appViewModel.session == .signedIn || appViewModel.session == .guest else { return }
+                    // Browsing while in line: the team may have let them in since.
+                    if appViewModel.session == .guest, appViewModel.isWaitingInLine {
+                        try? await appViewModel.auth.refreshStatus()
+                    }
                     await store.refresh()
                     if appViewModel.session == .signedIn {
                         await appViewModel.push?.refreshRegistration(force: false)
@@ -94,23 +98,40 @@ struct ContentView: View {
                 .environment(services.push)
         }
         .dialog(item: Bindable(appViewModel).accountPrompt) { prompt in
-            DialogCard(
-                systemImage: "checkmark.shield",
-                title: Text(verbatim: prompt.title),
-                message: Text(verbatim: prompt.message),
-                confirm: DialogAction("Create account") {
-                    appViewModel.endGuestBrowsing(resume: .signUp, store: store)
-                },
-                cancel: DialogAction("I already have an account") {
-                    appViewModel.endGuestBrowsing(resume: .signIn, store: store)
-                },
-                tertiary: prompt == .me && appViewModel.canSwitchGuestCampus
-                    ? DialogAction("Browse another campus") {
-                        appViewModel.endGuestBrowsing(resume: .guestCampus, store: store)
-                    }
-                    : nil
-            )
+            if appViewModel.isWaitingInLine {
+                // Browsing while in line: the account is made, it's just not in yet.
+                DialogCard(
+                    systemImage: "ticket",
+                    title: Text("You're still in line"),
+                    message: Text("Joining, saving and making plans open up once you're in. We'll let you know."),
+                    confirm: DialogAction("Back to the line") {
+                        appViewModel.endGuestBrowsing(store: store)
+                    },
+                    cancel: DialogAction("Keep browsing")
+                )
+            } else {
+                accountCard(prompt)
+            }
         }
+    }
+
+    private func accountCard(_ prompt: AppViewModel.AccountPrompt) -> some View {
+        DialogCard(
+            systemImage: "checkmark.shield",
+            title: Text(verbatim: prompt.title),
+            message: Text(verbatim: prompt.message),
+            confirm: DialogAction("Create account") {
+                appViewModel.endGuestBrowsing(resume: .signUp, store: store)
+            },
+            cancel: DialogAction("I already have an account") {
+                appViewModel.endGuestBrowsing(resume: .signIn, store: store)
+            },
+            tertiary: prompt == .me && appViewModel.canSwitchGuestCampus
+                ? DialogAction("Browse another campus") {
+                    appViewModel.endGuestBrowsing(resume: .guestCampus, store: store)
+                }
+                : nil
+        )
     }
 
     private var showsNoticeAtBottom: Bool {
@@ -128,7 +149,7 @@ struct ContentView: View {
         switch appViewModel.sheet {
         case .gameForm(let id): if let id { ids.insert(id) }
         case .playAgain(let id): ids.insert(id)
-        case nil: break
+        case .practicePlan, nil: break
         }
         store.retainGames(ids)
     }
@@ -163,6 +184,7 @@ struct ContentView: View {
     private func loadSignedIn() async {
         await store.load()
         appViewModel.push?.noteAccount(store.profile?.id)
+        appViewModel.openPracticePlanIfKept()
         // Routing is useful immediately; device registration must not delay a tapped game.
         appViewModel.deliverPushRoute(appViewModel.push?.consumePendingRoute())
         // Notification services can be slow or unavailable. Navigation must not wait for them.
@@ -195,6 +217,7 @@ struct ContentView: View {
             switch sheet {
             case .gameForm(let id): GameFormSheet(editing: id.flatMap { store.game($0) })
             case .playAgain(let id): GameFormSheet(template: store.game(id))
+            case .practicePlan(let plan): GameFormSheet(practice: plan)
             }
         }
     }

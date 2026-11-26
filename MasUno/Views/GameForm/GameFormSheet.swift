@@ -18,8 +18,16 @@ struct GameFormSheet: View {
 
     private typealias Field = GameFormViewModel.Field
 
-    init(editing: Game? = nil, template: Game? = nil) {
+    /// - Parameter practice: "Keep this plan" from onboarding's practice round: its sport, name,
+    ///   size and note. The time and place are picked here, for real.
+    init(editing: Game? = nil, template: Game? = nil, practice: PracticePlan? = nil) {
         let viewModel = GameFormViewModel(editing: editing, template: template)
+        if let practice {
+            viewModel.sport = practice.activity
+            viewModel.name = practice.title
+            viewModel.players = practice.capacity
+            viewModel.notes = practice.notes
+        }
         #if DEBUG
         // `-screen form-error`: the Figma "Error" frame (no name, a start time that already passed).
         if UserDefaults.standard.string(forKey: "screen") == "form-error" {

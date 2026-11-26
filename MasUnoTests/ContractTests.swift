@@ -513,6 +513,45 @@ struct GuestBrowsingTests {
         #expect(lineup.accessibilityLabel.contains("\(game.goingCount) going"))
     }
 
+    @Test func someoneInLineCanBrowseAndGoBackToTheLine() async {
+        let auth = MockBackend(state: .pendingApproval)
+        let app = AppViewModel(auth: auth, catalog: auth, defaults: Self.freshDefaults())
+        let games = store(auth)
+        #expect(app.session == .onboarding)
+        await app.browseAsGuest(campus: MockFixtures.tec, store: games)
+        #expect(app.session == .guest)
+        #expect(app.isWaitingInLine)
+        app.endGuestBrowsing(store: games)
+        #expect(app.session == .onboarding)
+        #expect(OnboardingViewModel(auth: auth, catalog: auth).path == [.pending])
+    }
+
+    @Test func allSetHoldsTheMapUntilGoToTheMap() {
+        let auth = MockBackend()
+        let app = AppViewModel(auth: auth, catalog: auth, defaults: Self.freshDefaults())
+        #expect(app.session == .signedIn)
+        app.holdOnboarding(true)
+        #expect(app.session == .onboarding)
+        app.holdOnboarding(false)
+        #expect(app.session == .signedIn)
+    }
+
+    @Test func aKeptPracticePlanOpensOnceTheMapIsUp() {
+        let auth = MockBackend()
+        let app = AppViewModel(auth: auth, catalog: auth, defaults: Self.freshDefaults())
+        let plan = PracticeRound.suggestedPlan(for: MockFixtures.activity("basketball"))
+        app.holdOnboarding(true)
+        app.keepPracticePlan(plan)
+        app.openPracticePlanIfKept()
+        #expect(app.sheet == nil, "Not while You're all set is up")
+        app.holdOnboarding(false)
+        app.openPracticePlanIfKept()
+        #expect(app.sheet == .practicePlan(plan))
+        app.sheet = nil
+        app.openPracticePlanIfKept()
+        #expect(app.sheet == nil, "Once")
+    }
+
     @Test func browseAsGuestShowsTheMapSession() async {
         let auth = MockBackend(state: .signedOut(expired: false))
         let app = AppViewModel(auth: auth, catalog: auth, defaults: Self.freshDefaults())
@@ -633,20 +672,17 @@ struct OnboardingFlowTests {
         return (OnboardingViewModel(auth: auth, catalog: auth, campus: MockFixtures.tec), auth)
     }
 
-    @Test func newStudentGoesThroughQuickCheckSchoolAndVerified() async {
+    @Test func newStudentGoesThroughFindYourSchoolToTheProfile() async {
         let (model, auth) = model()
         #expect(model.path.isEmpty)
-        model.getStarted()
-        #expect(model.isSignInSheetPresented)
         model.findMySchool()
-        #expect(!model.isSignInSheetPresented)
         #expect(model.path == [.findSchool])
 
         await model.loadSchools()
         #expect(model.selectedSchool == MockFixtures.tec)
         await model.continueWithSchool()
         #expect(auth.state == .needsProfile)
-        #expect(model.path == [.findSchool, .verified])
+        #expect(model.path == [.findSchool, .about])
         #expect(model.firstName == "Emilio")
         #expect(model.lastName == "Garza")
     }
@@ -719,12 +755,10 @@ struct OnboardingFlowTests {
         #expect(wrong.signInError == "That email and password don't match.")
     }
 
-    /// N36: Create account → We're checking your account → (approved) → You're in → profile.
+    /// N36: Skip the tour → Make it official → in line → (approved) → Make it yours.
     @Test func newStudentSignsUpWaitsAndGetsIn() async {
         let (model, auth) = model()
-        model.getStarted()
-        model.createAccount()
-        #expect(!model.isSignInSheetPresented)
+        model.skipTour()
         #expect(model.path == [.signUp])
 
         model.email = " A0123@Tec.mx "
@@ -747,7 +781,113 @@ struct OnboardingFlowTests {
         auth.approveSignUp()
         await model.checkApproval()
         #expect(auth.state == .needsProfile)
-        #expect(model.path == [.verified])
+        #expect(model.path == [.about])
+    }
+
+    /// 0R: Welcome → What do you play? → How do you want to start? → the pretend plan → Make it official.
+    @Test func practiceRoundJoinsAPretendPlanThenMakesItOfficial() {
+        let (model, _) = model()
+        let basketball = MockFixtures.activity("basketball"), soccer = MockFixtures.activity("soccer")
+        model.showHowItWorks()
+        #expect(model.path == [.sports])
+
+        model.continueFromSports()
+        #expect(model.path == [.sports], "Nothing picked yet")
+        model.togglePick(soccer)
+        model.togglePick(basketball)
+        #expect(model.practiceSport == soccer)
+        #expect(model.interests == [soccer, basketball])
+        model.togglePick(soccer)
+        #expect(model.practiceSport == basketball, "The first pick still on is the practice's")
+        model.continueFromSports()
+        #expect(model.path == [.sports, .start])
+
+        model.startPractice()
+        #expect(model.path == [.sports, .start, .practice(.join)])
+        #expect(model.practiceDoneLine == nil)
+        model.takePracticeSpot()
+        #expect(model.path.last == .practiceJoined)
+        #expect(model.practiceDoneLine != nil)
+        model.makeItOfficial()
+        #expect(model.path.last == .signUp)
+        #expect(model.planToPost == nil, "Only Keep this plan keeps a plan")
+    }
+
+    @Test func keepThisPlanSavesThePracticePlanForMakeAPlan() {
+        let (model, _) = model()
+        model.togglePick(MockFixtures.activity("tennis"))
+        model.practiceMode = .host
+        model.startPractice()
+        #expect(model.path == [.practice(.host)])
+
+        var plan = model.currentPracticePlan
+        #expect(plan.activity.slug == "tennis")
+        #expect(plan.capacity == 4)
+        plan.title = "Night doubles"
+        plan.capacity = 6
+        model.makePracticePlan(plan)
+        #expect(model.planToPost == nil)
+        model.keepPracticePlan()
+        #expect(model.path.last == .signUp)
+        #expect(model.planToPost == plan)
+    }
+
+    @Test func endingThePracticeGoesBackToHowToStart() {
+        let (model, _) = model()
+        model.path = [.sports, .start, .practice(.join), .practiceJoined, .practice(.host)]
+        model.endPractice()
+        #expect(model.path == [.sports, .start])
+    }
+
+    @Test func agreeingToTheRulesHoldsOnboardingForAllSet() async {
+        let (model, auth) = model(.needsGuidelines)
+        var holds: [Bool] = []
+        model.holdsOnboarding = { holds.append($0) }
+        model.path = [.guidelines]
+        await model.agreeToGuidelines()
+        #expect(auth.state == .signedIn(userID: auth.me.id))
+        #expect(model.path == [.guidelines, .allSet])
+        #expect(holds == [true])
+        model.finishOnboarding()
+        #expect(holds == [true, false])
+    }
+
+    @Test func aFailedAgreeLetsGoOfTheHold() async {
+        let (model, auth) = model(.needsGuidelines)
+        var holds: [Bool] = []
+        model.holdsOnboarding = { holds.append($0) }
+        auth.nextError = .offline
+        await model.agreeToGuidelines()
+        #expect(model.guidelinesError != nil)
+        #expect(holds == [true, false])
+        #expect(!model.path.contains(.allSet))
+    }
+
+    @Test func theLineSaysHowManyAreAhead() async {
+        let (model, auth) = model()
+        model.email = "a0123@tec.mx"
+        model.password = "long-enough"
+        await model.signUpWithCode()
+        #expect(auth.state == .pendingApproval)
+        await model.loadWaitlistPosition()
+        let position = try! #require(model.waitlistPosition)
+        let ahead = position - 1
+        #expect(model.waitlistAheadLine == (ahead == 0 ? "You're next" : ahead == 1 ? "1 person ahead of you" : "\(ahead) people ahead of you"))
+    }
+
+    @Test func practicePlansAreOnlyPretend() {
+        let soccer = MockFixtures.activity("soccer")
+        let now = Date.now
+        let join = PracticeRound.joinPlan(for: soccer, campus: MockFixtures.tec, now: now)
+        #expect(join.spotsLeft == 8)
+        #expect(join.isSoon(now: now))
+        #expect(join.place.name == "Tec soccer field")
+        let others = PracticeRound.otherPins(besides: soccer, now: now)
+        #expect(others.count == 4)
+        #expect(!others.contains { $0.plan.activity == soccer })
+        let mine = PracticeRound.hostedPlan(PracticeRound.suggestedPlan(for: soccer), campus: nil, now: now)
+        #expect(mine.isHostedByMe)
+        #expect(mine.startsAt.timeIntervalSince(now) >= 3600)
     }
 
     @Test func signUpNamesTheCampusWhenTheAddressIsNotAllowed() async {
@@ -846,7 +986,7 @@ struct EmailCodeTests {
         model.code = MockFixtures.emailCode
         await model.submitCode()
         #expect(auth.state == .needsProfile)
-        #expect(model.path == [.verified])
+        #expect(model.path == [.about])
         #expect(model.inviteCode.isEmpty)
     }
 
@@ -857,7 +997,7 @@ struct EmailCodeTests {
         model.password = "long-enough"
         await model.signUpWithCode()
         #expect(auth.state == .needsProfile)
-        #expect(model.path == [.verified])
+        #expect(model.path == [.about])
         #expect(model.firstName == "Emilio")
     }
 
@@ -1390,7 +1530,7 @@ struct InviteTests {
         model.inviteCode = " play-4nwe "
         await model.signUpWithCode()
         #expect(auth.state == .needsProfile)
-        #expect(model.path == [.verified])
+        #expect(model.path == [.about])
         #expect(model.inviteError == nil)
         #expect(model.inviteCode.isEmpty)
     }
@@ -1437,7 +1577,7 @@ struct InviteTests {
         await model.redeemInviteWhileWaiting()
         #expect(auth.state == .needsProfile)
         #expect(model.inviteError == nil)
-        #expect(model.path == [.verified])
+        #expect(model.path == [.about])
         #expect(model.waitlistPosition == nil)
         #expect(model.firstName == "Emilio")
     }

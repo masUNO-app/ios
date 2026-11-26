@@ -339,6 +339,10 @@ struct CourtHeader: View {
             ZStack(alignment: .topLeading) {
                 CourtArt(kind: activity.court, scale: scale)
                     .offset(y: Self.artTop * scale)
+                    // A new sport fades its lines in over the old ones (Welcome's carousel); game
+                    // details never change sport.
+                    .id(activity.court)
+                    .transition(.opacity)
 
                 ForEach(places) { place in
                     let point = slots.points[place.slot]

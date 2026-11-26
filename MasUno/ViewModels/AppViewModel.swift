@@ -12,7 +12,7 @@ final class AppViewModel {
         case launching
         case updateRequired
         case onboarding
-        /// Signed out, browsing open games without names (SPEC R7-15).
+        /// Signed out, or waiting in line, browsing open games without names (SPEC R7-15).
         case guest
         case suspended
         case signedIn
@@ -22,6 +22,8 @@ final class AppViewModel {
         case gameForm(editing: UUID?)
         /// "Run it back": a new game that starts from an earlier one's sport, place and details.
         case playAgain(UUID)
+        /// "Keep this plan": the plan from onboarding's practice round, ready to post.
+        case practicePlan(PracticePlan)
 
         var id: Self { self }
     }
@@ -94,8 +96,16 @@ final class AppViewModel {
     private(set) var guestCampus: University? {
         didSet { defaults.set(guestCampus.flatMap { try? JSONEncoder().encode($0) }, forKey: Self.guestCampusKey) }
     }
-    /// Signed out and browsing the map as a guest.
+    /// Signed out and browsing the map as a guest, or browsing while waiting in line.
     var isBrowsingAsGuest: Bool { guestCampus != nil }
+    /// The account is made but still waiting in line: the guest map's account card says so and
+    /// takes them back to the line, instead of offering to make an account.
+    var isWaitingInLine: Bool { auth.state == .pendingApproval }
+    /// The new account agreed to the house rules and is signed in, but onboarding stays up for
+    /// You're all set until **Go to the map**.
+    private(set) var holdsOnboarding = false
+    /// "Keep this plan" in the practice round: Make a plan opens with it once the map is up.
+    private(set) var practicePlanToPost: PracticePlan?
     /// Guest tapped join / save / host / … — the shared account card.
     var accountPrompt: AccountPrompt?
     /// Consumed by `OnboardingFlow` after leaving guest browse.
@@ -149,9 +159,10 @@ final class AppViewModel {
         }
         switch auth.state {
         case .loading: return .launching
-        case .signedOut where isBrowsingAsGuest: return .guest
+        case .signedOut where isBrowsingAsGuest, .pendingApproval where isBrowsingAsGuest: return .guest
         case .signedOut, .needsEmailVerification, .pendingApproval, .needsProfile, .needsGuidelines: return .onboarding
         case .suspended: return .suspended
+        case .signedIn where holdsOnboarding: return .onboarding
         case .signedIn: return .signedIn
         }
     }
@@ -243,6 +254,23 @@ final class AppViewModel {
     func clearGuestBrowsingFlag() {
         guestCampus = nil
         accountPrompt = nil
+    }
+
+    /// Onboarding stays up after sign-in while true (You're all set); false lets the map in.
+    func holdOnboarding(_ holds: Bool) {
+        holdsOnboarding = holds
+    }
+
+    /// Keeps the practice round's plan for Make a plan once the map is up. Nil keeps nothing.
+    func keepPracticePlan(_ plan: PracticePlan?) {
+        practicePlanToPost = plan
+    }
+
+    /// Opens Make a plan with the practice round's plan, once, after the signed-in map loads.
+    func openPracticePlanIfKept() {
+        guard session == .signedIn, let plan = practicePlanToPost else { return }
+        practicePlanToPost = nil
+        sheet = .practicePlan(plan)
     }
 
     /// The game's screen has shown you arriving.
@@ -388,6 +416,8 @@ final class AppViewModel {
         guestCampus = nil
         accountPrompt = nil
         onboardingResume = nil
+        holdsOnboarding = false
+        practicePlanToPost = nil
         store.reset()
     }
 

@@ -1,35 +1,43 @@
 import SwiftUI
 
-/// Onboarding (E5, SPEC §7.5) in the 1.0 look. Welcome → account or **Browse as a guest** (R7-15)
-/// → "Quick check before you join" → Create account (school email, password, optional invite code)
-/// → You're on the waitlist (the team lets people in by hand, N36; an invite code skips it, N37) → You're verified → Make it yours → Before you
-/// play → map. Coming back: Sign in. Guests who hit join/save/host return here via Create account
-/// or Sign in. `AuthService` moves the session along; when it reaches signed in, the root swaps
-/// to the map. The location primer is on the map now. `FindSchoolStep` (school SSO) is kept but
-/// nothing navigates to it.
+/// Onboarding (E5, SPEC §7.5), Figma "Onboarding, reimagined" (0R): a practice round that
+/// teaches by doing, then the account. Welcome → What do you play? → How do you want to start? →
+/// the practice (join a pretend plan, or make one; or Skip the tour) → Make it official (school
+/// email, password, optional invite code) → Check your email → in line, unless an invite code skips
+/// it (N36, N37) → Make it yours → Five house rules → You're all set → map. Coming back: Sign in.
+/// Guests who hit join/save/host return here via Create account or Sign in. `AuthService` moves the
+/// session along; once it's signed in, the root swaps to the map after You're all set. The location
+/// primer is on the map. `FindSchoolStep` (school SSO) is kept but nothing navigates to it.
 struct OnboardingFlow: View {
     @Environment(AppViewModel.self) private var appViewModel
     @Environment(GameStore.self) private var store
     @State private var viewModel: OnboardingViewModel
-    /// Welcome's "masUNO": 44 pt at the default size, growing with Dynamic Type (A11Y-06).
-    @ScaledMetric(relativeTo: .largeTitle) private var wordmarkSize: CGFloat = 44
 
     init(auth: any AuthService, catalog: any AppConfigRepository, campus: University?) {
         _viewModel = State(initialValue: OnboardingViewModel(auth: auth, catalog: catalog, campus: campus))
     }
 
     private func watchSignIn() {
-        viewModel.onSignedIn = { appViewModel.noteSignInFinished() }
+        viewModel.onSignedIn = { [viewModel] in
+            appViewModel.keepPracticePlan(viewModel.planToPost)
+            appViewModel.noteSignInFinished()
+        }
+        viewModel.holdsOnboarding = { appViewModel.holdOnboarding($0) }
     }
 
     var body: some View {
         @Bindable var viewModel = viewModel
 
         NavigationStack(path: $viewModel.path) {
-            welcome
+            WelcomeScreen(viewModel: viewModel)
                 .navigationDestination(for: OnboardingViewModel.Step.self) { step in
                     Group {
                         switch step {
+                        case .sports: SportsStep(viewModel: viewModel)
+                        case .start: StartStep(viewModel: viewModel)
+                        case .practice(let mode): PracticeMapStep(viewModel: viewModel, mode: mode)
+                        case .practiceJoined: PracticeJoinedStep(viewModel: viewModel)
+                        case .allSet: AllSetStep(viewModel: viewModel)
                         case .signUp: SignUpStep(viewModel: viewModel)
                         case .signIn: SignInStep(viewModel: viewModel)
                         case .verifyEmail: VerifyEmailStep(viewModel: viewModel)
@@ -37,7 +45,6 @@ struct OnboardingFlow: View {
                         case .pending: PendingStep(viewModel: viewModel)
                         case .findSchool: FindSchoolStep(viewModel: viewModel)
                         case .guestCampus: GuestCampusStep(viewModel: viewModel)
-                        case .verified: VerifiedStep(viewModel: viewModel)
                         case .about: ProfileStep(viewModel: viewModel)
                         case .guidelines: GuidelinesStep(viewModel: viewModel)
                         }
@@ -47,19 +54,17 @@ struct OnboardingFlow: View {
                 }
         }
         .onAppear { watchSignIn() }
-        .dialog(isPresented: $viewModel.isSignInSheetPresented) {
-            DialogCard(
-                systemImage: "checkmark.shield",
-                title: Text("Quick check before you join"),
-                message: Text("masUNO is invite-only for now. Create an account with your school email: with a friend's invite code you're in right away, and without one you join the waitlist."),
-                confirm: DialogAction("Create account") { viewModel.createAccount() },
-                cancel: DialogAction("I already have an account") { viewModel.haveAnAccount() }
-            )
-        }
+        .onAppear(perform: leaveGuestBrowsing)
         .onAppear(perform: consumeResume)
         #if DEBUG
         .onAppear(perform: openDebugStep)
         #endif
+    }
+
+    /// Let in while browsing from the line: the guest map's names-free games go.
+    private func leaveGuestBrowsing() {
+        guard appViewModel.isBrowsingAsGuest else { return }
+        appViewModel.endGuestBrowsing(store: store)
     }
 
     /// Create account / Sign in after a guest tapped an account-only action.
@@ -69,63 +74,40 @@ struct OnboardingFlow: View {
         viewModel.applyResume(resume)
     }
 
-    /// Figma "Welcome": a court with room on it, and "We're looking for you."
-    private var welcome: some View {
-        CourtPage(lineup: .welcome()) {
-            VStack(alignment: .leading, spacing: 10) {
-                Text(verbatim: "masUNO")
-                    .font(.system(size: wordmarkSize, weight: .bold, design: .rounded))
-                    .foregroundStyle(Theme.ink)
-                    .accessibilityAddTraits(.isHeader)
-                Text("We're looking for you.")
-                    .font(.rounded(.title2))
-                    .foregroundStyle(Theme.ink)
-                Text(viewModel.welcomeMessage)
-                    .font(.rounded(.callout, .bold))
-                    .foregroundStyle(Theme.mutedLarge)
-                FlowLayout(spacing: 6) {
-                    ForEach(Activity.builtIn.sorted { $0.sortOrder < $1.sortOrder }) { SportChip(sport: $0) }
-                }
-                .padding(.top, 2)
-            }
-        } footer: {
-            VStack(spacing: 10) {
-                Button("Get started") { viewModel.getStarted() }
-                    .pill(.primary)
-                Button("Browse as a guest") {
-                    Task { await viewModel.browseAsGuest(app: appViewModel, store: store) }
-                }
-                .pill(.secondary)
-                .disabled(viewModel.isStartingGuest)
-                if let guestBrowseError = viewModel.guestBrowseError {
-                    Text(verbatim: guestBrowseError)
-                        .font(.rounded(.footnote))
-                        .foregroundStyle(Theme.error)
-                        .multilineTextAlignment(.center)
-                }
-                Link(destination: appViewModel.config.privacyURL) {
-                    Text("Privacy & Terms").buttonShapeUnderline()
-                }
-                .font(.rounded(.footnote))
-                .foregroundStyle(Theme.mutedLarge)
-            }
-        }
-        .toolbar(.hidden, for: .navigationBar)
-    }
-
     #if DEBUG
-    /// `-screen onboarding-sheet|signup|signin|verify|reset|pending|pending-code|school|campus|verified|about|guidelines`
-    /// opens a step with sample input. `verify` is Check your email after Create account; `reset` is
-    /// the reset step after Forgot your password. `pending` is the waitlist with its place in line;
-    /// `pending-code` is the same after a refused invite code. The mock's code is 123456.
+    /// `-screen onboarding-welcome|sports|start|join1|join2|join3|host1|host2|host3|signup|signup-practice|signin|verify|reset|pending|pending-code|school|campus|about|guidelines|allset`
+    /// opens a step with sample input. `join1…3` and `host1…3` are the practice round's three
+    /// steps; `signup-practice` is Make it official after it. `verify` is Check your email after
+    /// Create account; `reset` is the reset step after Forgot your password. `pending` is the
+    /// waitlist with its place in line; `pending-code` is the same after a refused invite code.
+    /// The mock's code is 123456.
     private func openDebugStep() {
         guard let step = UserDefaults.standard.string(forKey: "screen"), step.hasPrefix("onboarding-") else { return }
         viewModel.firstName = "Emilio"
         viewModel.lastName = "Garza"
-        viewModel.interests = [Activity.builtIn[0], Activity.builtIn[2], Activity.builtIn[1]]
+        // Welcome starts fresh, so a test can pick on What do you play? itself.
+        if step != "onboarding-welcome" {
+            for slug in ["basketball", "soccer", "tennis"] {
+                if let sport = Activity.builtIn.first(where: { $0.slug == slug }) { viewModel.togglePick(sport) }
+            }
+        }
         switch String(step.dropFirst("onboarding-".count)) {
-        case "sheet": viewModel.getStarted()
+        case "sports": viewModel.path = [.sports]
+        case "start": viewModel.path = [.sports, .start]
+        case "join1", "join2":
+            viewModel.debugPracticeStage = step.hasSuffix("2") ? .popup : .findPin
+            viewModel.path = [.sports, .start, .practice(.join)]
+        case "join3":
+            viewModel.takePracticeSpot()
+            viewModel.path = [.sports, .start, .practice(.join), .practiceJoined]
+        case "host1", "host2", "host3":
+            viewModel.practiceMode = .host
+            viewModel.debugPracticeStage = step.hasSuffix("1") ? .addButton : step.hasSuffix("2") ? .form : .ready
+            viewModel.path = [.sports, .start, .practice(.host)]
         case "signup": viewModel.path = [.signUp]
+        case "signup-practice":
+            viewModel.takePracticeSpot()
+            viewModel.path = [.signUp]
         case "signin", "review": viewModel.path = [.signIn]
         case "verify":
             Task {
@@ -160,9 +142,9 @@ struct OnboardingFlow: View {
             }
         case "school": viewModel.path = [.findSchool]
         case "campus": viewModel.path = [.guestCampus]
-        case "verified": viewModel.path = [.verified]
         case "about", "interests": viewModel.path = [.about]
         case "guidelines": viewModel.path = [.guidelines]
+        case "allset": viewModel.path = [.allSet]
         default: break
         }
     }
@@ -171,14 +153,20 @@ struct OnboardingFlow: View {
 
 // MARK: - Steps
 
-/// Create account: school email and a password. The server decides which addresses may sign up.
+/// Figma "Reimagined · C1 · Make it official" (513:7320): school email, a password, and a friend's
+/// invite code to skip the line. The server decides which addresses may sign up. After the practice
+/// round, a note at the top says it's done.
 private struct SignUpStep: View {
     @Bindable var viewModel: OnboardingViewModel
     @FocusState private var focus: Int?
     @AccessibilityFocusState private var errorFocus: OnboardingViewModel.Field?
 
     var body: some View {
-        OnboardingPage(title: "Create your account", message: viewModel.signUpMessage) {
+        OnboardingPage(title: "Make it official", message: viewModel.makeItOfficialMessage) {
+            if let line = viewModel.practiceDoneLine {
+                PracticeDoneBanner(line: line)
+            }
+        } content: {
             FieldBox(
                 "School email", text: $viewModel.email, prompt: Text(verbatim: viewModel.emailPlaceholder),
                 error: viewModel.signUpError, isFocused: focus == 0
@@ -208,7 +196,7 @@ private struct SignUpStep: View {
                     .focused($focus, equals: 2)
                     .onSubmit { submit() }
             }
-            Text("Have a code from a friend? You'll skip the waitlist.")
+            Text("We use your email to sign you in. Other students never see it.")
                 .font(.rounded(.footnote))
                 .foregroundStyle(Theme.muted)
         } footer: {
@@ -321,10 +309,10 @@ private struct VerifyEmailStep: View {
         OnboardingPage(
             systemImage: "envelope.badge",
             title: "Check your email",
-            message: "We sent a 6-digit code to \(viewModel.codeEmail ?? ""). Enter it here to confirm it's your school email."
+            message: "We sent a 6-digit code to \(viewModel.codeEmail ?? "")."
         ) {
             // The number pad has no return key: Continue is the way on.
-            CodeField(code: $viewModel.code, error: viewModel.codeError, isFocused: $isCodeFocused)
+            CodeBoxes(code: $viewModel.code, error: viewModel.codeError, isFocused: $isCodeFocused)
                 .accessibilityFocused($errorFocus, equals: .code)
             if let notice = viewModel.codeNotice {
                 Text(verbatim: notice).font(.rounded(.footnote)).foregroundStyle(Theme.muted)
@@ -443,6 +431,102 @@ private struct CodeField: View {
     }
 }
 
+/// Figma "Reimagined · C2 · Check your email" (513:7396): a box per digit, drawn over one real
+/// text field, so iOS still offers the code from Mail and VoiceOver reads a single field.
+private struct CodeBoxes: View {
+    @Binding var code: String
+    var error: String?
+    var isFocused: FocusState<Bool>.Binding
+    @ScaledMetric(relativeTo: .title2) private var boxHeight: CGFloat = 58
+
+    var body: some View {
+        let digits = Array(code)
+        VStack(alignment: .leading, spacing: 6) {
+            ZStack {
+                TextField(String(), text: $code)
+                    .keyboardType(.numberPad)
+                    .textContentType(.oneTimeCode)
+                    .autocorrectionDisabled()
+                    .focused(isFocused)
+                    // The boxes show the digits; the field underneath only takes them.
+                    .foregroundStyle(.clear)
+                    .tint(.clear)
+                    .frame(maxWidth: .infinity, minHeight: boxHeight)
+                    .accessibilityLabel(Text("Code"))
+                    .accessibilityHint(Text(verbatim: error ?? ""))
+                    .onChange(of: code) { _, new in
+                        // Keep it to the digits of one code, whatever was pasted.
+                        let digits = String(new.filter(\.isNumber).prefix(OnboardingViewModel.codeLength))
+                        if digits != new { code = digits }
+                    }
+                HStack(spacing: 8) {
+                    ForEach(0..<OnboardingViewModel.codeLength, id: \.self) { index in
+                        box(index < digits.count ? String(digits[index]) : nil, isCurrent: isFocused.wrappedValue && index == min(digits.count, OnboardingViewModel.codeLength - 1))
+                    }
+                }
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+            }
+            .contentShape(.rect)
+            .onTapGesture { isFocused.wrappedValue = true }
+            if let error {
+                Text(verbatim: error)
+                    .font(.rounded(.footnote))
+                    .foregroundStyle(Theme.error)
+                    // Read as the field's hint.
+                    .accessibilityHidden(true)
+            }
+        }
+    }
+
+    private func box(_ digit: String?, isCurrent: Bool) -> some View {
+        RoundedRectangle(cornerRadius: 14)
+            .fill(Theme.card)
+            .overlay {
+                RoundedRectangle(cornerRadius: 14)
+                    .strokeBorder(error != nil ? Theme.error : isCurrent ? Theme.accent : Theme.hairline, lineWidth: isCurrent || error != nil ? 2 : 1)
+            }
+            .overlay {
+                if let digit {
+                    Text(verbatim: digit)
+                        .font(.rounded(.title2, .bold).monospacedDigit())
+                        .foregroundStyle(Theme.ink)
+                } else if isCurrent {
+                    Capsule().fill(Theme.accent).frame(width: 2, height: boxHeight * 0.4)
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: boxHeight)
+    }
+}
+
+/// "Practice round done" over Make it official.
+private struct PracticeDoneBanner: View {
+    var line: String
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "checkmark")
+                .font(.system(size: 17, weight: .bold))
+                .foregroundStyle(Theme.onAccent)
+                .frame(width: 36, height: 36)
+                .background(Theme.accent, in: .rect(cornerRadius: Theme.Radius.tile))
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Practice round done")
+                    .font(.rounded(.callout, .bold))
+                    .foregroundStyle(Theme.ink)
+                Text(verbatim: line)
+                    .font(.rounded(.footnote))
+                    .foregroundStyle(Theme.muted)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(12)
+        .background(Theme.accentSoft, in: .rect(cornerRadius: Theme.Radius.field))
+        .accessibilityElement(children: .combine)
+    }
+}
+
 /// "Send a new code", counting down the minute Supabase makes you wait between codes.
 private struct ResendButton: View {
     var sentAt: Date?
@@ -465,36 +549,31 @@ private struct ResendButton: View {
     }
 }
 
-/// The waitlist (N36, N37): the team lets people in as spots open, or a friend's invite code does
-/// it right away. Checks again whenever the app comes back to the front.
+/// Figma "Reimagined · C3 · You're in line" (513:7470): your place in line, a friend's invite code
+/// to skip it, a heads-up when you're in, and the campus's plans to browse meanwhile. The team lets
+/// people in as spots open (N36, N37). Checks again when the app comes back to the front, and every
+/// half minute while it's on screen.
 private struct PendingStep: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(PushNotificationService.self) private var push
+    @Environment(AppViewModel.self) private var appViewModel
+    @Environment(GameStore.self) private var store
     @Bindable var viewModel: OnboardingViewModel
     @FocusState private var isCodeFocused: Bool
     @AccessibilityFocusState private var errorFocus: OnboardingViewModel.Field?
 
     var body: some View {
+        let position = viewModel.waitlistPosition
+        let title: LocalizedStringKey = if let position { "You're #\(position) in line" } else { "You're on the waitlist" }
         OnboardingPage(
             systemImage: "ticket",
-            title: "You're on the waitlist",
-            message: "masUNO is invite-only for now. We let people in as spots open, or right away with a friend's invite code."
+            title: title,
+            // "#12" can be read as "pound 12".
+            spokenTitle: position.map { Text("You're number \($0) in line") },
+            message: viewModel.waitlistMessage
         ) {
-            if let position = viewModel.waitlistPosition {
-                Label {
-                    Text("#\(position) in line")
-                } icon: {
-                    Image(systemName: "person.3.fill").accessibilityHidden(true)
-                }
-                .labelStyle(IconRowLabelStyle(iconWidth: 24, spacing: 10))
-                .font(.rounded(.title3, .bold))
-                .foregroundStyle(Theme.ink)
-                .padding(.horizontal, 18)
-                .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
-                .background(Theme.accentSoft, in: .rect(cornerRadius: Theme.Radius.card))
-                // "#12" can be read as "pound 12".
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(Text("Number \(position) in line"))
+            if let position, let ahead = viewModel.waitlistAheadLine {
+                LineCard(ahead: position - 1, line: ahead)
             }
 
             FieldBox(
@@ -514,24 +593,32 @@ private struct PendingStep: View {
 
             if let error = viewModel.pendingError {
                 Text(verbatim: error).font(.rounded(.caption)).foregroundStyle(Theme.error)
-            } else if viewModel.isStillPending {
-                Text("Not yet. We'll get to it soon.").font(.rounded(.footnote)).foregroundStyle(Theme.muted)
             }
         } footer: {
             VStack(spacing: 10) {
-                if push.authorizationStatus == .notDetermined {
-                    Button("Want a heads-up when you're in?") { Task { await push.requestPermission() } }
+                let asksForAlerts = push.authorizationStatus == .notDetermined
+                if asksForAlerts {
+                    Button("Notify me when I'm in") { Task { await push.requestPermission() } }
                         .pill(.primary)
                 }
-                WorkingButton("Check again", isWorking: viewModel.isWorking) { checkAgain() }
+                if let campus = viewModel.campus {
+                    Button("Browse plans around \(campus.shortName)") {
+                        Task { await appViewModel.browseAsGuest(campus: campus, store: store) }
+                    }
+                    .pill(asksForAlerts ? .secondary : .primary)
+                }
                 Button("Sign out") { Task { await viewModel.signOutWhilePending() } }
                     .pill(.quiet)
             }
         }
         .task { await viewModel.loadWaitlistPosition() }
-        .onChange(of: scenePhase) { _, phase in
-            guard phase == .active else { return }
-            Task {
+        // While it's on screen, a quiet check every half minute: being let in moves it on.
+        .task(id: scenePhase) {
+            guard scenePhase == .active else { return }
+            await viewModel.checkApproval(quietly: true)
+            await viewModel.loadWaitlistPosition()
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .seconds(30)) } catch { return }
                 await viewModel.checkApproval(quietly: true)
                 await viewModel.loadWaitlistPosition()
             }
@@ -546,13 +633,42 @@ private struct PendingStep: View {
             if let summary = viewModel.errorSummary(on: .pending) { Announce.post(summary, priority: .high) }
         }
     }
+}
 
-    /// Only this check's own error: an earlier refused code stays on its field.
-    private func checkAgain() {
-        Task {
-            await viewModel.checkApproval()
-            if let error = viewModel.pendingError { Announce.post(error, priority: .high) }
+/// The people ahead of you as faces (nobody's named: they're stand-ins), an arrow, and You.
+private struct LineCard: View {
+    var ahead: Int
+    var line: String
+    private static let shown = 5
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 4) {
+                HStack(spacing: -6) {
+                    ForEach(0..<min(ahead, Self.shown), id: \.self) { index in
+                        PersonToken(initials: "", color: index.isMultiple(of: 2) ? Color(.person1) : Color(.person2), size: 34)
+                    }
+                    if ahead > Self.shown {
+                        CountToken(count: ahead - Self.shown, size: 34)
+                    }
+                }
+                if ahead > 0 {
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(Theme.muted)
+                        .padding(.horizontal, 4)
+                }
+                YouToken(size: 40)
+            }
+            .accessibilityHidden(true)
+            Text(verbatim: line)
+                .font(.rounded(.headline, .bold))
+                .foregroundStyle(Theme.ink)
         }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.accentSoft, in: .rect(cornerRadius: Theme.Radius.card))
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -642,80 +758,8 @@ struct SchoolRow: View {
     }
 }
 
-/// Figma "You're verified!": you, on the court, and what happens next.
-private struct VerifiedStep: View {
-    var viewModel: OnboardingViewModel
-    @Environment(\.dynamicTypeSize) private var typeSize
-
-    var body: some View {
-        CourtPage(lineup: .welcome(includesYou: true)) {
-            VStack(alignment: .leading, spacing: 10) {
-                Text("You're verified!")
-                    .font(.rounded(.largeTitle, .bold))
-                    .foregroundStyle(Theme.ink)
-                    .accessibilityAddTraits(.isHeader)
-                Text(verbatim: viewModel.verifiedWelcome)
-                    .font(.rounded(.title3))
-                    .foregroundStyle(Theme.mutedLarge)
-                Text("Next, tell us what you're into so the right plans show up first.")
-                    .font(.rounded(.subheadline, .bold))
-                    .foregroundStyle(Theme.mutedLarge)
-
-                VStack(spacing: 0) {
-                    row(title: Text("Verified student"), subtitle: viewModel.verifiedSchoolLine) {
-                        Image(systemName: "checkmark")
-                            .font(.body.weight(.bold))
-                            .foregroundStyle(Theme.accent)
-                            .frame(width: 36, height: 36)
-                            .background(Theme.accentSoft, in: .rect(cornerRadius: Theme.Radius.tile))
-                    }
-                    if let name = viewModel.verifiedName {
-                        row(title: Text(verbatim: name), subtitle: String.app("Others only see your first name and last initial")) {
-                            Text(verbatim: PersonToken.initials(of: name))
-                                .font(.rounded(size: 13))
-                                .foregroundStyle(Theme.ink)
-                                .frame(width: 36, height: 36)
-                                .background(Theme.you, in: .rect(cornerRadius: Theme.Radius.tile))
-                                .inkOnColor()
-                        }
-                    }
-                }
-                .padding(.vertical, 6)
-                .cardSurface()
-                .padding(.top, 4)
-            }
-        } footer: {
-            VStack(spacing: 8) {
-                Button("Set up my profile") { viewModel.path.append(.about) }
-                    .pill(.primary)
-                Text("Takes about 20 seconds.")
-                    .font(.rounded(.footnote))
-                    .foregroundStyle(Theme.mutedLarge)
-            }
-        }
-        .toolbar(.hidden, for: .navigationBar)
-    }
-
-    private func row(title: Text, subtitle: String, @ViewBuilder tile: () -> some View) -> some View {
-        HStack(spacing: 14) {
-            tile()
-            VStack(alignment: .leading, spacing: 1) {
-                title.font(.rounded(.body)).foregroundStyle(Theme.ink)
-                Text(verbatim: subtitle).font(.rounded(.footnote)).foregroundStyle(Theme.muted)
-            }
-            // Wraps at accessibility sizes instead of shrinking, which would undo the size (A11Y-06).
-            .lineLimit(typeSize.isAccessibilitySize ? nil : 1)
-            .minimumScaleFactor(typeSize.isAccessibilitySize ? 1 : 0.8)
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, typeSize.isAccessibilitySize ? 8 : 0)
-        .frame(minHeight: 58)
-        .accessibilityElement(children: .combine)
-    }
-}
-
-/// Figma "Make it yours": your token, name, class year and what you play, on one screen.
+/// Figma "Reimagined · C4 · Make it yours" (513:7567): you on a court, your name, class year and
+/// what you're into, starting from the picks on What do you play?
 private struct ProfileStep: View {
     @Environment(GameStore.self) private var store
     @Bindable var viewModel: OnboardingViewModel
@@ -725,10 +769,12 @@ private struct ProfileStep: View {
 
     var body: some View {
         OnboardingPage(title: "Make it yours", message: nil) {
-            MeToken(name: "\(viewModel.firstName) \(viewModel.lastName)", size: 80, ring: 4)
-                .shadow(color: Theme.shadowInk.opacity(0.08), radius: 6, y: 2)
+            ProfileCourt(
+                sport: viewModel.picks.first ?? Activity.builtIn[0],
+                name: "\(viewModel.firstName) \(viewModel.lastName)", firstName: viewModel.firstName
+            )
 
-            Text(verbatim: viewModel.previewLine)
+            Text("This is you on every plan. \(viewModel.previewLine)")
                 .font(.rounded(.subheadline))
                 .foregroundStyle(Theme.muted)
 
@@ -756,6 +802,10 @@ private struct ProfileStep: View {
             if let error = viewModel.profileError {
                 Text(verbatim: error).font(.rounded(.caption)).foregroundStyle(Theme.error)
                     .accessibilityFocused($errorFocus, equals: .interests)
+            } else if !viewModel.picks.isEmpty {
+                Text("You picked these earlier. Tap to change.")
+                    .font(.rounded(.footnote))
+                    .foregroundStyle(Theme.muted)
             } else {
                 Text("Pick as many as you like. We'll show these first.")
                     .font(.rounded(.footnote))
@@ -776,7 +826,7 @@ private struct ProfileStep: View {
             .tint(Theme.accent)
             .padding(.top, 8)
         } footer: {
-            WorkingButton("Let's go", isWorking: viewModel.isWorking) { submit() }
+            WorkingButton("Continue", isWorking: viewModel.isWorking) { submit() }
         }
     }
 
@@ -792,15 +842,63 @@ private struct ProfileStep: View {
     }
 }
 
-/// The community guidelines, agreed to once before the map (SPEC §7.5).
+/// A strip of court in your first sport with you in the middle, Alex and Ricardo, and an open spot.
+private struct ProfileCourt: View {
+    var sport: Activity
+    var name: String
+    var firstName: String
+
+    var body: some View {
+        GeometryReader { proxy in
+            let size = proxy.size
+            ZStack {
+                sport.color
+                RoundedRectangle(cornerRadius: 4)
+                    .stroke(.white.opacity(0.45), lineWidth: 3)
+                    .padding(.horizontal, 22)
+                    .padding(.bottom, 16)
+                    .padding(.top, -8)
+                Circle()
+                    .stroke(.white.opacity(0.45), lineWidth: 3)
+                    .frame(width: 98, height: 98)
+                    .position(x: size.width / 2, y: size.height * 0.57)
+                PersonAvatar(person: PracticeRound.alex, size: 36)
+                    .position(x: size.width * 0.22, y: size.height * 0.42)
+                OpenSpotToken(size: 34, fillOpacity: 0.6)
+                    .position(x: size.width * 0.3, y: size.height * 0.79)
+                PersonAvatar(person: PracticeRound.ricardo, size: 36)
+                    .position(x: size.width * 0.79, y: size.height * 0.52)
+                VStack(spacing: 3) {
+                    MeToken(name: name, size: 56, ring: 3)
+                    Text(verbatim: firstName.isEmpty ? String.app("You") : firstName)
+                        .font(.rounded(.footnote, .bold))
+                        .foregroundStyle(Theme.ink)
+                        .lineLimit(1)
+                }
+                .position(x: size.width / 2, y: size.height * 0.5)
+            }
+        }
+        .frame(height: 132)
+        .clipShape(.rect(cornerRadius: Theme.Radius.card))
+        .inkOnColor()
+        .animation(.snappy, value: name)
+        // One picture for VoiceOver, so the initials on it aren't read one by one.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text("You on a court, with \(PracticeRound.alex.firstName) and \(PracticeRound.ricardo.firstName)"))
+        .accessibilityAddTraits(.isImage)
+    }
+}
+
+/// Figma "Reimagined · C5 · House rules" (513:7684): the community guidelines, agreed to once
+/// before the map (SPEC §7.5).
 private struct GuidelinesStep: View {
     @Bindable var viewModel: OnboardingViewModel
 
     var body: some View {
         OnboardingPage(
             systemImage: "checkmark.shield",
-            title: "Before you go",
-            message: "masUNO works because people show up and play nice."
+            title: "Five house rules",
+            message: "Plans work when people show up and play nice."
         ) {
             CommunityRules()
                 .padding(18)
@@ -817,23 +915,41 @@ private struct GuidelinesStep: View {
 
 // MARK: - Layout
 
-/// A big rounded title, an optional icon above it and message under it, content, and a pinned
-/// bottom action.
-struct OnboardingPage<Content: View, Footer: View>: View {
+/// A big rounded title, an optional icon or banner above it and message under it, content, and a
+/// pinned bottom action.
+struct OnboardingPage<Top: View, Content: View, Footer: View>: View {
     var systemImage: String?
     var title: LocalizedStringKey
+    /// What VoiceOver says for the title, when the words on screen read badly ("#12").
+    var spokenTitle: Text?
     var message: LocalizedStringKey?
+    @ViewBuilder var top: Top
     @ViewBuilder var content: Content
     @ViewBuilder var footer: Footer
     @Environment(\.dynamicTypeSize) private var typeSize
+    /// Where the content and the shown part of the screen end, for `MoreBelowHint`.
+    @State private var contentBottom: CGFloat = 0
+    @State private var scrollBottom: CGFloat = .infinity
+    @State private var footerTop: CGFloat = .infinity
+    @State private var scroll = ScrollPosition(edge: .top)
+
+    /// The content runs on under the pinned buttons (or off the screen at accessibility sizes).
+    private var hasMore: Bool {
+        MoreBelowHint.isNeeded(
+            contentBottom: contentBottom,
+            shownBottom: typeSize.isAccessibilitySize ? scrollBottom : min(scrollBottom, footerTop)
+        )
+    }
 
     init(
-        systemImage: String? = nil, title: LocalizedStringKey, message: LocalizedStringKey?,
-        @ViewBuilder content: () -> Content, @ViewBuilder footer: () -> Footer
+        systemImage: String? = nil, title: LocalizedStringKey, spokenTitle: Text? = nil, message: LocalizedStringKey?,
+        @ViewBuilder top: () -> Top, @ViewBuilder content: () -> Content, @ViewBuilder footer: () -> Footer
     ) {
         self.systemImage = systemImage
         self.title = title
+        self.spokenTitle = spokenTitle
         self.message = message
+        self.top = top()
         self.content = content()
         self.footer = footer()
     }
@@ -850,11 +966,13 @@ struct OnboardingPage<Content: View, Footer: View>: View {
                         .padding(.top, 24)
                         .accessibilityHidden(true)
                 }
+                top
                 VStack(alignment: .leading, spacing: 8) {
                     Text(title)
                         .font(.rounded(.largeTitle, .bold))
                         .foregroundStyle(Theme.ink)
                         .accessibilityAddTraits(.isHeader)
+                        .modifier(SpokenLabel(label: spokenTitle))
                     if let message {
                         Text(message)
                             .font(.rounded(.body))
@@ -867,13 +985,20 @@ struct OnboardingPage<Content: View, Footer: View>: View {
                 if typeSize.isAccessibilitySize { footer.padding(.top, 8) }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            .reportsBottom($contentBottom)
             .padding(.horizontal, Theme.gutter)
             .padding(.top, 4)
             .padding(.bottom, 16)
             .readableColumn()
         }
         .scrollDismissesKeyboard(.interactively)
+        .scrollPosition($scroll)
+        .reportsBottom($scrollBottom)
         .background(Theme.background)
+        .animation(.easeOut(duration: 0.2), value: hasMore)
+        .overlay(alignment: .bottom) {
+            if typeSize.isAccessibilitySize, hasMore { MoreBelowHint(scrollToEnd: scrollToEnd) }
+        }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if !typeSize.isAccessibilitySize {
                 footer
@@ -882,38 +1007,38 @@ struct OnboardingPage<Content: View, Footer: View>: View {
                     .padding(.bottom, 8)
                     .readableColumn()
                     .background(Theme.background)
+                    .reportsTop($footerTop)
+                    .moreBelowHint(isShown: hasMore, scrollToEnd: scrollToEnd)
             }
         }
     }
+
+    private func scrollToEnd() {
+        withAnimation(.snappy) { scroll.scrollTo(edge: .bottom) }
+    }
 }
 
-/// Welcome and You're verified: the top of a game's details, with the court as a picture (no
-/// taps, hidden from VoiceOver), the content as its sheet, and a pinned bottom action.
-private struct CourtPage<Content: View, Footer: View>: View {
-    var lineup: Lineup
-    @ViewBuilder var content: Content
-    @ViewBuilder var footer: Footer
+extension OnboardingPage where Top == EmptyView {
+    init(
+        systemImage: String? = nil, title: LocalizedStringKey, spokenTitle: Text? = nil, message: LocalizedStringKey?,
+        @ViewBuilder content: () -> Content, @ViewBuilder footer: () -> Footer
+    ) {
+        self.init(
+            systemImage: systemImage, title: title, spokenTitle: spokenTitle, message: message,
+            top: { EmptyView() }, content: content, footer: footer
+        )
+    }
+}
 
-    @Environment(\.dynamicTypeSize) private var typeSize
+/// An accessibility label, only when there is one.
+private struct SpokenLabel: ViewModifier {
+    var label: Text?
 
-    var body: some View {
-        CourtScaffold(activity: Activity.builtIn[0], lineup: lineup, capacity: 6) {
-            VStack(alignment: .leading, spacing: 0) {
-                content
-                // After the text at accessibility sizes, as on `OnboardingPage` (A11Y-06).
-                if typeSize.isAccessibilitySize { footer.padding(.top, 18) }
-            }
-        }
-        .scrollBounceBehavior(.basedOnSize)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            if !typeSize.isAccessibilitySize {
-                footer
-                    .padding(.horizontal, Theme.gutter)
-                    .padding(.top, 10)
-                    .padding(.bottom, 8)
-                    .readableColumn()
-                    .background(Theme.background)
-            }
+    func body(content: Content) -> some View {
+        if let label {
+            content.accessibilityLabel(label)
+        } else {
+            content
         }
     }
 }

@@ -3,11 +3,13 @@ import SwiftUI
 /// The four rules everyone agrees to: in onboarding, again before their first message, and
 /// any time from Settings (SPEC §7.5).
 struct CommunityRules: View {
+    /// The five house rules (Figma "Reimagined · C5"), also in Settings and before the first chat.
     private let rules: [LocalizedStringKey] = [
-        "Be respectful. No harassment, hate or slurs.",
-        "Keep it about the plan: timing, where to meet, who's bringing what.",
-        "Don't share anyone's personal info or photos without asking.",
+        "Show up, or leave the plan early so someone else can take your spot.",
+        "Be respectful. No harassment, hate or slurs, and don't share anyone's info or photos without asking.",
+        "Keep the chat about the plan: timing, where to meet, what to bring.",
         "Meet in public places and look out for each other.",
+        "Follow the rules of the place you go. Courts, gyms and fields each have their own.",
     ]
 
     var body: some View {
