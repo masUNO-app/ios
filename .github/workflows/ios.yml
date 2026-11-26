@@ -240,7 +240,7 @@ jobs:
   test-ios27:
     name: test-ios27
     runs-on: xcode-27
-    timeout-minutes: 75
+    timeout-minutes: 100
     defaults:
       run:
         shell: bash
@@ -336,10 +336,10 @@ jobs:
           sleep 45
           xcrun simctl terminate "$SIMULATOR" com.masuno.app || true
 
-      # Includes the accessibility audit (one launch per screen) and the AX5 core-loop tests. Launch timing
-      # is local only: on shared runners its numbers swing with load, and its 6 launches cost a minute.
-      # A failed test runs once more: a launch that times out on a loaded runner passes the second time,
-      # and a real failure fails twice.
+      # The AX5 core-loop and other UI tests; the accessibility audit has its own step below. Launch
+      # timing is local only: on shared runners its numbers swing with load, and its 6 launches cost a
+      # minute. A failed test runs once more: a launch that times out on a loaded runner passes the
+      # second time, and a real failure fails twice.
       - name: Run mock UI tests
         if: ${{ !cancelled() && steps.build-tests.outcome == 'success' && steps.boot-simulator.outcome == 'success' }}
         timeout-minutes: 45
@@ -349,6 +349,7 @@ jobs:
           xcodebuild test-without-building -xctestrun "${test_runs[0]}" \
             -destination "id=$SIMULATOR" -destination-timeout 60 \
             -resultBundlePath artifacts/ui-tests.xcresult -only-testing:masUNOUITests \
+            -skip-testing:masUNOUITests/AccessibilityAuditUITests \
             -skip-testing:masUNOUITests/LaunchPerformanceUITests \
             -parallel-testing-enabled NO -collect-test-diagnostics never \
             -retry-tests-on-failure -test-iterations 2 \
@@ -357,6 +358,14 @@ jobs:
             -maximum-test-execution-time-allowance 300 \
             -enableCodeCoverage NO CODE_SIGNING_ALLOWED=NO \
             2>&1 | tee artifacts/ui-tests.log
+
+      # The accessibility audit (one launch per screen), on its own so a simulator stall partway through
+      # doesn't take the other UI tests with it. After a stall (Nov 24, Nov 26) the script reboots the
+      # simulator and runs the stalled tests once more; an audit finding fails without a retry.
+      - name: Run the accessibility audit
+        if: ${{ !cancelled() && steps.build-tests.outcome == 'success' && steps.boot-simulator.outcome == 'success' }}
+        timeout-minutes: 40
+        run: bash .github/scripts/run-accessibility-audit.sh
 
       - name: Shut down the test simulator
         if: always() && env.SIMULATOR != ''

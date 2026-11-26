@@ -87,7 +87,8 @@ final class AccessibilityAuditUITests: XCTestCase {
         Screen("settings") { $0.buttons["Delete account"] },
         Screen("blocked") { $0.buttons["Unblock Sam L."] },
     ]
-    @MainActor static let onboarding = [
+    /// Welcome, the practice round and You're all set; the account screens are `onboarding`.
+    @MainActor static let practiceRound = [
         Screen("onboarding-welcome") { $0.buttons["Show me how it works"] },
         Screen("onboarding-sports") { $0.buttons["Continue"] },
         Screen("onboarding-start") { $0.buttons["Start practice round"] },
@@ -95,6 +96,8 @@ final class AccessibilityAuditUITests: XCTestCase {
         Screen("onboarding-join3") { $0.buttons["Make it official"] },
         Screen("onboarding-host2") { $0.buttons["Create plan"] },
         Screen("onboarding-allset") { $0.buttons["Go to the map"] },
+    ]
+    @MainActor static let onboarding = [
         Screen("onboarding-signup") { $0.buttons["Create account"] },
         Screen("onboarding-signin") { $0.buttons["Sign in"] },
         Screen("onboarding-verify") { $0.buttons["Use a different email"] },
@@ -109,6 +112,7 @@ final class AccessibilityAuditUITests: XCTestCase {
     @MainActor func testFormScreens() { audit(Self.form) }
     @MainActor func testMeScreens() { audit(Self.me) }
     @MainActor func testOnboardingScreens() { audit(Self.onboarding) }
+    @MainActor func testPracticeRoundScreens() { audit(Self.practiceRound) }
 
     /// Audits each screen in turn; a finding on one is recorded and the rest still run.
     @MainActor
