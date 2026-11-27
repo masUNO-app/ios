@@ -1,53 +1,533 @@
-# App build and unit tests (B11, iOS half): generates the project, then runs masUNOTests on the newest
-# iPhone simulator. Debug runs on mocks with the template's placeholder keys, so it never calls
-# Supabase; LiveIntegrationTests skip themselves without MASUNO_LIVE_PASSWORD. Make "iOS / test" a
-# required check on main once it's green.
 name: iOS
 
 on:
+  workflow_dispatch:
   pull_request:
-    paths: ["MasUno/**", "MasUnoTests/**", "masUNONotifications/**", "Shared/**", "project.yml", "Config.xcconfig.template", ".github/workflows/ios.yml"]
+    paths:
+      - "MasUno/**"
+      - "MasUnoTests/**"
+      - "MasUnoUITests/**"
+      - "masUNONotifications/**"
+      - "Shared/**"
+      - "project.yml"
+      - "Config.xcconfig.template"
+      - ".github/workflows/ios.yml"
+      - ".github/scripts/**"
   push:
     branches: [main]
-    paths: ["MasUno/**", "MasUnoTests/**", "masUNONotifications/**", "Shared/**", "project.yml", "Config.xcconfig.template", ".github/workflows/ios.yml"]
+    paths:
+      - "MasUno/**"
+      - "MasUnoTests/**"
+      - "MasUnoUITests/**"
+      - "masUNONotifications/**"
+      - "Shared/**"
+      - "project.yml"
+      - "Config.xcconfig.template"
+      - ".github/workflows/ios.yml"
+      - ".github/scripts/**"
+
+permissions:
+  contents: read
 
 concurrency:
   group: ios-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  test:
-    runs-on: macos-26
-    timeout-minutes: 30
+  build-release:
+    name: build-release
+    runs-on: macos-26-intel
+    timeout-minutes: 20
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
       - uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: latest-stable
+          xcode-version: "26.6"
+
+      - name: Restore SwiftPM cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/Caches/org.swift.swiftpm
+            build/SourcePackages
+          key: spm-v2-${{ runner.os }}-${{ runner.arch }}-xcode26.6-${{ hashFiles('project.yml') }}
+          restore-keys: |
+            spm-v2-${{ runner.os }}-${{ runner.arch }}-xcode26.6-
+
       - name: Generate the project
         run: |
-          brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
+          command -v xcodegen >/dev/null || brew install xcodegen
           cp Config.xcconfig.template Config.xcconfig
           xcodegen generate
-      - name: Pick the newest iPhone simulator
+
+      - name: Build the Release app and notification extension
         run: |
-          udid=$(xcrun simctl list devices available -j | python3 -c '
-          import json, re, sys
-          best = None
-          for runtime, devices in json.load(sys.stdin)["devices"].items():
-              match = re.search(r"iOS-(\d+)-(\d+)", runtime)
-              if not match:
-                  continue
-              version = tuple(map(int, match.groups()))
-              for device in devices:
-                  if device["name"].startswith("iPhone") and (best is None or version > best[0]):
-                      best = (version, device["udid"], device["name"])
-          print(best[1]); print(best, file=sys.stderr)
-          ')
-          echo "SIMULATOR=$udid" >> "$GITHUB_ENV"
-      - name: Build and test
+          mkdir -p artifacts
+          xcodebuild build -quiet -project masUNO.xcodeproj -scheme masUNO \
+            -configuration Release -destination 'generic/platform=iOS' \
+            -derivedDataPath build -clonedSourcePackagesDirPath build/SourcePackages \
+            -skipPackageUpdates CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO \
+            2>&1 | tee artifacts/release.log
+
+      - name: Upload Release logs
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-release-${{ github.sha }}
+          path: artifacts/release.log
+          compression-level: 6
+          if-no-files-found: warn
+          retention-days: 7
+
+  test-ios26:
+    name: test-ios26
+    # Apple silicon: on macos-26-intel the simulator wedged mid UI tests and starved the runner until
+    # it dropped off (Nov 20, twice). iOS 18's Apple silicon job runs the same suites in a third the time.
+    runs-on: macos-26
+    timeout-minutes: 75
+    defaults:
+      run:
+        shell: bash
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "26.6"
+
+      - name: Restore SwiftPM cache
+        id: spm-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/Library/Caches/org.swift.swiftpm
+            build/SourcePackages
+          key: spm-v2-${{ runner.os }}-${{ runner.arch }}-xcode26.6-${{ hashFiles('project.yml') }}
+          restore-keys: |
+            spm-v2-${{ runner.os }}-${{ runner.arch }}-xcode26.6-
+
+      - name: Generate the project
         run: |
-          set -o pipefail
-          xcodebuild test -project masUNO.xcodeproj -scheme masUNO \
-            -destination "id=$SIMULATOR" -derivedDataPath build \
-            CODE_SIGNING_ALLOWED=NO | tail -n 80
+          mkdir -p artifacts
+          command -v xcodegen >/dev/null || brew install xcodegen
+          cp Config.xcconfig.template Config.xcconfig
+          xcodegen generate
+
+      # Compile before booting: the simulator and Swift compiler compete for runner memory.
+      - name: Build the app and both test bundles
+        id: build-tests
+        timeout-minutes: 12
+        run: |
+          xcodebuild build-for-testing -quiet -project masUNO.xcodeproj -scheme masUNO \
+            -configuration Debug -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build \
+            -clonedSourcePackagesDirPath build/SourcePackages -skipPackageUpdates \
+            -enableCodeCoverage NO ONLY_ACTIVE_ARCH=YES ARCHS="$(uname -m)" \
+            CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO \
+            2>&1 | tee artifacts/build-tests.log
+
+      - name: Save SwiftPM cache before testing
+        if: steps.spm-cache.outputs.cache-hit != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/Library/Caches/org.swift.swiftpm
+            build/SourcePackages
+          key: ${{ steps.spm-cache.outputs.cache-primary-key }}
+
+      - name: Boot iPhone 17 Pro on iOS 26.5
+        id: boot-simulator
+        timeout-minutes: 10
+        env:
+          SIMULATOR_RUNTIME: com.apple.CoreSimulator.SimRuntime.iOS-26-5
+          SIMULATOR_DEVICE_TYPE: com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro
+        run: bash .github/scripts/boot-ios-simulator.sh
+
+      # Swift Testing still runs concurrent tests in-process; disable extra simulator clones.
+      # Keep sysdiagnose collection off: CI has stalled for 600s collecting it after failures.
+      # Allow cold simulator test-runner startup; individual test bodies finish in seconds. The runner
+      # itself has taken 9 minutes to start (iOS 27, Nov 20), so the limit is well above the usual 2 to 7.
+      - name: Run mock unit tests
+        timeout-minutes: 20
+        run: |
+          test_runs=(build/Build/Products/*.xctestrun)
+          [[ -f "${test_runs[0]}" && ${#test_runs[@]} -eq 1 ]]
+          xcodebuild test-without-building -xctestrun "${test_runs[0]}" \
+            -destination "id=$SIMULATOR" -destination-timeout 60 \
+            -resultBundlePath artifacts/unit-tests.xcresult -only-testing:masUNOTests \
+            -parallel-testing-enabled NO -collect-test-diagnostics never \
+            -enableCodeCoverage NO CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee artifacts/unit-tests.log
+
+      # The first launch on a cold runner compiles MapKit's and the court art's shaders and loads the
+      # accessibility bundles. On Nov 19 it outlasted XCTest's launch timeout on both jobs, so pay for it
+      # once here, untimed by XCTest. Best effort: the tests still run if this step fails.
+      - name: Warm up the app
+        if: ${{ !cancelled() && steps.build-tests.outcome == 'success' && steps.boot-simulator.outcome == 'success' }}
+        timeout-minutes: 5
+        continue-on-error: true
+        run: |
+          xcrun simctl install "$SIMULATOR" build/Build/Products/Debug-iphonesimulator/masUNO.app
+          xcrun simctl launch "$SIMULATOR" com.masuno.app -liveAuth NO -mockLocation YES -screen map
+          sleep 45
+          xcrun simctl terminate "$SIMULATOR" com.masuno.app || true
+
+      # The AX5 core-loop and other UI tests. The accessibility audit (one launch per screen) runs on the
+      # iOS 27 job and locally: on the Intel runner this job used to run on, simulator launches wedged partway through its ~27
+      # relaunches and hung the step (Nov 20). Launch timing is local only: on shared runners its numbers
+      # swing with load, and its 6 launches cost a minute. A failed test runs once more: a launch that times out on a loaded runner passes the second time,
+      # and a real failure fails twice.
+      - name: Run mock UI tests
+        if: ${{ !cancelled() && steps.build-tests.outcome == 'success' && steps.boot-simulator.outcome == 'success' }}
+        timeout-minutes: 45
+        run: |
+          test_runs=(build/Build/Products/*.xctestrun)
+          [[ -f "${test_runs[0]}" && ${#test_runs[@]} -eq 1 ]]
+          xcodebuild test-without-building -xctestrun "${test_runs[0]}" \
+            -destination "id=$SIMULATOR" -destination-timeout 60 \
+            -resultBundlePath artifacts/ui-tests.xcresult -only-testing:masUNOUITests \
+            -skip-testing:masUNOUITests/AccessibilityAuditUITests \
+            -skip-testing:masUNOUITests/LaunchPerformanceUITests \
+            -parallel-testing-enabled NO -collect-test-diagnostics never \
+            -retry-tests-on-failure -test-iterations 2 \
+            -test-timeouts-enabled YES \
+            -default-test-execution-time-allowance 240 \
+            -maximum-test-execution-time-allowance 300 \
+            -enableCodeCoverage NO CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee artifacts/ui-tests.log
+
+      - name: Shut down the test simulator
+        if: always() && env.SIMULATOR != ''
+        timeout-minutes: 1
+        continue-on-error: true
+        run: xcrun simctl shutdown "$SIMULATOR"
+
+      - name: Upload build and test logs
+        if: always()
+        timeout-minutes: 2
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-test-results-26.5
+          path: |
+            artifacts/*.log
+            artifacts/simulator-*.json
+          compression-level: 6
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Upload failed test results
+        if: failure()
+        timeout-minutes: 3
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-test-failures-26.5
+          path: artifacts/*.xcresult
+          compression-level: 0
+          if-no-files-found: ignore
+          retention-days: 7
+
+  test-ios27:
+    name: test-ios27
+    runs-on: xcode-27
+    timeout-minutes: 100
+    defaults:
+      run:
+        shell: bash
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "27.2"
+
+      - name: Verify Xcode 27.2
+        run: |
+          xcodebuild -version
+          xcodebuild -version | grep -q '^Xcode 27\.2'
+
+      - name: Restore SwiftPM cache
+        id: spm-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/Library/Caches/org.swift.swiftpm
+            build/SourcePackages
+          key: spm-v2-${{ runner.os }}-${{ runner.arch }}-xcode27.2-${{ hashFiles('project.yml') }}
+          restore-keys: |
+            spm-v2-${{ runner.os }}-${{ runner.arch }}-xcode27.2-
+
+      - name: Generate the project
+        run: |
+          mkdir -p artifacts
+          command -v xcodegen >/dev/null || brew install xcodegen
+          cp Config.xcconfig.template Config.xcconfig
+          xcodegen generate
+
+      # Compile before booting: the simulator and Swift compiler compete for runner memory.
+      - name: Build the app and both test bundles
+        id: build-tests
+        timeout-minutes: 12
+        run: |
+          xcodebuild build-for-testing -quiet -project masUNO.xcodeproj -scheme masUNO \
+            -configuration Debug -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build \
+            -clonedSourcePackagesDirPath build/SourcePackages -skipPackageUpdates \
+            -enableCodeCoverage NO ONLY_ACTIVE_ARCH=YES ARCHS="$(uname -m)" \
+            CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO \
+            2>&1 | tee artifacts/build-tests.log
+
+      - name: Save SwiftPM cache before testing
+        if: steps.spm-cache.outputs.cache-hit != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/Library/Caches/org.swift.swiftpm
+            build/SourcePackages
+          key: ${{ steps.spm-cache.outputs.cache-primary-key }}
+
+      - name: Boot iPhone 18 Pro on iOS 27.2
+        id: boot-simulator
+        timeout-minutes: 10
+        env:
+          SIMULATOR_RUNTIME: com.apple.CoreSimulator.SimRuntime.iOS-27-2
+          SIMULATOR_DEVICE_TYPE: com.apple.CoreSimulator.SimDeviceType.iPhone-18-Pro
+        run: bash .github/scripts/boot-ios-simulator.sh
+
+      # Swift Testing still runs concurrent tests in-process; disable extra simulator clones.
+      # Keep sysdiagnose collection off: CI has stalled for 600s collecting it after failures.
+      # Allow cold simulator test-runner startup; individual test bodies finish in seconds. The runner
+      # itself has taken 9 minutes to start (iOS 27, Nov 20), so the limit is well above the usual 2 to 7.
+      - name: Run mock unit tests
+        timeout-minutes: 20
+        run: |
+          test_runs=(build/Build/Products/*.xctestrun)
+          [[ -f "${test_runs[0]}" && ${#test_runs[@]} -eq 1 ]]
+          xcodebuild test-without-building -xctestrun "${test_runs[0]}" \
+            -destination "id=$SIMULATOR" -destination-timeout 60 \
+            -resultBundlePath artifacts/unit-tests.xcresult -only-testing:masUNOTests \
+            -parallel-testing-enabled NO -collect-test-diagnostics never \
+            -enableCodeCoverage NO CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee artifacts/unit-tests.log
+
+      # The first launch on a cold runner compiles MapKit's and the court art's shaders and loads the
+      # accessibility bundles. On Nov 19 it outlasted XCTest's launch timeout on both jobs, so pay for it
+      # once here, untimed by XCTest. Best effort: the tests still run if this step fails.
+      - name: Warm up the app
+        if: ${{ !cancelled() && steps.build-tests.outcome == 'success' && steps.boot-simulator.outcome == 'success' }}
+        timeout-minutes: 5
+        continue-on-error: true
+        run: |
+          xcrun simctl install "$SIMULATOR" build/Build/Products/Debug-iphonesimulator/masUNO.app
+          xcrun simctl launch "$SIMULATOR" com.masuno.app -liveAuth NO -mockLocation YES -screen map
+          sleep 45
+          xcrun simctl terminate "$SIMULATOR" com.masuno.app || true
+
+      # The AX5 core-loop and other UI tests; the accessibility audit has its own step below. Launch
+      # timing is local only: on shared runners its numbers swing with load, and its 6 launches cost a
+      # minute. A failed test runs once more: a launch that times out on a loaded runner passes the
+      # second time, and a real failure fails twice.
+      - name: Run mock UI tests
+        if: ${{ !cancelled() && steps.build-tests.outcome == 'success' && steps.boot-simulator.outcome == 'success' }}
+        timeout-minutes: 45
+        run: |
+          test_runs=(build/Build/Products/*.xctestrun)
+          [[ -f "${test_runs[0]}" && ${#test_runs[@]} -eq 1 ]]
+          xcodebuild test-without-building -xctestrun "${test_runs[0]}" \
+            -destination "id=$SIMULATOR" -destination-timeout 60 \
+            -resultBundlePath artifacts/ui-tests.xcresult -only-testing:masUNOUITests \
+            -skip-testing:masUNOUITests/AccessibilityAuditUITests \
+            -skip-testing:masUNOUITests/LaunchPerformanceUITests \
+            -parallel-testing-enabled NO -collect-test-diagnostics never \
+            -retry-tests-on-failure -test-iterations 2 \
+            -test-timeouts-enabled YES \
+            -default-test-execution-time-allowance 240 \
+            -maximum-test-execution-time-allowance 300 \
+            -enableCodeCoverage NO CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee artifacts/ui-tests.log
+
+      # The accessibility audit (one launch per screen), on its own so a simulator stall partway through
+      # doesn't take the other UI tests with it. After a stall (Nov 24, Nov 26) the script reboots the
+      # simulator and runs the stalled tests once more; an audit finding fails without a retry.
+      - name: Run the accessibility audit
+        if: ${{ !cancelled() && steps.build-tests.outcome == 'success' && steps.boot-simulator.outcome == 'success' }}
+        timeout-minutes: 40
+        run: bash .github/scripts/run-accessibility-audit.sh
+
+      - name: Shut down the test simulator
+        if: always() && env.SIMULATOR != ''
+        timeout-minutes: 1
+        continue-on-error: true
+        run: xcrun simctl shutdown "$SIMULATOR"
+
+      - name: Upload build and test logs
+        if: always()
+        timeout-minutes: 2
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-test-results-27.2
+          path: |
+            artifacts/*.log
+            artifacts/simulator-*.json
+          compression-level: 6
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Upload failed test results
+        if: failure()
+        timeout-minutes: 3
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-test-failures-27.2
+          path: artifacts/*.xcresult
+          compression-level: 0
+          if-no-files-found: ignore
+          retention-days: 7
+
+  test-ios18:
+    name: test-ios18
+    runs-on: macos-15
+    timeout-minutes: 50
+    defaults:
+      run:
+        shell: bash
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "26.3"
+
+      - name: Restore SwiftPM cache
+        id: spm-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/Library/Caches/org.swift.swiftpm
+            build/SourcePackages
+          key: spm-v2-${{ runner.os }}-${{ runner.arch }}-xcode26.3-${{ hashFiles('project.yml') }}
+          restore-keys: |
+            spm-v2-${{ runner.os }}-${{ runner.arch }}-xcode26.3-
+
+      - name: Generate the project
+        run: |
+          mkdir -p artifacts
+          command -v xcodegen >/dev/null || brew install xcodegen
+          cp Config.xcconfig.template Config.xcconfig
+          xcodegen generate
+
+      # Compile before booting: the simulator and Swift compiler compete for runner memory.
+      - name: Build the app and both test bundles
+        id: build-tests
+        timeout-minutes: 12
+        run: |
+          xcodebuild build-for-testing -quiet -project masUNO.xcodeproj -scheme masUNO \
+            -configuration Debug -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build \
+            -clonedSourcePackagesDirPath build/SourcePackages -skipPackageUpdates \
+            -enableCodeCoverage NO ONLY_ACTIVE_ARCH=YES ARCHS="$(uname -m)" \
+            CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO \
+            2>&1 | tee artifacts/build-tests.log
+
+      - name: Save SwiftPM cache before testing
+        if: steps.spm-cache.outputs.cache-hit != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/Library/Caches/org.swift.swiftpm
+            build/SourcePackages
+          key: ${{ steps.spm-cache.outputs.cache-primary-key }}
+
+      - name: Boot iPhone 16 Pro on iOS 18.6
+        id: boot-simulator
+        timeout-minutes: 10
+        env:
+          SIMULATOR_RUNTIME: com.apple.CoreSimulator.SimRuntime.iOS-18-6
+          SIMULATOR_DEVICE_TYPE: com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro
+        run: bash .github/scripts/boot-ios-simulator.sh
+
+      # Swift Testing still runs concurrent tests in-process; disable extra simulator clones.
+      # Keep sysdiagnose collection off: CI has stalled for 600s collecting it after failures.
+      # Allow cold simulator test-runner startup; individual test bodies finish in seconds. The runner
+      # itself has taken 9 minutes to start (iOS 27, Nov 20), so the limit is well above the usual 2 to 7.
+      - name: Run mock unit tests
+        timeout-minutes: 20
+        run: |
+          test_runs=(build/Build/Products/*.xctestrun)
+          [[ -f "${test_runs[0]}" && ${#test_runs[@]} -eq 1 ]]
+          xcodebuild test-without-building -xctestrun "${test_runs[0]}" \
+            -destination "id=$SIMULATOR" -destination-timeout 60 \
+            -resultBundlePath artifacts/unit-tests.xcresult -only-testing:masUNOTests \
+            -parallel-testing-enabled NO -collect-test-diagnostics never \
+            -enableCodeCoverage NO CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee artifacts/unit-tests.log
+
+      # The accessibility audit runs on iOS 26 and 27; this job checks compatibility. Launch timing is local
+      # only: on shared runners its numbers swing with load, and its 6 launches cost a minute of this budget.
+      - name: Run mock UI tests
+        if: ${{ !cancelled() && steps.build-tests.outcome == 'success' && steps.boot-simulator.outcome == 'success' }}
+        timeout-minutes: 25
+        run: |
+          test_runs=(build/Build/Products/*.xctestrun)
+          [[ -f "${test_runs[0]}" && ${#test_runs[@]} -eq 1 ]]
+          xcodebuild test-without-building -xctestrun "${test_runs[0]}" \
+            -destination "id=$SIMULATOR" -destination-timeout 60 \
+            -resultBundlePath artifacts/ui-tests.xcresult -only-testing:masUNOUITests \
+            -skip-testing:masUNOUITests/AccessibilityAuditUITests \
+            -skip-testing:masUNOUITests/LaunchPerformanceUITests \
+            -parallel-testing-enabled NO -collect-test-diagnostics never \
+            -test-timeouts-enabled YES \
+            -default-test-execution-time-allowance 240 \
+            -maximum-test-execution-time-allowance 300 \
+            -enableCodeCoverage NO CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee artifacts/ui-tests.log
+
+      - name: Shut down the test simulator
+        if: always() && env.SIMULATOR != ''
+        timeout-minutes: 1
+        continue-on-error: true
+        run: xcrun simctl shutdown "$SIMULATOR"
+
+      - name: Upload build and test logs
+        if: always()
+        timeout-minutes: 2
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-test-results-18.6
+          path: |
+            artifacts/*.log
+            artifacts/simulator-*.json
+          compression-level: 6
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Upload failed test results
+        if: failure()
+        timeout-minutes: 3
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-test-failures-18.6
+          path: artifacts/*.xcresult
+          compression-level: 0
+          if-no-files-found: ignore
+          retention-days: 7

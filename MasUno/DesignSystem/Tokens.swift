@@ -20,6 +20,8 @@ struct PersonToken: View {
             }
             .overlay { Circle().strokeBorder(.white, lineWidth: ring) }
             .frame(width: size, height: size)
+            // Pastels in dark mode too, with dark initials.
+            .inkOnColor()
             .accessibilityHidden(true)
     }
 
@@ -68,6 +70,7 @@ struct MeToken: View {
                         .accessibilityHidden(true)
                 }
             }
+            .inkOnColor()
     }
 }
 
@@ -98,16 +101,20 @@ struct OpenSpotToken: View {
     /// "+1", or "+4" when a row runs out of room for one token per spot.
     var count = 1
     /// White over a sport color; clear on a plain surface.
-    var fill: Color = .white.opacity(0.7)
+    var fill: Color = .white
+    /// Full under Increase Contrast, so the "+1" sits on solid white.
+    var fillOpacity = 0.7
     /// On the court the dashed ring slowly turns, so the spot looks like it's waiting for someone.
     var isLive = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.courtDecorationRuns) private var decorationRuns
     @State private var isTurning = false
 
     var body: some View {
         Circle()
             .fill(fill)
+            .contrastOpacity(fillOpacity)
             .overlay {
                 Text(verbatim: "+\(count)")
                     .font(.rounded(size: size * 0.37))
@@ -128,9 +135,14 @@ struct OpenSpotToken: View {
                     .geometryGroup()
             }
             .frame(width: size, height: size)
+            // On its white the "+1" stays ink in dark mode; a clear one follows the surface.
+            .inkOnColor(fill != .clear)
             .accessibilityHidden(true)
-            .onAppear { isTurning = isLive && !reduceMotion }
-            .onChange(of: reduceMotion) { isTurning = isLive && !reduceMotion }
+            .onAppear { isTurning = isLive && !reduceMotion && decorationRuns }
+            .onDisappear { isTurning = false }
+            .onChange(of: reduceMotion) { isTurning = isLive && !reduceMotion && decorationRuns }
+            .onChange(of: isLive) { isTurning = isLive && !reduceMotion && decorationRuns }
+            .onChange(of: decorationRuns) { isTurning = isLive && !reduceMotion && decorationRuns }
     }
 }
 
@@ -214,13 +226,13 @@ struct Lineup: Equatable {
 
     /// "Alex R., Ricardo T. and 4 open spots", for VoiceOver.
     var accessibilityLabel: String {
-        var parts = people.map { $0.id == myID ? String(localized: "You") : $0.displayName }
+        var parts = people.map { $0.id == myID ? String.app("You") : $0.displayName }
         if unlisted > 0 {
             // With nobody named (a guest's view), "2 more" has nothing to add to.
-            parts.append(people.isEmpty ? String(localized: "\(unlisted) going") : String(localized: "\(unlisted) more"))
+            parts.append(people.isEmpty ? String.app("\(unlisted) going") : String.app("\(unlisted) more"))
         }
-        if open > 0 { parts.append(open == 1 ? String(localized: "1 open spot") : String(localized: "\(open) open spots")) }
-        return parts.formatted(.list(type: .and))
+        if open > 0 { parts.append(open == 1 ? String.app("1 open spot") : String.app("\(open) open spots")) }
+        return parts.formatted(.list(type: .and).locale(LanguageSettings.shared.locale))
     }
 }
 
@@ -231,8 +243,9 @@ struct Lineup: Equatable {
 struct TokenRow: View {
     var lineup: Lineup
     var size: CGFloat = 32
-    /// Fill behind the "+1" tokens.
-    var openFill: Color = .white.opacity(0.7)
+    /// Fill behind the "+1" tokens, and its opacity (full under Increase Contrast).
+    var openFill: Color = .white
+    var openFillOpacity = 0.7
     /// The row's width, once measured.
     @State private var width: CGFloat?
 
@@ -272,7 +285,7 @@ struct TokenRow: View {
             ForEach(0..<openTokens, id: \.self) { index in
                 // The last token carries the rest when there are more spots than tokens.
                 let isLast = index == openTokens - 1
-                OpenSpotToken(size: size, count: isLast ? lineup.open - openTokens + 1 : 1, fill: openFill)
+                OpenSpotToken(size: size, count: isLast ? lineup.open - openTokens + 1 : 1, fill: openFill, fillOpacity: openFillOpacity)
             }
         }
         // Takes the width it's offered, so what fits doesn't depend on what it shows.
@@ -338,6 +351,6 @@ struct TokenStack: View {
             }
         }
         .accessibilityElement()
-        .accessibilityLabel(Text(verbatim: people.map(\.displayName).formatted(.list(type: .and))))
+        .accessibilityLabel(Text(verbatim: people.map(\.displayName).formatted(.list(type: .and).locale(LanguageSettings.shared.locale))))
     }
 }

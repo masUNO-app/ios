@@ -9,9 +9,15 @@ struct EventMapView: View {
     @Environment(GameStore.self) private var store
     @Environment(AppViewModel.self) private var appViewModel
     @State private var viewModel = EventMapViewModel()
+    @State private var presentationTime = Date.now
     @State private var screenSize: CGSize = .zero
     @State private var showsSaved = false
     @State private var showsFilters = false
+    /// Every game on the map in one list: VoiceOver's "List plans" action, for getting through
+    /// the games without hunting pin by pin (A11Y-02).
+    @State private var listsAllGames = false
+    /// A popup just opened at an accessibility size: pan again once its real height is known.
+    @State private var remeasuresPopup: UUID?
     /// The map's own frame, full screen, in global coordinates: its size tells how close pins
     /// are on screen.
     @State private var mapFrame: CGRect = .zero
@@ -21,7 +27,7 @@ struct EventMapView: View {
     @State private var fold: CGRect?
     /// Keeps When-In-Use location authorized while the map is up.
     @State private var locationSession: CLServiceSession?
-    /// "See games near you", before the iOS prompt.
+    /// "See plans near you", before the iOS prompt.
     @State private var asksForLocation = false
     @State private var declinedLocationPrimer = UserDefaults.standard.bool(forKey: EventMapView.declinedPrimerKey)
     /// The avatar's frame in the bottom bar, so the location button sits right above it.
@@ -36,6 +42,14 @@ struct EventMapView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.openURL) private var openURL
+    /// Room around wrapped text in the overlays at accessibility sizes; smaller sizes keep their heights.
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    private struct AttendeeDemandKey: Hashable {
+        let games: [Game]
+        let revision: Int
+        let sessionID: UUID
+    }
 
     private static let declinedPrimerKey = "declinedLocationPrimer"
     /// The bottom bar's round buttons (Filter).
@@ -51,30 +65,44 @@ struct EventMapView: View {
     private static let navigationRowReserve: CGFloat = 20 + 221 + 10
     /// How far the avatar draws past the room its label claims in the bottom bar.
     private static let avatarOverhang: CGFloat = 5
+    /// The field, chip and banners float over the map and stop growing here: at the largest
+    /// sizes the field alone would cover a third of the map (A11Y-06). Arianna picks the cap.
+    static let overlayTypeCap = DynamicTypeSize.accessibility2
+    /// A search result's height at the default text size; rows grow with the text.
+    @ScaledMetric(relativeTo: .body) private var resultRowHeight: CGFloat = 68
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 30)) { context in
-            map(now: context.date)
-        }
+        // Pins, chip, cards and search all read this one pass over the store.
+        let frame = viewModel.frame(in: store, now: presentationTime, mapSize: mapSize)
+        let attendeeDemand = AttendeeDemandKey(
+            games: frame.attendeeDemand, revision: store.attendeeRevision, sessionID: store.sessionID
+        )
+
+        map(frame, now: presentationTime)
         .overlay { if isSearching { searchScrim } }
         .overlay(alignment: .top) { topBackdrop }
-        .overlay { if !isSearching { emptyOrFailedCard } }
+        .overlay { if !isSearching { emptyOrFailedCard(frame) } }
         .overlay(alignment: .top) {
             VStack(alignment: .leading, spacing: 12) {
                 // The field and its results run the full width up to `searchWidth`: edge to edge
                 // on a phone and the open iPhone Duo in portrait, not across a landscape screen.
                 // The chip and banners keep a phone's column.
-                if showsSearchRow, !searchInNavigationBar { searchRow.frame(maxWidth: Self.searchWidth) }
+                if showsSearchRow, !searchInNavigationBar {
+                    searchRow
+                        .frame(maxWidth: Self.searchWidth)
+                        .dynamicTypeSize(...Self.overlayTypeCap)
+                }
                 if isSearching {
-                    searchResults.frame(maxWidth: Self.searchWidth)
+                    searchResults(frame.filtered).frame(maxWidth: Self.searchWidth)
                 } else {
                     Group {
                         // The popup opens right under the search bar, where the chip is.
-                        if viewModel.popupID == nil { nearbyChip }
-                        if store.isOffline, !store.mapGames().isEmpty { OfflineBanner() }
+                        if viewModel.popupID == nil { nearbyChip(frame.filtered) }
+                        if store.isOffline, !frame.open.isEmpty { OfflineBanner() }
                         if showsLocationBanner { locationBanner }
                     }
                     .frame(maxWidth: Theme.columnWidth, alignment: .leading)
+                    .dynamicTypeSize(...Self.overlayTypeCap)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -94,11 +122,19 @@ struct EventMapView: View {
         .sheet(isPresented: $showsFilters) {
             FilterSheet(viewModel: viewModel)
         }
+        .sheet(isPresented: $listsAllGames) {
+            // In the search list's order: spots that just opened, then soonest.
+            let games = viewModel.searchResults(from: frame.filtered, now: presentationTime)
+            PinGroupSheet(
+                gameIDs: games.map(\.id), viewModel: viewModel,
+                title: Text(games.count == 1 ? "1 plan nearby" : "\(games.count) plans nearby"), subtitle: nil
+            ) { appViewModel.path.append(.game($0)) }
+        }
         .dialog(isPresented: $asksForLocation, isDismissable: false) {
             DialogCard(
                 systemImage: "mappin.and.ellipse", tone: .tinted(Color(.sportVolleyball)),
-                title: Text("See games near you"),
-                message: Text("We use your location only while the app is open, to show games within walking distance. Your exact spot is never shared."),
+                title: Text("See plans near you"),
+                message: Text("We use your location only while the app is open, to show plans within walking distance. It stays on your phone unless you post a plan at your current spot."),
                 confirm: .init("Allow location") { allowLocation() },
                 cancel: .init("Not now") { declineLocation() }
             )
@@ -109,6 +145,7 @@ struct EventMapView: View {
             case "saved": showsSaved = true
             case "filter": showsFilters = true
             case "search": viewModel.searchText = "hoops"
+            case "all-games": listsAllGames = true
             default: break
             }
             #endif
@@ -121,9 +158,19 @@ struct EventMapView: View {
             startLocation()
             if locationSession != nil { await viewModel.locate() }
         }
-        // Tokens under the pins: who's going to each game on the map.
-        .task(id: store.mapGames().map(\.id)) {
-            await store.loadMissingAttendees(for: store.mapGames().map(\.id))
+        // One clock drives pins, counts, search, eligibility and selection together.
+        .task(id: scenePhase) {
+            guard scenePhase == .active else { return }
+            presentationTime = .now
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .seconds(30)) } catch { return }
+                presentationTime = .now
+            }
+        }
+        // Group pins show sports/counts rather than faces. Fetch only filtered, visible single
+        // pins and the selected game; Game values also invalidate demand when counts change.
+        .task(id: attendeeDemand) {
+            await store.loadMissingAttendees(for: attendeeDemand.games.map(\.id))
         }
         .toolbarBackgroundVisibility(.hidden, for: .bottomBar)
         .onGeometryChange(for: CGSize.self) { $0.size } action: { screenSize = $0 }
@@ -136,7 +183,7 @@ struct EventMapView: View {
             )
         } action: { safeFrame = $0 }
         // Never shown here, but names the back button on pushed screens.
-        .navigationTitle("Map")
+        .navigationTitle(String.app("Map"))
         // The vertical bar hosts the navigation bar's items (search, saved games), and so does
         // the open iPhone Duo's top row beside the status area (`searchInNavigationBar`); on a
         // phone those controls float over the map instead.
@@ -144,7 +191,7 @@ struct EventMapView: View {
         // Without a title the navigation bar collapses, leaving the map full height.
         .toolbar(removing: showsNavigationBar ? .title : nil)
         .toolbarTitleDisplayMode(showsNavigationBar ? .inline : .automatic)
-        .animation(.spring(duration: 0.4, bounce: 0.22), value: viewModel.selectedID)
+        .motionAwareAnimation(.spring(duration: 0.4, bounce: 0.22), value: viewModel.selectedID)
         .animation(.snappy, value: isSearching)
         #if DEBUG
         .onAppear { viewModel.openDebugPopup(in: store) }
@@ -152,6 +199,7 @@ struct EventMapView: View {
         // Make room for the popup above a newly selected pin, like a map callout.
         .onChange(of: viewModel.selectedID) { _, id in
             viewModel.selectionChanged(to: id)
+            remeasuresPopup = typeSize.isAccessibilitySize ? id : nil
             guard let id, let event = store.game(id) else { return }
             viewModel.reveal(event, mapSize: mapSize, area: popupArea, popupWidth: popupWidth)
         }
@@ -162,8 +210,9 @@ struct EventMapView: View {
         .onAppear { focusOnMySportsIfAsked() }
         .onChange(of: appViewModel.focusMapOnMySports) { _, _ in focusOnMySportsIfAsked() }
         .onChange(of: store.profile?.id) { _, _ in focusOnMySportsIfAsked() }
-        .onChange(of: viewModel.mapEvents(in: store).map(\.id)) { _, ids in
+        .onChange(of: frame.filtered.map(\.id)) { _, ids in
             if let id = viewModel.selectedID, !ids.contains(id) { viewModel.dropSelection() }
+            viewModel.groupedIDs.removeAll { !ids.contains($0) }
         }
         // A popup and the results list would cover each other.
         .onChange(of: isSearching) { _, searching in
@@ -206,15 +255,17 @@ struct EventMapView: View {
 
     /// Not selectable: tapping lists its games instead of opening a popup.
     private func groupPin(_ group: PinGroup) -> some MapContent {
-        Annotation(String(localized: "\(group.games.count) games here"), coordinate: group.coordinate, anchor: GroupPin.anchor) {
+        Annotation(String.app("\(group.games.count) plans here"), coordinate: group.coordinate, anchor: GroupPin.anchor) {
             GroupPin(games: group.games, isDimmed: viewModel.selectedID != nil)
                 .fontDesign(.rounded)
                 .onTapGesture { viewModel.groupedIDs = group.games.map(\.id) }
+                // VoiceOver's double tap, without relying on its simulated tap reaching the gesture.
+                .accessibilityAction { viewModel.groupedIDs = group.games.map(\.id) }
         }
         .annotationTitles(.hidden)
     }
 
-    private func map(now: Date) -> some View {
+    private func map(_ frame: EventMapViewModel.MapFrame, now: Date) -> some View {
         @Bindable var viewModel = viewModel
 
         // Native selection: tap a pin to select, tap empty map to dismiss the popup.
@@ -230,7 +281,7 @@ struct EventMapView: View {
                 }
             }
 
-            ForEach(viewModel.pinGroups(in: store, now: now, mapSize: mapSize)) { group in
+            ForEach(frame.groups) { group in
                 if group.games.count == 1, let event = group.games.first {
                     eventPin(event, now: now)
                 } else {
@@ -242,6 +293,7 @@ struct EventMapView: View {
             // the pin, and the pin's annotation never changes size (which made MapKit swap and
             // cross-fade it). Added last so it draws over the pins.
             if let id = viewModel.popupID, let event = store.game(id) {
+                // Titled, though MapKit then lists the game a second time: untitled, it says "Map pin".
                 Annotation(event.title, coordinate: event.coordinate, anchor: viewModel.popupAnchor(for: event)) {
                     EventPopup(event: event, viewModel: viewModel)
                         .frame(width: popupWidth)
@@ -250,18 +302,28 @@ struct EventMapView: View {
                         .environment(appViewModel)
                         .environment(\.currentUserID, store.profile?.id)
                         .fontDesign(.rounded)
-                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { viewModel.popupHeight = $0 }
-                        // Grows out of / shrinks into the pin. Annotation content is hosted outside
-                        // this view's transactions, so the animation is declared in here.
-                        .scaleEffect(viewModel.isPopupShown ? 1 : 0.1, anchor: .bottom)
-                        .opacity(viewModel.isPopupShown ? 1 : 0)
-                        .animation(.spring(duration: 0.4, bounce: 0.22), value: viewModel.isPopupShown)
+                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height in
+                            let grew = height > viewModel.popupHeight + 1
+                            viewModel.popupHeight = height
+                            // At accessibility sizes the card is much taller than the height the
+                            // first pan allowed for, so pan again once it's measured (A11Y-06).
+                            // Only as it opens: a later change (the text size) leaves the map be.
+                            guard remeasuresPopup == event.id else { return }
+                            remeasuresPopup = nil
+                            if grew { viewModel.reveal(event, mapSize: mapSize, area: popupArea, popupWidth: popupWidth) }
+                        }
+                        // Grows out of / shrinks into the pin; fades under Reduce Motion (A11Y-18).
+                        // Annotation content is hosted outside this view's transactions, so the
+                        // animation is declared in here.
+                        .motionAwareScale(isShown: viewModel.isPopupShown, from: 0.1, anchor: .bottom)
+                        .motionAwareAnimation(.spring(duration: 0.4, bounce: 0.22), value: viewModel.isPopupShown)
                 }
                 .annotationTitles(.hidden)
             }
         }
         .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))
         .mapControlVisibility(.hidden)
+        .listGamesAction(frame.filtered) { listsAllGames = true }
         // Closes the popup once its pin scrolls off screen.
         .onMapCameraChange(frequency: .continuous) { context in
             let selected = viewModel.selectedID.flatMap { store.game($0) }
@@ -295,7 +357,7 @@ struct EventMapView: View {
     /// never wider than the Figma card.
     private var popupWidth: CGFloat {
         let area = popupArea
-        return min(max((area.isNull ? screenSize.width : area.width) - 32, 280), 370)
+        return PlanPopupCard<EmptyView, EmptyView>.width(in: area.isNull ? screenSize.width : area.width)
     }
 
     /// Soft fade behind the search bar ("Search backdrop" layer).
@@ -306,9 +368,9 @@ struct EventMapView: View {
         let topInset = safeFrame.isEmpty ? 0 : max(0, safeFrame.minY - mapFrame.minY)
         return LinearGradient(
             stops: [
-                .init(color: Theme.background.opacity(0.95), location: 0),
-                .init(color: Theme.background.opacity(0.8), location: 0.65),
-                .init(color: Theme.background.opacity(0), location: 1),
+                .init(color: Theme.mapFade.opacity(0.95), location: 0),
+                .init(color: Theme.mapFade.opacity(0.8), location: 0.65),
+                .init(color: Theme.mapFade.opacity(0), location: 1),
             ],
             startPoint: .top, endPoint: .bottom
         )
@@ -357,7 +419,7 @@ struct EventMapView: View {
 
             // With a vertical bar, Saved games lives in the bar instead.
             if !usesVerticalBar {
-                Button("Saved games", systemImage: "bookmark") { openSaved() }
+                Button("Saved plans", systemImage: "bookmark") { openSaved() }
                     .font(.title3.weight(.medium))
                     .glassCircle()
             }
@@ -372,24 +434,25 @@ struct EventMapView: View {
             Image(systemName: "magnifyingglass")
                 .font(.title3)
                 .foregroundStyle(Theme.muted)
-            TextField("Search games", text: $viewModel.searchText)
+                .accessibilityHidden(true)
+            TextField("Search plans", text: $viewModel.searchText)
                 .font(.rounded(.body, isSearching ? .bold : .medium))
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .submitLabel(.search)
                 .focused($isSearchFocused)
+                // The scrim that ends search by tap is hidden from VoiceOver (A11Y-20).
+                .accessibilityAction(.escape) { endSearch() }
                 // Opened from the bar's Search button, so start typing right away.
                 .onAppear { if usesVerticalBar { isSearchFocused = true } }
             if isSearching {
-                Button("Clear search", systemImage: "xmark.circle.fill") { endSearch() }
-                    .labelStyle(.iconOnly)
-                    .foregroundStyle(Theme.muted.opacity(0.6))
-                    .buttonStyle(.plain)
+                ClearFieldButton { endSearch() }
             }
         }
         .padding(.horizontal, 14)
-        .frame(height: 48)
-        .glassEffect(.regular.interactive(), in: .capsule)
+        .padding(.vertical, typeSize.isAccessibilitySize ? 8 : 0)
+        .frame(minHeight: 48)
+        .appGlass(in: .capsule, interactive: true)
         .foregroundStyle(Theme.ink)
     }
 
@@ -403,18 +466,18 @@ struct EventMapView: View {
     }
 
     /// Figma "Search results": "Basketball near you" over a card of matching games.
-    private var searchResults: some View {
-        let results = viewModel.searchResults(in: store)
+    private func searchResults(_ games: [Game]) -> some View {
+        let results = viewModel.searchResults(from: games, now: presentationTime)
 
         return VStack(alignment: .leading, spacing: 8) {
-            Text(verbatim: results.isEmpty ? String(localized: "No games match that search") : viewModel.resultsTitle(for: results))
+            Text(verbatim: results.isEmpty ? String.app("No plans match that search") : viewModel.resultsTitle(for: results))
                 .font(.rounded(.footnote, .bold))
                 .foregroundStyle(Theme.muted)
                 .padding(.leading, 4)
 
             if !results.isEmpty {
                 ScrollView {
-                    VStack(spacing: 0) {
+                    LazyVStack(spacing: 0) {
                         ForEach(results) { event in
                             Button {
                                 isSearchFocused = false
@@ -427,11 +490,13 @@ struct EventMapView: View {
                     }
                 }
                 .scrollBounceBehavior(.basedOnSize)
-                .frame(maxHeight: min(CGFloat(results.count) * 68, max(screenSize.height * 0.5, 204)))
+                .frame(maxHeight: min(CGFloat(results.count) * resultRowHeight, max(screenSize.height * 0.5, 204)))
                 .background(Theme.card, in: .rect(cornerRadius: Theme.Radius.card))
-                .shadow(color: Theme.ink.opacity(0.08), radius: 8, y: 3)
+                .shadow(color: Theme.shadowInk.opacity(0.08), radius: 8, y: 3)
             }
         }
+        // The list changes as you type without moving focus (A11Y-03).
+        .announcesChanges(of: viewModel.resultsAnnouncement(for: results))
         .transition(.opacity)
     }
 
@@ -445,8 +510,7 @@ struct EventMapView: View {
     // MARK: Chips and cards
 
     /// Tapping refreshes: a map can't pull to refresh, because dragging pans it.
-    private var nearbyChip: some View {
-        let games = viewModel.mapEvents(in: store)
+    private func nearbyChip(_ games: [Game]) -> some View {
         // One dot per sport on the map, in the sports' usual order.
         let sports = Array(Set(games.map(\.activity))).sorted { $0.sortOrder < $1.sortOrder }.prefix(4)
 
@@ -464,45 +528,50 @@ struct EventMapView: View {
                 if games.isEmpty {
                     Text("Quiet around here")
                 } else {
-                    Text(games.count == 1 ? "1 game nearby" : "\(games.count) games nearby")
+                    Text(games.count == 1 ? "1 plan nearby" : "\(games.count) plans nearby")
                 }
             }
             .font(.rounded(.footnote))
             .foregroundStyle(Theme.muted)
             .padding(.horizontal, 12)
-            .frame(height: 32)
-            .glassEffect(.regular.interactive(), in: .capsule)
+            .padding(.vertical, typeSize.isAccessibilitySize ? 6 : 0)
+            .frame(minHeight: 32)
+            .appGlass(in: .capsule, interactive: true)
+            // 44 pt tall to tap, without moving (A11Y-19).
+            .tapTarget(.vertical, 6)
         }
         .buttonStyle(.plain)
+        .padding(.vertical, -6)
         .accessibilityHint("Refreshes the map")
+        .listGamesAction(games) { listsAllGames = true }
     }
 
     /// A failed first load, a map with nothing on it, or filters that hide everything.
     @ViewBuilder
-    private var emptyOrFailedCard: some View {
+    private func emptyOrFailedCard(_ frame: EventMapViewModel.MapFrame) -> some View {
         Group {
             switch store.mapState {
             case .failed:
                 RetryCard { await store.refreshMap() }
-            case .loaded where store.mapGames().isEmpty:
+            case .loaded where frame.open.isEmpty:
                 EmptyCard(
-                    title: "No games nearby yet",
+                    title: "No plans nearby yet",
                     message: store.isGuest
                         ? "Check back soon, or create an account to host the first one."
-                        : "Be the first to start one. Most games just need one more."
+                        : "Be the first to start one. Most plans just need one more."
                 ) {
                     if store.isGuest {
                         Button("Create an account") { appViewModel.requireAccount(.host) }
                             .pill(.primary)
                     } else {
-                        Button("Add a game") { appViewModel.presentGameForm() }
+                        Button("Make a plan") { appViewModel.presentGameForm() }
                             .pill(.primary)
                     }
                     Button("Look farther away") { viewModel.lookFartherAway() }
                         .pill(.secondary)
                 }
-            case .loaded where viewModel.mapEvents(in: store).isEmpty:
-                EmptyCard(title: "No games fit those filters", message: "Try another sport or a wider search.") {
+            case .loaded where frame.filtered.isEmpty:
+                EmptyCard(title: "No plans fit those filters", message: "Try another activity or a wider search.") {
                     Button("Reset filters") { withAnimation(.snappy) { viewModel.resetFilters() } }
                         .pill(.primary)
                 }
@@ -512,7 +581,7 @@ struct EventMapView: View {
         }
         .frame(maxWidth: 354)
         .padding(.horizontal, 24)
-        .shadow(color: Theme.ink.opacity(0.1), radius: 16, y: 6)
+        .shadow(color: Theme.shadowInk.opacity(0.1), radius: 16, y: 6)
     }
 
     // MARK: Location
@@ -525,7 +594,7 @@ struct EventMapView: View {
         if UserDefaults.standard.string(forKey: "screen") == "location" { return asksForLocation = true }
         #endif
         guard LocationService.mockCoordinate == nil, locationSession == nil else { return }
-        switch CLLocationManager().authorizationStatus {
+        switch LocationService.authorizationStatus {
         case .notDetermined:
             if !declinedLocationPrimer, !isDesignReview { asksForLocation = true }
         default:
@@ -561,18 +630,20 @@ struct EventMapView: View {
     /// Location off: the map stays on campus (SPEC §7.6.1).
     private var locationBanner: some View {
         Button {
-            if CLLocationManager().authorizationStatus == .notDetermined {
+            if LocationService.authorizationStatus == .notDetermined {
                 asksForLocation = true
-            } else if let url = URL(string: UIApplication.openSettingsURLString) {
-                openURL(url)
+            } else {
+                openURL(UIApplication.openSettingsURL)
             }
         } label: {
-            Label("Turn on location to see how far games are", systemImage: "location.slash")
+            Label("Turn on location to see how far plans are", systemImage: "location.slash")
                 .font(.rounded(.footnote, .bold))
                 .foregroundStyle(Theme.ink)
+                .multilineTextAlignment(.leading)
                 .padding(.horizontal, 12)
-                .frame(height: 32)
-                .glassEffect(.regular.interactive(), in: .capsule)
+                .padding(.vertical, typeSize.isAccessibilitySize ? 6 : 0)
+                .frame(minHeight: 32, alignment: .leading)
+                .appGlass(in: .capsule, interactive: true)
         }
         .buttonStyle(.plain)
     }
@@ -594,16 +665,20 @@ struct EventMapView: View {
                     .foregroundStyle(Theme.ink)
                     .contentTransition(.symbolEffect(.replace))
                     .frame(width: Self.mapButtonSize, height: Self.mapButtonSize)
-                    .glassEffect(.regular.interactive(), in: .circle)
+                    .appGlass(in: .circle, interactive: true)
                     .contentShape(.circle)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Show my location")
+            // Its symbol stays this size, so a long press shows it big (A11Y-24).
+            .accessibilityShowsLargeContentViewer { Label("Show my location", systemImage: "location") }
             .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { locationButtonWidth = $0 }
             .offset(x: avatarFrame.midX - container.minX - locationButtonWidth / 2)
             .frame(maxHeight: .infinity, alignment: .bottom)
             .padding(.bottom, max(8, clearsAvatar))
             .opacity(avatarFrame == .zero ? 0 : 1)
+            // Not there for VoiceOver either until it shows (A11Y-14).
+            .accessibilityHidden(avatarFrame == .zero)
         }
     }
 
@@ -628,6 +703,37 @@ struct EventMapView: View {
     /// bar and nothing moves.
     @ToolbarContentBuilder
     private var mapActions: some ToolbarContent {
+        if #available(iOS 26, *) {
+            glassMapActions
+        } else {
+            classicMapActions
+        }
+    }
+
+    /// iOS 18 toolbars use ordinary spacers and draw each control's own surface.
+    @ToolbarContentBuilder
+    private var classicMapActions: some ToolbarContent {
+        if searchInNavigationBar {
+            ToolbarItem(placement: .topBarLeading) {
+                searchField.frame(width: navigationFieldWidth)
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Saved plans", systemImage: "bookmark") { openSaved() }
+                    .tint(Theme.ink)
+            }
+        }
+        ToolbarItemGroup(placement: .bottomBar) {
+            filterButton.glassCircle()
+            Spacer()
+            addGameButton
+            Spacer()
+            profileButton(matchesFilter: false)
+        }
+    }
+
+    @available(iOS 26, *)
+    @ToolbarContentBuilder
+    private var glassMapActions: some ToolbarContent {
         if usesVerticalBar {
             // Without a vertical bar the navigation bar is hidden, and the field and Saved float
             // over the map instead.
@@ -638,7 +744,7 @@ struct EventMapView: View {
             .axis(.verticalPreferred)
 
             ToolbarItem(placement: .topBarTrailing) {
-                Button("Saved games", systemImage: "bookmark") { openSaved() }
+                Button("Saved plans", systemImage: "bookmark") { openSaved() }
                     .tint(Theme.ink)
             }
             .axis(.verticalPreferred)
@@ -660,7 +766,7 @@ struct EventMapView: View {
                 .sharedBackgroundVisibility(.hidden)
 
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Saved games", systemImage: "bookmark") { openSaved() }
+                    Button("Saved plans", systemImage: "bookmark") { openSaved() }
                         .tint(Theme.ink)
                 }
             }
@@ -701,27 +807,38 @@ struct EventMapView: View {
             // Count of active filters, since the icon button has no room for text.
             .badge(viewModel.activeFilterCount)
             .accessibilityLabel(viewModel.filterLabel)
+            // Toolbar items don't grow with the text size; a long press shows them big (A11Y-24).
+            .accessibilityShowsLargeContentViewer {
+                Label(viewModel.filterLabel, systemImage: "line.3.horizontal.decrease")
+            }
             .tint(Theme.ink)
     }
 
+    @ViewBuilder
     private var addGameButton: some View {
         // Explicit HStack: toolbars render `Label`s icon-only, but this needs its title.
-        Button {
+        let button = Button {
             // Guests hit the account card; `presentGameForm` also gates as a backstop.
             appViewModel.presentGameForm()
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: "plus")
-                Text("Add game")
+                Text("Make a plan")
             }
             .font(.rounded(.headline, .bold))
             // Toolbar items size to fit, so this fills a narrow bottom bar. Natural size on wide
             // screens, and beside a vertical bar.
             .frame(width: isWideLayout || usesVerticalBar ? nil : addButtonWidth)
         }
-        .buttonStyle(.glassProminent)
-        .controlSize(.large)
-        .tint(Theme.accent)
+        .accessibilityShowsLargeContentViewer { Label("Make a plan", systemImage: "plus") }
+        if #available(iOS 26, *) {
+            button
+                .buttonStyle(.glassProminent)
+                .controlSize(.large)
+                .tint(Theme.accent)
+        } else {
+            button.pill(.primary, expands: false)
+        }
     }
 
     /// The avatar opens Me. The bar draws the glass around it, as for Filter. In the bottom bar
@@ -748,10 +865,11 @@ struct EventMapView: View {
         }
         // A custom toolbar label otherwise gets a horizontal glass capsule, so the avatar
         // sits in a pill. The circle follows the token.
-        .buttonStyle(.plain)
-        .buttonBorderShape(.circle)
-        .buttonSizing(.fitted)
+        .modifier(MapProfileSizing())
         .accessibilityLabel(store.isGuest ? "Account" : "Me")
+        .accessibilityShowsLargeContentViewer {
+            Label(store.isGuest ? "Account" : "Me", systemImage: "person.crop.circle")
+        }
         #if DEBUG
         .contextMenu {
             Button(String("Component gallery"), systemImage: "swatchpalette") { appViewModel.path.append(.gallery) }
@@ -809,5 +927,28 @@ private extension ToolbarContent {
         #else
         self
         #endif
+    }
+}
+
+private extension View {
+    /// "List plans" in VoiceOver's actions, on the chip and the map, while there are games to list.
+    func listGamesAction(_ games: [Game], perform: @escaping () -> Void) -> some View {
+        accessibilityActions {
+            if !games.isEmpty { Button("List plans", action: perform) }
+        }
+    }
+}
+
+/// Only newer toolbars need to opt out of their automatic capsule sizing.
+private struct MapProfileSizing: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 26, *) {
+            content
+                .buttonStyle(.plain)
+                .buttonBorderShape(.circle)
+                .buttonSizing(.fitted)
+        } else {
+            content.glassCircle()
+        }
     }
 }

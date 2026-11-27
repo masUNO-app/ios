@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import UserNotifications
 
 /// Root presentation state (SPEC §7.3): the launch gate, the navigation path and
 /// app-level sheets. Sheets that open on top of a screen or another sheet
@@ -11,7 +12,7 @@ final class AppViewModel {
         case launching
         case updateRequired
         case onboarding
-        /// Signed out, browsing open games without names (SPEC R7-15).
+        /// Signed out, or waiting in line, browsing open games without names (SPEC R7-15).
         case guest
         case suspended
         case signedIn
@@ -19,8 +20,10 @@ final class AppViewModel {
 
     enum Sheet: Identifiable, Hashable {
         case gameForm(editing: UUID?)
-        /// "Play again": a new game that starts from an earlier one's sport, place and details.
+        /// "Run it back": a new game that starts from an earlier one's sport, place and details.
         case playAgain(UUID)
+        /// "Keep this plan": the plan from onboarding's practice round, ready to post.
+        case practicePlan(PracticePlan)
 
         var id: Self { self }
     }
@@ -39,12 +42,12 @@ final class AppViewModel {
         /// Title on the shared "continue onboarding" card.
         var title: String {
             switch self {
-            case .join: String(localized: "Join with a student account")
-            case .save: String(localized: "Save games with an account")
-            case .host: String(localized: "Host with a student account")
-            case .whosGoing: String(localized: "See who's going")
-            case .me: String(localized: "Your account")
-            case .report: String(localized: "Report with an account")
+            case .join: String.app("Join with a student account")
+            case .save: String.app("Save plans with an account")
+            case .host: String.app("Host with a student account")
+            case .whosGoing: String.app("See who's going")
+            case .me: String.app("Your account")
+            case .report: String.app("Report with an account")
             }
         }
 
@@ -52,17 +55,17 @@ final class AppViewModel {
         var message: String {
             switch self {
             case .join:
-                String(localized: "Create an account with your school email so other players know you're a real student. Takes about a minute.")
+                String.app("Create an account with your school email so everyone knows you're a real student. Takes about a minute.")
             case .save:
-                String(localized: "Bookmarks and spot alerts stay on your account. Create one with your school email to keep games for later.")
+                String.app("Bookmarks and spot alerts stay on your account. Create one with your school email to keep plans for later.")
             case .host:
-                String(localized: "Only verified students can post a game. Create an account with your school email to host.")
+                String.app("Only verified students can post a plan. Create an account with your school email to host.")
             case .whosGoing:
-                String(localized: "Names stay with verified students. Create an account with your school email to see who's going.")
+                String.app("Names stay with verified students. Create an account with your school email to see who's going.")
             case .me:
-                String(localized: "Create an account with your school email, or sign in if you already have one.")
+                String.app("Create an account with your school email, or sign in if you already have one.")
             case .report:
-                String(localized: "Reporting needs a student account so we can follow up. Create one with your school email.")
+                String.app("Reporting needs a student account so we can follow up. Create one with your school email.")
             }
         }
     }
@@ -93,8 +96,16 @@ final class AppViewModel {
     private(set) var guestCampus: University? {
         didSet { defaults.set(guestCampus.flatMap { try? JSONEncoder().encode($0) }, forKey: Self.guestCampusKey) }
     }
-    /// Signed out and browsing the map as a guest.
+    /// Signed out and browsing the map as a guest, or browsing while waiting in line.
     var isBrowsingAsGuest: Bool { guestCampus != nil }
+    /// The account is made but still waiting in line: the guest map's account card says so and
+    /// takes them back to the line, instead of offering to make an account.
+    var isWaitingInLine: Bool { auth.state == .pendingApproval }
+    /// The new account agreed to the house rules and is signed in, but onboarding stays up for
+    /// You're all set until **Go to the map**.
+    private(set) var holdsOnboarding = false
+    /// "Keep this plan" in the practice round: Make a plan opens with it once the map is up.
+    private(set) var practicePlanToPost: PracticePlan?
     /// Guest tapped join / save / host / … — the shared account card.
     var accountPrompt: AccountPrompt?
     /// Consumed by `OnboardingFlow` after leaving guest browse.
@@ -148,9 +159,10 @@ final class AppViewModel {
         }
         switch auth.state {
         case .loading: return .launching
-        case .signedOut where isBrowsingAsGuest: return .guest
-        case .signedOut, .pendingApproval, .needsProfile, .needsGuidelines: return .onboarding
+        case .signedOut where isBrowsingAsGuest, .pendingApproval where isBrowsingAsGuest: return .guest
+        case .signedOut, .needsEmailVerification, .pendingApproval, .needsProfile, .needsGuidelines: return .onboarding
         case .suspended: return .suspended
+        case .signedIn where holdsOnboarding: return .onboarding
         case .signedIn: return .signedIn
         }
     }
@@ -159,16 +171,19 @@ final class AppViewModel {
 
     /// Version check, then the saved session. Offline, the built-in config lets the app carry on.
     func start() async {
-        if let fetched = try? await catalog.fetchAppConfig() { config = fetched }
+        let fetchedConfig = Task { @MainActor [catalog] in try? await catalog.fetchAppConfig() }
+        let fetchedCampuses = Task { @MainActor [catalog] in try? await catalog.fetchUniversities() }
+        defer { fetchedConfig.cancel(); fetchedCampuses.cancel() }
+        if let fetched = await fetchedConfig.value { config = fetched }
         isUpdateRequired = !config.supports(version: AppConfig.currentVersion)
-        if let campuses = try? await catalog.fetchUniversities() {
+        await auth.restoreSession()
+        if let campuses = await fetchedCampuses.value {
             let open = campuses.filter(\.signupEnabled)
             openCampusCount = open.count
             if open.count == 1 { launchCampus = open[0] }
             // A returning guest's campus may have closed since; if so, they start at Welcome.
             if let browsing = guestCampus { guestCampus = open.first { $0.id == browsing.id } }
         }
-        await auth.restoreSession()
         await finishPendingSignOutIfNeeded()
         // An account always wins over a leftover guest choice.
         if case .signedIn = auth.state { guestCampus = nil }
@@ -241,12 +256,29 @@ final class AppViewModel {
         accountPrompt = nil
     }
 
+    /// Onboarding stays up after sign-in while true (You're all set); false lets the map in.
+    func holdOnboarding(_ holds: Bool) {
+        holdsOnboarding = holds
+    }
+
+    /// Keeps the practice round's plan for Make a plan once the map is up. Nil keeps nothing.
+    func keepPracticePlan(_ plan: PracticePlan?) {
+        practicePlanToPost = plan
+    }
+
+    /// Opens Make a plan with the practice round's plan, once, after the signed-in map loads.
+    func openPracticePlanIfKept() {
+        guard session == .signedIn, let plan = practicePlanToPost else { return }
+        practicePlanToPost = nil
+        sheet = .practicePlan(plan)
+    }
+
     /// The game's screen has shown you arriving.
     func finishArriving() {
         arrivingIn = nil
     }
 
-    /// Back to the map from wherever you are ("Find a game").
+    /// Back to the map from wherever you are ("Find a plan").
     func showMap() {
         sheet = nil
         path = []
@@ -266,7 +298,10 @@ final class AppViewModel {
     /// A notification tap, including one that waited through onboarding.
     /// A nil URL opens a link that was stored earlier.
     func deliverPushRoute(_ url: URL?) {
-        if let url { handle(url) }
+        if let url {
+            pendingLink = nil
+            handle(url)
+        }
         openPendingLink()
     }
 
@@ -381,6 +416,8 @@ final class AppViewModel {
         guestCampus = nil
         accountPrompt = nil
         onboardingResume = nil
+        holdsOnboarding = false
+        practicePlanToPost = nil
         store.reset()
     }
 
@@ -409,11 +446,12 @@ final class AppViewModel {
     }
 
     /// Jump straight to a screen for design review, e.g. launch with `-screen me`. Options:
-    /// me, invites (Me with the Invites sheet open), me-hosting, me-past, me-empty, me-cancelled, me-leave, repost, profile, settings, sign-out, delete-account,
+    /// map (the map on fixtures, as any value not listed here), me, invites (Me with the Invites sheet open), me-hosting, me-past, me-empty, me-cancelled, me-leave, repost, profile, settings, sign-out, delete-account,
     /// add, add-filled, form-error, edit, cancel-game, play-again, picker, gallery, detail-*,
-    /// join, spot-alert, who, who-beta (a game with two beta testers), block, report, report-sent, invite, leave, blocked, calendar, chat, chat-host, chat-rules,
-    /// chat-new, chat-long, meetup, saved, filter, search, location, popup, popup-saved, guest, guest-popup,
-    /// guest-detail, guest-prompt (popup, guest-popup, filter, search and location are handled by the map).
+    /// join, spot-alert, who, who-beta (a game with two beta testers), block, report, report-sent, invite, invite-code (with its QR code shown), leave, blocked, calendar, chat, chat-host, chat-rules,
+    /// chat-new, chat-long, meetup, saved, filter, search, all-games (VoiceOver's List games sheet), location, popup,
+    /// popup-saved, guest, guest-popup, guest-detail, guest-prompt (popup, guest-popup, filter, search, all-games
+    /// and location are handled by the map).
     func openDebugScreen(store: GameStore, mock: MockBackend) async {
         typealias IDs = MockFixtures.GameID
         let screen = UserDefaults.standard.string(forKey: "screen") ?? ""
@@ -426,16 +464,23 @@ final class AppViewModel {
         case "me-hosting": path = [.me(.hosting)]
         case "repost":
             // A player just dropped out of a full hosted game and auto-repost fired.
-            mock.fillGame(id: IDs.hosting)
+            mock.fillGameWithPlayers(id: IDs.hosting)
             mock.simulateDropOut(id: IDs.hosting)
             await store.refreshMyGames()
             path = [.me(.hosting)]
         case "profile": path = [.me(.going, editsProfile: true)]
         case "settings": path = [.me(), .settings]
-        case "add", "add-filled", "form-error", "picker": presentGameForm()
+        case "add", "add-filled", "form-error", "picker", "picker-map": presentGameForm()
         case "edit": presentGameForm(editing: IDs.hosting)
         case "gallery": path = [.gallery]
-        case "chat": path = [.chat(IDs.going)]
+        case "chat", "chat-mention": path = [.chat(IDs.going)]
+        case "push-chat", "push-game":
+            await push?.handle(
+                action: UNNotificationDefaultActionIdentifier,
+                payload: NotificationPayload(kind: screen == "push-chat" ? "chat_message" : "reminder", gameID: IDs.going),
+                reply: nil
+            )
+        case "chat-unavailable": path = [.chat(IDs.open)]
         case "chat-rules":
             // First time in a chat: "Before you chat" comes up over it.
             mock.resetChatRules()
@@ -456,7 +501,7 @@ final class AppViewModel {
             path = [.me()]
         case "chat-host", "meetup": path = [.chat(IDs.hosting)]
         case "who-beta": path = [.game(IDs.lastSpot)]
-        case "who", "report", "report-sent", "block", "invite": path = [.game(IDs.open)]
+        case "who", "report", "report-sent", "block", "invite", "invite-code": path = [.game(IDs.open)]
         case "leave": path = [.game(IDs.going)]
         case "me-leave", "me-past": path = [.me()]
         case "me-empty":
@@ -478,6 +523,13 @@ final class AppViewModel {
             path = [.me(), .settings, .blockedPeople]
         case "calendar": path = [.game(IDs.going)]
         case "detail-open": path = [.game(IDs.open)]
+        case "create-primer":
+            // Deterministic UI regression for the success path that used to crash in the primer.
+            guard let template = store.game(IDs.open) else { return }
+            var draft = GameDraft(template)
+            draft.title = "Primer regression game"
+            draft.startsAt = .now.addingTimeInterval(7200)
+            try? await store.createGame(draft)
         case "join":
             // "Count me in" on the map, once it has settled.
             try? await Task.sleep(for: .seconds(1.5))
@@ -487,6 +539,13 @@ final class AppViewModel {
         case "detail-hosting": path = [.game(IDs.hosting)]
         case "detail-ended": path = [.game(IDs.ended)]
         case "detail-cancelled": path = [.game(IDs.cancelled)]
+        // Unless `-esports NO`: a round night in its second round, one open to join, yesterday's recap.
+        case "detail-rounds": path = [.game(IDs.roundNight)]
+        case "detail-rounds-open": path = [.game(IDs.roundNightOpen)]
+        case "detail-rounds-ended": path = [.game(IDs.roundNightEnded)]
+        // Props (1.0), unless `-esports NO`: a plan that ended an hour ago, and the leaderboard.
+        case "detail-props", "props-sheet": path = [.game(IDs.justEnded)]
+        case "leaderboard": path = [.leaderboard]
         case "saved", "popup-saved":
             if !store.isSaved(IDs.lastSpot) { store.toggleSaved(IDs.lastSpot) }
             if screen == "saved", !store.hasSpotAlert(IDs.full) { store.toggleSpotAlert(IDs.full) }

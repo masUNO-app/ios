@@ -8,6 +8,8 @@ enum Route: Hashable {
     case blockedPeople
     case guidelines
     case me(MeViewModel.Tab = .going, editsProfile: Bool = false)
+    /// Props: your campus's top teammates this month (1.0).
+    case leaderboard
     #if DEBUG
     case gallery
     #endif

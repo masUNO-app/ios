@@ -124,6 +124,76 @@ def once_only_unique_violation_does_not_arm_resend():
         sql(f"delete from private.notification_outbox where user_id='{USER}';")
 
 
+def stale_v2_completion_waits_for_reclaim_and_cannot_complete_it():
+    """A locks the old version before B commits; EvalPlanQual must recheck B's token."""
+    held = contender = None
+    try:
+        sql(enqueue("signup_approved", "fenced:parallel"))
+        first = json.loads(sql("select row_to_json(c) from private.claim_notifications_v2(100) c;"))
+        row_id = int(first["id"])
+        sql(f"update private.notification_outbox set locked_at=now()-interval '11 minutes' where id={row_id};")
+        held = session("begin; select row_to_json(c) from private.claim_notifications_v2(100) c;",
+                       "notification-fenced-reclaim")
+        second = json.loads(ready(held))
+        assert first["claim_token"] != second["claim_token"]
+        stale_result = json.dumps([{"id": row_id, "claim_token": first["claim_token"], "outcome": "sent",
+                                  "drop_tokens": ["concurrent-claim-test-token"]}]).replace("'", "''")
+        contender = subprocess.Popen(
+            PSQL, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            text=True, env={**os.environ, "PGAPPNAME": "notification-fenced-stale"},
+        )
+        contender.stdin.write(f"select private.complete_notifications_v2('{stale_result}'::jsonb);\n")
+        contender.stdin.flush()
+        deadline = time.monotonic() + 5
+        while sql("""select exists(select 1 from pg_stat_activity
+            where application_name='notification-fenced-stale' and wait_event_type='Lock');""") != "t":
+            assert time.monotonic() < deadline, "Stale completion must wait for B's row lock"
+            time.sleep(0.02)
+        commit(held)
+        _, errors = contender.communicate(timeout=10)
+        assert contender.returncode == 0, errors
+        current = json.loads(sql(f"""select json_build_object('token',claim_token,'sent',sent_at,
+            'locked',locked_at is not null) from private.notification_outbox where id={row_id};"""))
+        assert current["token"] == second["claim_token"] and current["sent"] is None and current["locked"]
+        assert sql("select exists(select 1 from private.device_tokens where token='concurrent-claim-test-token');") == "t"
+        result = json.dumps([{"id": row_id, "claim_token": second["claim_token"], "outcome": "sent"}]).replace("'", "''")
+        sql(f"select private.complete_notifications_v2('{result}'::jsonb);")
+        assert sql(f"select sent_at is not null and claim_token is null from private.notification_outbox where id={row_id};") == "t"
+        print("PASS stale v2 completion rechecks claim ownership after concurrent reclaim commits")
+    finally:
+        stop(contender)
+        stop(held)
+        sql(f"delete from private.notification_outbox where user_id='{USER}';")
+
+
+def ordered_claim_cannot_skip_an_earlier_locked_row():
+    held = None
+    try:
+        sql(enqueue("chat_message", "ordered:first") + enqueue("chat_message", "ordered:second"))
+        # Hold only the older row, before a worker has obtained the recipient lock.
+        # SKIP LOCKED alone would incorrectly let another drain claim the second row.
+        held = session(f"""begin; select id from private.notification_outbox
+            where user_id='{USER}' and merge_key='ordered:first' for update;""",
+            "notification-ordered-first")
+        ready(held)
+        assert sql(f"select count(*) from private.claim_notifications_v2(100) where user_id='{USER}';") == "0"
+        commit(held)
+        held = session("begin; select count(*) from private.claim_notifications_v2(1);",
+                       "notification-ordered-lease")
+        assert ready(held) == "1"
+        assert sql(f"select count(*) from private.claim_notifications_v2(100) where user_id='{USER}';") == "0"
+        commit(held)
+        assert sql(f"select count(*) from private.claim_notifications_v2(100) where user_id='{USER}';") == "0"
+        sql(f"""select private.complete_notifications_v2(jsonb_agg(jsonb_build_object(
+            'id',id,'claim_token',claim_token,'outcome','sent')))
+            from private.notification_outbox where user_id='{USER}' and locked_at is not null;""")
+        assert sql(f"select count(*) from private.claim_notifications_v2(100) where user_id='{USER}';") == "1"
+        print("PASS overlapping v2 drains cannot overtake an earlier row or active lease")
+    finally:
+        stop(held)
+        sql(f"delete from private.notification_outbox where user_id='{USER}';")
+
+
 def main():
     previous_push = sql("select value::text from public.app_config where key='push_enabled';")
     # This script owns only these fixtures and must never remove an existing user's account.
@@ -143,8 +213,10 @@ def main():
             update public.app_config set value='true' where key='push_enabled';
             commit;
         """)
+        ordered_claim_cannot_skip_an_earlier_locked_row()
         overlapping_claims_share_a_budget()
         once_only_unique_violation_does_not_arm_resend()
+        stale_v2_completion_waits_for_reclaim_and_cannot_complete_it()
     finally:
         # The stored configuration is JSON, quoted for SQL as one literal.
         value = json.dumps(json.loads(previous_push)).replace("'", "''")

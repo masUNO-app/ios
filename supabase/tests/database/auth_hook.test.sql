@@ -1,8 +1,9 @@
--- Before User Created hook (SPEC §8.4, B4, N36): deny by default, check provider and email.
--- A school address with a password gets in, but waits for the team's approval.
+-- Before User Created hook (SPEC §8.4, B4, N36, N39): deny by default, check provider and email.
+-- A school address with a password gets in, and once its emailed code is entered it waits for the
+-- team's approval. The hook itself records nothing: `private.signup_verified` does, after the code.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(23);
+select plan(24);
 
 create function pg_temp.act_as(p_user uuid) returns void language sql as $$
     select set_config('request.jwt.claim.sub', coalesce(p_user::text, ''), true)
@@ -21,18 +22,24 @@ select ok(public.before_user_created('{"user":{"email":"someone@gmail.com","app_
     'a password sign-up outside the campus domain is refused');
 select ok(public.before_user_created('{"user":{"email":"x@demo.masuno.invalid","app_metadata":{"provider":"email"}}}') ? 'error',
     'nobody signs up on the demo campus by domain');
+select is((select count(*) from private.signup_requests), 0::bigint, 'refused sign-ups leave no request');
+-- The team creates the allowlisted accounts in the dashboard, which doesn't run this hook. One made
+-- from the app is let through and proves the inbox with its code (security_fixes covers what follows).
 select is(public.before_user_created('{"user":{"email":"official.masuno.app+review1@gmail.com","app_metadata":{"provider":"email"}}}'),
     '{}'::jsonb, 'an allowlisted review account signs up with a password');
-select is((select count(*) from private.signup_requests), 0::bigint, 'refused and allowlisted sign-ups leave no request');
+select is((select count(*) from private.signup_requests where email = 'official.masuno.app+review1@gmail.com'),
+    0::bigint, 'and the hook records no request for it');
 
--- A school address with a password: let in, and waiting for approval.
+-- A school address with a password: let in, and waiting for approval once its code is entered.
 select is(public.before_user_created('{"user":{"email":"Pending@Tec.mx","app_metadata":{"provider":"email"}}}'),
     '{}'::jsonb, 'a password sign-up on a Tec address is let in');
+select is((select count(*) from private.signup_requests), 0::bigint,
+    'typing an address takes no place in line before its code is entered');
+select private.signup_verified('Pending@Tec.mx');
 select is((select count(*) from private.signup_requests where email = 'pending@tec.mx' and approved_at is null), 1::bigint,
-    'and it waits for approval');
-select is(public.before_user_created('{"user":{"email":"pending@tec.mx","app_metadata":{"provider":"email"}}}'),
-    '{}'::jsonb, 'signing up again with the same address is not an error');
-select is((select count(*) from private.signup_requests), 1::bigint, 'and asks only once');
+    'with the code, it waits for approval');
+select private.signup_verified('pending@tec.mx');
+select is((select count(*) from private.signup_requests), 1::bigint, 'and entering a code again asks only once');
 
 insert into auth.users (id, email) values ('f0000000-0000-4000-8000-00000000000f', 'pending@tec.mx');
 set local role authenticated;
@@ -50,7 +57,7 @@ select lives_ok($$ select public.complete_profile('Pia', 'Pendiente', 2028, arra
 
 -- Rejecting deletes the account that was waiting.
 reset role;
-select public.before_user_created('{"user":{"email":"nope@tec.mx","app_metadata":{"provider":"email"}}}');
+select private.signup_verified('nope@tec.mx');
 insert into auth.users (id, email) values ('f1000000-0000-4000-8000-0000000000f1', 'nope@tec.mx');
 select is(private.reject_signup('nope@tec.mx'), 'Rejected nope@tec.mx', 'the team rejects a sign-up');
 select is((select count(*) from auth.users where email = 'nope@tec.mx'), 0::bigint, 'and its account is gone');

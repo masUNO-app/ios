@@ -4,7 +4,7 @@ import Foundation
 /// meet-up spots and names. The server (B3) has the full English + Spanish list and
 /// is the real check; this catches the obvious cases before a round trip.
 enum TextFilter {
-    static let message = String(localized: "Please keep it friendly — try different wording.")
+    static var message: String { String.app("Please keep it friendly — try different wording.") }
 
     /// Whole-word matches only, ignoring case and accents.
     private static let blockedWords: Set<String> = [
@@ -15,7 +15,7 @@ enum TextFilter {
     ]
 
     /// The server refuses links in anything people write, chat included.
-    static let linkMessage = String(localized: "Links can't be shared here.")
+    static var linkMessage: String { String.app("Links can't be shared here.") }
 
     static func hasLink(_ text: String) -> Bool {
         text.range(of: #"https?://|www\."#, options: [.regularExpression, .caseInsensitive]) != nil

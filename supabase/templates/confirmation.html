@@ -1,0 +1,16 @@
+<!-- Sign-up code (N39). Supabase Auth fills in {{ .Token }}; {{ .Data.locale }} is what the app sent
+     with signUp. No links on purpose: the code is typed in the app. Paste into Dashboard → Auth →
+     Emails → "Confirm signup" on each hosted project when this changes. -->
+{{ if eq .Data.locale "es" }}
+<h2>Tu código de masUNO</h2>
+<p>Escribe este código en la app para confirmar tu correo:</p>
+<p style="font-size: 32px; font-weight: bold; letter-spacing: 6px;">{{ .Token }}</p>
+<p>Vence en 15 minutos. Si no creaste una cuenta en masUNO, ignora este correo.</p>
+<p>Una cosa más: los planes son en tu campus, así que sigue las reglas de tu escuela para sus canchas y espacios.</p>
+{{ else }}
+<h2>Your masUNO code</h2>
+<p>Enter this code in the app to confirm your email:</p>
+<p style="font-size: 32px; font-weight: bold; letter-spacing: 6px;">{{ .Token }}</p>
+<p>It expires in 15 minutes. If you didn't create a masUNO account, you can ignore this email.</p>
+<p>One more thing: plans happen on your campus, so follow your school's rules for its courts, fields and other spaces.</p>
+{{ end }}

@@ -2,7 +2,7 @@ import SwiftUI
 
 /// A load failed and there's nothing to show yet: say so and offer a retry (SPEC §7.6.8).
 struct RetryCard: View {
-    var message: LocalizedStringKey = "Couldn't load games."
+    var message: LocalizedStringKey = "Couldn't load plans."
     var onRetry: () async -> Void
     @State private var isRetrying = false
 
@@ -33,16 +33,20 @@ struct RetryCard: View {
 /// Shown over old data when the last load couldn't reach the server.
 struct OfflineBanner: View {
     var body: some View {
-        Label("You're offline — showing the last games we loaded.", systemImage: "wifi.slash")
-            .font(.rounded(.footnote, .bold))
-            .foregroundStyle(Theme.ink)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 7)
-            .glassEffect(.regular, in: .capsule)
+        Label {
+            Text("You're offline — showing the last plans we loaded.")
+        } icon: {
+            Image(systemName: "wifi.slash").accessibilityHidden(true)
+        }
+        .font(.rounded(.footnote, .bold))
+        .foregroundStyle(Theme.ink)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
+        .appGlass(in: .capsule)
     }
 }
 
-/// An empty list as an invitation (Figma "No games yet", "No games nearby yet"): the dashed
+/// An empty list as an invitation (Figma "No plans yet", "No plans nearby yet"): the dashed
 /// "+1", a title, one line, and what to do about it.
 struct EmptyCard<Actions: View>: View {
     var title: LocalizedStringKey
@@ -56,6 +60,7 @@ struct EmptyCard<Actions: View>: View {
                 Text(title)
                     .font(.rounded(.title2, .bold))
                     .foregroundStyle(Theme.ink)
+                    .accessibilityAddTraits(.isHeader)
                 Text(message)
                     .font(.rounded(.subheadline))
                     .foregroundStyle(Theme.muted)
@@ -77,7 +82,7 @@ struct SafetyNote: View {
         Label {
             Text(text)
         } icon: {
-            Image(systemName: "checkmark.shield")
+            Image(systemName: "checkmark.shield").accessibilityHidden(true)
         }
         .labelStyle(IconRowLabelStyle(iconWidth: 18, spacing: 8))
         .font(.rounded(.footnote))
@@ -85,6 +90,6 @@ struct SafetyNote: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.separator.opacity(0.6), in: .rect(cornerRadius: 14))
+        .background { RoundedRectangle(cornerRadius: 14).fill(Theme.separator).contrastOpacity(0.6) }
     }
 }

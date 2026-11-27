@@ -80,7 +80,10 @@ nonisolated final class NotificationCenterBridge: NSObject, UIApplicationDelegat
     /// A background launch has not restored the session yet. A foreground tap already has one.
     @MainActor
     private func perform(_ tap: PendingTap) async {
-        let needsRestore = if case .loading = AppLaunch.services.auth.state { true } else { false }
+        // Opening the UI queues its route through launch. Only background actions need
+        // a restored session here; launch already restores it for a normal tap.
+        let needsRestore = tap.action != UNNotificationDefaultActionIdentifier
+            && AppLaunch.services.auth.state == .loading
         await handleNotificationTap(
             drop: AppViewModel.isSignOutPending(),
             restoreSession: needsRestore,

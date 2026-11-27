@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Figma "Filter games": sports, when, how far and "Starting soon". The filters apply as you
+/// Figma "Filter plans": activities, when, how far and "Starting soon". The filters apply as you
 /// change them, so the button can say how many games are left.
 struct FilterSheet: View {
     @Environment(GameStore.self) private var store
@@ -12,12 +12,13 @@ struct FilterSheet: View {
 
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                SheetHeader(title: Text("Filter games"), subtitle: Text("Show me games that fit.")) { dismiss() }
+                SheetHeader(title: Text("Filter plans"), subtitle: Text("Show me plans that fit.")) { dismiss() }
 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Sports")
+                    Text("Activities")
                         .font(.rounded(.footnote, .bold))
                         .foregroundStyle(Theme.ink)
+                        .accessibilityAddTraits(.isHeader)
                     FlowLayout(spacing: 8) {
                         ForEach(store.postableActivities) { sport in
                             SportToggle(sport: sport, isOn: viewModel.sportFilter.contains(sport)) {
@@ -50,7 +51,7 @@ struct FilterSheet: View {
                             Text("Starting soon")
                                 .font(.rounded(.body))
                                 .foregroundStyle(Theme.ink)
-                            Text("Only games in the next hour")
+                            Text("Only plans in the next hour")
                                 .font(.rounded(.footnote))
                                 .foregroundStyle(Theme.muted)
                         }
@@ -62,7 +63,7 @@ struct FilterSheet: View {
                 .cardSurface(radius: Theme.Radius.field)
 
                 VStack(spacing: 10) {
-                    Button(count == 1 ? "Show 1 game" : "Show \(count) games") { dismiss() }
+                    Button(count == 1 ? "Show 1 plan" : "Show \(count) plans") { dismiss() }
                         .pill(.primary)
                     Button("Reset") { withAnimation(.snappy) { viewModel.resetFilters() } }
                         .pill(.quiet)

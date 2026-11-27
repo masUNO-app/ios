@@ -60,7 +60,7 @@ struct ReportSheet: View {
                     }
                     .padding(14)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Theme.separator.opacity(0.6), in: .rect(cornerRadius: 16))
+                    .background { RoundedRectangle(cornerRadius: 16).fill(Theme.separator).contrastOpacity(0.6) }
                 }
 
                 ForEach(ReportReason.listed) { option in
@@ -69,14 +69,8 @@ struct ReportSheet: View {
                     }
                 }
 
-                HStack {
-                    Text("Anything else we should know?")
-                        .font(.rounded(.footnote, .bold))
-                        .foregroundStyle(Theme.ink)
-                    Spacer()
-                    OptionalTag()
-                }
-                .padding(.top, 4)
+                OptionalQuestion("Anything else we should know?")
+                    .padding(.top, 4)
 
                 TextField("Tell us what happened", text: $note, axis: .vertical)
                     .lineLimit(1...4)
@@ -94,14 +88,10 @@ struct ReportSheet: View {
                         .foregroundStyle(Theme.error)
                 }
 
-                Button {
-                    Task { await send() }
-                } label: {
-                    if isSending { ProgressView().tint(Theme.onAccent) } else { Text("Send report") }
-                }
-                .pill(.primary)
-                .disabled(reason == nil || isSending)
-                .padding(.top, 8)
+                WorkingButton("Send report", isWorking: isSending) { Task { await send() } }
+                    .disabled(reason == nil)
+                    .keyboardShortcut(.defaultAction) // Return on a hardware keyboard (A11Y-20).
+                    .padding(.top, 8)
             }
             .padding(.horizontal, Theme.gutter)
             .padding(.top, 22)
@@ -127,7 +117,7 @@ struct ReportSheet: View {
     private var title: LocalizedStringKey {
         switch target {
         case .person(let person): "Report \(person.firstName)"
-        case .game: "Report game"
+        case .game: "Report plan"
         case .message: "Report message"
         }
     }
@@ -136,8 +126,8 @@ struct ReportSheet: View {
     private var thanks: some View {
         let person = target.person
         let message = person.map {
-            String(localized: "Only the masUNO team sees reports. We'll look into it within a day, and \($0.firstName) won't know it was you.")
-        } ?? String(localized: "Only the masUNO team sees reports. We'll look into it within a day.")
+            String.app("Only the masUNO team sees reports. We'll look into it within a day, and \($0.firstName) won't know it was you.")
+        } ?? String.app("Only the masUNO team sees reports. We'll look into it within a day.")
 
         return DialogCard(
             systemImage: "checkmark.shield",
@@ -167,7 +157,10 @@ struct ReportSheet: View {
             noteIsFocused = false
             isSent = true
         } catch {
-            errorMessage = (error as? DomainError ?? .offline).message
+            guard !OperationCancellation.isCancellation(error) else { return }
+            let message = (error as? DomainError ?? .offline).message
+            errorMessage = message
+            Announce.post(message, priority: .high)
         }
     }
 }

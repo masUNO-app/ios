@@ -3,6 +3,7 @@ import UIKit
 
 /// The person and sport colors, as values, so the app and the notification extension draw the same
 /// avatars. Order matches `SportStyle`: person5, person1, person3, person4, person7, person6, person2.
+/// They're the same in dark mode, with ink on them, so the rendered images need no dark versions.
 nonisolated enum AvatarPalette {
     nonisolated struct RGB: Sendable {
         var red: Double
@@ -37,7 +38,26 @@ nonisolated enum AvatarPalette {
         people[index(for: id)]
     }
 
-    /// Pin colors. A sport the palette doesn't know gets the neutral.
+    /// A catalog color, "#RRGGBB". Nil for anything else.
+    static func rgb(hex: String?) -> RGB? {
+        guard let hex, hex.count == 7, hex.first == "#", let value = UInt32(hex.dropFirst(), radix: 16) else { return nil }
+        return RGB(
+            red: Double((value >> 16) & 0xFF) / 255,
+            green: Double((value >> 8) & 0xFF) / 255,
+            blue: Double(value & 0xFF) / 255
+        )
+    }
+
+    /// `light`, or `dark` in dark mode. Made here, outside the main actor, because SwiftUI resolves
+    /// the color on its render thread while animating (the map popup), and a main-actor closure
+    /// traps there.
+    static func color(light: RGB, dark: RGB) -> UIColor {
+        let light = light.color, dark = dark.color
+        return UIColor { @Sendable traits in traits.userInterfaceStyle == .dark ? dark : light }
+    }
+
+    /// Pin colors for the built-in sports, the last fallback after the push and the cached catalog.
+    /// A sport the palette doesn't know gets the neutral.
     static func sport(_ slug: String) -> RGB {
         switch slug {
         case "basketball": RGB(red: 0.949, green: 0.522, blue: 0.227)

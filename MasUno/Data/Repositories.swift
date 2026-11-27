@@ -35,6 +35,26 @@ protocol GameRepository: AnyObject {
     /// Group chat system rows, oldest first.
     func fetchActivity(gameID: UUID) async throws -> [GameActivityEntry]
 
+    /// A round night's rounds and, once each is revealed, its groups. Throws `.notFound` for a game
+    /// that isn't one. The default below is for backends without round nights.
+    func fetchRotation(gameID: UUID) async throws -> RotationPlan
+
+    // Props (1.0, `docs/API.md` "Props"). Defaults below for backends without them.
+
+    /// Who you can give props to after a plan (`round` nil) or a round night's round (from 0).
+    func propsToGive(gameID: UUID, round: Int?) async throws -> PropsToGive
+    /// Sends props: each person named gets exactly that set, replacing what you sent before.
+    /// - Returns: How many props you've now sent for this plan or round.
+    func giveProps(gameID: UUID, round: Int?, _ props: [UUID: Set<Prop>]) async throws -> Int
+    /// For Who's going: per person, how many different people gave each prop. Only people with 3+.
+    func propCounts(for people: [UUID]) async throws -> [UUID: [Prop: Int]]
+    /// The props you got for one plan.
+    func myProps(gameID: UUID) async throws -> PropTally
+    /// Your campus's top people for a prop this month. `filter`: a kind ("esports"), a slug, or nil.
+    func propsLeaderboard(prop: Prop, filter: String?) async throws -> PropsLeaderboard
+    func propsLeaderboardOptIn() async throws -> Bool
+    func setPropsLeaderboardOptIn(_ on: Bool) async throws -> Bool
+
     func createGame(_ draft: GameDraft) async throws -> Game
     func updateGame(id: UUID, _ draft: GameDraft) async throws -> Game
     func cancelGame(id: UUID) async throws -> Game
@@ -62,6 +82,23 @@ protocol GameRepository: AnyObject {
     ///   - ids: Games to save.
     ///   - alertIDs: The subset that also wants a spot alert.
     func importBookmarks(ids: [UUID], alertIDs: [UUID]) async throws
+}
+
+extension GameRepository {
+    // Props (1.0). Defaults for a backend without them: nothing to give, nothing to show.
+
+    func propsToGive(gameID: UUID, round: Int?) async throws -> PropsToGive { .closed }
+    func giveProps(gameID: UUID, round: Int?, _ props: [UUID: Set<Prop>]) async throws -> Int { throw DomainError.propsDisabled }
+    func propCounts(for people: [UUID]) async throws -> [UUID: [Prop: Int]] { [:] }
+    func myProps(gameID: UUID) async throws -> PropTally { .empty }
+    func propsLeaderboard(prop: Prop, filter: String?) async throws -> PropsLeaderboard { throw DomainError.propsDisabled }
+    func propsLeaderboardOptIn() async throws -> Bool { false }
+    func setPropsLeaderboardOptIn(_ on: Bool) async throws -> Bool { throw DomainError.propsDisabled }
+
+    /// A backend without round nights.
+    func fetchRotation(gameID: UUID) async throws -> RotationPlan {
+        throw DomainError.notFound
+    }
 }
 
 /// Device token, notification preferences and opened receipts (`docs/API.md`).
@@ -120,10 +157,34 @@ protocol SafetyRepository: AnyObject {
 /// Read-only reference data. Both work signed out: the version gate runs before sign-in.
 protocol AppConfigRepository: AnyObject {
     func fetchAppConfig() async throws -> AppConfig
-    func fetchActivities() async throws -> [Activity]
+    /// Kinds of plans and their activities this build can show (`activity_catalog`).
+    func fetchCatalog() async throws -> Catalog
     /// Find your school (`university_lookup`): every campus, open or closed, so existing accounts
     /// can sign back in at a closed one. Hidden demo campuses aren't listed.
     func fetchUniversities() async throws -> [University]
+    /// What's known before any fetch: the cached catalog, or the built-in one.
+    var startingCatalog: Catalog { get }
+}
+
+extension AppConfigRepository {
+    var startingCatalog: Catalog { .builtIn }
+
+    func fetchActivities() async throws -> [Activity] {
+        try await fetchCatalog().activities
+    }
+}
+
+/// Strict history boundary. The original server timestamp preserves PostgreSQL microsecond precision.
+nonisolated struct ChatMessageCursor: Hashable, Sendable {
+    let createdAt: Date
+    let id: UUID
+    var serverCreatedAt: String? = nil
+
+    init(_ message: ChatMessage) {
+        createdAt = message.createdAt
+        id = message.id
+        serverCreatedAt = message.serverCreatedAt
+    }
 }
 
 /// Group chat messaging (`game_messages`, `chat_unread` and the chat RPCs; SPEC Appendix A). System
@@ -132,11 +193,15 @@ protocol ChatRepository: AnyObject {
     /// The newest `limit` messages, oldest first. Pass the oldest one you have as `before` for the
     /// page before it; that page can repeat it. Messages from people you blocked are left out.
     func fetchMessages(gameID: UUID, before: Date?, limit: Int) async throws -> [ChatMessage]
+    /// A strict `(created_at, id)` boundary, so equal-time messages cannot trap older-page loading.
+    func fetchMessages(gameID: UUID, before cursor: ChatMessageCursor, limit: Int) async throws -> [ChatMessage]
     /// Everything sent at or after `since`, oldest first.
     func fetchMessages(gameID: UUID, since: Date) async throws -> [ChatMessage]
     /// `clientID` identifies this send: sending it again returns the first message instead of
-    /// posting twice. Throws `.chatRulesRequired` until `acceptChatRules` has run.
-    func sendMessage(gameID: UUID, body: String, clientID: UUID) async throws -> ChatMessage
+    /// posting twice. `mentions` are the people named with "@"; the server keeps only current
+    /// members outside a block with you whose name is in the text. Throws `.chatRulesRequired`
+    /// until `acceptChatRules` has run.
+    func sendMessage(gameID: UUID, body: String, clientID: UUID, mentions: [UUID]) async throws -> ChatMessage
     /// "Before you chat", once per account.
     func acceptChatRules() async throws
     func markRead(gameID: UUID) async throws
@@ -145,4 +210,20 @@ protocol ChatRepository: AnyObject {
     /// Fires when a game's chat has something new, for as long as the caller keeps listening. It
     /// ends if the connection can't be made, so callers also check on a timer.
     func updates(gameID: UUID) -> AsyncStream<ChatUpdate>
+}
+
+extension ChatRepository {
+    /// A message that mentions nobody, like a notification's Reply.
+    func sendMessage(gameID: UUID, body: String, clientID: UUID) async throws -> ChatMessage {
+        try await sendMessage(gameID: gameID, body: body, clientID: clientID, mentions: [])
+    }
+}
+
+// Compatibility for adapters that only implement the original Date-based contract. Live and mock
+// adapters override this with a strict composite query. A short page ends history conservatively.
+extension ChatRepository {
+    func fetchMessages(gameID: UUID, before cursor: ChatMessageCursor, limit: Int) async throws -> [ChatMessage] {
+        try await fetchMessages(gameID: gameID, before: cursor.createdAt, limit: limit)
+            .filter { ($0.createdAt, $0.id.uuidString) < (cursor.createdAt, cursor.id.uuidString) }
+    }
 }

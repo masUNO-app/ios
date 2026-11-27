@@ -4,8 +4,10 @@ import Observation
 import Supabase
 
 /// The live `AuthService` (B5, SPEC §8.4). Students sign up with their school email and a
-/// password, and wait for the team to approve the account (N36). The auth hook on the server
-/// decides which addresses may sign up. School SSO (`signIn(at:)`) is kept but unused.
+/// password, prove the address with the 6-digit code Supabase emails ("Confirm email" is on), and
+/// then wait on the waitlist (N36, N37, N39). The auth hook on the server decides which addresses
+/// may sign up, and entering the code is what puts them in line. School SSO (`signIn(at:)`) is kept
+/// but unused.
 @Observable
 final class LiveAuthService: AuthService {
     private(set) var state = AuthState.loading
@@ -74,13 +76,38 @@ final class LiveAuthService: AuthService {
         }
     }
 
+    /// The language goes with the account so the code email is in it (`supabase/templates`).
     func signUp(email: String, password: String) async throws {
         do {
-            let response = try await client.auth.signUp(email: email, password: password)
-            // No session means the project has "Confirm email" on, which this flow doesn't use
-            // (supabase/README, hosted checklist).
+            let response = try await client.auth.signUp(
+                email: email, password: password, data: ["locale": .string(LanguageSettings.shared.language)]
+            )
+            // A session means "Confirm email" is off on this project (supabase/README, hosted
+            // checklist): there's no code to enter, so carry on as before codes existed.
+            if let session = response.session {
+                return try await refreshState(userID: session.user.id)
+            }
+            // Supabase doesn't say an address already has a verified account: it answers with a
+            // user that has no identities and sends nothing.
+            if response.user.identities?.isEmpty == true { throw DomainError.emailTaken }
+        } catch {
+            throw translate(error)
+        }
+    }
+
+    func verifyEmail(_ email: String, code: String) async throws {
+        do {
+            let response = try await client.auth.verifyOTP(email: email, token: code, type: .signup)
             guard let session = response.session else { throw DomainError.signInFailed }
             try await refreshState(userID: session.user.id)
+        } catch {
+            throw translate(error)
+        }
+    }
+
+    func resendVerification(to email: String) async throws {
+        do {
+            try await client.auth.resend(email: email, type: .signup)
         } catch {
             throw translate(error)
         }
@@ -90,6 +117,35 @@ final class LiveAuthService: AuthService {
         do {
             let session = try await client.auth.signIn(email: email, password: password)
             try await refreshState(userID: session.user.id)
+        } catch {
+            throw translate(error)
+        }
+    }
+
+    func requestPasswordReset(for email: String) async throws {
+        do {
+            try await client.auth.resetPasswordForEmail(email)
+        } catch {
+            throw translate(error)
+        }
+    }
+
+    /// The code signs in first, then the password changes. If the change fails after that, the
+    /// state still moves on (the person is signed in with the old password) and the error is thrown.
+    func resetPassword(email: String, code: String, newPassword: String) async throws {
+        do {
+            let response = try await client.auth.verifyOTP(email: email, token: code, type: .recovery)
+            guard let session = response.session else { throw DomainError.signInFailed }
+            var failure: (any Error)?
+            do {
+                _ = try await client.auth.update(user: UserAttributes(password: newPassword))
+            } catch let error as AuthError where error.errorCode == .samePassword {
+                // They chose the password they already had, so it's what they'll type next time.
+            } catch {
+                failure = error
+            }
+            try await refreshState(userID: session.user.id)
+            if let failure { throw failure }
         } catch {
             throw translate(error)
         }
@@ -175,10 +231,14 @@ final class LiveAuthService: AuthService {
             .select("guidelines_accepted_at,banned_at")
             .execute()
             .value
-        // Only an account without a profile can still be waiting for approval.
+        // Only an account without a profile can still be unverified or waiting for approval.
         var isPending = false
         if rows.isEmpty {
             let status: String = try await client.rpc("signup_status").execute().value
+            if status == "unverified" {
+                state = .needsEmailVerification(email: client.auth.currentSession?.user.email ?? "")
+                return
+            }
             isPending = status == "pending"
         }
         state = AuthState(profile: rows.first, isPending: isPending, userID: id)
@@ -190,7 +250,8 @@ final class LiveAuthService: AuthService {
         switch state {
         case .loading: state = .signedOut(expired: false)
         case .signedOut: break
-        case .pendingApproval, .needsProfile, .needsGuidelines, .suspended, .signedIn: state = .signedOut(expired: true)
+        case .needsEmailVerification, .pendingApproval, .needsProfile, .needsGuidelines, .suspended, .signedIn:
+            state = .signedOut(expired: true)
         }
     }
 
@@ -217,7 +278,10 @@ final class LiveAuthService: AuthService {
             if code == .invalidCredentials { return .invalidCredentials }
             if code == .userAlreadyExists || code == .emailExists { return .emailTaken }
             if code == .weakPassword { return .weakPassword }
-            if code == .overRequestRateLimit { return .tooManyAttempts }
+            if code == .overRequestRateLimit || code == .overEmailSendRateLimit { return .tooManyAttempts }
+            // A wrong code and an expired one both come back as `otp_expired` (N39).
+            if code == .otpExpired { return .invalidCode }
+            if code == .emailNotConfirmed { return .emailNotVerified }
             return SignInFailure(code: code.rawValue, message: message).domainError
         case .sessionMissing:
             return .notAuthenticated

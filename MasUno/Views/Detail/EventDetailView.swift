@@ -2,12 +2,13 @@ import MapKit
 import SwiftUI
 
 /// Figma: "Game details" (408:3506 and one per sport), "You're in" (408:3632), "Game's full" and
-/// "Your game is live!", plus the ended and cancelled states from SPEC §7.6.4. A full-bleed
+/// "Your plan is live!", plus the ended and cancelled states from SPEC §7.6.4. A full-bleed
 /// court with the lineup on it, and a content sheet that overlaps it.
 struct EventDetailView: View {
     @Environment(GameStore.self) private var store
     @Environment(AppViewModel.self) private var appViewModel
     @Environment(\.openURL) private var openURL
+    @Environment(\.dynamicTypeSize) private var typeSize
     @State private var viewModel: EventDetailViewModel
     /// The sheet has scrolled far enough that its title is under the navigation bar.
     @State private var isTitleUnderBar = false
@@ -21,16 +22,17 @@ struct EventDetailView: View {
             if let event = store.game(viewModel.eventID) {
                 content(event)
             } else if store.isMissing(viewModel.eventID) {
-                ContentUnavailableView("This game isn't available.", systemImage: "sportscourt")
+                ContentUnavailableView("This plan isn't available.", systemImage: "calendar.badge.exclamationmark")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Theme.background)
             } else if store.isOffline {
-                RetryCard(message: "Couldn't load this game.") { await load() }
+                RetryCard(message: "Couldn't load this plan.") { await load() }
                     .padding(.horizontal, Theme.gutter)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Theme.background)
             } else {
                 ProgressView()
+                    .accessibilityLabel(Text("Loading plan"))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Theme.background)
             }
@@ -59,9 +61,14 @@ struct EventDetailView: View {
         }
     }
 
+    /// Guests, and games that hide their people, get the account prompt instead of the list.
+    private func showsAccountPrompt(for event: Game?) -> Bool {
+        store.isGuest || event?.hidesPeople == true
+    }
+
     /// Who's going / court tap: guests get the account card instead of empty faces.
     private func openWhoIsGoing() {
-        if store.isGuest || store.game(viewModel.eventID)?.hidesPeople == true {
+        if showsAccountPrompt(for: store.game(viewModel.eventID)) {
             appViewModel.requireAccount(.whosGoing)
         } else {
             viewModel.showsWhoIsGoing = true
@@ -78,6 +85,7 @@ struct EventDetailView: View {
             activity: event.activity, lineup: store.lineup(for: event), capacity: event.capacity,
             holdsYou: appViewModel.arrivingIn == event.id, showsOpenSpots: !isOver,
             onTap: { openWhoIsGoing() },
+            tapHint: showsAccountPrompt(for: event) ? "Create an account to see who's going" : "Shows who's going",
             onSheetUnderBar: { isUnder in
                 withAnimation(.easeOut(duration: 0.2)) { isTitleUnderBar = isUnder }
             }
@@ -87,7 +95,7 @@ struct EventDetailView: View {
         .refreshable { await load() }
         // Nothing dims the court behind the bar's two buttons; the bar only steps in once the
         // sheet's own title has scrolled up under it.
-        .scrollEdgeEffectHidden(!isTitleUnderBar, for: .top)
+        .appScrollEdgeEffectHidden(!isTitleUnderBar, for: .top)
         .navigationTitle(event.title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -99,9 +107,14 @@ struct EventDetailView: View {
                     .lineLimit(1)
                     .opacity(isTitleUnderBar ? 1 : 0)
                     .accessibilityHidden(!isTitleUnderBar)
+                    // The bar keeps its text small; a long press shows the title big (A11Y-24).
+                    .accessibilityShowsLargeContentViewer { Text(verbatim: event.title) }
             }
             ToolbarItem(placement: .topBarTrailing) { overflowMenu(event, state: state).tint(Theme.ink) }
         }
+        // Over the court the bar's glass buttons keep ink on the sport color in dark mode; over
+        // the sheet they follow it.
+        .toolbarColorScheme(isTitleUnderBar ? nil : .light, for: .navigationBar)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             actionBar(event, state: state)
         }
@@ -124,13 +137,16 @@ struct EventDetailView: View {
         .leaveGameDialog($viewModel.leaving)
         .cancelGameDialog($viewModel.cancelling)
         .sensoryFeedback(.success, trigger: state == .going)
+        .onChange(of: state) { old, new in
+            if let message = viewModel.joinAnnouncement(from: old, to: new, for: event) { Announce.post(message) }
+        }
         #if DEBUG
         .onAppear {
-            // `-screen who|who-beta|report|invite|calendar|leave`: open a sheet or dialog on this game.
+            // `-screen who|who-beta|report|invite|invite-code|calendar|leave`: open a sheet or dialog on this game.
             switch UserDefaults.standard.string(forKey: "screen") {
             case "who", "who-beta", "block": viewModel.showsWhoIsGoing = true
             case "report", "report-sent": viewModel.reportTarget = .person(event.host)
-            case "invite": viewModel.showsInvite = true
+            case "invite", "invite-code": viewModel.showsInvite = true
             case "calendar": viewModel.addsToCalendar = true
             case "leave": viewModel.leaving = event
             default: break
@@ -153,35 +169,51 @@ struct EventDetailView: View {
                     .foregroundStyle(Theme.mutedLarge)
             }
 
-            availability(event)
+            availability(event, state: state)
 
             VStack(alignment: .leading, spacing: 12) {
                 if let notes = event.notes { hostNote(notes, event: event) }
                 detailsCard(event, state: state)
+                if let rotation = event.rotation {
+                    RotationSection(event: event, rotation: rotation)
+                }
+                // Props once a plan you were in has ended (1.0).
+                if event.isGoing, !event.isCancelled, !event.hidesPeople, event.hasEnded() {
+                    PropsRecapSection(event: event)
+                }
             }
         }
     }
 
-    /// "Room for 4 more" · **Who's going ›**, and the line under it once you're in.
-    private func availability(_ event: Game) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .firstTextBaseline) {
+    /// "Room for 4 more" · **Who's going ›**, and the line under it once you're in. Who's going
+    /// goes under the headline at accessibility sizes (A11Y-06).
+    private func availability(_ event: Game, state: GameStatus) -> some View {
+        let headline = typeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
+            : AnyLayout(HStackLayout(alignment: .firstTextBaseline))
+
+        return VStack(alignment: .leading, spacing: 4) {
+            headline {
                 Text(verbatim: viewModel.headline(for: event))
                     .font(.rounded(.headline, .bold))
-                    .foregroundStyle(viewModel.isCelebrating(event) ? Theme.accent : Theme.ink)
+                    .foregroundStyle(viewModel.isCelebrating(event) ? Theme.accentText : Theme.ink)
                     .contentTransition(.opacity)
-                Spacer(minLength: 12)
+                if !typeSize.isAccessibilitySize { Spacer(minLength: 12) }
                 Button {
                     openWhoIsGoing()
                 } label: {
                     HStack(spacing: 4) {
                         Text("Who's going")
-                        Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(Theme.ink)
+                            .buttonShapeUnderline()
+                        RowAccessory(font: .caption.weight(.bold), color: Theme.ink)
                     }
                     .font(.rounded(.subheadline, .bold))
-                    .foregroundStyle(Theme.accent)
+                    .foregroundStyle(Theme.accentText)
+                    // 44 pt tall to tap, without moving the line (A11Y-19).
+                    .tapTarget(.vertical, 13)
                 }
                 .buttonStyle(.plain)
+                .padding(.vertical, -13)
             }
             if let detail = viewModel.detail(for: event, chatEnabled: store.isChatEnabled) {
                 Text(verbatim: detail)
@@ -190,7 +222,7 @@ struct EventDetailView: View {
                     .transition(.opacity)
             }
         }
-        .animation(.snappy, value: event.status())
+        .animation(.snappy, value: state)
     }
 
     /// "Alex says": the host's note, next to their token.
@@ -206,9 +238,12 @@ struct EventDetailView: View {
                     .foregroundStyle(Theme.ink)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            // "Alex says" and the note in one stop (A11Y-13). The token stays out: combined, its
+            // fixed-size initials would join the element.
+            .accessibilityElement(children: .combine)
         }
         .padding(14)
-        .background(.white, in: .rect(cornerRadius: 18))
+        .background(Theme.paper, in: .rect(cornerRadius: 18))
     }
 
     private func detailsCard(_ event: Game, state: GameStatus) -> some View {
@@ -221,6 +256,8 @@ struct EventDetailView: View {
                     .font(.rounded(.footnote))
                     .foregroundStyle(Theme.muted)
             }
+            // The time and how soon it starts in one stop (A11Y-13).
+            .accessibilityElement(children: .combine)
 
             // The address doubles as a way into Maps once the card's button is Add to calendar.
             Button {
@@ -249,9 +286,10 @@ struct EventDetailView: View {
                     appViewModel.presentGameForm(editing: event.id)
                 } label: {
                     Label("Add a meet-up spot so people know where to find you", systemImage: "flag")
+                        .buttonShapeUnderline()
                         .labelStyle(IconRowLabelStyle(iconWidth: 20, spacing: 12))
                         .font(.rounded(.subheadline, .bold))
-                        .foregroundStyle(Theme.accent)
+                        .foregroundStyle(Theme.accentText)
                         .multilineTextAlignment(.leading)
                 }
                 .buttonStyle(.plain)
@@ -282,6 +320,7 @@ struct EventDetailView: View {
             }
             .foregroundStyle(Theme.ink)
             .frame(width: 20, height: 22)
+            .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) { text() }
                 .multilineTextAlignment(.leading)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -308,13 +347,13 @@ struct EventDetailView: View {
                     appViewModel.path.append(.chat(event.id))
                 }
                 Button("Open in Maps", systemImage: "arrow.up.forward.square") { viewModel.openInMaps(event) }
-                Button("Cancel game", systemImage: "xmark.circle", role: .destructive) {
+                Button("Cancel plan", systemImage: "xmark.circle", role: .destructive) {
                     viewModel.cancelling = event
                 }
             case .going:
                 Button("Open in Maps", systemImage: "arrow.up.forward.square") { viewModel.openInMaps(event) }
                 reportGameButton(event)
-                Button("Leave game", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) {
+                Button("Leave plan", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) {
                     viewModel.leaving = event
                 }
             default:
@@ -325,7 +364,7 @@ struct EventDetailView: View {
     }
 
     private func reportGameButton(_ event: Game) -> some View {
-        Button("Report game", systemImage: "flag") {
+        Button("Report plan", systemImage: "flag") {
             if store.isGuest {
                 appViewModel.requireAccount(.report)
             } else {
@@ -334,12 +373,21 @@ struct EventDetailView: View {
         }
     }
 
-    /// The sticky bar: one green action, with a mint one beside it once you're in.
+    /// The sticky bar: one green action, with a mint one beside it once you're in. None once a plan
+    /// is cancelled, or has ended and its chat has closed: there's nothing left to do from here.
     @ViewBuilder
     private func actionBar(_ event: Game, state: GameStatus) -> some View {
+        if state == .cancelled || (state == .ended && !event.isChatOpen()) {
+            EmptyView()
+        } else {
+            openActionBar(event, state: state)
+        }
+    }
+
+    private func openActionBar(_ event: Game, state: GameStatus) -> some View {
         let canInvite = AppConfig.inviteURL != nil
 
-        Group {
+        return Group {
             switch state {
             case .open:
                 barColumn(caption: store.isGuest
@@ -353,11 +401,13 @@ struct EventDetailView: View {
                         }
                     }
                     .pill(.primary)
+                    .accessibilityIdentifier("detail-count-me-in")
                 }
             case .going:
-                buttonPair {
+                PillPair {
                     Button("Open group chat") { appViewModel.path.append(.chat(event.id)) }
                         .pill(.primary)
+                        .accessibilityIdentifier("detail-open-chat")
                     // Hidden until `AppConfig.appStoreID` is set (N27).
                     if canInvite {
                         Button("Invite a friend") { viewModel.showsInvite = true }
@@ -365,15 +415,16 @@ struct EventDetailView: View {
                     }
                 }
             case .hosting:
-                buttonPair {
+                PillPair {
                     if canInvite {
-                        Button("Share game") { viewModel.showsInvite = true }
+                        Button("Share plan") { viewModel.showsInvite = true }
                             .pill(.primary)
                     } else {
                         Button("Open group chat") { appViewModel.path.append(.chat(event.id)) }
                             .pill(.primary)
+                            .accessibilityIdentifier("detail-open-chat")
                     }
-                    Button("Edit game") { appViewModel.presentGameForm(editing: event.id) }
+                    Button("Edit plan") { appViewModel.presentGameForm(editing: event.id) }
                         .pill(.secondary)
                 }
             case .full:
@@ -393,7 +444,14 @@ struct EventDetailView: View {
                     .pill(isOn ? .secondary : .primary)
                     .sensoryFeedback(.selection, trigger: isOn)
                 }
-            case .ended, .cancelled:
+            case .ended:
+                // Only while the chat is open (`actionBar`): the after-game "good game" and photos.
+                barColumn(caption: "The chat stays open for 24 hours after the plan wraps.") {
+                    Button("Open group chat") { appViewModel.path.append(.chat(event.id)) }
+                        .pill(.primary)
+                        .accessibilityIdentifier("detail-open-chat")
+                }
+            case .cancelled:
                 EmptyView()
             }
         }
@@ -405,15 +463,6 @@ struct EventDetailView: View {
         .animation(.snappy, value: state)
     }
 
-    /// Side by side, or stacked when a label would wrap (the folded iPhone Duo, large text).
-    private func buttonPair(@ViewBuilder buttons: () -> some View) -> some View {
-        let buttons = buttons()
-        return ViewThatFits(in: .horizontal) {
-            EqualWidthRow(spacing: 10) { buttons }
-            VStack(spacing: 10) { buttons }
-        }
-    }
-
     private func barColumn(caption: LocalizedStringKey, @ViewBuilder button: () -> some View) -> some View {
         VStack(spacing: 8) {
             button()
@@ -421,38 +470,6 @@ struct EventDetailView: View {
                 .font(.rounded(.footnote))
                 .foregroundStyle(Theme.mutedLarge)
                 .multilineTextAlignment(.center)
-        }
-    }
-}
-
-/// Buttons side by side in equal widths, like an `HStack` of flexible pills. Its ideal width is
-/// the widest label's times the count, so `ViewThatFits` only picks it when no label would wrap:
-/// an `HStack` fits on the sum of its labels, then splits the space evenly and wraps the longer one.
-private struct EqualWidthRow: Layout {
-    var spacing: CGFloat
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        guard !subviews.isEmpty else { return .zero }
-        let gaps = spacing * CGFloat(subviews.count - 1)
-        let width: CGFloat
-        if let proposed = proposal.width, proposed.isFinite {
-            width = proposed
-        } else {
-            let widest = subviews.map { $0.sizeThatFits(.unspecified).width }.max() ?? 0
-            width = widest * CGFloat(subviews.count) + gaps
-        }
-        let column = ProposedViewSize(width: (width - gaps) / CGFloat(subviews.count), height: proposal.height)
-        let height = subviews.map { $0.sizeThatFits(column).height }.max() ?? 0
-        return CGSize(width: width, height: height)
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let gaps = spacing * CGFloat(subviews.count - 1)
-        let column = (bounds.width - gaps) / CGFloat(subviews.count)
-        var x = bounds.minX
-        for subview in subviews {
-            subview.place(at: CGPoint(x: x, y: bounds.midY), anchor: .leading, proposal: ProposedViewSize(width: column, height: bounds.height))
-            x += column + spacing
         }
     }
 }

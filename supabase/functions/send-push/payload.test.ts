@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { Buffer } from "node:buffer";
 import test from "node:test";
 import { buildPush, classifyApnsStatus, mapPool } from "./payload.ts";
 import { languageOf, renderAlert } from "./templates.ts";
@@ -60,6 +61,82 @@ test("merged chat names the senders and the count", () => {
         sender_name: "Maya C.",
     });
     assert.equal(one.body, "Maya C.: Llevo el balón");
+});
+
+test("a mention names the sender in english and spanish", () => {
+    const payload = { sender_name: "Maya C.", body: "@Sam L. bring the ball", count: 1 };
+    const english = renderAlert("chat_mention", "en-US", game, payload);
+    assert.equal(english.title, "Sunday pickup soccer");
+    assert.equal(english.body, "Maya C. mentioned you: @Sam L. bring the ball");
+    const spanish = renderAlert("chat_mention", "es-MX", game, payload);
+    assert.equal(spanish.title, "Sunday pickup soccer");
+    assert.equal(spanish.body, "Maya C. te mencionó: @Sam L. bring the ball");
+});
+
+test("a mention reaches the phone as chat the extension redraws", () => {
+    const row = {
+        id: 11,
+        user_id: "user",
+        kind: "chat_mention",
+        event_id: "game-1",
+        payload: {
+            sender_id: "a21b",
+            sender_name: "Maya C.",
+            sender_initials: "MC",
+            message_id: "m-1",
+            body: "@Sam L. bring the ball",
+            count: 1,
+            others: [{ id: "c9d0", name: "Nina P." }],
+        },
+        collapse_id: "mention:m-1",
+        expires_at: "2026-11-16T19:30:00-06:00",
+        tokens: [],
+        context: game,
+    };
+    const english = buildPush(row, { token: "abc", environment: "production", locale: "en-US" });
+    const aps = english.body.aps as {
+        alert: { title: string; body: string };
+        category: string;
+        "thread-id": string;
+        "mutable-content": number;
+        "interruption-level": string;
+    };
+    assert.equal(english.body.kind, "chat_message");
+    assert.equal(english.body.mention, true);
+    assert.equal(aps.category, "CHAT");
+    assert.equal(aps["thread-id"], "chat:game-1");
+    assert.equal(aps["mutable-content"], 1);
+    assert.equal(aps["interruption-level"], "active");
+    assert.equal(aps.alert.body, "Maya C. mentioned you: @Sam L. bring the ball");
+    assert.equal(english.body.body, "Mentioned you: @Sam L. bring the ball");
+    assert.deepEqual(english.body.sender, { id: "a21b", name: "Maya C.", initials: "MC" });
+    assert.equal(english.body.count, 1);
+    assert.equal(english.headers["apns-collapse-id"], "mention:m-1");
+
+    const spanish = buildPush(row, { token: "abc", environment: "production", locale: "es-MX" });
+    assert.equal((spanish.body.aps as { alert: { body: string } }).alert.body, "Maya C. te mencionó: @Sam L. bring the ball");
+    assert.equal(spanish.body.body, "Te mencionó: @Sam L. bring the ball");
+
+    const chat = buildPush({ ...row, kind: "chat_message", collapse_id: "chat:game-1" },
+        { token: "abc", environment: "production", locale: "en-US" });
+    assert.equal(chat.body.mention, undefined);
+    assert.deepEqual(chat.body.game, { title: "Sunday pickup soccer", sport: "soccer" });
+});
+
+test("a chat push carries the activity's emoji and colors for its badge", () => {
+    const row = {
+        id: 12,
+        user_id: "user",
+        kind: "chat_message",
+        event_id: "game-2",
+        payload: { sender_id: "a21b", sender_name: "Maya C.", sender_initials: "MC", body: "gg", count: 1 },
+        collapse_id: "chat:game-2",
+        expires_at: "2026-11-16T19:30:00-06:00",
+        tokens: [],
+        context: { ...game, sport: "valorant", emoji: "🎯", color: "#F06F7E", color_dark: null },
+    };
+    const push = buildPush(row, { token: "abc", environment: "production", locale: "en-US" });
+    assert.deepEqual(push.body.game, { title: "Sunday pickup soccer", sport: "valorant", emoji: "🎯", color: "#F06F7E" });
 });
 
 test("a spot alert is time-sensitive and carries the game", () => {
@@ -193,4 +270,59 @@ test("an ES256 provider token verifies", async () => {
         new TextEncoder().encode(`${header}.${payload}`),
     );
     assert.equal(verified, true);
+});
+
+
+test("host summaries use each participant's latest action despite stale legacy arrays", () => {
+    const payload = {
+        joined: ["Ricardo G.", "Ari P.", "Ari P."], left: ["Ari P."], spots_left: 9,
+        roster_changes: {
+            ricardo: { name: "Ricardo G.", action: "joined" as const },
+            ari: { name: "Ari P.", action: "left" as const },
+        },
+    };
+    const alert = renderAlert("host_update", "en", { ...game, spots_left: 3 }, payload);
+    assert.equal(alert.title, "Ricardo G. joined, Ari P. left");
+    assert.equal(alert.body, "Sunday pickup soccer · 3 spots left");
+    const rejoined = { ...payload, roster_changes: { ...payload.roster_changes,
+        ari: { name: "Ari P.", action: "joined" as const },
+    } };
+    assert.equal(renderAlert("host_update", "en", game, rejoined).title, "Ricardo G. and Ari P. joined");
+});
+
+test("host summaries preserve distinct participants sharing a name", () => {
+    const payload = { roster_changes: {
+        first: { name: "Ari P.", action: "joined" as const },
+        second: { name: "Ari P.", action: "left" as const },
+    } };
+    assert.equal(renderAlert("host_update", "en", game, payload).title, "Ari P. joined, Ari P. left");
+});
+
+test("Spanish host summaries name both joins and departures", () => {
+    assert.equal(renderAlert("host_update", "es", game, {
+        roster_changes: {
+            first: { name: "Ricardo G.", action: "joined" },
+            second: { name: "Ari P.", action: "left" },
+        },
+    }).title, "Ricardo G. se unió, Ari P. se fue");
+});
+
+test("legacy host summaries deduplicate repeated labels", () => {
+    assert.equal(renderAlert("host_update", "en", game, {
+        joined: ["Ari P.", "Ari P."], left: [],
+    }).title, "Ari P. joined");
+});
+
+
+test("communication summaries omit names while plain fallback alerts retain them", () => {
+    for (const [locale, summary] of [["en-US", "3 new messages"], ["es-MX", "3 mensajes nuevos"]]) {
+        const push = buildPush({
+            id: 10, user_id: "user", kind: "chat_message", event_id: "game-1",
+            payload: { count: 3, sender_name: "Ari P.", names: ["Ari P.", "Sam L."] },
+            collapse_id: null, expires_at: "2030-01-01T00:00:00Z", tokens: [], context: game,
+        }, { token: "abc", environment: "sandbox", locale });
+        assert.equal(push.body.body, summary);
+        const aps = push.body.aps as { alert: { body: string } };
+        assert.match(aps.alert.body, /Ari P\./);
+    }
 });

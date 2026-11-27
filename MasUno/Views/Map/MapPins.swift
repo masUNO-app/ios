@@ -11,6 +11,7 @@ struct EventPin: View {
     var now: Date
     var isSelected: Bool
     var isDimmed: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private static let tagHeight: CGFloat = 26
     private static let markerSize = CGSize(width: 48, height: 60)
@@ -25,12 +26,12 @@ struct EventPin: View {
     var body: some View {
         VStack(spacing: Self.spacing) {
             if let tag {
-                Text(tag)
+                Text(verbatim: tag)
                     .font(.rounded(size: 13))
                     .foregroundStyle(Theme.ink)
                     .padding(.horizontal, 10)
                     .frame(height: Self.tagHeight)
-                    .glassEffect(.regular, in: .capsule)
+                    .appGlass(in: .capsule)
                     .opacity(isSelected ? 0 : 1)
             }
 
@@ -55,20 +56,34 @@ struct EventPin: View {
                 .opacity(isSelected ? 0 : 1)
         }
         .opacity(isDimmed ? 0.45 : 1)
-        .animation(.snappy, value: isSelected)
+        // Under Reduce Motion the selected pin still grows (it says which one), just at once (A11Y-18).
+        .animation(reduceMotion ? nil : .snappy, value: isSelected)
         .animation(.snappy, value: isDimmed)
         .contentShape(.rect)
         .accessibilityElement()
         .accessibilityLabel(Text("\(event.activity.name): \(event.title)"))
+        .accessibilityValue(Text(verbatim: Self.accessibilityValue(for: event, now: now)))
+        // Selection shows only as size and a halo.
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+        .accessibilityHint(Text(verbatim: isSelected ? "" : String.app("Shows the plan card")))
     }
 
-    private var tag: LocalizedStringKey? {
+    private var tag: String? {
         Self.tag(for: event, now: now)
     }
 
-    private static func tag(for event: Game, now: Date) -> LocalizedStringKey? {
-        if event.isBumped(now: now) { return "Spot open" }
-        return event.isSoon(now: now) ? "Soon" : nil
+    /// A String rather than a key, so VoiceOver's value says the same as the tag.
+    private static func tag(for event: Game, now: Date) -> String? {
+        if event.isBumped(now: now) { return String.app("Spot open") }
+        return event.isSoon(now: now) ? String.app("Soon") : nil
+    }
+
+    /// What the pin and its popup show besides the title: "Soon, Room for 4 more, Today, 7:35 PM,
+    /// starts in 35 min". Commas instead of "·", as on the card summary.
+    static func accessibilityValue(for event: Game, now: Date) -> String {
+        [tag(for: event, now: now), event.discoverLine(now: now), EventFormat.cardTime(event, now: now)]
+            .compactMap { $0?.replacingOccurrences(of: " · ", with: ", ") }
+            .joined(separator: ", ")
     }
 
     /// Where the pin's point is within the annotation, so MapKit puts it on the coordinate
@@ -81,7 +96,7 @@ struct EventPin: View {
 }
 
 /// Games whose pins would cover each other on screen share this one: a dark green pin with how
-/// many, over a dot for each sport. Tapping it lists them.
+/// many, over a dot for each sport. Tapping it lists them (`EventMapView.groupPin`).
 struct GroupPin: View {
     var games: [Game]
     var isDimmed: Bool
@@ -120,8 +135,11 @@ struct GroupPin: View {
         .animation(.snappy, value: isDimmed)
         .contentShape(.rect)
         .accessibilityElement()
-        .accessibilityLabel(Text("\(games.count) games here"))
+        .accessibilityLabel(Text("\(games.count) plans here"))
+        // The sport dots are color only.
+        .accessibilityValue(Text(verbatim: sports.map(\.name).formatted(.list(type: .and).locale(LanguageSettings.shared.locale))))
         .accessibilityAddTraits(.isButton)
+        .accessibilityHint(Text(verbatim: String.app("Lists them")))
     }
 }
 

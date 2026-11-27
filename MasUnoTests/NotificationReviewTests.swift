@@ -138,7 +138,7 @@ struct NotificationReviewTests {
     @Test func swipingThePrimerAwayCountsOnce() {
         let defaults = UserDefaults(suiteName: "Primer.\(UUID().uuidString)")!
         let backend = MockBackend()
-        let push = PushNotificationService(repository: backend, games: backend, chat: backend, defaults: defaults)
+        let push = PushNotificationService(repository: backend, games: backend, chat: backend, defaults: defaults, system: MockNotificationSystemClient())
         let id = UUID()
         push.recordPrimerClose(accepted: false, accountID: id)
         #expect(push.shouldOfferPrimer(accountID: id))
@@ -169,11 +169,22 @@ struct NotificationReviewTests {
         #expect(model.path == [.game(id)])
     }
 
+    @Test func theLatestTapSupersedesAnOlderQueuedLink() async throws {
+        let auth = MockBackend(state: .signedOut(expired: false))
+        let model = AppViewModel(auth: auth, catalog: auth)
+        model.deliverPushRoute(URL(string: "masuno://game/\(UUID().uuidString)"))
+        try await auth.signIn(email: MockFixtures.reviewEmail, password: MockFixtures.reviewPassword)
+        let id = UUID()
+        model.deliverPushRoute(URL(string: "masuno://game/\(id.uuidString)/chat"))
+        #expect(model.path == [.game(id), .chat(id)])
+        #expect(model.pendingLink == nil)
+    }
+
     @Test func aBackgroundTapRestoresTheSessionBeforeItRuns() async {
         let box = ServiceBox()
         let backend = MockBackend()
         let defaults = UserDefaults(suiteName: "Background.\(UUID().uuidString)")!
-        let push = PushNotificationService(repository: backend, games: backend, chat: backend, defaults: defaults)
+        let push = PushNotificationService(repository: backend, games: backend, chat: backend, defaults: defaults, system: MockNotificationSystemClient())
         _ = box.install(push)
         let order = StepLog()
         let tap = PendingTap(action: "REPLY", payload: nil, reply: "On my way")
@@ -197,7 +208,7 @@ struct NotificationReviewTests {
         #expect(order.snapshot == ["restore"])
         let backend = MockBackend()
         let defaults = UserDefaults(suiteName: "BackgroundWait.\(UUID().uuidString)")!
-        let push = PushNotificationService(repository: backend, games: backend, chat: backend, defaults: defaults)
+        let push = PushNotificationService(repository: backend, games: backend, chat: backend, defaults: defaults, system: MockNotificationSystemClient())
         let waiting = box.install(push)
         #expect(waiting.map(\.action) == ["COUNT_ME_IN"])
         #expect(box.service(for: tap) === push)
@@ -207,7 +218,7 @@ struct NotificationReviewTests {
         let box = ServiceBox()
         let backend = MockBackend()
         let defaults = UserDefaults(suiteName: "Foreground.\(UUID().uuidString)")!
-        let push = PushNotificationService(repository: backend, games: backend, chat: backend, defaults: defaults)
+        let push = PushNotificationService(repository: backend, games: backend, chat: backend, defaults: defaults, system: MockNotificationSystemClient())
         _ = box.install(push)
         let order = StepLog()
         let tap = PendingTap(action: "OPEN", payload: nil, reply: nil)
@@ -223,7 +234,7 @@ struct NotificationReviewTests {
         let box = ServiceBox()
         let backend = MockBackend()
         let defaults = UserDefaults(suiteName: "Dropped.\(UUID().uuidString)")!
-        let push = PushNotificationService(repository: backend, games: backend, chat: backend, defaults: defaults)
+        let push = PushNotificationService(repository: backend, games: backend, chat: backend, defaults: defaults, system: MockNotificationSystemClient())
         _ = box.install(push)
         let order = StepLog()
         let tap = PendingTap(action: "REPLY", payload: nil, reply: "hi")

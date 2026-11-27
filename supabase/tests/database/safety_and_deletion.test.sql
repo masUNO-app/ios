@@ -1,7 +1,7 @@
 -- Server-only functions, report alerts and account deletion (B8, B9, B10).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(17);
+select plan(19);
 
 create function pg_temp.act_as(p_user uuid) returns void language sql as $$
     select set_config('request.jwt.claim.sub', coalesce(p_user::text, ''), true)
@@ -11,6 +11,8 @@ insert into auth.users (id, email) values
     ('a0000000-0000-4000-8000-00000000000a', 'alice@tec.mx'),
     ('b0000000-0000-4000-8000-00000000000b', 'bruno@tec.mx'),
     ('c0000000-0000-4000-8000-00000000000c', 'carla@tec.mx');
+-- Their places on the waitlist, already let in.
+insert into private.signup_requests (email, approved_at) values ('alice@tec.mx', now()), ('carla@tec.mx', now());
 
 -- Clients can't call what only Auth, the Edge Function or cron should.
 set local role authenticated;
@@ -69,6 +71,8 @@ select is_empty($$ select 1 from public.notification_prefs where user_id = 'a000
 select is_empty($$ select 1 from public.bookmarks where user_id = 'a0000000-0000-4000-8000-00000000000a' $$, 'their bookmarks go too');
 select is_empty($$ select 1 from private.notification_outbox where user_id = 'a0000000-0000-4000-8000-00000000000a' $$, 'their outbox rows go too');
 select is((select count(*)::int from public.reports), 2, 'reports about them are kept');
+select is_empty($$ select 1 from private.signup_requests where email = 'alice@tec.mx' $$, 'their waitlist request goes too');
+select isnt_empty($$ select 1 from private.signup_requests where email = 'carla@tec.mx' $$, 'other people''s requests stay');
 
 -- Deleting Bruno: a reporter with a joined game.
 set local role service_role;

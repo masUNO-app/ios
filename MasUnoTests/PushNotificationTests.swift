@@ -23,6 +23,10 @@ private final class StickyAuth: AuthService {
     func signIn(at school: University) async throws {}
     func signUp(email: String, password: String) async throws {}
     func signIn(email: String, password: String) async throws {}
+    func verifyEmail(_ email: String, code: String) async throws {}
+    func resendVerification(to email: String) async throws {}
+    func requestPasswordReset(for email: String) async throws {}
+    func resetPassword(email: String, code: String, newPassword: String) async throws {}
     func refreshStatus() async throws {}
     func redeemInvite(_ code: String) async throws {}
     func waitlistPosition() async throws -> Int? { nil }
@@ -45,6 +49,7 @@ private final class SpyNotificationRepository: NotificationRepository {
     var winback: [Bool] = []
     var failUnregister = false
     var failMarkOpened = false
+    var beforeMarkOpened: (() async -> Void)?
     var beforeUnregister: (() async -> Void)?
     var currentUserID = UUID()
     var serverTokens: [String: UUID] = [:]
@@ -68,6 +73,7 @@ private final class SpyNotificationRepository: NotificationRepository {
     func setChatMuted(gameID: UUID, muted: Bool) async throws {}
 
     func markOpened(_ outboxID: Int64) async throws {
+        await beforeMarkOpened?()
         opened.append(outboxID)
         if failMarkOpened { throw DomainError.offline }
     }
@@ -81,13 +87,42 @@ struct PushNotificationServiceTests {
     private let backend = MockBackend()
     private let defaults = UserDefaults(suiteName: "PushTests.\(UUID().uuidString)")!
     private let service: PushNotificationService
+    private let system = MockNotificationSystemClient()
 
     init() {
         AppGroupStore.clearAccount()
-        service = PushNotificationService(repository: spy, games: backend, chat: backend, defaults: defaults)
+        service = PushNotificationService(repository: spy, games: backend, chat: backend, defaults: defaults, system: system)
     }
 
     // MARK: Device token
+
+    @Test func authorizedNotificationsRequestAnAPNsToken() async {
+        system.status = .authorized
+        await service.refreshRegistration(force: true)
+        #expect(service.authorizationStatus == .authorized)
+        #expect(system.registrationRequests == 1)
+        #expect(spy.registered.isEmpty)
+    }
+
+    @Test func deniedNotificationsDoNotRequestAnAPNsToken() async {
+        system.status = .denied
+        await service.refreshRegistration(force: true)
+        #expect(service.authorizationStatus == .denied)
+        #expect(system.registrationRequests == 0)
+    }
+
+    @Test func grantingPermissionUpdatesStatusAndRequestsAnAPNsToken() async {
+        #expect(await service.requestPermission())
+        #expect(service.authorizationStatus == .authorized)
+        #expect(system.registrationRequests == 1)
+    }
+
+    @Test func decliningPermissionDoesNotRequestAnAPNsToken() async {
+        system.grantsAuthorization = false
+        #expect(await service.requestPermission() == false)
+        #expect(service.authorizationStatus == .denied)
+        #expect(system.registrationRequests == 0)
+    }
 
     @Test func aNewTokenIsUploadedForThisBuild() async {
         await service.didRegister(token: "ab12cd34ef56ab12cd34ef56")
@@ -108,7 +143,7 @@ struct PushNotificationServiceTests {
 
     @Test func theTokenSurvivesARelaunch() async {
         await service.didRegister(token: "ab12cd34ef56ab12cd34ef56")
-        let relaunched = PushNotificationService(repository: spy, games: backend, chat: backend, defaults: defaults)
+        let relaunched = PushNotificationService(repository: spy, games: backend, chat: backend, defaults: defaults, system: system)
         await relaunched.refreshRegistration(force: true)
         #expect(spy.registered.last?.token == "ab12cd34ef56ab12cd34ef56")
     }
@@ -160,7 +195,7 @@ struct PushNotificationServiceTests {
 
         spy.failUnregister = false
         let relaunchedPush = PushNotificationService(
-            repository: spy, games: backend, chat: backend, defaults: defaults
+            repository: spy, games: backend, chat: backend, defaults: defaults, system: system
         )
         let relaunch = AppViewModel(
             auth: backend, catalog: backend, push: relaunchedPush, defaults: defaults, signOutMarker: marker
@@ -324,7 +359,7 @@ struct PushNotificationServiceTests {
         let model = AppViewModel(auth: backend, catalog: backend, push: service, defaults: defaults)
         await model.deleteAccount(store: store)
         #expect(AppGroupStore.myID == nil)
-        let again = PushNotificationService(repository: spy, games: backend, chat: backend, defaults: defaults)
+        let again = PushNotificationService(repository: spy, games: backend, chat: backend, defaults: defaults, system: system)
         await again.refreshRegistration(force: true)
         #expect(spy.registered.count == 1)
     }
@@ -404,6 +439,22 @@ struct PushNotificationServiceTests {
         #expect(opened == [URL(string: "masuno://map")])
     }
 
+    @Test func aTapRoutesBeforeASlowOpenedRequestFinishes() async {
+        let gate = NotificationTestGate()
+        spy.beforeMarkOpened = { await gate.wait() }
+        var opened: [URL?] = []
+        service.onOpen = { opened.append($0) }
+        let task = Task {
+            await service.handle(action: UNNotificationDefaultActionIdentifier,
+                payload: NotificationPayload(kind: "winback", outboxID: 7), reply: nil)
+        }
+        await gate.waitUntilEntered()
+        #expect(opened == [URL(string: "masuno://map")])
+        gate.open()
+        await task.value
+        #expect(spy.opened == [7])
+    }
+
     @Test func aTapBeforeTheInterfaceIsReadyWaitsOnce() async {
         let gameID = UUID()
         await service.handle(action: UNNotificationDefaultActionIdentifier, payload: NotificationPayload(kind: "chat_message", gameID: gameID), reply: nil)
@@ -446,6 +497,9 @@ struct PushNotificationServiceTests {
         await service.handle(action: "COUNT_ME_IN", payload: NotificationPayload(kind: "spot_open", gameID: gameID), reply: nil)
         let game = try #require(try await backend.fetchGames(ids: [gameID]).first)
         #expect(game.myRole == nil)
+        #expect(system.requests.count == 1)
+        #expect(system.requests.first?.content.title == "Someone beat you to it")
+        #expect(system.requests.first?.content.body == "That plan just filled up.")
     }
 
     // MARK: Primer
@@ -482,9 +536,9 @@ struct PushNotificationServiceTests {
 
     // MARK: Categories
 
-    @Test func everySampleCategoryIsRegistered() async throws {
+    @Test func everySampleCategoryIsRegistered() throws {
         service.registerCategories()
-        let registered = await UNUserNotificationCenter.current().notificationCategories()
+        let registered = system.categories
         let byID = Dictionary(uniqueKeysWithValues: registered.map { ($0.identifier, $0) })
         for sample in try NotificationSamples.all() {
             guard let category = sample.aps["category"] as? String else { continue }
@@ -525,10 +579,11 @@ private enum NotificationSamples {
 struct NotificationPayloadTests {
     @Test func everySampleDecodesAndRoutes() throws {
         let samples = try NotificationSamples.all()
-        #expect(samples.count == 11)
+        #expect(samples.count == 12)
         for sample in samples {
             let payload = try #require(NotificationPayload(userInfo: sample.userInfo), "\(sample.name) didn't decode")
-            #expect(payload.kind == sample.name, "The file name is the kind")
+            // A mention arrives as chat with "mention": true; its file is named for the server's kind.
+            #expect((payload.mention ? "chat_mention" : payload.kind) == sample.name, "The file name is the kind")
             switch payload.kind {
             case "signup_approved":
                 #expect(payload.routeURL() == nil)

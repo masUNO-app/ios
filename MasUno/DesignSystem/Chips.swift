@@ -5,40 +5,65 @@ struct SportChip: View {
     var sport: Activity
 
     var body: some View {
-        HStack(spacing: 4) {
-            Text(sport.emoji)
-            Text(sport.name)
-        }
-        .font(.rounded(.footnote, .bold))
-        .foregroundStyle(Theme.ink)
-        .padding(.horizontal, 10)
-        .frame(height: 28)
-        .glassEffect(.regular.tint(sport.color), in: .capsule)
+        SportLabel(sport: sport)
+            .inkOnColor()
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .frame(minHeight: 28)
+            .appGlass(in: .capsule, tint: sport.color)
     }
 }
 
 /// Selectable sport chip (Make it yours, Edit profile, Filter games): the sport's color when
-/// it's on, plain white when it's off.
+/// it's on, plain white when it's off. With Differentiate Without Color, a checkmark too: some
+/// sport colors are hard to tell from white (A11Y-22).
 struct SportToggle: View {
     var sport: Activity
     var isOn: Bool
     var action: () -> Void
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 4) {
-                Text(sport.emoji)
-                Text(sport.name)
-            }
-            .font(.rounded(.footnote, .bold))
-            .foregroundStyle(Theme.ink)
-            .padding(.horizontal, 12)
-            .frame(height: 32)
-            .glassEffect(isOn ? .regular.tint(sport.color).interactive() : .regular.interactive(), in: .capsule)
+            SportLabel(sport: sport, showsCheckmark: isOn && differentiateWithoutColor)
+                // Off, it's plain glass that follows dark mode.
+                .inkOnColor(isOn)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .frame(minHeight: 32)
+                .appGlass(in: .capsule, tint: isOn ? sport.color : nil, interactive: true)
+                // 44 pt tall to tap; the rows don't move apart (A11Y-19).
+                .tapTarget(.vertical, 6)
         }
         .buttonStyle(.plain)
+        .padding(.vertical, -6)
         .sensoryFeedback(.selection, trigger: isOn)
         .accessibilityAddTraits(isOn ? .isSelected : [])
+    }
+}
+
+/// "🏀 Basketball", the inside of `SportChip` and `SportToggle`. Read as the name alone: next to
+/// it the emoji would be read too ("basketball, Basketball", A11Y-11).
+private struct SportLabel: View {
+    var sport: Activity
+    /// The toggle's "on" mark; its Selected trait already says so to VoiceOver.
+    var showsCheckmark = false
+
+    var body: some View {
+        HStack(spacing: 4) {
+            if showsCheckmark {
+                Image(systemName: "checkmark")
+                    .accessibilityHidden(true)
+            }
+            Text(sport.emoji)
+                .accessibilityHidden(true)
+            Text(sport.name)
+        }
+        .font(.rounded(.footnote, .bold))
+        .foregroundStyle(Theme.ink)
+        // Left alone, the name would take the whole chip's frame, emoji and all, and the
+        // accessibility audit would measure the emoji's colors as its contrast.
+        .accessibilityElement(children: .contain)
     }
 }
 
@@ -78,30 +103,46 @@ struct IconTile: View {
     }
 }
 
-/// "Verified student" on the Me card: a green seal on a light capsule.
-struct VerifiedBadge: View {
+/// A green symbol and a title on a light capsule, on the Me card: "Verified student", and "Beta
+/// tester" for people on TestFlight builds (it grants nothing, it's a thank-you).
+struct ProfileBadge: View {
+    var title: LocalizedStringKey
+    var systemImage: String
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    init(_ title: LocalizedStringKey, systemImage: String) {
+        self.title = title
+        self.systemImage = systemImage
+    }
+
     var body: some View {
-        Label("Verified student", systemImage: "checkmark.seal.fill")
+        Label(title, systemImage: systemImage)
             .labelStyle(BadgeLabelStyle())
             .font(.rounded(.footnote, .bold))
             .foregroundStyle(Theme.ink)
             .padding(.horizontal, 9)
-            .frame(height: 24)
-            .background(.white.opacity(0.75), in: .capsule)
+            .padding(.vertical, typeSize.isAccessibilitySize ? 2 : 0)
+            .frame(minHeight: 24)
+            .background { Capsule().fill(.white).contrastOpacity(0.75) }
     }
 }
 
-/// "Beta tester" next to "Verified student" on the Me card, for people on TestFlight builds. Same
-/// capsule as `VerifiedBadge`; it grants nothing, it's a thank-you.
-struct BetaBadge: View {
+/// Small uppercase tag after a name: "HOST", "BETA" (Who's going).
+struct TagText: View {
+    var title: LocalizedStringKey
+    var color: Color
+
+    init(_ title: LocalizedStringKey, color: Color) {
+        self.title = title
+        self.color = color
+    }
+
     var body: some View {
-        Label("Beta tester", systemImage: "testtube.2")
-            .labelStyle(BadgeLabelStyle())
-            .font(.rounded(.footnote, .bold))
-            .foregroundStyle(Theme.ink)
-            .padding(.horizontal, 9)
-            .frame(height: 24)
-            .background(.white.opacity(0.75), in: .capsule)
+        Text(title)
+            .textCase(.uppercase)
+            .font(.rounded(.caption2, .heavy))
+            .tracking(0.4)
+            .foregroundStyle(color)
     }
 }
 

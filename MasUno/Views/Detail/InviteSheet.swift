@@ -7,15 +7,18 @@ import SwiftUI
 struct InviteSheet: View {
     @Environment(GameStore.self) private var store
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var event: Game
 
     @State private var showsCode = false
+    /// Made once, the first time the code shows, rather than on every render (OPT-08).
+    @State private var codeImage: UIImage?
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 SheetHeader(
-                    title: Text(event.isHostedByMe ? "Share game" : "Invite a friend"),
+                    title: Text(event.isHostedByMe ? "Share plan" : "Invite a friend"),
                     subtitle: Text("They'll see who's going and can grab an open spot.")
                 ) { dismiss() }
 
@@ -26,8 +29,8 @@ struct InviteSheet: View {
 
                 if let url = AppConfig.inviteURL {
                     if showsCode {
-                        code(for: url)
-                            .transition(.scale(scale: 0.9).combined(with: .opacity))
+                        code
+                            .motionAwareTransition(scale: 0.9)
                     } else {
                         FieldBox("masUNO on the App Store") {
                             Text(verbatim: Self.display(url))
@@ -45,7 +48,7 @@ struct InviteSheet: View {
                         .pill(.primary)
 
                         Button(showsCode ? "Hide QR code" : "Show QR code") {
-                            withAnimation(.snappy) { showsCode.toggle() }
+                            withAnimation(.motionAware(.snappy, reduceMotion: reduceMotion)) { toggleCode(for: url) }
                         }
                         .pill(.quiet)
                     }
@@ -58,16 +61,29 @@ struct InviteSheet: View {
         }
         .scrollBounceBehavior(.basedOnSize)
         .sheetChrome(detents: [.height(580), .large])
+        #if DEBUG
+        // `-screen invite-code`: the sheet with its QR code shown.
+        .onAppear {
+            if UserDefaults.standard.string(forKey: "screen") == "invite-code", let url = AppConfig.inviteURL { toggleCode(for: url) }
+        }
+        #endif
     }
 
-    private func code(for url: URL) -> some View {
+    private func toggleCode(for url: URL) {
+        if codeImage == nil { codeImage = Self.qrCode(for: url) }
+        showsCode.toggle()
+    }
+
+    private var code: some View {
         VStack(spacing: 10) {
-            if let image = Self.qrCode(for: url) {
-                Image(uiImage: image)
+            if let codeImage {
+                Image(uiImage: codeImage)
                     .interpolation(.none)
                     .resizable()
                     .scaledToFit()
                     .frame(width: 180, height: 180)
+                    // Smart Invert would turn it white on black, which some scanners can't read (A11Y-27).
+                    .accessibilityIgnoresInvertColors()
                     .accessibilityLabel("QR code for masUNO on the App Store")
             }
             Text("Scan to get masUNO")
@@ -84,12 +100,15 @@ struct InviteSheet: View {
         url.absoluteString.replacingOccurrences(of: "https://", with: "")
     }
 
+    /// One for the app: a context is costly to make.
+    private static let context = CIContext()
+
     private static func qrCode(for url: URL) -> UIImage? {
         let filter = CIFilter.qrCodeGenerator()
         filter.message = Data(url.absoluteString.utf8)
         filter.correctionLevel = "M"
         guard let output = filter.outputImage?.transformed(by: CGAffineTransform(scaleX: 10, y: 10)),
-              let image = CIContext().createCGImage(output, from: output.extent) else { return nil }
+              let image = context.createCGImage(output, from: output.extent) else { return nil }
         return UIImage(cgImage: image)
     }
 }

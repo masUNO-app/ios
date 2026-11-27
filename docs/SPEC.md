@@ -19,6 +19,17 @@
 - **1.0 UI is built (E27):** sport colors, court headers, sport-tinted pins/popups/Me/chat, rounded type, and the 1.0 copy ("Count me in", "We're looking for you."). Sign-in still gates the app (R7-15).
 - `com.masuno.app` registered on the Boys & Girls Clubs of Chicago developer team (Oct 28).
 
+> **Status, Nov 24 (newer than rev. 7; this note wins where they differ).**
+> - **Releases:** 0.9 (build 10) is the App Store build, with group chat and notifications on in prod (`docs/SUBMISSION.md`). `path-to-1.0` is version 1.0 (build 1), and PR #20 takes it to `main` and prod.
+> - **Copy:** the app says "plan" instead of "game" (Nov 20). Code names are unchanged.
+> - **1.0 additions beyond §3** (API.md):
+>   - the server-driven activity catalog
+>   - esports (Valorant, CS:GO, League), gated to 1.0
+>   - round nights
+>   - props after every plan, with an opt-in leaderboard
+>   - master invite codes
+> - **Weekly open plans** at CDB II, with no host, are live on prod for 0.9 (`supabase/README.md`).
+
 > **How to read this.** §0–§6 are the plan: releases, scope, calendar, who does what, how we work. §7–§9 are the product and technical spec (§7.1–§7.6 = 0.5 UI, §7.7 = 1.0 UI). §10–§13 are release steps, risks, decisions and what comes after. Items marked **⚑** need sign-off (§12).
 >
 > **IDs:** **E** = Ethan, **B** = backend (Supabase is Emilio's; B5–B7 are Ethan's for 0.5), **D** = Arianna (design), **O** = Ricardo (outreach).
@@ -59,10 +70,11 @@
 
 ## 1. What changed
 
-### This revision (rev. 7, Nov 5; N30–N33 added Nov 6; N34–N35 added Nov 10; N36 added Nov 11; N37–N38 added Nov 14)
+### This revision (rev. 7, Nov 5; N30–N33 added Nov 6; N34–N35 added Nov 10; N36 added Nov 11; N37–N38 added Nov 14; N39 added Nov 25)
 
 | # | Change | Why | Sign-off |
 | - | --- | --- | --- |
+| N39 | **Email codes** (1.0; amends N36 and N37). "Confirm email" is on, and the email carries a 6-digit code (no link): Create account → **Check your email** → the waitlist. The request is recorded when the code is entered, not when the account is made, so typing someone else's address takes no place in line and alerts nobody; the team's alert says the address is verified, so approving needs no vouching. Sign-up stays **invite-only**: a verified account waits as in N37, and invite codes still skip the wait (one typed on Create account is used once the code is in). `app_config.signup_auto_approve` (off at launch; the team runs `private.set_signup_auto_approve`) opens sign-up: while it's on, the code is enough to get in, and turning it on lets in everyone verified and waiting. **Forgot your password?** on Sign in emails a reset code; entering it with a new password signs you in. An allowlisted address that verifies goes straight in. Accounts that never enter their code are deleted after a day; accounts that were waiting before 1.0 enter a code on their next sign-in. `docs/API.md` (Sign-in) has the contract. | The team shouldn't have to vouch for every address by hand, and a switch lets sign-up open without a build; students need a way to reset a password without contacting us. | Decided (Ethan, 2026-11-25) |
 | N38 | **One waitlist** (1.0; amends N37). The website's waitlist (the Google Sheet its Apps Script writes) and the app's share one queue, Supabase's `private.signup_requests`, and the Sheet mirrors it both ways: a website join calls `waitlist_join`; every change here is pushed to the Sheet straight away ("App status": Waiting, Approved, In the app, Removed, with the place in line); an hourly `waitlist_export` heals anything missed. A school email keeps its place: joining on the website first puts it in line at that time, and creating the account in the app later keeps it (the earlier of the two counts) and only then alerts the team to approve. The team can approve a website email before it has an account, and it goes straight in. Non-school emails stay Sheet-only, as launch news. One shared secret in Vault and the Apps Script guards both directions. `docs/API.md` (Website waitlist sync) has the contract. | Two waitlists would mean two places in line and two lists for the team to approve; students who joined on the website first shouldn't lose their place by signing up in the app. | Decided (Ethan, 2026-11-14) |
 | N37 | **Invite-only with a waitlist, and a beta tester badge** (1.0; amends N36). A sign-up without a code waits for the team exactly as in N36, and the app now calls that wait the **waitlist**, with your place in line. A member's invite code lets the account in at once with no approval, typed on Create account or later on the waitlist. Codes work once and record who invited whom; the team gets an FYI in Discord, not an approval request. Every member has 3 codes and the team can give more (`private.grant_invites`). More than 5 wrong codes in an hour locks redeeming until the hour is up. Allowlisted (review/QA) accounts and the unused SSO path don't change. Separately, the first time a signed-in member opens a TestFlight build, the profile gets a permanent **beta tester** badge, shown on their Me card and next to their name in Who's going; the app reports it itself, which is fine for a badge. `docs/API.md` (Invites and the waitlist, Beta tester) has the contract. *Nov 14 (N38): the website's waitlist is the same queue, so a website join holds a place in it.* | Grow through students who vouch for each other, like early Gmail, without the team approving every sign-up by hand; thank the beta testers. | Decided (Ethan, Nov 14) |
 | N36 | **Sign-in is a school email and a password, with each new account approved by hand** (replaces N33's "school SSO is the only sign-in"; §7.5 and §8.4 still describe SSO). Create account takes a school address at an open campus; the auth hook refuses any other. The sign-up posts to the team Discord, and a team member approves or rejects it in the SQL editor (`private.approve_signup` / `reject_signup`). Until then the app shows "We're checking your account" and every write RPC answers `pending_approval`. No confirmation or reset emails (no custom SMTP). The SSO code and the hook's SSO branch stay, unused, in case Tec IT approves the Entra app. `docs/API.md` (Sign-in) has the contract. *Nov 14 (N37): from 1.0 this wait is the waitlist, and a member's invite code (3 each) skips approval.* | Getting the Entra app approved by Tec IT will take too long, and we don't expect it to happen. | Decided (Ethan, Nov 11) |
@@ -133,7 +145,7 @@ N1 builds at each demo day, 0.5 before Demo Day #3, 1.0 after it, launch Dec 16 
 | C16 | Minimum-version gate in 0.5. | Lets 1.0 force an update if needed. | — |
 | C17 | `supabase/` lives in the `ios` repo. | One PR can change client and database together. | — |
 
-**Still locked from rev. 2:** Supabase; Tec school-account SSO only (Microsoft Entra via Supabase Azure provider, N33), no consumer social login or public sign-up; sports only (Basketball, Tennis, Soccer, Volleyball, Padel — N19); no organizer approval; launching at Tec de Monterrey (N32); English first with strings externalized; venue search + pin + current location; 7-day posting window; light mode only; sign-in gates the app; no skill level; soft cancel; separate dev and prod projects.
+**Still locked from rev. 2:** Supabase; Tec school-account SSO only (Microsoft Entra via Supabase Azure provider, N33), no consumer social login or public sign-up; sports only (Basketball, Tennis, Soccer, Volleyball, Padel — N19); no organizer approval; launching at Tec de Monterrey (N32); English first with strings externalized; venue search + pin + current location; 7-day posting window; light mode only (dark mode since build 9, §7.7.2); sign-in gates the app; no skill level; soft cancel; separate dev and prod projects.
 
 ---
 
@@ -145,7 +157,7 @@ N1 builds at each demo day, 0.5 before Demo Day #3, 1.0 after it, launch Dec 16 
 3. Pass App Review's user-generated-content rules: agree to guidelines, text filter, report, block, act on reports within 24 h, contact info in the app, in-app account deletion.
 4. Numbers for each demo day: beta testers, verified sign-ups, games hosted, joins, games that filled.
 
-**Not in scope during the program:** photos, calendar sync, dark mode, Android/web, organizer approval, recurring games, non-sport activities, opening a second campus (the app is ready for it, N32), our own domain or branded email.
+**Not in scope during the program:** photos, calendar sync, Android/web, organizer approval, recurring games, non-sport activities, opening a second campus (the app is ready for it, N32), our own domain or branded email.
 
 **Release criteria for 0.5 and 1.0**
 - Core loop works on two physical phones against `masuno-prod`, including two people racing for the last spot.
@@ -165,6 +177,7 @@ N1 builds at each demo day, 0.5 before Demo Day #3, 1.0 after it, launch Dec 16 
 | **0.1 Prototype** | 0.5 | TestFlight (internal) | Demo Day #1, Thu Nov 5 | Green design system and every 0.5 screen. Mock data. |
 | **0.5** | 0.5 | App Store (release on approval) + external TestFlight beta, submitted Thu Nov 12 (N34) | Demo Day #2, Thu Nov 19 (live, or from TestFlight if review is slow) | Everything in "0.5 scope" below, on `masuno-prod`. |
 | **0.6** | 0.5 | App Store, release on approval, Mon Nov 16 | Demo Day #3, Thu Dec 3 | Everything in "0.6 scope" below. |
+| **0.9** (build 10) | 1.0 | App Store (build prepared Nov 20) | Live now | 1.0 UI, group chat, notifications, synced Saved, Spanish, guest browse, invites and the waitlist, dark mode, padel (`docs/SUBMISSION.md`). |
 | **1.0 beta** | 1.0 | TestFlight | Demo Day #3 (sneak peek) | 1.0 UI + notifications and synced Saved working end to end. |
 | **1.0** | 1.0 | App Store, manual release | Product Launch, Wed Dec 16 | Everything in "1.0 scope" below. |
 
@@ -198,19 +211,26 @@ N1 builds at each demo day, 0.5 before Demo Day #3, 1.0 after it, launch Dec 16 
 - Notifications: a spot opened (Saved games), game changed, game cancelled, 30-min reminder, new game matching your interests, host updates; Notifications section in Settings; permission asked after the first join or hosted game.
 - Saved synced to the account (B15), "Notify me if a spot opens" on full games.
 - Spanish localization (strings, dates, sport names, notification text).
-- Location picker drag-to-adjust; "Happening now" state; "changed since you joined" banner.
+- Location picker drag-to-adjust (the map pans under a fixed pin). "Happening now" and the "changed since you joined" banner are cut (Nov 19): the "game changed" push and the chat's change row already tell players.
 - "A spot opened" push to people who saved a game (pairs with auto-repost).
-- Group chat messaging, if it missed 0.5 (B20, E26, Appendix A).
+- Group chat messaging, if it missed 0.5 (B20, E26, Appendix A), with **@mentions** (Nov 19): a mentioned member is notified even with group chat notifications off or the game muted (§7.6.9, NOTIF §3.5).
 - Full accessibility pass; metrics view; fixes from 0.5 feedback.
 - **Guest browse (R7-15):** map and game details without names; an account for join, save, host and Who's going.
+- **Added Nov 20–24** (API.md):
+  - "Plan" instead of "game" in the copy.
+  - The server-driven activity catalog (`activity_catalog`), with esports (Valorant, CS:GO, League) gated to 1.0.
+  - Round nights: rounds with groups picked each round.
+  - Props after every plan, with an opt-in monthly leaderboard behind `props_enabled`.
+  - Master invite codes.
+- **Weekly open plans (server-only, live for 0.9 on Nov 24):** hostless weekly plans at CDB II, posted by a job (`supabase/README.md`).
 
 ### After the program (§13)
-Chat push and retention, profile photos, calendar sync, name-visibility setting, dark mode, links that open a specific game, organizer approval, recurring games, non-sport activities, new campuses, own domain/email.
+Chat push and retention, profile photos, calendar sync, name-visibility setting, links that open a specific game, organizer approval, recurring games that people host themselves (the team's weekly open plans already exist), more non-sport activities (esports is in 1.0), new campuses, own domain/email.
 
 ### Cut order if we slip
 - **0.5 → 0.6**, decided at the Sat Nov 7 evening check and again at the Sun Nov 8 noon go/no-go: (1) Edit profile & interests; (2) group chat — first fall back to read-only (drop the composer and mock messages), then hide its entry points if even that isn't live; (3) Invite a friend; (4) Past games; (5) sport filter; (6) map search; (7) offline banner (keep retry). Hide cut features in the Release build — never ship a button that does nothing.
 - **If sign-in, join or delete account isn't live on prod by Sun Nov 8 noon:** don't submit a mock build. Keep going and submit the day they're live (aim Tue–Wed Nov 10–11); hard backstop Mon Nov 16 together with 0.6. Demo Day #2 then shows the TestFlight build, labelled as beta. If only allowlisted accounts can sign in by then, R7-14 applies.
-- **1.0** — (1) form suggestion chips and join animation (§7.7); (2) Google Maps option; (3) drag-to-adjust; (4) "changed since you joined" banner; (5) host-update notifications; (6) court art simplified to a plain sport-color band with the lineup tokens (keeps the rest of the 1.0 UI).
+- **1.0** — (1) form suggestion chips and join animation (§7.7); (2) Google Maps option; (3) drag-to-adjust; (4) ~~"changed since you joined" banner~~ (cut Nov 19); (5) host-update notifications; (6) court art simplified to a plain sport-color band with the lineup tokens (keeps the rest of the 1.0 UI).
 - **Never cut** anything on the App Review checklist.
 
 ---
@@ -270,7 +290,7 @@ Program weeks shown; the Wednesday Team Session doubles as our weekly sync.
 | **Wk 8** (Nov 9–15) · **submit 0.5 Thu** | Merge B7; RC Wed; submit 0.5 Thu (E15); answer review; chat messaging (E26) and 0.6 fixes; start 1.0 UI (E27: tokens, pins, popup, Me cards) | SSO spike (B21), tenant check (B22), report webhook, backups; fixes from review; chat backend (B20) for 0.6 | Resolve 1.0 conflicts (D12) Wed; start 1.0 frames for missing screens (D2/D8) | Beta testers once Beta App Review clears (O8); moderation (O11) |
 | **Wk 9** (Nov 16–22) · submit 0.6 Mon · DD2 Thu | Submit 0.6 Mon; 1.0 UI: court headers, detail, chat, Who's going (E27) | 1.0 backend start: notification backend (B13) | DD2 deck (D5); 1.0 frames for missing screens (D2/D8) by Sun; 1.0 tokens as Figma variables (D13) | Beta + real games (O8, O9); DD2 numbers (O10) |
 | **Wk 10** (Nov 23–29) · Thanksgiving | 1.0: notification screens (E16), Saved sync (E17), restyle onboarding/safety/states from D2 frames (E27) | `send-push` (B14), Saved backend (B15), `NotificationService` (B16) | Design QA of 0.x release | Spanish translation (O12); beta feedback summary (O8) |
-| **Wk 11** (Nov 30–Dec 6) · DD3 Thu | 1.0 beta Tue; Spanish (E18), picker drag + banner (E20), 0.x fixes | Metrics (B17), Spanish notifications (B18), 0.x fixes | DD3 deck (D5); 1.0 design QA (D6); Spanish layout check (D9) | DD3 story + numbers (O10) |
+| **Wk 11** (Nov 30–Dec 6) · DD3 Thu | 1.0 beta Tue; Spanish (E18), picker drag (E20), 0.x fixes | Metrics (B17), Spanish notifications (B18), 0.x fixes | DD3 deck (D5); 1.0 design QA (D6); Spanish layout check (D9) | DD3 story + numbers (O10) |
 | **Wk 12** (Dec 7–13) | Accessibility + tests (E22); submit 1.0 Tue (E23) | Notification tests, prod checks (B19) | 1.0 screenshots (D7); launch deck (D5) | Launch-week games (O9); PR/FAQ final; launch plan (O13) |
 | **Wk 13** (Dec 14–16) | Release 1.0 Mon | On call | Product Launch | Waitlist email + launch posts (O13); on call |
 
@@ -355,7 +375,7 @@ For 0.5, everything in Swift is Ethan's (screens and the data layer); everything
 | E27 | **1.0 UI pass** (§7.7, N23): 1.0 tokens + rounded type (2 h); sport colors on pins, popup with tail, "+1" tokens (2 h); court/field headers ×5 with the lineup and "Room for N more" (4 h); Me cards + profile band (1.5 h); chat sport band, bubbles, join pill (1.5 h); Who's going rows, Settings icon tiles, form suggestion chips, copy (1 h); restyle onboarding/safety/states from D2 frames. | 1.0 | 12 h | Tue Dec 1 (start Nov 10) | **Built** (Nov 14): screens match §7.7; design QA (screenshots vs Figma) still open | 1.0 beta matches the 1.0 frames (or differences noted by Arianna). |
 | E16 | Notification screens. | 1.0 | 3.5 h | Nov 29 | — | Tapping each notification type opens the right game. |
 | E18 | Spanish. | 1.0 | 2 h | Dec 4 | — | Whole app readable in Spanish. |
-| E20 | Picker drag + "Happening now" + changed banner. | 1.0 | 3.5 h | Dec 5 | — | Drag sets a spot; banner shows after a host edit. |
+| E20 | Picker drag. "Happening now" and the changed banner are cut (Nov 19). | 1.0 | 1.5 h | Dec 5 | Built (pan under a fixed pin) | Drag sets a spot. |
 | E22 | Accessibility + UI tests. | 1.0 | 4 h | Dec 7 | — | Core loop with VoiceOver at XXL text. |
 | E23 | 0.x fixes + 1.0 submission. | 1.0 | 3 h | Dec 8 | — | 1.0 submitted. |
 | | **Ethan remaining** | | **0.5 ~7 h · 0.6 ~4 h (E26) · 1.0 ~30 h · ≈ 41 h** | | | |
@@ -403,7 +423,7 @@ For 0.5, everything in Swift is Ethan's (screens and the data layer); everything
 | D6 | **Design QA**: 0.5 RC against the green `341:*` frames and §7 (Sun Nov 8); 1.0 beta against §7.7 frames (Dec 2); Trello bugs with screenshots; screenshot review in UI PRs. | All | 1.5 per build | Nov 8, Dec 2 | — |
 | D7 | **App Store screenshots** (6.9") from the release candidate — 0.5 UI for 0.5; redo in the 1.0 UI for 1.0. Real Monterrey venues only (no San Francisco map or "[Padel venue near Tec]" placeholders). | 0.5 / 1.0 | 3 | ~~Sun Nov 8~~ → **Wed Nov 11** / Dec 8 | To do |
 | D12 | **Resolve 1.0 conflicts** (§7.7.6): agree defaults for R7-4…R7-10 and R7-15 with Ricardo and update the Figma (e.g. Who's going rows, Settings rows, "Cancel game", no "· Read", no mic glyph). | 1.0 | 1 | Wed Nov 11 | To do |
-| D2 + D8 | **1.0-style frames for screens the Figma doesn't have yet** (N25): onboarding (Welcome → Location primer → Sign in to join (sheet) → Find your school → School sign-in (system web sheet; iOS and the school own it, so it's in the flow but not drawn) → You're verified → Set up profile → (1.0) Notification primer) + update-required + suspended; Event detail Full / Hosting / Ended / Cancelled; report sheet, block dialog, Blocked people; empty/error/offline; group chat read-only variant; Saved list + empty state; Notifications settings; Notify me; "Happening now"; "changed since you joined" banner; picker drag; **auto-repost toggle, hosting-card line and bumped pin (D11)**. | 1.0 | 8 | **Sun Nov 22** | In progress: Sign in to join and Find your school are drawn |
+| D2 + D8 | **1.0-style frames for screens the Figma doesn't have yet** (N25): onboarding (Welcome → Location primer → Sign in to join (sheet) → Find your school → School sign-in (system web sheet; iOS and the school own it, so it's in the flow but not drawn) → You're verified → Set up profile → (1.0) Notification primer) + update-required + suspended; Event detail Full / Hosting / Ended / Cancelled; report sheet, block dialog, Blocked people; empty/error/offline; group chat read-only variant; Saved list + empty state; Notifications settings; Notify me; picker drag; **auto-repost toggle, hosting-card line and bumped pin (D11)**. | 1.0 | 8 | **Sun Nov 22** | In progress: Sign in to join and Find your school are drawn |
 | D13 | **1.0 tokens as Figma variables** + hand-off table for E27 (sport colors, person colors, radii, glass recipes — §7.7.2). | 1.0 | 1 | Fri Nov 20 | Partly done (in `DESIGN.md`) |
 | D9 | Spanish layout check: long strings, truncation, buttons. | 1.0 | 1 | Dec 4 | — |
 | D10 | *Optional:* small SwiftUI PRs (spacing/color tweaks found in design QA), reviewed by Ethan. | — | — | Any time | — |
@@ -457,13 +477,13 @@ These are the tokens in the asset catalog today (0.5 and 0.6). The 1.0 tokens ar
 | `background` | `#F5F4F7` | Screens and sheets. |
 | `card` | `#FDFCFE` | Cards, grouped rows, popups. |
 | `ink` | `#1F2638` | Titles and body. |
-| `muted` | `#5F5C68` / `#73707B` | Secondary text; `#73707B` only for ≥ 18 pt or ≥ 14 pt bold. |
+| `muted` | `#5F5C68` / `#73707B` | Secondary text. In the 1.0 catalog the lighter one (`mutedLarge`, `#676877`) passes AA at any size on every surface. |
 | `pin` | `#2F6FE0` | Map pins only. |
 | `destructive` | `#C23B34` | Cancel game, Sign out, Delete account. |
 | `error` | `#CB3D3D` | Field errors. |
 | `chipSport` | `#DCE4F4` | Interest chips. |
 
-Cards 16–20 pt radius with hairline border; pill buttons ~50 pt; boxed fields with caption labels; Liquid Glass on floating controls. SF Pro, sentence case, light mode only.
+Cards 16–20 pt radius with hairline border; pill buttons ~50 pt; boxed fields with caption labels; Liquid Glass on floating controls. SF Pro, sentence case, light mode only (1.0 adds dark mode, §7.7.2).
 
 ### 7.2 Copy & voice
 
@@ -538,14 +558,14 @@ Frames: `https://www.figma.com/design/5eKA3f0I90VVABrAuNMFD2/masuno-figma?node-i
 | 6 · Padel | 408:3324, 408:4374, 408:6057, 408:5042 | E27 |
 | 7 · Group chat | Basketball 341:1791, Tennis 413:9386, Soccer 413:9479, Volleyball 413:9576, Padel 413:9670; Who's going 341:2309; Chat rules 341:2420; Edit meet-up 341:2507 | E27 (+ E26 messaging if it missed 0.5) |
 | 8 · Me and settings | Me Going 341:2165, Me Hosting 341:2240, Edit game 341:2703, Cancel game 341:2840, Settings 341:2144 | E27 · E16 (notification toggles) |
-| *Not drawn yet* | Onboarding other than Sign in to join and Find your school, detail states, safety sheets, states, Saved, notifications, Happening now, banner, picker drag, auto-repost | D2 + D8 by Sun Nov 22 |
+| *Not drawn yet* | Onboarding other than Sign in to join and Find your school, detail states, safety sheets, states, Saved, notifications, picker drag, auto-repost | D2 + D8 by Sun Nov 22 |
 
 ### 7.5 Onboarding & sign-in (E5 screens · B5 `AuthService` · 1.0 frames in D2)
 
-*Campus names below come from `university_lookup`: "Tec" at launch. If the list can't load or more than one campus is open, the copy says "campus" and "school account" instead (N32). Sign-in is a school email and a password, approved by hand (N36). School SSO (`FindSchoolStep`, Azure web sheet) is kept in the code but unused, as in `docs/API.md`.*
+*Campus names below come from `university_lookup`: "Tec" at launch. If the list can't load or more than one campus is open, the copy says "campus" and "school account" instead (N32). Sign-in is a school email and a password, proven by an emailed code (N39), then the waitlist (N36, N37). School SSO (`FindSchoolStep`, Azure web sheet) is kept in the code but unused, as in `docs/API.md`.*
 
 1. **Welcome** — masUNO / "We're looking for you." **Get started** opens "Quick check before you join": **Create account** or **I already have an account**. **Browse as a guest** opens the map without signing in (R7-15). Footer: Privacy & Terms. Guest campuses come from `university_lookup` with `signup_enabled` (never the hidden demo campus, C12). One open campus (Tec at launch) opens the map with no picker; several open a **Which campus?** step first. The guest map can be empty when that campus has no matching open games; Demo's auto-refreshed games are only for allowlisted review/QA accounts, not guests. The guest Me button asks for an account; when more than one campus is open it also offers **Browse another campus**.
-2. **Create account** — school email + password (at least 8 characters). The hook refuses a non-school or closed-campus address ("masUNO is just for Tec students right now." / "masUNO isn't open at your school yet."). The sign-up posts to the team Discord; until someone runs `private.approve_signup`, the app shows **We're checking your account**. **Check again** / coming back to the app; **Sign out** returns to Welcome. *1.0 (N37):* that wait is the **waitlist**, with your place in line; an invite code from a member, typed here or on the waitlist, skips it. Members have 3 codes each, and a TestFlight build gives a beta tester badge.
+2. **Create account** — school email + password (at least 8 characters). The hook refuses a non-school or closed-campus address ("masUNO is just for Tec students right now." / "masUNO isn't open at your school yet."). *1.0 (N39):* next is **Check your email**: the 6-digit code from the email (iOS offers it from Mail), **Send a new code** once a minute, **Use a different email**. Signing in before entering it sends a new code and opens the same step. **Sign in** has **Forgot your password?**: a code to the address typed there, then a new password. Once the code is in, the sign-up posts to the team Discord; until someone runs `private.approve_signup`, the app shows **We're checking your account**. **Check again** / coming back to the app; **Sign out** returns to Welcome. *1.0 (N37):* that wait is the **waitlist**, with your place in line; an invite code from a member, typed here or on the waitlist, skips it. Members have 3 codes each, and a TestFlight build gives a beta tester badge.
 3. **You're in** — after approval, once, when `my_profile` has no row yet. Then **Make it yours:** first name, last name, class year, at least one sport; preview "Emilio G. · Class of 2029". Then **Community guidelines** (**I agree**, required) → map.
 4. **(1.0) Notification primer** — after your first join or hosted game (C11), not during first-run onboarding.
 
@@ -601,6 +621,7 @@ Card: initials, your full name, "Class of 2029 · Tec de Monterrey", "Verified s
 
 #### 7.6.7 Settings (E13; Notifications E16)
 - *[1.0]* Notifications: Games that match your interests · A spot opens up · Game reminders · Updates on games you host.
+- *[1.0]* Language: Device language · English · Español. Appearance (build 9): System · Light · Dark, applied at once and kept across launches.
 - Privacy & safety: Location (opens iOS Settings) · Blocked people · Community guidelines.
 - About: Privacy & Terms (website) · Contact us (team Gmail) · Version.
 - Account: Sign out · **Delete account** ("We'll cancel games you're hosting, remove you from games you joined, and delete your profile. This can't be undone.").
@@ -614,6 +635,7 @@ Map with no games: "No open games right now. Start one?" Failed loads show a ret
 - Timeline: messages ("Maya C. · Host · 5:42 PM") and system rows — created, joined, left ("1 spot open"), meet-up updated, time/place changed, cancelled ("Chat closed").
 - Composer (when `chat_enabled` is on): text filter, no links, ≤ 1000 characters; touch and hold a message to copy, report or block; a message that didn't send says "Not sent · Tap to retry". The chat closes when the game is cancelled and 24 hours after it ends.
 - With messaging only (E26): "Before you chat" rules sheet once per account; opening marks the chat read ("Group chat · N new"). The read-only chat has neither.
+- **Mentions (1.0):** typing "@" in the composer lists the game's people (host and going, not you, not anyone you blocked), filtered by the first name you type; picking one writes "@Maya C. " and records the mention. Deleting or changing that text drops it. A mention of you is bold in the accent text color; other mentions are bold. VoiceOver reads the message as written. Mentions are user IDs on the message (`send_message(…, p_mentions)`); the server keeps up to 10 current members outside any block with the sender whose name is in the text. A mention always notifies, right away (NOTIF §3.5); Settings says so under "Group chat messages". `@everyone` and `@here` stay refused.
 - **Submission rule:** if messaging isn't live on prod by the Sun Nov 8 RC, the submitted build ships the **read-only fallback**: pinned card + system rows only, no composer, and the "Before you go" copy reverts (§7.2). System rows come from `game_activity`, an append-only table the RPCs write to (B3, N30).
 
 #### 7.6.10 Saved (N15, E17)
@@ -635,24 +657,26 @@ Source of truth: the Figma file "masuno figma" (rows 1–8, §7.4) and `DESIGN.m
 
 #### 7.7.2 Tokens (replace §7.1 in 1.0)
 
-| Token | 0.5 (built) | 1.0 | Use |
-| --- | --- | --- | --- |
-| `primary` (was `accent`) | `#12815A` | `#12825A` | The one action color: primary buttons, toggles, Host/You labels |
-| `mint` (was `accentSoft`) | `#DDF1E8` | `#DDF1E8` | Secondary buttons ("Not now", "Keep game", "+ Add game") |
-| `bg` (was `background`) | `#F5F4F7` | `#F2F2F7` | Screens |
-| `surface` (was `card`) | `#FDFCFE` | `#FDFCFE` | Cards, popups, sheets, others' chat bubbles |
-| `surface-2` | — | `#F5F4F7` | Composer tray, secondary fills |
-| `ink` / `ink-2` | `#1F2638` / `#5F5C68` | same | Text; ink on every colored fill except `primary` |
-| `danger` (was `destructive`) | `#C23B34` | `#C42B2B` | Sign out, Cancel game, Delete account |
-| `pin` | `#2F6FE0` | *(removed)* | Pins use the sport color |
-| `chipSport` | `#DCE4F4` | *(removed)* | Chips use the sport color |
-| Sport colors | — | Basketball `#F2853A` · Tennis `#C7D93D` · Soccer `#3DB26F` · Volleyball `#A99CF6` · Padel `#56BDE8` | That sport's pin, court header, chat band, my bubbles, send button, chip, settings tile |
-| Person colors | `accentSoft` initials | Pastels: `#FFD15C` `#B59CF7` `#FF9F80` `#7FD8A0` `#FF9CC2` `#5FD6C8` `#F2B56B` | Assigned from the user ID so a person keeps one color everywhere |
-| You | — | `#74C0F5` | The current user, always (keep it out of the others' palette) |
-| Radii | 16–20 | Cards 22 · sheets 34–38 · pills/inputs/chips fully rounded · tiles 12 | |
-| Type | SF Pro | **SF Pro Rounded** in the app (`.fontDesign(.rounded)`), heavier weights; Nunito in Figma and on the web (R7-10) | |
+| Token | 0.5 (built) | 1.0 | Dark (build 9) | Use |
+| --- | --- | --- | --- | --- |
+| `primary` (was `accent`) | `#12815A` | `#12825A` | `#12825A` (`#107C56` HC) | The one action color: primary buttons, toggles, Host/You labels |
+| `mint` (was `accentSoft`) | `#DDF1E8` | `#DDF1E8` | `#1E3A2F` | Secondary buttons ("Not now", "Keep game", "+ Add game") |
+| `bg` (was `background`) | `#F5F4F7` | `#F2F2F7` | `#000000` | Screens |
+| `surface` (was `card`) | `#FDFCFE` | `#FDFCFE` | `#1C1C1E` | Cards, popups, sheets, others' chat bubbles |
+| `surface-2` | — | `#F5F4F7` | `#000000` | Composer tray, secondary fills |
+| `ink` / `ink-2` | `#1F2638` / `#5F5C68` | same | `#F2F2F7` / `#A3A3AB` (`mutedLarge` `#A0A0A9`; `#D0D0D6` / `#C8C8CF` HC) | Text; ink on every colored fill except `primary` |
+| `danger` (was `destructive`) | `#C23B34` | `#C42B2B` | `#C42B2B` fill; `#FF7D75` as text (`destructiveText`) | Sign out, Cancel game, Delete account |
+| `accentText` | — | `#0F7A54` | `#3CC08A` (`#7ADBA8` HC) | Green **text** only: Who's going, the Host tag, "Add a meet-up spot…", the celebrating headline (4.79:1 on `bg`). Fills stay `primary` (A11Y-15) |
+| `error` | `#CB3D3D` | `#C43535` | `#FF7D75` (`#FF9C94` HC) | Field errors (4.82:1 on `bg`, was 4.40) |
+| `pin` | `#2F6FE0` | *(removed)* | — | Pins use the sport color |
+| `chipSport` | `#DCE4F4` | *(removed)* | — | Chips use the sport color |
+| Sport colors | — | Basketball `#F2853A` · Tennis `#C7D93D` · Soccer `#3DB26F` · Volleyball `#A99CF6` · Padel `#56BDE8` | same | That sport's pin, court header, chat band, my bubbles, send button, chip, settings tile |
+| Person colors | `accentSoft` initials | Pastels: `#FFD15C` `#B59CF7` `#FF9F80` `#7FD8A0` `#FF9CC2` `#5FD6C8` `#F2B56B` | same | Assigned from the user ID so a person keeps one color everywhere |
+| You | — | `#74C0F5` | same | The current user, always (keep it out of the others' palette) |
+| Radii | 16–20 | Cards 22 · sheets 34–38 · pills/inputs/chips fully rounded · tiles 12 | same | |
+| Type | SF Pro | **SF Pro Rounded** in the app (`.fontDesign(.rounded)`), heavier weights; Nunito in Figma and on the web (R7-10) | same | |
 
-Light mode only, as before. Contrast: ink on every sport color and `#74C0F5`; white only on `primary`.
+Light and dark (build 9): the app follows the phone, or Settings › Appearance (System, Light, Dark); `-appearance dark` forces it for tests and screenshots. Every color set has a dark variant, derived to iOS's dark grouped colors (all text pairs at least 4.5:1, ⚑ Arianna reviews them, AX-6): row separator `#38383A` (`#48484A` HC), hairline white at 14% (`#8A8A90` HC), and shadows and the dialog scrim turn black (`shadowInk`, `scrim`), so shadows all but vanish. Sport, person and You colors keep their values and their ink: content on them stays light-mode (`inkOnColor()`), and so does the chat's bar over its band. The court art, the map pins and the QR code (dark on white, to scan) don't change; the map and its thumbnails follow the scheme, and the fade behind the map's search bar uses `mapFade`, the dark map's slate `#344458` (the background's color in light mode). Chat's send button is a solid sport-color circle in dark mode, where tinted glass comes out darker. Contrast: ink on every sport color and `#74C0F5`; white only on `primary` and the `danger` fill. With Increase Contrast on, the asset catalog's High Contrast variants strengthen `muted`, `mutedLarge`, `primary`, `accentText`, `error`, the row separator and the hairline (text about 7:1), in both modes, and opacity-based fills go solid (`contrastOpacity`).
 
 #### 7.7.3 Components
 - **Avatar / person token:** initials on the person's pastel, 2 px white ring in stacks, "+N" bubble. Sizes 26 / 30 / 36–42 / 72.
@@ -681,7 +705,7 @@ Light mode only, as before. Contrast: ink on every sport color and `#74C0F5`; wh
 | Me | Profile band, Plays chips, sport-colored cards with token rows |
 | Settings | Icon tiles; 1.0 notification rows (E16) |
 | Add / Edit game | Field cards, suggestion chips, spots stepper copy |
-| Not drawn yet | Onboarding other than Sign in to join and Find your school, detail states, safety sheets, empty/error/offline, Saved, notification primer, Happening now, changed banner, picker drag, auto-repost → D2 + D8 (Nov 22) |
+| Not drawn yet | Onboarding other than Sign in to join and Find your school, detail states, safety sheets, empty/error/offline, Saved, notification primer, picker drag, auto-repost → D2 + D8 (Nov 22) |
 
 #### 7.7.5 Copy changes in 1.0 (String Catalog keys stay; values change)
 
@@ -723,7 +747,7 @@ Defaults below apply unless signed off otherwise (§12, R7-4…R7-10, R7-15). Ar
 ## 8. Technical specification
 
 ### 8.1 Architecture & environments
-- **Client:** SwiftUI, `@Observable`, iOS 26 target (Liquid Glass — confirm in `project.yml`), XcodeGen, `supabase-swift` v2 behind repository protocols; mocks for previews and tests.
+- **Client:** SwiftUI, `@Observable`, iOS 18.0 minimum (Liquid Glass on iOS 26+, themed controls on iOS 18; configured in `project.yml`), XcodeGen, `supabase-swift` v2 behind repository protocols; mocks for previews and tests.
 - **Layers:** Views + view models (Ethan) → `GameStore` + `AuthService` + repositories (Ethan for 0.5, rev. 7 N21) → Supabase (Emilio). Views never import the Supabase SDK.
 - **Backend:** Supabase Postgres with RLS on every table; Auth (school SSO through the Azure provider + allowlisted review passwords); Edge Functions for `delete-account` and (1.0) `send-push`; `pg_cron` + `pg_net` for jobs.
 - **Projects:** `masuno-dev` and `masuno-prod` in Ricardo's organization, with Emilio as an Owner; both on the **free plan** (2 active projects allowed). Free projects pause after a week without activity and have no automatic backups, so a daily GitHub Action pings prod and Emilio runs `supabase db dump` weekly into private storage (it contains personal data).
@@ -839,7 +863,7 @@ notification_outbox (id bigserial pk, user_id uuid, kind text, event_id uuid, pa
 | `join_game(id)` | Lock row; reject cancelled/ended/host/blocked; `full` if no spots; idempotent | `full`, `cancelled`, `ended`, `blocked`, `not_found` |
 | `leave_game(id)` | Lock row; remove; decrement; if the game was full and `auto_repost`, set `reposted_at` | `not_found`, `not_allowed` (host), `ended` |
 | `report(user?, game?, reason, note?)` | Insert report → alert | `invalid_input` |
-| `block(user_id)` / `unblock(user_id)` | Own blocks | `invalid_input` |
+| `block(user_id)` / `unblock(user_id)` | Own blocks; host/player blocks remove active player RSVPs in either direction; unblock never rejoins | `invalid_input` |
 | `my_blocks()` | Names for Blocked people, which RLS otherwise hides | — |
 | *1.0:* `register_device`, `set_bookmark`, `set_notification_prefs` | | — |
 
@@ -859,6 +883,7 @@ notification_outbox (id bigserial pk, user_id uuid, kind text, event_id uuid, pa
 | [game] changed | Everyone going | Time/place/meet-up edit | Always on |
 | [game] was cancelled | Everyone going | Host cancels | Always on |
 | Ricardo G. joined · 2 spots left | Host | Join/leave | Updates on games you host |
+| Maya C. mentioned you: … | The person mentioned in group chat | Message sent | Always on (NOTIF §3.5) |
 
 ### 8.8 Privacy & data
 Your phone's location never leaves the phone. The school's sign-in gives us your name, school email and the account ID sign-in needs, and nothing else. Email stays in Supabase Auth and is never shown to anyone; Supabase Auth also keeps the name from sign-in, and both go when the account is deleted. Others see first name, last initial and class year; interests are private. Reports are kept for moderation; deleted accounts are removed right away (reports stay, without the reporter). No analytics SDK; crashes come from Xcode Organizer.
@@ -929,6 +954,9 @@ Plain language, at `masuno-app.github.io/privacy`, linked from onboarding, Setti
 - [ ] App icon in the asset catalog.
 - [ ] Location purpose string explains the use; (1.0) notifications asked in context.
 - [ ] Age-rating questionnaire answered (user-generated content; messaging only if `chat_enabled` is on in prod for that submission).
+- [ ] Age rating also answers the new content descriptors, **Shared Location** (games show a meeting place) and **Dating and Relationships** (no), required from Jan 12, 2027. The **social media** capability question is answered before the version is uploaded.
+- [ ] No remote flag turns on anything the reviewer didn't see (Guideline 2.5.19, Oct 16, 2026). If a build has group chat, `chat_enabled` is on in prod for the whole review, and the notes say so; don't flip it on after approval.
+- [ ] Privacy label matches `PrivacyInfo.xcprivacy` (name, email, user ID, other user content: chats, game notes and places). Both the app and the notification extension ship a manifest; the app-group defaults need `1C8F.1`.
 - [ ] Map lands on the demo campus for review accounts far from any campus.
 - [ ] Exact submitted build tested on a physical phone.
 
@@ -986,6 +1014,17 @@ Alert in team chat → on-call person (Ricardo or Arianna) checks the report in 
 
 ## 12. Decisions
 
+### Accessibility and optimization pass (Nov 19) — waiting on the people named
+
+| # | Decision | Default |
+| - | --- | --- |
+| AX-1 | A11Y-15 — green text uses a darker `accentText` (`#0F7A54`); fills, toggles and icons keep `primary` (`#12825A`, white on it 4.81:1). The other option was darkening `primary` everywhere (white on it 5.34:1) | Built text-only (Nov 19); ⚑ Arianna reviews it with the High Contrast colors |
+| AX-2 | A11Y-25 — how VoiceOver says "masUNO" in English and Spanish | Unchanged; ⚑ Ricardo and Arianna listen. If English is wrong, the Welcome wordmark gets the label "más uno" |
+| AX-3 | A11Y-28 — portrait-only on phones (WCAG 1.3.4 counts it against us unless essential) | Portrait for 1.0; ⚑ Ricardo decides if landscape is worth its QA (popup placement, the court, chat) |
+| AX-4 | OPT-15 — the unused school SSO path (`FindSchoolStep`, `.findSchool`, `continueWithSchool()`, the Entra error mapping; `SchoolRow` is used) | Kept (README); ⚑ Ethan and Ricardo: keep, or remove and recover from git if Tec IT approves |
+| AX-6 | Dark mode, built in build 9 with derived colors (§7.7.2): iOS dark grouped backgrounds, near-white ink, lighter green text and error red, the same sport, person and You fills with dark ink on them, a white label on `primary` and the `danger` fill | Built (Nov 19); ⚑ Arianna reviews the colors, with their High Contrast variants |
+| AX-5 | OPT-13 — link only the Supabase products the app uses. Storage is unused and adds about 342 KB to the Release binary (measured Nov 19, above the plan's 300 KB line); dropping it means rebuilding the session sharing `SupabaseClient` gives | Keep the umbrella product for 1.0; ⚑ Emilio decides after launch |
+
 ### Rev. 7 — sign off at the Fri Nov 6 go/no-go (R7-1 and R7-2 in the team chat tonight)
 
 | # | Decision | Default |
@@ -1008,6 +1047,7 @@ Alert in team chat → on-call person (Ricardo or Arianna) checks the report in 
 | R7-17 | N34 — 0.5 submits Thu Nov 12; 0.6 stays Mon Nov 16 | Program manager (Nov 10) |
 | R7-15 | Browse before sign-in (§7.7.6) | 0.5 keeps the gate (Ethan, Nov 6). 1.0: guests browse the map and game details without names; joining, saving, hosting and Who's going need an account; reads go through `guest_games`. Guests use listed open campuses only (Demo is not choosable); a single open campus skips the picker. Decided (Ethan, Nov 13) |
 | R7-18 | N37 — invite-only with a waitlist: a sign-up without a code waits for approval (N36), a member's code (3 each, single use) lets the account in with no approval; plus a permanent beta tester badge for members who open a TestFlight build | Decided (Ethan, Nov 14) |
+| R7-20 | N39 — email codes: a 6-digit code proves the address at sign-up and resets a password; sign-up stays invite-only, and `signup_auto_approve` opens it without a build | Decided (Ethan, 2026-11-25) |
 | R7-19 | N38 — one waitlist: website and app share Supabase's queue, the Sheet mirrors it both ways (push on change, hourly heal), a school email keeps its place across both, non-school emails stay Sheet-only launch news | Decided (Ethan, 2026-11-14) |
 
 ### Rev. 6 (Nov 3)
@@ -1041,7 +1081,7 @@ Alert in team chat → on-call person (Ricardo or Arianna) checks the report in 
 | --- | --- |
 | January 2027 | Chat push and retention (Appendix A items 8–9) if not done, profile photos with moderation, calendar sync, name-visibility setting, links that open a specific game |
 | Start of Tec's Feb–Jun semester | Campus launch (Ricardo): club hosts, recurring games, posters; own domain + email provider if the team wants them; Supabase Pro for backups |
-| Later | Organizer approval, non-sport activities, IIT/UIC (new `universities` rows and their sign-in, §8.10), dark mode, meet-up photo, pin clustering |
+| Later | Organizer approval, non-sport activities, IIT/UIC (new `universities` rows and their sign-in, §8.10), meet-up photo, pin clustering |
 
 ---
 

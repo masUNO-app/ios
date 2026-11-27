@@ -29,12 +29,16 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
     var losesNextJoinRace = false
     /// `app_config.chat_enabled`. Off, `sendMessage` answers `chat_disabled`.
     var chatEnabled = true
+    /// On unless `-esports NO`: esports games in `activities`, and round nights in the fixtures.
+    let esportsEnabled: Bool
 
     let me: PersonSummary
     private var attendees: [UUID: [Attendee]]
     private var activity: [UUID: [GameActivityEntry]] = [:]
     private var people: [UUID: PersonSummary]
     private var blockedIDs: [UUID] = []
+    /// Incoming blocks are intentionally absent from `fetchBlockedPeople`, as on the server.
+    private var blockingMeIDs: Set<UUID> = []
     private var messages: [UUID: [ChatMessage]]
     private var lastRead: [UUID: Date] = [:]
     private var listeners: [UUID: [UUID: AsyncStream<ChatUpdate>.Continuation]] = [:]
@@ -46,6 +50,15 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
     private var passwords: [String: String] = [:]
     /// Signed up and nobody has run `approveSignUp()` yet.
     private var isAwaitingApproval = false
+    /// Signed up and the code from the email (`MockFixtures.emailCode`) isn't in yet (N39).
+    private var unverifiedEmails: Set<String> = []
+    /// When each address was last sent each kind of code, for the minute between sends. Supabase
+    /// times sign-up and reset codes separately (`confirmation_sent_at`, `recovery_sent_at`).
+    private var codeSentAt: [String: Date] = [:]
+    /// Addresses that asked for a password reset code.
+    private var resetRequested: Set<String> = []
+    /// `app_config.signup_auto_approve`: on, entering the sign-up code is enough to get in.
+    var autoApprovesSignUps = false
     /// The signed-in student's codes (`my_invites`). A waiting account redeems from the same list.
     private(set) var invites: [Invite]
     /// When each wrong code was typed, for the 5-an-hour limit on `redeem_invite`.
@@ -59,12 +72,28 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
     private var deviceToken: String?
     private var prefs = NotificationPrefs.standard
     private var openedNotifications: Set<Int64> = []
+    /// Each round night's groups so far, as person IDs: locked when a round is revealed, so people
+    /// who join later never reshuffle a round that's already out.
+    private var rotationGroups: [UUID: [[[UUID]]]] = [:]
+    /// Props you gave, by plan, round (-1 for a whole plan) and person, like `private.props`.
+    private var givenProps: [PropsTarget: Set<Prop>] = [:]
+    /// `props_leaderboard_opt_in`.
+    private var propsOptIn = false
+    /// `app_config.props_enabled`.
+    var propsEnabled = true
+
+    private struct PropsTarget: Hashable {
+        var gameID: UUID
+        var round: Int
+        var personID: UUID
+    }
 
     /// `state` defaults to signed in with the Monterrey fixtures. Pass `.signedOut(expired: false)`
     /// to preview onboarding: the new account then has no profile until `completeProfile`.
-    init(state: AuthState? = nil, now: Date = .now) {
-        let world = MockFixtures.world(now: now)
+    init(state: AuthState? = nil, now: Date = .now, esports: Bool = MockFixtures.isEsportsWorld) {
+        let world = MockFixtures.world(now: now, esports: esports)
         self.now = now
+        self.esportsEnabled = esports
         self.me = world.me.summary
         self.games = world.games
         self.attendees = world.attendees
@@ -88,6 +117,27 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         games[index].goingCount = games[index].capacity
     }
 
+    /// The same, with everyone on Who's going, as in a real full game: the fixture people first,
+    /// then a few more invented ones. `fillGame` raises only the count, which draws the missing
+    /// people as blank circles (the `repost` screenshot).
+    func fillGameWithPlayers(id: UUID) {
+        guard let index = games.firstIndex(where: { $0.id == id }) else { return }
+        for extra in [
+            MockFixtures.person(21, "Jorge", "R", 2028),
+            MockFixtures.person(22, "Ximena", "L", 2027),
+            MockFixtures.person(23, "Pablo", "M", 2029),
+        ] { people[extra.id] = extra }
+        var roster = attendees[id] ?? []
+        let free = people.values
+            .filter { person in person.id != me.id && !roster.contains { $0.id == person.id } }
+            .sorted { $0.id.uuidString < $1.id.uuidString }
+        for (offset, person) in free.prefix(max(games[index].capacity - roster.count, 0)).enumerated() {
+            roster.append(Attendee(person: person, role: .player, joinedAt: now.addingTimeInterval(Double(offset) * 60)))
+        }
+        attendees[id] = roster
+        games[index].goingCount = roster.count
+    }
+
     /// Another player leaves, firing auto-repost if the game was full.
     /// When the roster matches the count, that player comes off Who's going too.
     func simulateDropOut(id: UUID) {
@@ -102,6 +152,20 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         if game.isFull, game.autoRepost, !game.isCancelled { games[index].repostedAt = now }
     }
 
+    /// Another account blocks this viewer, without revealing that account through `my_blocks`.
+    func simulateBlock(by userID: UUID) {
+        guard userID != me.id, people[userID] != nil else { return }
+        blockingMeIDs.insert(userID)
+        removeBlockedMemberships(with: userID)
+        announcePrivacyChange()
+    }
+
+    /// Removing a block never restores a removed RSVP.
+    func simulateUnblock(by userID: UUID) {
+        blockingMeIDs.remove(userID)
+        announcePrivacyChange()
+    }
+
     /// The host of a game you're in cancels it, from their own phone.
     func cancelAsHost(id: UUID) {
         guard let index = games.firstIndex(where: { $0.id == id }) else { return }
@@ -111,8 +175,8 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
 
     /// Someone else in the game posts from their own phone, and the chat channel says so.
     @discardableResult
-    func receiveMessage(from sender: PersonSummary, in gameID: UUID, body: String) -> ChatMessage {
-        let message = ChatMessage(id: UUID(), gameID: gameID, sender: sender, body: body, clientID: UUID(), createdAt: now)
+    func receiveMessage(from sender: PersonSummary, in gameID: UUID, body: String, mentions: [UUID] = []) -> ChatMessage {
+        let message = ChatMessage(id: UUID(), gameID: gameID, sender: sender, body: body, clientID: UUID(), createdAt: now, mentions: mentions)
         messages[gameID, default: []].append(message)
         announce(.message, in: gameID)
         return message
@@ -167,19 +231,76 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         state = profile == nil ? .needsProfile : .signedIn(userID: me.id)
     }
 
-    /// Like the auth hook: a school address at an open campus gets in and waits for approval.
+    /// Like the auth hook and Supabase: a school address at an open campus gets an account and a
+    /// code by email, and nothing else until the code is in. Signing up again before then sends a
+    /// new code, as Supabase does.
     func signUp(email: String, password: String) async throws {
         try await begin()
         let email = email.lowercased()
         guard let campus = campus(for: email, in: universities), campus.signupEnabled else {
             throw DomainError.emailNotAllowed
         }
-        guard passwords[email] == nil else { throw DomainError.emailTaken }
+        if passwords[email] != nil {
+            guard unverifiedEmails.contains(email) else { throw DomainError.emailTaken }
+            return try sendCode(.signUp, to: email)
+        }
         passwords[email] = password
-        signInCampus = campus
+        unverifiedEmails.insert(email)
+        try sendCode(.signUp, to: email)
+    }
+
+    /// Like the trigger on auth.users: the code puts the account on the waitlist, or straight in
+    /// while sign-up is open.
+    func verifyEmail(_ email: String, code: String) async throws {
+        try await begin()
+        let email = email.lowercased()
+        guard unverifiedEmails.contains(email), code == MockFixtures.emailCode else { throw DomainError.invalidCode }
+        unverifiedEmails.remove(email)
+        enterVerified(email)
+    }
+
+    func resendVerification(to email: String) async throws {
+        try await begin()
+        let email = email.lowercased()
+        // Supabase answers the same for an address it has nothing to send to.
+        guard unverifiedEmails.contains(email) else { return }
+        try sendCode(.signUp, to: email)
+    }
+
+    func requestPasswordReset(for email: String) async throws {
+        try await begin()
+        let email = email.lowercased()
+        guard passwords[email] != nil else { return }
+        try sendCode(.reset, to: email)
+        resetRequested.insert(email)
+    }
+
+    /// A reset code proves the inbox, so an account that never verified is verified now too.
+    func resetPassword(email: String, code: String, newPassword: String) async throws {
+        try await begin()
+        let email = email.lowercased()
+        guard resetRequested.contains(email), code == MockFixtures.emailCode else { throw DomainError.invalidCode }
+        guard newPassword.count >= 8 else { throw DomainError.weakPassword }
+        resetRequested.remove(email)
+        passwords[email] = newPassword
+        if unverifiedEmails.remove(email) != nil { return enterVerified(email) }
+        state = isAwaitingApproval ? .pendingApproval : profile == nil ? .needsProfile : .signedIn(userID: me.id)
+    }
+
+    private enum CodeKind: String { case signUp, reset }
+
+    /// The code email, at most once a minute per address and kind.
+    private func sendCode(_ kind: CodeKind, to email: String) throws {
+        let key = "\(kind.rawValue):\(email)"
+        if let last = codeSentAt[key], now.timeIntervalSince(last) < 60 { throw DomainError.tooManyAttempts }
+        codeSentAt[key] = now
+    }
+
+    private func enterVerified(_ email: String) {
+        signInCampus = campus(for: email, in: universities) ?? signInCampus
         profile = nil
-        isAwaitingApproval = true
-        state = .pendingApproval
+        isAwaitingApproval = !autoApprovesSignUps
+        state = autoApprovesSignUps ? .needsProfile : .pendingApproval
     }
 
     func refreshStatus() async throws {
@@ -215,6 +336,7 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
     func signIn(email: String, password: String) async throws {
         try await begin()
         if let saved = passwords[email.lowercased()], saved == password {
+            if unverifiedEmails.contains(email.lowercased()) { throw DomainError.emailNotVerified }
             if isAwaitingApproval {
                 state = .pendingApproval
             } else {
@@ -323,7 +445,7 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         try await begin()
         _ = try visibleGame(gameID)
         return (attendees[gameID] ?? [])
-            .filter { !blockedIDs.contains($0.id) }
+            .filter { !hasBlock(with: $0.id) }
             .sorted { ($0.role == .host ? 0 : 1, $0.joinedAt) < ($1.role == .host ? 0 : 1, $1.joinedAt) }
     }
 
@@ -331,8 +453,172 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         try await begin()
         _ = try visibleGame(gameID)
         return (activity[gameID] ?? []).filter { entry in
-            !(entry.actor.map { blockedIDs.contains($0.id) } ?? false)
+            !(entry.actor.map { hasBlock(with: $0.id) } ?? false)
         }
+    }
+
+    /// Like a future `game_rotation`: rounds from the game's start, and the groups of every round
+    /// whose reveal time has come, picked from who's going at that moment and then kept.
+    func fetchRotation(gameID: UUID) async throws -> RotationPlan {
+        try await begin()
+        let game = try visibleGame(gameID)
+        guard let rotation = game.rotation else { throw DomainError.notFound }
+        let roster = attendees[gameID] ?? []
+        var locked = rotationGroups[gameID] ?? []
+        while locked.count < rotation.rounds, rotation.reveal(of: locked.count, from: game.startsAt) <= now {
+            locked.append(RotationPlanner.groups(
+                of: roster.map(\.id), size: rotation.groupSize, earlier: locked,
+                seed: RotationPlanner.seed(game: gameID, round: locked.count)
+            ))
+        }
+        rotationGroups[gameID] = locked
+
+        // Someone who left drops out of their group; anyone you blocked is never shown.
+        let people = Dictionary(roster.map { ($0.id, $0.person) }, uniquingKeysWith: { first, _ in first })
+        return RotationPlan(rounds: (0..<rotation.rounds).map { round in
+            RotationRound(
+                index: round,
+                startsAt: rotation.start(of: round, from: game.startsAt),
+                endsAt: rotation.end(of: round, from: game.startsAt),
+                revealsAt: rotation.reveal(of: round, from: game.startsAt),
+                groups: round < locked.count
+                    ? locked[round].map { group in group.compactMap { hasBlock(with: $0) ? nil : people[$0] } }
+                    : nil
+            )
+        })
+    }
+
+    // MARK: Props
+
+    /// When props for a plan (round nil) or a round open, like `private.props_window_opens`.
+    private func propsOpen(_ game: Game, round: Int?) -> Date? {
+        guard !game.isCancelled else { return nil }
+        guard let rotation = game.rotation else { return round == nil ? game.endsAt : nil }
+        guard let round, (0..<rotation.rounds).contains(round) else { return nil }
+        return rotation.end(of: round, from: game.startsAt)
+    }
+
+    /// Who you played with: everyone going, or on a round night your group that round, without
+    /// anyone blocked either way.
+    private func propsPeers(_ game: Game, round: Int?) async throws -> [Attendee] {
+        let roster = attendees[game.id] ?? []
+        guard roster.contains(where: { $0.id == me.id }) else { return [] }
+        var ids = Set(roster.map(\.id))
+        if game.rotation != nil, let round {
+            _ = try await fetchRotation(gameID: game.id)
+            let groups = rotationGroups[game.id] ?? []
+            guard round < groups.count, let mine = groups[round].first(where: { $0.contains(me.id) }) else { return [] }
+            ids = Set(mine)
+        }
+        return roster.filter { $0.id != me.id && ids.contains($0.id) && !hasBlock(with: $0.id) }
+    }
+
+    func propsToGive(gameID: UUID, round: Int?) async throws -> PropsToGive {
+        try await begin()
+        let game = try visibleGame(gameID)
+        guard propsEnabled, let opens = propsOpen(game, round: round),
+              now >= opens, now < opens.addingTimeInterval(24 * 3600)
+        else { return PropsToGive(isOpen: false, opensAt: propsOpen(game, round: round), closesAt: nil, people: []) }
+        let peers = try await propsPeers(game, round: round)
+        let earlier = games.filter { $0.id != gameID && !$0.isCancelled && $0.hasEnded(now: now) }
+        return PropsToGive(
+            isOpen: true, opensAt: opens, closesAt: opens.addingTimeInterval(24 * 3600),
+            people: peers
+                .sorted { ($0.role == .host ? 0 : 1, $0.person.firstName) < ($1.role == .host ? 0 : 1, $1.person.firstName) }
+                .map { attendee in
+                    PropsPeer(
+                        person: attendee.person, isHost: attendee.role == .host,
+                        playedBefore: earlier.filter { other in
+                            let ids = (attendees[other.id] ?? []).map(\.id)
+                            return ids.contains(me.id) && ids.contains(attendee.id)
+                        }.count,
+                        sent: givenProps[PropsTarget(gameID: gameID, round: round ?? -1, personID: attendee.id)] ?? []
+                    )
+                }
+        )
+    }
+
+    func giveProps(gameID: UUID, round: Int?, _ props: [UUID: Set<Prop>]) async throws -> Int {
+        try await beginWrite()
+        let game = try visibleGame(gameID)
+        guard propsEnabled else { throw DomainError.propsDisabled }
+        guard let opens = propsOpen(game, round: round), now >= opens, now < opens.addingTimeInterval(24 * 3600) else {
+            throw DomainError.propsClosed
+        }
+        let peers = Set(try await propsPeers(game, round: round).map(\.id))
+        guard props.keys.allSatisfy(peers.contains) else { throw DomainError.invalidInput }
+        for (person, sent) in props {
+            givenProps[PropsTarget(gameID: gameID, round: round ?? -1, personID: person)] = sent.isEmpty ? nil : sent
+        }
+        return givenProps.filter { $0.key.gameID == gameID && $0.key.round == (round ?? -1) }.values.map(\.count).reduce(0, +)
+    }
+
+    /// Invented totals for some fixture people, so Who's going has props to show. Anyone else has
+    /// fewer than 3 givers, which `prop_counts` leaves out.
+    private static let seededPropCounts: [UUID: [Prop: Int]] = [
+        MockFixtures.alex.id: [.onTime: 15, .goodSport: 6],
+        MockFixtures.diego.id: [.teamPlayer: 8, .goodSport: 3],
+        MockFixtures.maya.id: [.madeItFun: 5, .goodSport: 4],
+        MockFixtures.nina.id: [.goodSport: 4],
+        MockFixtures.esportsPlayers[2].id: [.goodSport: 9, .teamPlayer: 7, .onTime: 6, .madeItFun: 3],
+    ]
+
+    func propCounts(for people: [UUID]) async throws -> [UUID: [Prop: Int]] {
+        try await begin()
+        guard propsEnabled else { return [:] }
+        return Self.seededPropCounts.filter { people.contains($0.key) && !hasBlock(with: $0.key) }
+    }
+
+    func myProps(gameID: UUID) async throws -> PropTally {
+        try await begin()
+        _ = try visibleGame(gameID)
+        // What the others gave you: invented for the plans you were in that ended.
+        guard propsEnabled, (attendees[gameID] ?? []).contains(where: { $0.id == me.id }),
+              let game = games.first(where: { $0.id == gameID }), game.hasEnded(now: now)
+        else { return .empty }
+        return PropTally(people: 5, counts: [.goodSport: 4, .teamPlayer: 3, .onTime: 2, .madeItFun: 1])
+    }
+
+    func propsLeaderboard(prop: Prop, filter: String?) async throws -> PropsLeaderboard {
+        try await begin()
+        guard propsEnabled else { throw DomainError.propsDisabled }
+        let people = [MockFixtures.alex, MockFixtures.esportsPlayers[1], MockFixtures.esportsPlayers[2], MockFixtures.esportsPlayers[4],
+                      MockFixtures.esportsPlayers[5], MockFixtures.maya, MockFixtures.esportsPlayers[9], MockFixtures.diego,
+                      MockFixtures.nina, MockFixtures.sam, MockFixtures.priya]
+        let mostly = ["basketball", "soccer", "valorant", "volleyball", "soccer", "padel", "valorant", "soccer", "tennis", "basketball", "padel"]
+        // Each prop has its own order and counts, as on the server: the same people, shifted along.
+        let index = Prop.allCases.firstIndex(of: prop) ?? 0
+        let shift = index * 3
+        let ranked = Array(zip(people, mostly).dropFirst(shift)) + Array(zip(people, mostly).prefix(shift))
+        let counts = [[21, 17, 14, 12, 11, 10, 9, 9, 8, 8, 7], [16, 15, 12, 10, 10, 8, 7, 6, 6, 5, 4],
+                      [19, 13, 12, 12, 9, 8, 8, 7, 5, 5, 4], [24, 18, 15, 11, 9, 9, 8, 6, 6, 5, 3]][index % 4]
+        let shown = zip(ranked.map(\.0), zip(ranked.map(\.1), counts)).filter { entry in
+            guard let filter else { return true }
+            let slug = entry.1.0
+            return slug == filter || Catalog(kinds: ActivityKind.builtIn, activities: Activity.builtIn + Activity.esports)
+                .activity(slug: slug)?.kind == filter
+        }
+        var top: [PropsLeaderboard.Entry] = []
+        for (index, entry) in shown.enumerated() where !hasBlock(with: entry.0.id) {
+            let rank = top.last.map { $0.people == entry.1.1 ? $0.rank : index + 1 } ?? 1
+            top.append(PropsLeaderboard.Entry(rank: rank, person: entry.0, people: entry.1.1, mostly: entry.1.0))
+        }
+        let month = Calendar.current.dateInterval(of: .month, for: now)
+        return PropsLeaderboard(
+            month: month?.start ?? now, resetsAt: month?.end ?? now, top: top,
+            isOptedIn: propsOptIn, myRank: [14, 13, 15, 17][index % 4], myPeople: [6, 3, 3, 2][index % 4]
+        )
+    }
+
+    func propsLeaderboardOptIn() async throws -> Bool {
+        try await begin()
+        return propsOptIn
+    }
+
+    func setPropsLeaderboardOptIn(_ on: Bool) async throws -> Bool {
+        try await beginWrite()
+        propsOptIn = on
+        return on
     }
 
     func createGame(_ draft: GameDraft) async throws -> Game {
@@ -350,6 +636,7 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
             myRole: .host, myJoinedAt: now, hasBlockedAttendee: false
         )
         game.title = draft.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        game.rotation = draft.rotation
         games.append(game)
         attendees[game.id] = [Attendee(person: me, role: .host, joinedAt: now)]
         log(.created, game.id, actor: me)
@@ -379,6 +666,9 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         new.place = draft.place
         new.meetPoint = draft.meetPoint
         new.autoRepost = draft.autoRepost
+        new.rotation = draft.rotation
+        // New rounds or a new start: groups are picked again as each round comes out.
+        if new.rotation != old.rotation || new.startsAt != old.startsAt { rotationGroups[id] = nil }
 
         let timeOrPlaceChanged = new.startsAt != old.startsAt || new.endsAt != old.endsAt || new.place != old.place
         let meetPointChanged = new.meetPoint != old.meetPoint
@@ -570,11 +860,14 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         guard userID != me.id, people[userID] != nil else { throw DomainError.invalidInput }
         guard !blockedIDs.contains(userID) else { return }
         blockedIDs.insert(userID, at: 0)
+        removeBlockedMemberships(with: userID)
+        announcePrivacyChange()
     }
 
     func unblock(userID: UUID) async throws {
         try await beginWrite()
         blockedIDs.removeAll { $0 == userID }
+        announcePrivacyChange()
     }
 
     func fetchBlockedPeople() async throws -> [PersonSummary] {
@@ -590,13 +883,21 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         return Array(visible.suffix(limit))
     }
 
+    func fetchMessages(gameID: UUID, before cursor: ChatMessageCursor, limit: Int) async throws -> [ChatMessage] {
+        try await begin()
+        let visible = readableMessages(gameID).filter {
+            ($0.createdAt, $0.id.uuidString) < (cursor.createdAt, cursor.id.uuidString)
+        }
+        return Array(visible.suffix(limit))
+    }
+
     func fetchMessages(gameID: UUID, since: Date) async throws -> [ChatMessage] {
         try await begin()
         return readableMessages(gameID).filter { $0.createdAt >= since }
     }
 
     /// The same checks, in the same order, as `send_message`.
-    func sendMessage(gameID: UUID, body: String, clientID: UUID) async throws -> ChatMessage {
+    func sendMessage(gameID: UUID, body: String, clientID: UUID, mentions: [UUID]) async throws -> ChatMessage {
         try await beginWrite()
         let game = try visibleGame(gameID)
         guard game.myRole != nil else { throw DomainError.notAllowed }
@@ -612,10 +913,25 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         let lastMinute = messages.values.joined().filter { $0.sender.id == me.id && $0.createdAt > now.addingTimeInterval(-60) }
         guard lastMinute.count < 20 else { throw DomainError.rateLimited }
 
-        let message = ChatMessage(id: UUID(), gameID: gameID, sender: me, body: text, clientID: clientID, createdAt: now)
+        let message = ChatMessage(
+            id: UUID(), gameID: gameID, sender: me, body: text, clientID: clientID, createdAt: now,
+            mentions: keptMentions(mentions, in: gameID, body: text)
+        )
         messages[gameID, default: []].append(message)
         announce(.message, in: gameID)
         return message
+    }
+
+    /// As `send_message` keeps them: members other than you, outside a block, named in the text,
+    /// once each, at most ten.
+    private func keptMentions(_ ids: [UUID], in gameID: UUID, body: String) -> [UUID] {
+        let members = Dictionary((attendees[gameID] ?? []).map { ($0.id, $0.person) }, uniquingKeysWith: { first, _ in first })
+        var kept: [UUID] = []
+        for id in ids.prefix(50) where !kept.contains(id) && id != me.id && !hasBlock(with: id) {
+            guard let person = members[id], body.contains(Mention.token(for: person)) else { continue }
+            kept.append(id)
+        }
+        return Array(kept.prefix(Mention.limit))
     }
 
     func acceptChatRules() async throws {
@@ -681,9 +997,13 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         return config
     }
 
-    func fetchActivities() async throws -> [Activity] {
+    func fetchCatalog() async throws -> Catalog {
         try await begin()
-        return Activity.builtIn
+        return Catalog(
+            kinds: esportsEnabled ? ActivityKind.builtIn : [.sport],
+            activities: Activity.builtIn + (esportsEnabled ? Activity.esports : []),
+            fetchedAt: now
+        )
     }
 
     func fetchUniversities() async throws -> [University] {
@@ -699,9 +1019,42 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         return email.contains("@") ? campuses.first { $0.emailDomain == domain } : nil
     }
 
-    /// What RLS lets you read: nothing hosted by someone you blocked.
+    private func hasBlock(with personID: UUID) -> Bool {
+        blockedIDs.contains(personID) || blockingMeIDs.contains(personID)
+    }
+
+    /// Host/player blocks remove the player's active RSVP in either direction. A peer block
+    /// in somebody else's game only hides identities; it must not reveal who blocked whom.
+    private func removeBlockedMemberships(with personID: UUID) {
+        for index in games.indices {
+            let game = games[index]
+            guard !game.isCancelled, !game.hasEnded(now: now) else { continue }
+            let departingID: UUID
+            if game.host.id == me.id { departingID = personID }
+            else if game.host.id == personID { departingID = me.id }
+            else { continue }
+            let removed = (attendees[game.id] ?? []).filter { $0.id == departingID && $0.role == .player }
+            guard !removed.isEmpty else { continue }
+            attendees[game.id]?.removeAll { $0.id == departingID && $0.role == .player }
+            games[index].goingCount = max(1, game.goingCount - removed.count)
+            if departingID == me.id {
+                games[index].myRole = nil
+                games[index].myJoinedAt = nil
+            }
+            if game.isFull, game.autoRepost { games[index].repostedAt = now }
+        }
+    }
+
+    /// The real campus invalidation carries no game or actor identifier, including for blocks
+    /// of peers whose membership remains in a shared game.
+    private func announcePrivacyChange() {
+        announce(.unlisted)
+        for gameID in listeners.keys { announce(.activity, in: gameID) }
+    }
+
+    /// What RLS lets you read: nothing hosted by either side of a block.
     private var visibleGames: [Game] {
-        games.filter { !blockedIDs.contains($0.host.id) }.map(decorated)
+        games.filter { !hasBlock(with: $0.host.id) }.map(decorated)
     }
 
     private func visibleGame(_ id: UUID) throws -> Game {
@@ -749,10 +1102,10 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
         games.contains { $0.id == gameID && $0.myRole != nil }
     }
 
-    /// What RLS lets you read: chats of games you're in, without anyone you blocked.
+    /// What RLS lets you read: chats of games you're in, hiding both directions of a block.
     private func readableMessages(_ gameID: UUID) -> [ChatMessage] {
-        guard isMember(of: gameID), !blockedIDs.contains(where: { blocked in games.contains { $0.id == gameID && $0.host.id == blocked } }) else { return [] }
-        return (messages[gameID] ?? []).filter { !blockedIDs.contains($0.sender.id) }.sorted { $0.createdAt < $1.createdAt }
+        guard isMember(of: gameID), games.contains(where: { $0.id == gameID && !hasBlock(with: $0.host.id) }) else { return [] }
+        return (messages[gameID] ?? []).filter { !hasBlock(with: $0.sender.id) }.sorted { ($0.createdAt, $0.id.uuidString) < ($1.createdAt, $1.id.uuidString) }
     }
 
     private func announce(_ update: ChatUpdate, in gameID: UUID) {
@@ -760,16 +1113,24 @@ final class MockBackend: AuthService, GameRepository, ProfileRepository, SafetyR
     }
 
     private func writableIndex(_ id: UUID) throws -> Int {
-        guard !blockedIDs.contains(where: { blocked in games.contains { $0.id == id && $0.host.id == blocked } }),
-              let index = games.firstIndex(where: { $0.id == id })
+        guard let index = games.firstIndex(where: { $0.id == id && !hasBlock(with: $0.host.id) })
         else { throw DomainError.notFound }
         return index
     }
 
     private func validate(_ draft: GameDraft, checksTime: Bool) throws {
         let title = draft.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let rotation = draft.rotation {
+            // A round night: an esports game, its duration exactly its rounds and breaks, and
+            // room for at least two groups.
+            guard draft.activity.isEsport, rotation.isValid,
+                  draft.durationMinutes == rotation.totalMinutes,
+                  draft.capacity >= rotation.minimumPlayers
+            else { throw DomainError.invalidInput }
+        } else if !GameDraft.durations.contains(draft.durationMinutes) {
+            throw DomainError.invalidInput
+        }
         guard (1...GameDraft.titleLimit).contains(title.count),
-              GameDraft.durations.contains(draft.durationMinutes),
               GameDraft.capacityRange.contains(draft.capacity),
               (draft.notes?.count ?? 0) <= GameDraft.notesLimit,
               (draft.meetPoint?.count ?? 0) <= GameDraft.meetPointLimit,

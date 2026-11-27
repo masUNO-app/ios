@@ -4,8 +4,9 @@ The boundary between the app and Supabase (SPEC §8.5), matched by the Swift pro
 `MasUno/Data/` and the models in `MasUno/Models/`. A change to either side is one PR reviewed
 by both coders. If this file and the spec disagree, this file wins.
 
-**Status: frozen Fri Nov 6; sign-in amended the same day (SPEC N33) and again Nov 11 (SPEC N36: email and
-password with manual approval; school SSO kept but unused).** The backend (PR #12) and the live
+**Status: frozen Fri Nov 6; sign-in amended the same day (SPEC N33), again Nov 11 (SPEC N36: email and
+password with manual approval; school SSO kept but unused), and Nov 25 (SPEC N39: an emailed code proves the
+address, and resets a password).** The backend (PR #12) and the live
 repositories (B7) are built to this file and checked against `masuno-dev` by `LiveIntegrationTests`. From here
 on, a change is a new migration plus the matching Swift change.
 
@@ -27,12 +28,12 @@ An RPC fails with `raise exception '<code>'`, so PostgREST returns the code as `
 | Code | `DomainError` | Meaning |
 | --- | --- | --- |
 | `not_authenticated` | `.notAuthenticated` | No valid session. Any RPC. |
-| `suspended` | `.suspended` | `banned_at` is set. Any write RPC. The app shows the suspended screen. |
-| `pending_approval` | `.pendingApproval` | The account signed up with a password and the team hasn't approved it yet (N36). Any write RPC, including `complete_profile`. The app shows "We're checking your account". |
+| `suspended` | `.suspended` | `banned_at` is set. Any write RPC. The app shows the suspended screen. Reads return no rows except `my_profile` and your own blocks, bookmarks and preferences. |
+| `pending_approval` | `.pendingApproval` | The account signed up with a password and hasn't entered its email code (N39) or hasn't been let in yet (N36, N37). Any write RPC, including `complete_profile`. The app shows the waitlist. |
 | `full` | `.full` | No spots left. |
 | `cancelled` | `.cancelled` | The game is cancelled. |
 | `ended` | `.ended` | The game has ended. |
-| `blocked` | `.blocked` | The host or someone going is in a blocked pair with you. |
+| `blocked` | `.blocked` | Someone going is someone you blocked. Never because someone going blocked you: that would tell you where they'll be. A host in a blocked pair either way is `not_found`. |
 | `not_found` | `.notFound` | No such game, or a block hides it from you. |
 | `not_allowed` | `.notAllowed` | You aren't the host, or the host tried to leave. |
 | `limit_reached` | `.limitReached` | Already hosting 3 upcoming games. |
@@ -60,10 +61,13 @@ These come from Supabase Auth and the auth hook, not from RPCs. `AuthService` (B
 | `ASWebAuthenticationSessionError.canceledLogin` (the person closes the web sheet) | None: back to Find your school, with no message |
 | Callback says consent was denied or is required | `.schoolApprovalNeeded` (new) |
 | Any other error from the web sheet or callback | `.signInFailed` (new) |
-| `over_request_rate_limit` | `.tooManyAttempts` |
+| `over_request_rate_limit`, or `over_email_send_rate_limit` (a second code within a minute) | `.tooManyAttempts` |
 | `invalid_credentials` | `.invalidCredentials` |
 | `user_already_exists` or `email_exists` on sign-up | `.emailTaken` (new, N36) |
 | `weak_password` on sign-up | `.weakPassword` (new, N36) |
+| `otp_expired` on a sign-up or reset code (wrong and expired codes both say this) | `.invalidCode` (new, N39) |
+| `email_not_confirmed` on sign-in | `.emailNotVerified` (new, N39): the app sends a new code and opens Check your email instead of showing it |
+| `same_password` when a reset sets the password it already had | None: treated as done |
 
 OAuth failures come back in the callback URL's `error`, `error_code` and `error_description`, and
 `auth.signInWithOAuth` throws them as `AuthError.pkceGrantCodeExchange`. B5 checks the exact text for a
@@ -92,6 +96,31 @@ grant limited to these columns, so `student_email_pattern` stays private.
 
 `activities` is seeded with the slugs `basketball`, `tennis`, `soccer`, `volleyball`, `padel`,
 which `Activity.builtIn` repeats as the offline fallback.
+
+### Activity catalog (1.0)
+
+Added by `20261126000000_activity_catalog`. The server decides which kinds of plan exist and how each
+activity looks, within what the app ships. `activity_kinds` holds a kind's copy (`label_*`,
+`item_label_*`, `title_placeholder_*`, `gear_*`), its `default_art` and `supports_rotation`.
+`activities` gains `color`, `color_dark` ("#RRGGBB", ink must reach 4.5:1 on them), `art` (a `CourtKind`
+name; null uses the kind's) and `min_app_version`; kinds have one too.
+
+| RPC | Returns | Errors |
+| --- | --- | --- |
+| `activity_catalog(p_app_version text)` (also `anon`) | `jsonb`: `{"kinds": [...], "activities": [...]}`, every column of each row, by `sort_order` | — |
+
+- **`activity_catalog`** → `ActivityCatalog` via `LiveCatalog.fetchCatalog()`, as `Catalog`. It leaves out
+  any kind or activity whose `min_app_version` is above the calling build's version (versions compare
+  part by part, so 1.0 > 0.9 and 0.10 > 0.9; one that can't be read counts as 0.5). Inactive rows come too, so old plans
+  keep their look. The app caches the last catalog in the app group (`CatalogCache`), starts from it, and
+  fetches again when the app comes back after an hour, or when a game names an unknown slug (once a minute).
+- **0.9 and older** read `activities` directly. Its row policy shows them only rows whose activity and
+  kind are at or under 0.9: the five sports, never esports.
+- **Fallbacks:** a color the build doesn't get uses its asset colorset, then gray. An `art` it doesn't
+  have uses the kind's, then the plain court. A kind it doesn't know is named after its slug.
+- **Pushes:** chat pushes carry `game.emoji`, `game.color` and `game.color_dark`. The extension uses them,
+  then the cached catalog, then `AvatarPalette`.
+- Esports (`valorant`, `csgo`, `league`) and its kind are `min_app_version` 1.0 (`20261126000200`).
 
 ## Guests (1.0)
 
@@ -130,6 +159,13 @@ do not listen on `campus:<id>:games`; they re-read `guest_games` on foreground a
 One row per game. The view doesn't hide cancelled, ended or full games, because Event detail shows
 them and game RPCs return them. RLS hides games whose host is in a blocked pair with the reader.
 
+**Weekly open plans** (`20261125000100_recurring_plans`) are ordinary rows whose host is the house account,
+"masUNO" (last initial `T`, class year 2026). The house account isn't a player:
+- It has no `rsvps` row, so `going_count` starts at 0 (`games_check` allows 0) and `game_attendees` never lists it.
+- No one's `my_role` is `host` on these plans, so nobody can edit or cancel them from the app.
+- The team skips a week with `private.cancel_recurring_game`. Members get the usual `game_cancelled`, and its actor is the house account.
+- The next week is posted when the current one ends, under 7 days ahead, so it's inside `fetchMapGames`'s window. After a skipped week, the replacement can be up to 14 days out and appears on the map once it's within 7 days.
+
 | Column | Type | Swift |
 | --- | --- | --- |
 | `id` | `uuid` | `id` |
@@ -148,7 +184,7 @@ them and game RPCs return them. RLS hides games whose host is in a blocked pair 
 | `sort_at` | `timestamptz` | `coalesce(reposted_at, created_at)`; used for ordering |
 | `my_role` | `text?` (`host`, `player`) | `myRole` |
 | `my_joined_at` | `timestamptz?` | `myJoinedAt` |
-| `has_blocked_attendee` | `bool` | `hasBlockedAttendee` |
+| `has_blocked_attendee` | `bool` | `hasBlockedAttendee`. Only someone *you* blocked; false when someone going blocked you |
 | `my_chat_muted` | `bool` | `chatMuted` |
 | `is_bookmarked` | `bool` | `isBookmarked` |
 | `spot_alert` | `bool` | `spotAlert` |
@@ -165,8 +201,8 @@ How `GameRepository` reads it:
 ### `game_attendees` → `Attendee`
 
 `event_id`, `user_id`, `first_name`, `last_initial`, `grad_year`, `role`, `joined_at`, `is_beta_tester` (1.0;
-missing on an older server, read as `false`). Excludes anyone in a blocked pair with the reader. `going_count` still counts them.
-`fetchAttendees` orders host first, then by `joined_at`.
+missing on an older server, read as `false`). Excludes anyone in a blocked pair with the reader. `going_count` still counts hidden peers in another host’s game. A host/player block removes the player from active games and frees the spot.
+`fetchAttendees` orders host first, then by `joined_at`. A weekly open plan has no host row, so it starts with the first person who joined.
 
 ### `game_activity` → `GameActivityEntry`
 
@@ -174,7 +210,8 @@ A view over an append-only table the RPCs write to (`private.game_activity`): `l
 `rsvps` row, and one `material_change_at` can't tell a meet-up edit from a time change. Only people in the
 game can read its rows. System rows for group chat: `id`, `event_id`, `kind`, `actor_id?`, `actor_first_name?`,
 `actor_last_initial?`, `actor_grad_year?`, `at`. Oldest first. Actor columns are null for a deleted
-account or a blocked pair. `kind` is one of `created`, `joined`, `left`, `meet_point_updated`,
+account. Rows from an actor in a blocked pair are omitted entirely, including from the underlying
+activity table, so anonymous rows cannot disclose their attendance. `kind` is one of `created`, `joined`, `left`, `meet_point_updated`,
 `time_or_place_changed`, `cancelled`.
 
 ### `my_profile` → `Profile`
@@ -196,6 +233,7 @@ Game writes return the updated `game_cards` row, so the app never needs a second
 | `accept_guidelines()` | `void` | — |
 | `create_game(p_activity_slug text, p_title text, p_starts_at timestamptz, p_duration_minutes int, p_capacity int, p_notes text, p_place_name text, p_place_address text, p_lat float8, p_lng float8, p_meet_point text, p_auto_repost bool)` | `game_cards` | `invalid_time`, `invalid_text`, `limit_reached`, `invalid_input` |
 | `update_game(p_id uuid, …same as create_game)` | `game_cards` | `not_found`, `not_allowed`, `cancelled`, `ended`, `capacity_below_going`, `invalid_time`, `invalid_text`, `invalid_input` |
+| `game_rotation(p_game_id uuid)` (1.0) | `jsonb`: `{"rounds": [{"index", "starts_at", "ends_at", "reveals_at", "groups"}]}` | `not_found` |
 | `cancel_game(p_id uuid)` | `game_cards` | `not_found`, `not_allowed`, `ended` |
 | `join_game(p_id uuid)` | `game_cards` | `full`, `cancelled`, `ended`, `blocked`, `not_found` |
 | `leave_game(p_id uuid)` | `game_cards` | `not_found`, `not_allowed`, `ended` |
@@ -204,6 +242,19 @@ Game writes return the updated `game_cards` row, so the app never needs a second
 | `my_blocks()` | set of `user_id`, `first_name`, `last_initial`, `grad_year`, newest first | — |
 
 Rules the signatures don't show:
+
+- **Round nights** (`20261126000100_round_nights`, 1.0): `create_game` and `update_game` also take
+  `p_rotation_rounds` (2–5), `p_rotation_round_minutes` (30, 45, 60), `p_rotation_break_minutes`
+  (10, 15, 20, 30) and `p_rotation_group_size` (2–6), all four or none, defaulting to null so 0.9 calls
+  are unchanged. With rounds, the activity's kind must have `supports_rotation`, `p_duration_minutes`
+  must equal rounds × length + breaks, and capacity must fit two groups; otherwise `invalid_input`.
+  `game_cards` ends with the four `rotation_*` columns (null for a plain plan) → `Game.rotation`. The app
+  sends them only for a round night. Changing the rounds or the start drops the groups picked so far.
+- **`game_rotation`** → `GameRepository.fetchRotation(gameID:)`, as `RotationPlan`. It picks a round's
+  groups when it comes out (the first at the start, the others as the break before them begins) from
+  whoever is going then, and keeps them, so later joiners never reshuffle a round. `groups` is null
+  until then; each person is `id`, `first_name`, `last_initial`, `grad_year`, without anyone who left or
+  anyone blocked either way. `not_found` also covers a plan that isn't a round night.
 
 - **`complete_profile`** sets the campus only when it creates the profile: from
   `auth_allowlist.university_id` if the address is listed (including a Tec test account used for App
@@ -220,7 +271,13 @@ Rules the signatures don't show:
 - **`cancel_game`** is a soft cancel. Calling it on a game that's already cancelled returns the row.
 - **`report`** takes exactly one of `p_user_id` and `p_game_id`. `p_reason` is one of `harassment`,
   `inappropriate`, `spam`, `unsafe`, `other`.
-- **`block`** returns `invalid_input` for yourself or an unknown user; blocking twice is a no-op.
+- **`block`** returns `invalid_input` for yourself or an unknown user. In either block direction,
+  the player is removed from upcoming/in-progress games hosted by the other person; host RSVPs
+  and historical attendance remain intact. Counts, reopened spots and auto-repost reconcile in
+  the same transaction. Existing block pairs are repaired by migration `20261121000000`.
+  Repeating the call does not decrement counts again. **`unblock`** never rejoins removed games.
+  Both operations emit a campus invalidation without actor/game IDs. Clients reload cached
+  games, attendees, activity and chat pages; in-flight responses cannot restore revoked content.
 
 ## Group chat (0.6)
 
@@ -233,13 +290,17 @@ missing, the app shows the read-only chat with no composer, and `send_message` a
 ### `game_messages` → `ChatMessage`
 
 `id`, `event_id`, `sender_id`, `sender_first_name`, `sender_last_initial`, `sender_grad_year`, `body`,
-`client_id`, `created_at`. Only people in the game can read its rows, and leaving the game closes it.
-Messages from a sender in a blocked pair with the reader, and messages a moderator hid, are left out.
+`client_id`, `created_at`, `mentions uuid[]` (1.0, `20261123000000_chat_mentions`; `ChatMessage.mentions`).
+Only people in the game can read its rows, and leaving the game closes it. Messages from a sender in a
+blocked pair with the reader, and messages a moderator hid, are left out. `mentions` is the people the
+message mentions, in the order the sender picked them, minus anyone in a blocked pair with the reader;
+`[]` when there are none. The app finds each one's "@First L." in `body` to highlight it. Older builds
+ignore the column.
 
 | Method | PostgREST query |
 | --- | --- |
-| `fetchMessages(before:limit:)` | `event_id=eq.<id>&order=created_at.desc&limit=50`, plus `created_at=lte.<oldest>` for an older page |
-| `fetchMessages(since:)` | `event_id=eq.<id>&created_at=gte.<newest − 5 s>&order=created_at` |
+| `fetchMessages(before:limit:)` | `event_id=eq.<id>&order=created_at.desc,id.desc&limit=50`; older pages use strict `(created_at,id) < (oldest timestamp,oldest id)` |
+| `fetchMessages(since:)` | `event_id=eq.<id>&created_at=gte.<newest − 5 s>&order=created_at.asc,id.asc`; fetch 200-row pages using a strict composite cursor until exhausted |
 
 ### `chat_unread`
 
@@ -250,7 +311,7 @@ chat. Games with none have no row.
 
 | RPC | Returns | Errors |
 | --- | --- | --- |
-| `send_message(p_game_id uuid, p_body text, p_client_id uuid)` | `game_messages` | `not_found`, `not_allowed`, `chat_disabled`, `cancelled`, `ended`, `chat_rules_required`, `invalid_text`, `rate_limited`, `invalid_input` |
+| `send_message(p_game_id uuid, p_body text, p_client_id uuid, p_mentions uuid[] default '{}')` | `game_messages` | `not_found`, `not_allowed`, `chat_disabled`, `cancelled`, `ended`, `chat_rules_required`, `invalid_text`, `rate_limited`, `invalid_input` |
 | `accept_chat_rules()` | `void` | — |
 | `mark_chat_read(p_game_id uuid)` | `void` | — |
 | `report_message(p_message_id uuid, p_reason text, p_note text)` | `void` | `invalid_input` |
@@ -259,6 +320,14 @@ chat. Games with none have no row.
   one that ended more than 24 hours ago (`ended`). The body is trimmed and goes through the same text filter
   as titles, which also refuses links; the limit is 1000 characters. `p_client_id` is the app's own ID for the
   send: sending it again returns the first message, so a retry never posts twice.
+- **`p_mentions`** (1.0) is the people the message mentions. It replaces the three-argument function,
+  and its default keeps calls from older builds working. The server looks at the first 50 IDs and
+  keeps, once each and at most 10, those that are a current member (host or going), not the sender,
+  not in a blocked pair with the sender, and whose "@First L." is in the trimmed body. Others are
+  dropped without an error. The app sends `p_mentions` only when there are some, so a message without
+  mentions still sends to a server before the migration. Each mention notifies that person even with
+  chat notifications off or the game muted (`NOTIF.md` §3.5). `@everyone` and `@here` are still
+  `invalid_text`.
 - **`mark_chat_read`** does nothing if you aren't in the game.
 - **`report_message`** files a report against the sender with the message text copied in. You can't report
   your own message or one you can't see. Reasons are the same as `report`.
@@ -283,31 +352,52 @@ re-reads don't arrive together, and the app also re-reads when it comes back to 
 
 ## Sign-in
 
-Email and password, with each new account approved by hand (SPEC N36). School SSO is below as "kept, unused".
+Email and password, with the address proven by an emailed 6-digit code (SPEC N39), then the waitlist unless an
+invite code or open sign-up lets the account in (N36, N37). School SSO is below as "kept, unused".
 
-1. **Create account:** `auth.signUp(email, password)`. The Before User Created hook lets through a school
-   address at an open campus (`universities.email_domain`, `signup_enabled`, not `is_demo`, `student_email_pattern`)
-   and refuses anything else with `email_not_allowed`. For a school address it also adds a row to
-   `private.signup_requests` and posts "New sign-up waiting for approval" to the team Discord. "Confirm email" is
-   off, so `signUp` returns a session straight away. The app checks 8 characters before sending.
-2. **Sign in:** `auth.signInWithPassword(email, password)`, for students and for the `auth_allowlist` accounts.
-3. **Next step:** `my_profile` first. No row → RPC `signup_status()` (returns `'pending'` or `'approved'`, raises
-   `not_authenticated`): `'pending'` → `.pendingApproval` ("We're checking your account"), otherwise
-   `.needsProfile`. With a row: `banned_at` set → `.suspended`; `guidelines_accepted_at` null →
+1. **Create account:** `auth.signUp(email, password, data: {"locale": "en" | "es"})`. The Before User Created hook
+   lets through a school address at an open campus (`universities.email_domain`, `signup_enabled`, not `is_demo`,
+   `student_email_pattern`) and refuses anything else with `email_not_allowed`. "Confirm email" is on, so there's
+   no session: Supabase emails a code (`supabase/templates/confirmation.html`, in the `locale` language). An
+   address that already has a verified account comes back as a user with no `identities` and gets no email; the
+   app shows `.emailTaken`. Signing up again before entering the code sends a new one. The app checks 8
+   characters before sending.
+2. **Enter the code:** `auth.verifyOTP(email, token, type: .signup)` returns the session. A trigger on `auth.users`
+   (`auth_users_email_verified`, when `email_confirmed_at` is first set on an `email` account we sent a code to)
+   runs `private.signup_verified`: it adds the row to `private.signup_requests` (a website request keeps its
+   place) with `verified_at`, and posts "New sign-up waiting for approval (email verified)" to the team Discord.
+   An allowlisted address is approved instead, quietly. If an `email` account is confirmed with no code sent
+   ("Confirm email" off, or made in the dashboard), the same trigger falls back to N36: an unverified request
+   that waits, with an alert saying so (allowlisted addresses excepted). A password account with no profile,
+   no request and no allowlist entry is always `'pending'`, so nothing gets in unrecorded. While `app_config.signup_auto_approve` is `true`, every
+   verified account is approved and the team gets an FYI. **Send a new code:** `auth.resend(email, type: .signup)`,
+   once a minute. Codes last 15 minutes. Accounts that never enter one are deleted after 24 hours
+   (`delete-unverified-signups`, hourly), unless they hold a waitlist place.
+3. **Sign in:** `auth.signInWithPassword(email, password)`, for students and for the `auth_allowlist` accounts.
+   An account without its code gets `email_not_confirmed`; the app resends and opens Check your email.
+4. **Next step:** `my_profile` first. No row → RPC `signup_status()` (returns `'unverified'`, `'pending'` or
+   `'approved'`, raises `not_authenticated`): `'unverified'` → `.needsEmailVerification` (a saved session from an
+   account that was waiting before N39; the app sends a code), `'pending'` → `.pendingApproval` (the waitlist),
+   otherwise `.needsProfile`. With a row: `banned_at` set → `.suspended`; `guidelines_accepted_at` null →
    `.needsGuidelines`; otherwise `.signedIn`.
-4. **While pending:** every write RPC raises `pending_approval`, so there's no profile, and without a profile RLS
+5. **While pending:** every write RPC raises `pending_approval`, so there's no profile, and without a profile RLS
    shows nothing. The app asks again (`AuthService.refreshStatus()`) on "Check again" and whenever it comes back
    to the front. Once approved it shows "You're in", then Set up profile. From 1.0 this wait is the waitlist,
    and a member's invite code ends it without the team (Invites and the waitlist, below).
-5. **Approving** is the team's job, in the SQL editor: `select private.approve_signup('<email>');` or
-   `select private.reject_signup('<email>');` (deletes the unapproved account). Both lines are in the Discord
-   alert. See `supabase/README.md`, "Sign-up approvals".
+6. **Approving** is the team's job while sign-up is invite-only, in the SQL editor:
+   `select private.approve_signup('<email>');` or `select private.reject_signup('<email>');` (deletes the
+   unapproved account). Both lines are in the Discord alert. `select private.set_signup_auto_approve(true);` opens
+   sign-up (and lets in everyone verified and waiting); `false` closes it again. See `supabase/README.md`,
+   "Sign-up approvals".
 
-There's no password reset email: Sign in links to Contact us, and the team resets a password in the dashboard.
+**Forgot your password:** `auth.resetPasswordForEmail(email)` emails a code (`supabase/templates/recovery.html`)
+and answers the same for an address with no account. `auth.verifyOTP(email, token, type: .recovery)` signs in,
+then `auth.update(user: {password})` sets the new password, and the app moves on as after signing in. A reset
+also verifies an account that never entered its sign-up code (the trigger above runs for it too).
 
 Allowlisted accounts (`auth_allowlist`: `email`, `note`, `university_id`, usually the demo campus) never wait
 for approval, and `complete_profile` places them on their campus. They're password accounts Emilio created
-with the email already confirmed.
+with the email already confirmed, so no code is sent and no request is made.
 
 ### School SSO (kept, unused)
 
@@ -350,6 +440,11 @@ never wait, so codes don't matter to them.
   an FYI ("joined with Ana G.'s invite"), not an approval request. The refusals are returned, not raised: a
   raise would roll back the wrong-try count with the rest of the call. The app throws them as
   `.invalidInvite` and `.rateLimited`, then `refreshStatus()` moves `.pendingApproval` on.
+  From `20261125000000_master_invites` the code may also be a team **master code**, which works for many
+  people until its limit, end date or `revoke_master_invite` (`supabase/README.md`, Invites). A member's
+  code is checked first. A master code approves the request with `invited_by` null and records the use in
+  `private.master_invite_uses`; an ended, used-up or turned-off one is `'invalid_invite'` and counts as a
+  wrong try. Same signature and answers, so no build changes.
 - **`waitlist_position`** → `AuthService.waitlistPosition()`: your place among requests nobody has approved,
   by sign-up time (1 is next), or null when you aren't waiting. From `20261115000000_waitlist_sync` the line
   includes school emails that joined on the website, and a website join's time is your sign-up time
@@ -358,6 +453,38 @@ never wait, so codes don't matter to them.
 Server-side columns, none readable by the app: `profiles.invite_allowance` (default 3),
 `private.invites` (`code`, `inviter_id`, `created_at`, `redeemed_email`, `redeemed_at`) and, on
 `private.signup_requests`, `invited_by`, `invite_attempts` and `invite_attempt_at`.
+
+## Props (1.0)
+
+Added by `20261127000000_props`. After a plan ends, people give each other props: `good_sport`,
+`on_time`, `team_player`, `made_it_fun`. These are never ratings and say nothing about skill. Problems
+still go to `report`. `app_config.props_enabled` (boolean, on by default) switches it all off.
+
+| RPC | Returns | Errors |
+| --- | --- | --- |
+| `props_to_give(p_game_id uuid, p_round int = null)` | `jsonb`: `{"open", "opens_at", "closes_at", "people": [{"id", "first_name", "last_initial", "grad_year", "is_host", "played_before", "sent": [prop]}]}` | `not_found` |
+| `give_props(p_game_id uuid, p_round int, p_props jsonb)` | `jsonb`: `{"sent": int}` | `props_disabled`, `props_closed`, `invalid_input`, `not_found` |
+| `prop_counts(p_user_ids uuid[])` (≤ 50) | set of `user_id`, `prop`, `people` | `invalid_input` |
+| `my_props_for_game(p_game_id uuid)` | `jsonb`: `{"people": int, "props": {prop: int}}` | — |
+| `props_leaderboard(p_prop text, p_filter text = null)` | `jsonb`: `{"month", "resets_at", "top": [{"rank", "id", "first_name", "last_initial", "grad_year", "people", "mostly"}], "me": {"opted_in", "rank", "people"}}` | `invalid_input` |
+| `props_leaderboard_opt_in()`, `set_props_leaderboard(p_on bool)` | `bool` | `invalid_input` |
+
+- **Who:** you can give props only to people you played with. On a plan that's everyone still going. On a
+  round night it's your group that round (`p_round`, from 0), and there are no whole-night props. Never
+  yourself, and never anyone blocked either way.
+- **When:** from the end of the plan (or the round) until 24 hours later, and never for a cancelled plan.
+  Outside that window, `props_to_give` answers `"open": false` with no people, and `give_props` answers
+  `props_closed`.
+- **Sending:** `give_props` takes `{"<user id>": [prop, …]}`. Each person named gets exactly that
+  list, replacing what you sent them before for this plan or round; `[]` takes their props back.
+  `played_before` counts earlier ended plans you were both in.
+- **Anonymous:** counts are always of different people and never say who. `prop_counts` (Who's going)
+  shows a person only once props come from 3 or more people, only to their campus, and never across
+  a block.
+- **Leaderboard:** it's monthly, in the campus's time zone, and on plans at your campus. `p_filter` is
+  an activity kind (`esports`) or slug (`soccer`). It lists only people with
+  `profiles.props_leaderboard_opt_in` (default off), at most 50. `me` is your own standing, listed or
+  not.
 
 ## Beta tester (1.0)
 
@@ -433,7 +560,7 @@ ship off, the same way chat does.
 
 | RPC | Returns | Errors |
 | --- | --- | --- |
-| `register_device(p_token text, p_environment text, p_locale text, p_app_version text)` | `void` | `invalid_input`, `not_authenticated` |
+| `register_device(p_token text, p_environment text, p_locale text, p_app_version text, p_install_id text?)` | `void` | `invalid_input`, `not_authenticated` |
 | `unregister_device(p_token text)` | `void` | `not_authenticated` |
 | `set_notification_prefs(p_interest_match bool, p_spot_open bool, p_reminders bool, p_hosting bool, p_chat bool, p_winback bool)` | `notification_prefs` | `invalid_input`, `pending_approval`, `not_authenticated` |
 | `set_winback(p_on bool)` | `notification_prefs` | `invalid_input`, `pending_approval`, `not_authenticated` |
@@ -442,6 +569,11 @@ ship off, the same way chat does.
 | `import_bookmarks(p_ids uuid[], p_alert_ids uuid[])` | `void` | `pending_approval` |
 | `set_chat_muted(p_game_id uuid, p_muted bool)` | `void` | `invalid_input`, `not_allowed` |
 | `notification_opened(p_outbox_id bigint)` | `void` | `not_authenticated` |
+
+`p_install_id` is a random secret the app keeps per install. A token moves to another account only when
+the install that registered it asks; otherwise the call changes nothing for that token. For legacy
+rows without a binding, only the existing account can set one when upgrading. Builds that do not
+send it can still refresh their own tokens; sign-out unregisters before another account registers.
 
 `notification_prefs` columns are the flags above, all defaulting on except `winback`. Cancellations,
 changes and approval are not preferences: they always send. `bookmarks.notify` is the spot alert.
@@ -455,3 +587,18 @@ and keeps reports without the reporter.
 `send-push`: `POST` with the service-role key and no body. The cron job calls it. `204` when nothing
 is due, otherwise it claims a batch and delivers it to APNs. `401` for any other role. `500` when
 APNs isn't configured, and those rows are released so the attempt isn't burned.
+
+### Build 2 chat and delivery amendments
+
+`ChatMessageCursor` carries the original server timestamp text and UUID. Preserve server
+microseconds in page filters; a timestamp converted through `Date` and a millisecond formatter
+can overlap or skip rows. Equal timestamps advance using UUID order on both adapters. Realtime
+updates additionally expose connected/disconnected state; these are transport state, not messages.
+
+The push sender uses service-role-only `claim_notifications_v2(p_limit integer default 100)`
+and `complete_notifications_v2(p_results jsonb)`. Claims retain the legacy snapshot fields and
+add `claim_token uuid`. Every result includes `id`, `claim_token`, `outcome` (`sent`, `retry`,
+`release`, `drop`), plus optional `error`/`drop_tokens`. Completion locks the current row and
+compares the token before changing outcome or deleting tokens. Missing/stale tokens are no-ops.
+Legacy RPCs remain during rollout. Deploy migration 17 before the v2 sender; retain gateway JWT
+verification. No new client database permission is granted.

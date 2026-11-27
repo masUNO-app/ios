@@ -1,4 +1,5 @@
 import Foundation
+import Intents
 
 /// The custom keys `send-push` puts next to `aps` (NOTIF §5.5). Both the app and the extension decode it.
 nonisolated struct NotificationPayload: Codable, Sendable {
@@ -11,11 +12,14 @@ nonisolated struct NotificationPayload: Codable, Sendable {
     var body: String?
     var count: Int?
     var place: PlacePin?
+    /// A chat message that mentions you (`chat_mention` on the server). It arrives as `chat_message`
+    /// so builds from before mentions still draw and route it.
+    var mention: Bool
 
     init(
         kind: String, gameID: UUID? = nil, outboxID: Int64? = nil, game: GameInfo? = nil,
         sender: Sender? = nil, others: [Person] = [], body: String? = nil, count: Int? = nil,
-        place: PlacePin? = nil
+        place: PlacePin? = nil, mention: Bool = false
     ) {
         self.kind = kind
         self.gameID = gameID
@@ -26,6 +30,7 @@ nonisolated struct NotificationPayload: Codable, Sendable {
         self.body = body
         self.count = count
         self.place = place
+        self.mention = mention
     }
 
     init(from decoder: any Decoder) throws {
@@ -39,6 +44,7 @@ nonisolated struct NotificationPayload: Codable, Sendable {
         body = try container.decodeIfPresent(String.self, forKey: .body)
         count = try container.decodeIfPresent(Int.self, forKey: .count)
         place = try container.decodeIfPresent(PlacePin.self, forKey: .place)
+        mention = try container.decodeIfPresent(Bool.self, forKey: .mention) ?? false
     }
 
     func encode(to encoder: any Encoder) throws {
@@ -52,11 +58,29 @@ nonisolated struct NotificationPayload: Codable, Sendable {
         try container.encodeIfPresent(body, forKey: .body)
         try container.encodeIfPresent(count, forKey: .count)
         try container.encodeIfPresent(place, forKey: .place)
+        if mention { try container.encode(mention, forKey: .mention) }
     }
 
     nonisolated struct GameInfo: Codable, Sendable {
         var title: String
         var sport: String
+        /// The activity's emoji and catalog colors, from servers since the activity catalog.
+        var emoji: String?
+        var color: String?
+        var colorDark: String?
+
+        init(title: String, sport: String, emoji: String? = nil, color: String? = nil, colorDark: String? = nil) {
+            self.title = title
+            self.sport = sport
+            self.emoji = emoji
+            self.color = color
+            self.colorDark = colorDark
+        }
+
+        enum CodingKeys: String, CodingKey {
+            case title, sport, emoji, color
+            case colorDark = "color_dark"
+        }
     }
 
     nonisolated struct Sender: Codable, Sendable {
@@ -77,7 +101,7 @@ nonisolated struct NotificationPayload: Codable, Sendable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case kind, game, sender, others, body, count, place
+        case kind, game, sender, others, body, count, place, mention
         case gameID = "game_id"
         case outboxID = "outbox_id"
     }
@@ -93,6 +117,31 @@ nonisolated struct NotificationPayload: Codable, Sendable {
               let decoded = try? JSONDecoder().decode(NotificationPayload.self, from: data)
         else { return nil }
         self = decoded
+    }
+
+    /// iOS supplies the sender in the communication header. Keep names in the plain
+    /// APNs fallback only, including summaries sent by older server versions.
+    func communicationBody(fallback: String) -> String {
+        let text = body ?? fallback
+        if (count ?? 1) > 1, let separator = text.range(of: " · ", options: .backwards) {
+            return String(text[separator.upperBound...])
+        }
+        if body == nil, let sender, text.hasPrefix("\(sender.name): ") {
+            return String(text.dropFirst(sender.name.count + 2))
+        }
+        return text
+    }
+
+    /// What iOS needs to treat a mention as one: it lets the banner through a conversation you
+    /// muted on this phone, and Focus can allow mentions. Nil for an ordinary message.
+    /// - Parameter recipients: Everyone the intent names, you included.
+    func donationMetadata(recipients: Int) -> INSendMessageIntentDonationMetadata? {
+        guard mention else { return nil }
+        let metadata = INSendMessageIntentDonationMetadata()
+        metadata.mentionsCurrentUser = true
+        metadata.notifyRecipientAnyway = true
+        metadata.recipientCount = recipients
+        return metadata
     }
 
     /// Where a tap goes. Signup opens the app as it is. Win-back opens the map.

@@ -13,6 +13,10 @@ final class UnavailableBackend: AuthService, GameRepository, ProfileRepository, 
     func signIn(at school: University) async throws { throw DomainError.offline }
     func signUp(email: String, password: String) async throws { throw DomainError.offline }
     func signIn(email: String, password: String) async throws { throw DomainError.offline }
+    func verifyEmail(_ email: String, code: String) async throws { throw DomainError.offline }
+    func resendVerification(to email: String) async throws { throw DomainError.offline }
+    func requestPasswordReset(for email: String) async throws { throw DomainError.offline }
+    func resetPassword(email: String, code: String, newPassword: String) async throws { throw DomainError.offline }
     func refreshStatus() async throws { throw DomainError.offline }
     func redeemInvite(_ code: String) async throws { throw DomainError.offline }
     func waitlistPosition() async throws -> Int? { throw DomainError.offline }
@@ -59,14 +63,14 @@ final class UnavailableBackend: AuthService, GameRepository, ProfileRepository, 
 
     func fetchMessages(gameID: UUID, before: Date?, limit: Int) async throws -> [ChatMessage] { throw DomainError.offline }
     func fetchMessages(gameID: UUID, since: Date) async throws -> [ChatMessage] { throw DomainError.offline }
-    func sendMessage(gameID: UUID, body: String, clientID: UUID) async throws -> ChatMessage { throw DomainError.offline }
+    func sendMessage(gameID: UUID, body: String, clientID: UUID, mentions: [UUID]) async throws -> ChatMessage { throw DomainError.offline }
     func acceptChatRules() async throws { throw DomainError.offline }
     func markRead(gameID: UUID) async throws { throw DomainError.offline }
     func fetchUnreadCounts() async throws -> [UUID: Int] { throw DomainError.offline }
     func updates(gameID: UUID) -> AsyncStream<ChatUpdate> { AsyncStream { $0.finish() } }
 
     func fetchAppConfig() async throws -> AppConfig { throw DomainError.offline }
-    func fetchActivities() async throws -> [Activity] { throw DomainError.offline }
+    func fetchCatalog() async throws -> Catalog { throw DomainError.offline }
     func fetchUniversities() async throws -> [University] { throw DomainError.offline }
 }
 #endif

@@ -11,22 +11,41 @@ struct BookmarkButton: View {
         let isSaved = store.isSaved(event.id)
 
         Button {
-            if store.isGuest {
-                appViewModel.requireAccount(.save)
-                return
-            }
-            withAnimation(.snappy) { store.toggleSaved(event.id) }
+            Self.toggle(event, store: store, appViewModel: appViewModel)
         } label: {
-            Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(isSaved ? Theme.accent : Theme.ink)
-                .contentTransition(.symbolEffect(.replace))
-                .frame(width: 36, height: 36)
-                .glassEffect(.regular.interactive(), in: .circle)
-                .contentShape(.circle)
+            BookmarkGlyph(isSaved: isSaved)
         }
         .buttonStyle(.plain)
+        .padding(-4)
         .accessibilityLabel(isSaved ? "Remove bookmark" : "Bookmark")
         .sensoryFeedback(.selection, trigger: isSaved)
+    }
+
+    /// For a guest it asks them to make an account, like every other account action.
+    static func toggle(_ event: Game, store: GameStore, appViewModel: AppViewModel) {
+        if store.isGuest {
+            appViewModel.requireAccount(.save)
+            return
+        }
+        withAnimation(.snappy) { store.toggleSaved(event.id) }
+    }
+}
+
+/// The bookmark's glass circle: the icon fills and turns green when saved. Also the practice
+/// round's popup, where it's only a picture.
+struct BookmarkGlyph: View {
+    var isSaved = false
+
+    var body: some View {
+        Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
+            .font(.system(size: 16, weight: .semibold))
+            .foregroundStyle(isSaved ? Theme.accent : Theme.ink)
+            .contentTransition(.symbolEffect(.replace))
+            .frame(width: 36, height: 36)
+            .appGlass(in: .circle, interactive: true)
+            // A 44 pt target around the 36 pt circle; the button's padding takes the room back,
+            // so nothing moves (A11Y-19).
+            .frame(width: 44, height: 44)
+            .contentShape(.rect)
     }
 }

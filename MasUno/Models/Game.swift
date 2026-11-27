@@ -47,6 +47,8 @@ nonisolated struct Game: Identifiable, Hashable, Sendable {
     var spotAlert: Bool = false
     /// Chat alerts for this game are off.
     var chatMuted: Bool = false
+    /// A round night: rounds with breaks and new groups each round. The duration spans them all.
+    var rotation: Rotation?
 
     var spotsLeft: Int { max(capacity - goingCount, 0) }
     var isFull: Bool { spotsLeft == 0 }
@@ -98,6 +100,8 @@ nonisolated struct GameDraft: Hashable, Sendable {
     var place: Place
     var meetPoint: String?
     var autoRepost = true
+    /// Makes it a round night; `durationMinutes` is then its `totalMinutes`.
+    var rotation: Rotation?
 }
 
 extension GameDraft {
@@ -106,7 +110,8 @@ extension GameDraft {
         self.init(
             activity: game.activity, title: game.title, startsAt: game.startsAt,
             durationMinutes: game.durationMinutes, capacity: game.capacity, notes: game.notes,
-            place: game.place, meetPoint: game.meetPoint, autoRepost: game.autoRepost
+            place: game.place, meetPoint: game.meetPoint, autoRepost: game.autoRepost,
+            rotation: game.rotation
         )
     }
 }

@@ -13,10 +13,18 @@ nonisolated struct ChatMessage: Identifiable, Hashable, Sendable {
     /// The ID the sender's phone gave this send, so a retry never posts twice.
     var clientID: UUID
     var createdAt: Date
+    /// Original server timestamp for lossless pagination filters; nil for local/mock messages.
+    var serverCreatedAt: String? = nil
+    /// The people it mentions ("@Maya C."), as the server kept them. Empty from servers before mentions.
+    var mentions: [UUID] = []
 }
 
 /// What a game's chat channel says changed. It carries no content: the app reads the rows itself.
 nonisolated enum ChatUpdate: Hashable, Sendable {
+    /// Subscription became usable; subsequent reconnects require a catch-up read.
+    case connected
+    /// Transport is reconnecting or unavailable; polling becomes the fallback.
+    case disconnected
     /// A new message.
     case message
     /// A new system row: someone joined or left, or the host changed or cancelled the game.

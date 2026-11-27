@@ -46,20 +46,26 @@ copy and the Spanish.
 | # | Kind | Example (en) | To | Sent when | Timing | Setting | Level |
 |---|---|---|---|---|---|---|---|
 | 1 | `game_cancelled` | **Sunday pickup soccer was cancelled** · Sam cancelled it. Find another game? | Everyone going (not the host) | Host cancels | Right away | Always on | Time Sensitive |
-| 2 | `game_changed` | **Sunday pickup soccer changed** · Now 7:30 PM at Estadio Borregos | Everyone going (not the host) | Time, place or meet-up edited | 2 min after the last edit, merged | Always on | Active |
+| 2 | `game_changed` | **Sunday pickup soccer changed** · Now 7:30 PM at Estadio Borregos | Everyone going (not the host) | Time, place or meet-up edited | 10 seconds after the first pending edit, merged | Always on | Active |
 | 3 | `reminder` | **Starts in 30 min** · Volleyball at the arena · Meet by the north bleachers | Everyone going, host too | 25–35 min before start | Cron, every 5 min | Game reminders | Time Sensitive |
-| 4 | `host_update` | **Ricardo G. joined** · Sunday pickup soccer · 2 spots left | Host | Join or leave | Merged per game for 5 min ("Ricardo G. and Maya C. joined") | Updates on games you host | Active |
+| 4 | `host_update` | **Ricardo G. joined** · Sunday pickup soccer · 2 spots left | Host | Join or leave | Merged per game for 10 seconds ("Ricardo G. and Maya C. joined") | Updates on games you host | Active |
 | 5 | `game_full` | **Your game is full** · 10 of 10 going for Sunday pickup soccer | Host | Last spot taken | Replaces 4 for that game | Updates on games you host | Active |
 | 6 | `spot_open` | **A spot opened** · After-work hoops · Today 7:30 PM | People who saved it with "Notify me" | A full game frees a spot, with or without auto-repost | Right away | A spot opens up | Time Sensitive |
-| 7 | `interest_match` | **New basketball game at Tec** · After-work hoops · Today 7:30 PM · room for 4 | People on that campus with that sport in their interests | Game created | 3 min after creation; at most 2 a day | Games that match your sports | Passive |
-| 8 | `chat_message` | *(Messages style)* **Sunday pickup soccer** · Maya C.: I'll bring the ball | Everyone going, except the sender | New message | Right away, then at most 1 per game every 2 min ("3 new messages") | Group chat messages | Active |
+| 7 | `interest_match` | **New basketball game at Tec** · After-work hoops · Today 7:30 PM · room for 4 | People on that campus with that sport in their interests | Game created | 10 seconds after creation; at most 2 a day | Games that match your sports | Passive |
+| 8 | `chat_message` | *(Messages style)* **Sunday pickup soccer** · Maya C.: I'll bring the ball | Everyone going, except the sender | New message | Right away, then a 10-second batching window ("3 new messages") | Group chat messages | Active |
 | 9 | `signup_approved` | **You're in** · Set up your profile and find a game. | The person waiting | `approve_signup` | Right away | Always on (asked for while waiting) | Active |
 | 10 | `winback` | **4 games at Tec this week** · 2 basketball. Room for one more? | Inactive people who opted in | Daily job | 5 PM campus time, Tue–Thu; at most 1 every 14 days | Ideas to play (opt-in) | Passive |
 | 11 | `saved_soon` | **Still room in After-work hoops** · Starts in 2 h · room for 3 | People who saved a game they haven't joined | 2 h before start | Cron | A spot opens up | Passive |
+| 12 | `chat_mention` | *(Messages style)* **Sunday pickup soccer** · Maya C. mentioned you: @Sam L. can you bring the ball? | Each member the message mentions | New message with a mention | Right away, never merged, even in quiet hours | Always on, even with the chat switch off or the game muted (§3.5) | Active |
+
+**Weekly open plans** (`supabase/README.md`), which the house account "masUNO" hosts:
+- Each week's posting sends #7 `interest_match` like any new plan.
+- Skipping a week sends #1 `game_cancelled` ("masUNO cancelled it").
+- The house account's switches are all off, so #4 and #5 (host updates, full) and the rest are never queued for it.
 
 Kinds 1–7 are SPEC §8.7, with `game_full` split out. Kinds 8–11 are new: chat (SPEC Appendix A
 item 8), approval (it removes the "Check again" wait, N36), win-back, and a nudge for saved games
-that still have room.
+that still have room. Kind 12, mentions, was added Nov 19 (§3.5).
 
 ### 2.2 Rules every kind follows
 
@@ -67,14 +73,19 @@ Checked in `private.claim_notifications` at send time, not only when the row is 
 things change while a row waits:
 
 - **Never** to the person who caused it (the sender, the host who edited, the one who joined).
-- **Never** across a block, either way, using `private.blocked_pair`.
+- **Never** across a block, either way, using `private.blocked_pair`. Both claim protocols rebuild
+  chat sender names, message bodies, counts and other-member names from currently visible messages,
+  and filter every actor in a host roster summary. A block made after enqueue still applies.
+- **Membership:** chat, reminders and game changes/cancellations require a current RSVP. A removed
+  player does not receive queued member-only content.
 - **Never** to banned accounts, or about a cancelled game (except `game_cancelled`) or a game that
   has started (except `chat_message`, until the chat closes 24 h after the end).
-- **Preferences:** a setting that's off drops the row.
+- **Preferences:** a setting that's off drops the row. `chat_mention` has no setting.
 - **Quiet hours:** 22:00–08:00 in the campus's `universities.timezone`. Passive and Active kinds wait
-  until 08:00 and are dropped if they've expired by then. Time Sensitive kinds still go.
+  until 08:00 and are dropped if they've expired by then. Time Sensitive kinds and `chat_mention`
+  still go.
 - **Caps:** `interest_match` 2 a day; `winback` 1 every 14 days, stopping after 3 unopened. Every
-  kind except chat and Time Sensitive ones: at most 6 a day in total.
+  kind except chat (`chat_message`, `chat_mention`) and Time Sensitive ones: at most 6 a day in total.
 - **Expiry:** each row has `expires_at` (game kinds: the start time; chat: 24 h; win-back: 1 day).
   Expired rows are dropped, and APNs gets the same value as `apns-expiration`.
 - **Still true?** `spot_open` checks there's still a spot and you aren't already in.
@@ -85,7 +96,7 @@ things change while a row waits:
 | Kind | Tap opens | Actions (long press) |
 |---|---|---|
 | Game kinds (1–7, 11) | `masuno://game/<id>` → Event detail | `spot_open`, `interest_match`, `saved_soon`: **Count me in** (joins in the background; needs the phone unlocked). `reminder`: **Directions** (opens Maps) |
-| `chat_message` | `masuno://game/<id>/chat` → Group chat | **Reply** (text input, sends in the background) · **Mark as read** |
+| `chat_message`, `chat_mention` | `masuno://game/<id>/chat` → Group chat | **Reply** (text input, sends in the background) · **Mark as read** |
 | `signup_approved` | The app (onboarding continues) | — |
 | `winback` | `masuno://map` (filtered to your sports) | — |
 
@@ -168,8 +179,8 @@ a group. `shared.myID` comes from the App Group (§6.2).
 ### 3.4 Volume and privacy
 
 - **Throttle:** the first message in a game reaches each member right away. More messages to the
-  same person within 2 minutes merge into one row ("Maya C. and Sam L. · 3 new messages") that
-  goes out when the 2 minutes are up, with `apns-collapse-id = chat:<game>` so it replaces the
+  same person within 10 seconds merge into one row ("Maya C. and Sam L. · 3 new messages") that
+  goes out when the 10 seconds are up, with `apns-collapse-id = chat:<game>` so it replaces the
   earlier banner instead of stacking. Busy chats stay readable without one buzz per message.
 - **Read already?** At send time, skip anyone whose `chat_reads.last_read_at` is after the
   message. They were in the chat.
@@ -182,6 +193,49 @@ a group. `shared.myID` comes from the App Group (§6.2).
   the extension fetch the message with the signed-in session from a shared keychain (§9).
 - **Chat must be on:** nothing is sent while `app_config.chat_enabled` is false.
 
+### 3.5 Mentions
+
+"Group chat mentions: get a notification no matter what if you're mentioned." Typing "@" in the
+composer lists the game's people; picking one writes "@Maya C." and records Maya's ID
+(SPEC §7.6.9). The message stores the IDs (`chat_messages.mentions`, at most 10), and `send_message`
+keeps only current members (host or going) other than the sender, outside any block with the sender,
+whose "@First L." is in the text. Without that last check a client could mention someone invisibly
+and reach them through their mute.
+
+**What "no matter what" covers.** Each mentioned member gets a `chat_mention` row for that message
+instead of the ordinary `chat_message`:
+
+- **Right away:** `not_before = now()`, its own merge key (`mention:<message>:<user>`) outside the
+  10-second chat throttle, and its own `apns-collapse-id` (`mention:<message>`), so a later merged chat
+  push can't replace the banner. The merged chat push rebuilds its count and names without messages
+  that mention the recipient, so the same message isn't announced twice.
+- **Even with "Group chat messages" off** in Settings, which says so under the switch.
+- **Even in a muted game** (`rsvps.chat_muted`).
+- **Even in quiet hours.** It's someone asking you something now; the phone's own Focus decides
+  whether it breaks through. If the team wants mentions to wait for 08:00 like chat, it's one line in
+  `claim_notifications_ordered`.
+- **No daily cap,** like the rest of chat.
+
+**Still never sent** (checked at claim time, §2.2): a block either way with the sender, including one
+made after the message; someone who left the game; `app_config.chat_enabled` off; already read
+(`chat_reads.last_read_at` at or after the message); a message a moderator hid or a banned sender; no
+device token. The app's `willPresent` suppression hides it while that chat is on screen.
+
+**On the phone.** The push arrives as `"kind": "chat_message"` with `"mention": true`, so builds without
+mentions still draw it as a communication notification, route it to the chat and hide it while the chat is
+open. The alert reads "Maya C. mentioned you: …" ("Maya C. te mencionó: …"); the communication body,
+under the sender's name, is "Mentioned you: …" ("Te mencionó: …"). The extension sets
+`INSendMessageIntentDonationMetadata` with `mentionsCurrentUser` and `notifyRecipientAnyway` (and
+`recipientCount`) on the intent before donating it. The class is iOS 15+, so it's there on 18 and
+26+; iOS uses it to let the banner through a conversation muted on that phone and for Focus's
+"mentions" handling.
+
+**Volume and privacy.** At most 10 mentions per message, and the 20-a-minute send limit, bound what one
+sender can do; a person mentioned in every message of a burst gets one push per message. The push
+carries what a chat push carries (§3.4): the sender's name, the game and the text. `game_messages.mentions`
+omits IDs of people in a blocked pair with the reader. A deleted account's ID can stay in older
+messages' `mentions`, as an opaque ID with no name, until the message text is purged.
+
 ---
 
 ## 4. How it fits together
@@ -192,7 +246,7 @@ a group. `shared.myID` comes from the App Group (§6.2).
  game_activity insert  → cancelled / changed / host /      every 5 min  → reminder, saved_soon
                           full / interest_match            daily 17:00  → winback
  games update, seat opens → spot_open                    daily        → purge old rows
- chat_messages insert  → chat_message
+ chat_messages insert  → chat_message, chat_mention
  approve_signup        → signup_approved
             │
             ▼
@@ -217,7 +271,7 @@ Why the pieces:
   real time without calling the function 8,640 times a day for nothing. pg_cron supports
   second-level schedules on Supabase (check the version on both projects). If it doesn't, use a
   1-minute job plus a `net.http_post` "kick" from the chat trigger.
-- **`for update skip locked` and a 2-minute lease** (`locked_at`) let two runs overlap without
+- **`for update skip locked` and a 10-minute lease** (`locked_at`) let two runs overlap without
   sending anything twice.
 
 ---
@@ -310,11 +364,12 @@ into a pending row with the same `merge_key` (adding a name, bumping a count) or
 | Source | Kind | Notes |
 |---|---|---|
 | `game_activity` insert, `cancelled` | `game_cancelled` | Also drops pending rows for that game (reminder, changed, interest, spot, saved_soon) |
-| `game_activity` insert, `time_or_place_changed` / `meet_point_updated` | `game_changed` | `not_before = now() + 2 min`, merge key `changed:<game>:<user>`: several edits make one push with the final values, read at send time |
-| `game_activity` insert, `joined` / `left` | `host_update` | Merge key `host:<game>`, 5 min. If the join filled the game: `game_full` instead |
-| `game_activity` insert, `created` | `interest_match` | Campus members with the sport in `interests`, minus the host and blocked pairs. `not_before = now() + 3 min`, so a game cancelled or edited right away doesn't go out. The cap is checked at send time |
+| `game_activity` insert, `time_or_place_changed` / `meet_point_updated` | `game_changed` | `not_before = now() + 10 seconds`, merge key `changed:<game>:<user>`: several edits make one push with the final values, read at send time |
+| `game_activity` insert, `joined` / `left` | `host_update` | Merge key `host:<game>`, 10 seconds; one latest action per participant ID. If the join filled the game: `game_full` instead |
+| `game_activity` insert, `created` | `interest_match` | Campus members with the sport in `interests`, minus the host and blocked pairs. `not_before = now() + 10 seconds`, so a game cancelled or edited right away doesn't go out. The cap is checked at send time |
 | `games` update where a full game gains a free seat | `spot_open` | `bookmarks.notify` holders who aren't going, whether or not auto-repost bumps the pin. Clears their `notify` once sent: one alert per "Notify me" |
-| `chat_messages` insert | `chat_message` | Members except the sender, not muted, not blocked. Merge key `chat:<game>:<user>`, `not_before` now for the first, +2 min after that (§3.4) |
+| `chat_messages` insert | `chat_message` | Members except the sender, not muted, not blocked, not mentioned in it. Merge key `chat:<game>:<user>`, `not_before` now for the first, +10 seconds after that (§3.4) |
+| `chat_messages` insert | `chat_mention` | Each member in `mentions`, muted or not. Merge key `mention:<message>:<user>`, written once, `not_before` now, collapse ID `mention:<message>` (§3.5) |
 | `private.approve_signup` | `signup_approved` | To every token of that auth user |
 | cron, every 5 min | `reminder`, `saved_soon` | Games starting in 25–35 min (2 h for saved). Dedupe key includes `starts_at`, so a moved game reminds again at its new time |
 | cron, daily | `winback` | `last_seen_at` over 10 days ago, opted in, campus has 2 or more open games in the next 3 days (in their sports, if any). Sent 17:00 campus time, Tue–Thu |
@@ -322,10 +377,22 @@ into a pending row with the same `merge_key` (adding a name, bumping a count) or
 Triggers never fail the write. Like the Realtime pings, a failure raises a warning and returns
 (`exception when others`).
 
+Host summaries store `roster_changes` keyed by participant UUID, with each person's latest name
+and `joined`/`left` action. New actions replace that person's earlier action instead of appending
+names; two different people sharing a display name stay distinct. `joined` and `left` arrays are
+also derived for sender compatibility. A departure invalidates any still-pending `game_full`
+alert. The sender uses the current game context for the number of available spots.
+
+Migration `20261118000000_reconcile_host_notification_roster.sql` repairs pending legacy host
+summaries from their activity window and current RSVP membership. If a repaired row is already
+claimed, its claim identity is preserved and a corrected resend is armed. Already-delivered
+notifications cannot be rewritten by this queue repair.
+
 ### 5.4 `send-push` (Edge Function)
 
-- **Claim:** `private.claim_notifications(100)` applies §2.2 and returns the due rows that pass, each
-  with its tokens. Rows that fail get `dropped = '<reason>'`.
+- **Claim:** service-role RPC `public.claim_notifications_v2(100)` applies §2.2 and returns the due rows that pass, each
+  with its tokens and opaque `claim_token`. Completion/release must return that token; stale
+  workers cannot change a newer attempt or delete its device tokens. Rows that fail get `dropped = '<reason>'`.
 - **Text:** a TypeScript table of templates per kind and language (`en`, `es`), filled from the
   payload. Names are always "First L.".
 - **APNs:** `POST https://api.push.apple.com/3/device/<token>` (`api.sandbox.push.apple.com` for
@@ -336,6 +403,11 @@ Triggers never fail the write. Like the Realtime pings, a failure raises a warni
   So keep the JWT in a private table, and only sign a new one when the stored one is 50 minutes old.
 - **HTTP/2:** APNs only speaks HTTP/2. Deno's `fetch` negotiates it with ALPN; that's the first
   thing the 1-hour spike checks (§10, step 1). Fallback: `node:http2` in Deno.
+- **Budgets:** at most 8 actual APNs requests across all rows/devices; each request and its body
+  share a 5-second deadline. Stop starting work after a 25-second batch budget; unattempted
+  devices produce retry results. SQL claims retain the ten-minute recovery lease.
+- **Partial success:** a row is sent when at least one device accepts it, preserving the existing
+  policy. Other transient device failures are not separately retried after row success.
 - **Results:** `200` → `sent_at`. `410` or `400 BadDeviceToken` → delete the token. `429` / `5xx` →
   `attempts + 1` and `not_before = now() + 2^attempts min`, up to 3 attempts. Then `error`.
 - **Secrets** (Supabase, never in the repo): `APNS_KEY_P8`, `APNS_KEY_ID`, `APNS_TEAM_ID`. The cron
@@ -374,6 +446,11 @@ Chat (the extension rewrites it, §3):
   "body": "I'll bring the ball", "count": 1
 }
 ```
+
+A mention (`chat_mention` in the outbox) is the same shape with `"kind": "chat_message"` and
+`"mention": true`, `apns-collapse-id: mention:<message>`, a relevance score of 0.9, the alert body
+"Maya C. mentioned you: @Sam L. can you bring the ball?", `"body": "Mentioned you: @Sam L. can you
+bring the ball?"` and `"count": 1` (`masUNONotifications/Samples/chat_mention.apns`).
 
 Keep payloads under APNs's 4 KB limit: chat bodies are at most 1,000 characters, and `others` holds
 at most two people.
@@ -460,7 +537,8 @@ Synced Saved goes on `GameRepository`: `setBookmark`, `setSpotAlert`, `importBoo
 A "Notifications" section above Privacy & safety, in SPEC §7.6.7's order plus the new rows:
 Games that match your sports · A spot opens up · Game reminders · Updates on games you host ·
 Group chat messages · Tips to play (off). Cancellations, changes and "You're in" are always on;
-a footnote says so.
+a footnote says so. Under "Group chat messages": "You're still notified when someone mentions you."
+(§3.5).
 
 ---
 
@@ -479,6 +557,7 @@ Spanish is a first draft for Ricardo.
 | `spot_open` | **A spot opened** · {game} · {when} | **Se abrió un lugar** · {game} · {when} |
 | `interest_match` | **New {sport} game at {campus}** · {game} · {when} · room for {n} | **Nuevo partido de {sport} en {campus}** · {game} · {when} · hay lugar para {n} |
 | `chat_message` | **{game}** · {name}: {body} | **{game}** · {name}: {body} |
+| `chat_mention` | **{game}** · {name} mentioned you: {body} | **{game}** · {name} te mencionó: {body} |
 | `signup_approved` | **You're in** · Set up your profile and find a game. | **Ya estás dentro** · Completa tu perfil y encuentra un partido. |
 | `winback` | **{n} games at {campus} this week** · {k} {sport}. Room for one more? | **{n} partidos en {campus} esta semana** · {k} de {sport}. ¿Hay lugar para uno más? |
 | `saved_soon` | **Still room in {game}** · Starts in 2 h · room for {n} | **Aún hay lugar en {game}** · Empieza en 2 h · hay lugar para {n} |

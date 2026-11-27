@@ -547,6 +547,7 @@ struct InviteAndBadgeStoreTests {
             defaults: UserDefaults(suiteName: "InviteAndBadgeStoreTests.\(UUID().uuidString)")!
         )
         await store.load()
+        await store.loadInvites()
     }
 
     @Test func loadFillsThreeCodesAndMarksTheUsedOne() {

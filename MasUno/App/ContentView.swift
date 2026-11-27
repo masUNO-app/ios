@@ -5,6 +5,8 @@ import SwiftUI
 struct ContentView: View {
     @State private var store: GameStore
     @State private var appViewModel: AppViewModel
+    @State private var language = LanguageSettings.shared
+    @State private var appearance = AppearanceSettings.shared
     @Environment(\.scenePhase) private var scenePhase
     private let services: AppServices
     private let notifications: NotificationCenterBridge
@@ -36,17 +38,22 @@ struct ContentView: View {
             NoticeBanner()
                 .padding(.bottom, showsNoticeAtBottom ? 84 : 0)
         }
-        .animation(.snappy, value: store.notice)
+        .motionAwareAnimation(.snappy, value: store.notice)
         .environment(store)
         .environment(appViewModel)
-        .environment(appViewModel.push!)
+        .environment(services.push)
+        .environment(language)
+        .environment(appearance)
+        .environment(\.locale, language.locale)
         .environment(\.currentUserID, store.profile?.id)
         .tint(Theme.accent)
         // SF Pro Rounded throughout (SPEC §7.7.2, R7-10).
         .fontDesign(.rounded)
-        // Light mode only (SPEC §7.1).
-        .preferredColorScheme(.light)
+        // The phone's light or dark, unless Settings › Appearance picks one (SPEC §7.7.2).
+        .onAppear { appearance.apply() }
         .onOpenURL { appViewModel.handle($0) }
+        .onChange(of: appViewModel.path, initial: true) { _, _ in retainNavigationGames() }
+        .onChange(of: appViewModel.sheet) { _, _ in retainNavigationGames() }
         .task { await launch() }
         // Onboarding finished. `launch()` handles an already signed-in session.
         .onChange(of: appViewModel.session) { old, new in
@@ -57,9 +64,14 @@ struct ContentView: View {
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
+                language.refreshDeviceLanguage()
                 Task {
                     await appViewModel.finishPendingSignOutIfNeeded()
                     guard appViewModel.session == .signedIn || appViewModel.session == .guest else { return }
+                    // Browsing while in line: the team may have let them in since.
+                    if appViewModel.session == .guest, appViewModel.isWaitingInLine {
+                        try? await appViewModel.auth.refreshStatus()
+                    }
                     await store.refresh()
                     if appViewModel.session == .signedIn {
                         await appViewModel.push?.refreshRegistration(force: false)
@@ -67,40 +79,59 @@ struct ContentView: View {
                 }
             }
         }
-        .sheet(isPresented: Binding(
+        .onChange(of: language.language) { _, _ in
+            services.push.registerCategories()
+            Task { await services.push.refreshRegistration(force: true) }
+        }
+        // The same dialog card as the location primer. It needs an answer: Turn on and Not now
+        // record themselves, so closing only ends this ask.
+        .dialog(isPresented: Binding(
             get: {
                 store.asksForNotificationPrimer && appViewModel.push?.shouldOfferPrimer(accountID: store.profile?.id) == true
             },
             set: { presented in
-                guard !presented else { return }
-                // A drag-away is the same as Not now. Turn on sets the accepted flag first.
-                appViewModel.push?.recordPrimerClose(
-                    accepted: store.notificationPrimerAccepted, accountID: store.profile?.id
-                )
-                store.notificationPrimerAccepted = false
-                store.asksForNotificationPrimer = false
+                if !presented { store.asksForNotificationPrimer = false }
             }
-        )) {
-            NotificationPrimerSheet()
+        ), isDismissable: false) {
+            NotificationPrimerDialog()
+                .environment(store)
+                .environment(services.push)
         }
         .dialog(item: Bindable(appViewModel).accountPrompt) { prompt in
-            DialogCard(
-                systemImage: "checkmark.shield",
-                title: Text(verbatim: prompt.title),
-                message: Text(verbatim: prompt.message),
-                confirm: DialogAction("Create account") {
-                    appViewModel.endGuestBrowsing(resume: .signUp, store: store)
-                },
-                cancel: DialogAction("I already have an account") {
-                    appViewModel.endGuestBrowsing(resume: .signIn, store: store)
-                },
-                tertiary: prompt == .me && appViewModel.canSwitchGuestCampus
-                    ? DialogAction("Browse another campus") {
-                        appViewModel.endGuestBrowsing(resume: .guestCampus, store: store)
-                    }
-                    : nil
-            )
+            if appViewModel.isWaitingInLine {
+                // Browsing while in line: the account is made, it's just not in yet.
+                DialogCard(
+                    systemImage: "ticket",
+                    title: Text("You're still in line"),
+                    message: Text("Joining, saving and making plans open up once you're in. We'll let you know."),
+                    confirm: DialogAction("Back to the line") {
+                        appViewModel.endGuestBrowsing(store: store)
+                    },
+                    cancel: DialogAction("Keep browsing")
+                )
+            } else {
+                accountCard(prompt)
+            }
         }
+    }
+
+    private func accountCard(_ prompt: AppViewModel.AccountPrompt) -> some View {
+        DialogCard(
+            systemImage: "checkmark.shield",
+            title: Text(verbatim: prompt.title),
+            message: Text(verbatim: prompt.message),
+            confirm: DialogAction("Create account") {
+                appViewModel.endGuestBrowsing(resume: .signUp, store: store)
+            },
+            cancel: DialogAction("I already have an account") {
+                appViewModel.endGuestBrowsing(resume: .signIn, store: store)
+            },
+            tertiary: prompt == .me && appViewModel.canSwitchGuestCampus
+                ? DialogAction("Browse another campus") {
+                    appViewModel.endGuestBrowsing(resume: .guestCampus, store: store)
+                }
+                : nil
+        )
     }
 
     private var showsNoticeAtBottom: Bool {
@@ -108,10 +139,25 @@ struct ContentView: View {
             && appViewModel.path.isEmpty && appViewModel.sheet == nil
     }
 
+    private func retainNavigationGames() {
+        var ids = Set(appViewModel.path.compactMap { route -> UUID? in
+            switch route {
+            case .game(let id), .chat(let id): return id
+            default: return nil
+            }
+        })
+        switch appViewModel.sheet {
+        case .gameForm(let id): if let id { ids.insert(id) }
+        case .playAgain(let id): ids.insert(id)
+        case .practicePlan, nil: break
+        }
+        store.retainGames(ids)
+    }
+
     private func launch() async {
         store.onSessionProblem = { [auth = appViewModel.auth] in Task { await auth.restoreSession() } }
         appViewModel.push?.onOpen = { url in
-            if let url { appViewModel.handle(url) }
+            appViewModel.deliverPushRoute(url)
         }
         appViewModel.push?.onRefreshGame = { id in Task { await store.loadGame(id) } }
         await appViewModel.start()
@@ -138,8 +184,11 @@ struct ContentView: View {
     private func loadSignedIn() async {
         await store.load()
         appViewModel.push?.noteAccount(store.profile?.id)
-        await appViewModel.push?.refreshRegistration(force: true)
+        appViewModel.openPracticePlanIfKept()
+        // Routing is useful immediately; device registration must not delay a tapped game.
         appViewModel.deliverPushRoute(appViewModel.push?.consumePendingRoute())
+        // Notification services can be slow or unavailable. Navigation must not wait for them.
+        Task { await appViewModel.push?.refreshRegistration(force: true) }
         await store.markBetaTesterIfNeeded(isTestFlight: await BuildChannel.isTestFlight)
     }
 
@@ -156,6 +205,7 @@ struct ContentView: View {
                     case .settings: SettingsView()
                     case .blockedPeople: BlockedPeopleView()
                     case .guidelines: CommunityGuidelinesView()
+                    case .leaderboard: LeaderboardView()
                     #if DEBUG
                     case .gallery: ComponentGallery()
                     #endif
@@ -167,14 +217,23 @@ struct ContentView: View {
             switch sheet {
             case .gameForm(let id): GameFormSheet(editing: id.flatMap { store.game($0) })
             case .playAgain(let id): GameFormSheet(template: store.game(id))
+            case .practicePlan(let plan): GameFormSheet(practice: plan)
             }
         }
     }
 }
 
 /// Short toast for failed actions and confirmations ("Saved. Find it under bookmarks.").
-private struct NoticeBanner: View {
+struct NoticeBanner: View {
     @Environment(GameStore.self) private var store
+    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    /// Four seconds is too short to hear or read it all with VoiceOver or at the largest text sizes
+    /// (WCAG 2.2.1). Tapping still dismisses it sooner.
+    static func duration(voiceOver: Bool, typeSize: DynamicTypeSize) -> Duration {
+        voiceOver || typeSize.isAccessibilitySize ? .seconds(10) : .seconds(4)
+    }
 
     var body: some View {
         if let notice = store.notice {
@@ -184,13 +243,15 @@ private struct NoticeBanner: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 20)
                 .padding(.vertical, 13)
-                .glassEffect(.regular, in: .capsule)
+                .appGlass(in: .capsule)
                 .padding(.horizontal, Theme.gutter)
-                .transition(.scale(scale: 0.9).combined(with: .opacity))
+                .motionAwareTransition(scale: 0.9)
                 .onTapGesture { store.notice = nil }
                 .accessibilityAddTraits(.isStaticText)
                 .task(id: notice) {
-                    try? await Task.sleep(for: .seconds(4))
+                    // It appears without taking focus, so VoiceOver would otherwise say nothing.
+                    Announce.post(notice)
+                    do { try await Task.sleep(for: Self.duration(voiceOver: voiceOver, typeSize: typeSize)) } catch { return }
                     store.notice = nil
                 }
         }

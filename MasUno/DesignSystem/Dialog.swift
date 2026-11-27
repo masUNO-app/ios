@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// The 1.0 dialog: a card in the middle of the screen with an icon, a title, a sentence or two
-/// and stacked pills (Figma "Leave game", "Before you chat", "Block", "Sign out"…). Present it
+/// and stacked pills (Figma "Leave plan", "Before you chat", "Block", "Sign out"…). Present it
 /// with `.dialog(isPresented:)` or `.dialog(item:)`.
 struct DialogCard<Content: View>: View {
     enum Tone {
@@ -20,7 +20,7 @@ struct DialogCard<Content: View>: View {
         var icon: Color {
             switch self {
             case .friendly: Theme.accent
-            case .destructive: Theme.destructive
+            case .destructive: Theme.destructiveText
             case .tinted: Theme.ink
             }
         }
@@ -49,6 +49,19 @@ struct DialogCard<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
+        // Scrolls only when it doesn't fit, as at the largest text sizes (A11Y-06).
+        ViewThatFits(in: .vertical) {
+            card
+            ScrollView { card }
+                .scrollBounceBehavior(.basedOnSize)
+                .clipShape(.rect(cornerRadius: Theme.Radius.dialog))
+        }
+        .frame(maxWidth: 354, alignment: .leading)
+        .background(Theme.card, in: .rect(cornerRadius: Theme.Radius.dialog))
+        .shadow(color: Theme.shadow, radius: 24, y: 8)
+    }
+
+    private var card: some View {
         VStack(alignment: .leading, spacing: 12) {
             Image(systemName: systemImage)
                 .font(.title3.weight(.medium))
@@ -79,6 +92,8 @@ struct DialogCard<Content: View>: View {
                 if let cancel {
                     Button(cancel.title) { closeDialog(cancel.perform) }
                         .pill(.secondary)
+                        // Esc picks it, as in a system alert (A11Y-20).
+                        .keyboardShortcut(.cancelAction)
                 }
                 if let tertiary {
                     Button(tertiary.title) { closeDialog(tertiary.perform) }
@@ -89,9 +104,7 @@ struct DialogCard<Content: View>: View {
         }
         .multilineTextAlignment(.leading)
         .padding(22)
-        .frame(maxWidth: 354, alignment: .leading)
-        .background(Theme.card, in: .rect(cornerRadius: Theme.Radius.dialog))
-        .shadow(color: Theme.shadow, radius: 24, y: 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -172,6 +185,7 @@ private struct DialogPresenter<Item: Identifiable, Card: View>: ViewModifier {
     /// What the cover shows. Trails `item` so the card can animate out before the cover goes.
     @State private var presented: Item?
     @State private var isShown = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func body(content: Content) -> some View {
         content
@@ -188,19 +202,21 @@ private struct DialogPresenter<Item: Identifiable, Card: View>: ViewModifier {
                         card(item)
                             .environment(\.closeDialog, CloseDialogAction { close($0) })
                             .padding(.horizontal, 24)
-                            .scaleEffect(isShown ? 1 : 0.92)
-                            .opacity(isShown ? 1 : 0)
+                            // Only fades under Reduce Motion (A11Y-18).
+                            .motionAwareScale(isShown: isShown, from: 0.92)
                             // One modal container. The trait on the card alone lands on each of
                             // its elements, and each modal element hides the others from
                             // VoiceOver, so only the last button ("Not now") could be reached.
                             .accessibilityElement(children: .contain)
                             .accessibilityAddTraits(.isModal)
+                            // VoiceOver's two-finger scrub, like a tap on the scrim (A11Y-20).
+                            .accessibilityAction(.escape) { if isDismissable { close {} } }
                             .padding(Self.insets(avoiding: proxy.activeFold, in: proxy.size))
                     }
                     .frame(width: proxy.size.width, height: proxy.size.height)
                 }
                 .presentationBackground(.clear)
-                .onAppear { withAnimation(.spring(duration: 0.3, bounce: 0.2)) { isShown = true } }
+                .onAppear { withAnimation(.motionAware(.spring(duration: 0.3, bounce: 0.2), reduceMotion: reduceMotion)) { isShown = true } }
             }
             .onChange(of: item?.id, initial: true) {
                 if let item {

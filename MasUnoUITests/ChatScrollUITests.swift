@@ -1,0 +1,86 @@
+import XCTest
+
+/// Keep the latest conversation visible through keyboard and composer layout changes.
+final class ChatScrollUITests: XCTestCase {
+    @MainActor private func launchChat() -> XCUIApplication {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["-liveAuth", "NO", "-esports", "NO", "-mockLocation", "YES", "-screen", "chat-long",
+                               "-chatScrollUITest", "YES",
+                               "-appLanguage", "system", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+        return app
+    }
+
+    @MainActor func testTypingInLongChatKeepsLatestMessagesVisible() {
+        let app = launchChat()
+        defer { app.terminate() }
+
+        let latest = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Message 60")).firstMatch
+        assertVisible(latest)
+        let composer = app.descendants(matching: .any).matching(identifier: "chat-composer").firstMatch
+        XCTAssertTrue(composer.waitForExistence(timeout: 5), app.debugDescription)
+        composer.tap()
+        assertVisible(latest)
+        composer.typeText("Checking the chat while I type a longer message that wraps onto multiple lines in the composer.")
+        assertVisible(latest)
+        XCTAssertLessThanOrEqual(latest.frame.maxY, composer.frame.minY)
+        XCTAssertTrue(app.keyboards.firstMatch.exists)
+
+        app.buttons["chat-test-receive"].tap()
+        let incoming = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "New live message")).firstMatch
+        assertVisible(incoming)
+        XCTAssertTrue((composer.value as? String)?.contains("Checking the chat") == true, "A live refresh must retain the draft")
+        XCTAssertTrue(app.keyboards.firstMatch.exists)
+
+        app.buttons["Send"].tap()
+        let sent = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Checking the chat while I type")).firstMatch
+        XCTAssertFalse((composer.value as? String)?.contains("Checking the chat") == true)
+        assertVisible(sent)
+    }
+
+    @MainActor func testReadingOlderMessagesIsPreservedWhileTypingAndReceiving() {
+        let app = launchChat()
+        defer { app.terminate() }
+        let latest = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Message 60")).firstMatch
+        assertVisible(latest)
+        // One slow swipe can be undone by the chat's own first jump to the latest message when the
+        // simulator is busy, so swipe until the latest is off screen.
+        for _ in 0..<3 where latest.isHittable {
+            app.scrollViews.firstMatch.swipeDown(velocity: .slow)
+        }
+        XCTAssertFalse(latest.isHittable)
+        // Bubbles read "Sam L.: Message 12".
+        let messages = app.staticTexts.matching(NSPredicate(format: "label MATCHES %@", ".*: Message [0-9]+"))
+        guard let visible = messages.allElementsBoundByIndex.first(where: \.isHittable) else {
+            XCTFail("Expected an older message on screen")
+            return
+        }
+        let anchor = app.staticTexts[visible.label]
+        let composer = app.descendants(matching: .any).matching(identifier: "chat-composer").firstMatch
+        composer.tap()
+        composer.typeText("Replying while reading earlier messages")
+        assertVisible(anchor)
+        app.buttons["chat-test-receive"].tap()
+        let latestMessage = app.descendants(matching: .any).matching(identifier: "chat-test-latest").firstMatch
+        let refreshed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "New live message"), object: latestMessage)
+        XCTAssertEqual(XCTWaiter.wait(for: [refreshed], timeout: 20), .completed)
+        assertVisible(anchor)
+        XCTAssertFalse(latest.isHittable, "Receiving must not pull someone away from older messages")
+
+        app.buttons["Send"].tap()
+        let sent = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Replying while reading earlier messages")).firstMatch
+        XCTAssertFalse((composer.value as? String)?.contains("Replying while reading") == true)
+        assertVisible(sent)
+    }
+
+    /// 20 s, like the launch waits: on a loaded CI runner one hittable lookup can take 3 s or more, so a
+    /// 5 s wait can time out before its first answer even though the message is on screen. The wait still
+    /// returns as soon as the element is visible.
+    @MainActor private func assertVisible(_ element: XCUIElement, timeout: TimeInterval = 20,
+                                         file: StaticString = #filePath, line: UInt = #line) {
+        let visible = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == true AND hittable == true"), object: element)
+        XCTAssertEqual(XCTWaiter.wait(for: [visible], timeout: timeout), .completed,
+                       "Latest messages must remain visible while composing", file: file, line: line)
+    }
+}

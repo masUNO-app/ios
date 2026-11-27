@@ -8,8 +8,18 @@ private struct GateScreen<Actions: View>: View {
     @ViewBuilder var actions: Actions
 
     var body: some View {
+        // Scrolls when it doesn't fit, as at the largest text sizes (A11Y-06).
+        ViewThatFits(in: .vertical) {
+            column(centered: true)
+            ScrollView { column(centered: false) }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Theme.background)
+    }
+
+    private func column(centered: Bool) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            Spacer()
+            if centered { Spacer() }
             Image(systemName: systemImage)
                 .font(.title.weight(.medium))
                 .foregroundStyle(Theme.accent)
@@ -19,18 +29,21 @@ private struct GateScreen<Actions: View>: View {
             Text(title)
                 .font(.rounded(.largeTitle, .bold))
                 .foregroundStyle(Theme.ink)
+                .accessibilityAddTraits(.isHeader)
             Text(message)
                 .font(.rounded(.body))
                 .foregroundStyle(Theme.muted)
-            Spacer()
-            Spacer()
+            if centered {
+                Spacer()
+                Spacer()
+            }
             actions
         }
         .padding(.horizontal, Theme.gutter)
+        .padding(.top, centered ? 0 : 24)
         .padding(.bottom, 16)
         .frame(maxWidth: Theme.columnWidth, alignment: .leading)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Theme.background)
+        .frame(maxWidth: .infinity, maxHeight: centered ? .infinity : nil)
     }
 }
 
@@ -42,7 +55,7 @@ struct UpdateRequiredView: View {
         GateScreen(
             systemImage: "arrow.down.app",
             title: "Update masUNO",
-            message: "This version is no longer supported. Update to keep finding games."
+            message: "This version is no longer supported. Update to keep finding plans."
         ) {
             Button("Update") { openURL(AppConfig.appStoreURL) }
                 .pill(.primary)

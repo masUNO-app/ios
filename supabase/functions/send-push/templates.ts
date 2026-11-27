@@ -8,6 +8,9 @@ export interface NotificationContext {
     sport_en?: string;
     sport_es?: string;
     emoji?: string;
+    /** The activity's catalog color, "#RRGGBB", and its dark-mode one when it has one. */
+    color?: string | null;
+    color_dark?: string | null;
     starts_at?: string;
     place?: string;
     meet_point?: string | null;
@@ -25,6 +28,7 @@ export interface NotificationContext {
 
 export interface NotificationPayloadData {
     actor_id?: string;
+    roster_changes?: Record<string, { name: string; action: "joined" | "left" }>;
     joined?: string[];
     left?: string[];
     spots_left?: number;
@@ -37,6 +41,8 @@ export interface NotificationPayloadData {
     body?: string;
     count?: number;
     message_at?: string;
+    /** A mention's message (`chat_mention`). */
+    message_id?: string;
     others?: { id: string; name: string }[];
     games?: number;
     campus?: string;
@@ -65,6 +71,19 @@ export function joinNames(names: string[] | undefined, language: Language): stri
     const conjunction = language === "es" ? "y" : "and";
     if (clean.length === 2) return `${clean[0]} ${conjunction} ${clean[1]}`;
     return `${clean.slice(0, -1).join(", ")} ${conjunction} ${clean[clean.length - 1]}`;
+}
+
+/** The communication header already identifies the sender. */
+export function chatMessageBody(locale: string, payload: NotificationPayloadData): string {
+    const count = payload.count ?? 1;
+    if (count <= 1) return payload.body ?? "";
+    return languageOf(locale) === "es" ? `${count} mensajes nuevos` : `${count} new messages`;
+}
+
+/** A mention, under the sender's name in the Messages-style banner: "Mentioned you: …". */
+export function mentionBody(locale: string, payload: NotificationPayloadData): string {
+    const text = payload.body ?? "";
+    return languageOf(locale) === "es" ? `Te mencionó: ${text}` : `Mentioned you: ${text}`;
 }
 
 /**
@@ -102,7 +121,7 @@ function sportLabel(context: NotificationContext, payload: NotificationPayloadDa
 }
 
 function spots(context: NotificationContext, payload: NotificationPayloadData): number {
-    return payload.spots_left ?? context.spots_left ?? 0;
+    return context.spots_left ?? payload.spots_left ?? 0;
 }
 
 /**
@@ -126,11 +145,18 @@ export function renderAlert(
     const capacity = payload.capacity ?? context.capacity ?? 0;
     const going = payload.going ?? context.going_count ?? capacity;
 
+    if (kind === "chat_mention") {
+        const sender = payload.sender_name ?? "";
+        const text = payload.body ?? "";
+        const body = language === "es" ? `${sender} te mencionó: ${text}` : `${sender} mentioned you: ${text}`;
+        return { title: game, body: body.trim() };
+    }
+
     if (kind === "chat_message") {
         const count = payload.count ?? 1;
         const names = joinNames(payload.names?.length ? payload.names : [payload.sender_name ?? ""], language);
         if (count > 1) {
-            const summary = language === "es" ? `${count} mensajes nuevos` : `${count} new messages`;
+            const summary = chatMessageBody(locale, payload);
             return { title: game, body: names ? `${names} · ${summary}` : summary };
         }
         return { title: game, body: `${payload.sender_name ?? names}: ${payload.body ?? ""}`.trim() };
@@ -207,25 +233,22 @@ function hostUpdate(
     room: number,
     payload: NotificationPayloadData,
 ): AlertCopy {
-    const joined = payload.joined ?? [];
-    const left = payload.left ?? [];
-    const names = joinNames(joined.length ? joined : left, language);
+    const members = payload.roster_changes ? Object.values(payload.roster_changes) : undefined;
+    // New payloads preserve identity: two distinct people may legitimately share a display name.
+    // Legacy payloads have no identity map, so at least suppress repeated identical labels.
+    const joined = members
+        ? members.filter((member) => member.action === "joined").map((member) => member.name)
+        : [...new Set(payload.joined ?? [])];
+    const left = members
+        ? members.filter((member) => member.action === "left").map((member) => member.name)
+        : [...new Set(payload.left ?? [])];
+    const parts: string[] = [];
     if (language === "es") {
-        const verb = joined.length && !left.length
-            ? "se unió"
-            : !joined.length && left.length
-            ? "se fue"
-            : "cambió";
-        const title = joined.length > 1
-            ? `${joinNames(joined, language)} se unieron`
-            : left.length > 1 && !joined.length
-            ? `${joinNames(left, language)} se fueron`
-            : `${names} ${verb}`;
-        return { title, body: `${game} · quedan ${room} lugares` };
+        if (joined.length) parts.push(`${joinNames(joined, language)} ${joined.length > 1 ? "se unieron" : "se unió"}`);
+        if (left.length) parts.push(`${joinNames(left, language)} ${left.length > 1 ? "se fueron" : "se fue"}`);
+        return { title: parts.join(", ") || "Cambió tu juego", body: `${game} · quedan ${room} lugares` };
     }
-    const verb = joined.length ? "joined" : "left";
-    const title = joined.length && left.length
-        ? `${joinNames(joined, language)} joined, ${joinNames(left, language)} left`
-        : `${names} ${verb}`;
-    return { title, body: `${game} · ${room} spots left` };
+    if (joined.length) parts.push(`${joinNames(joined, language)} joined`);
+    if (left.length) parts.push(`${joinNames(left, language)} left`);
+    return { title: parts.join(", ") || "Your game changed", body: `${game} · ${room} spots left` };
 }

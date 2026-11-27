@@ -29,8 +29,8 @@ select is(public.waitlist_join('a-secret-that-is-long-enough-0123456789', 'a1@te
     '{"ok": false, "error": "bad_secret"}'::jsonb, 'without a secret in Vault, every join is refused');
 select is(public.waitlist_export('a-secret-that-is-long-enough-0123456789'), '[]'::jsonb, 'and the export is empty');
 select lives_ok($$
-    select public.before_user_created('{"user":{"email":"early@tec.mx","app_metadata":{"provider":"email"}}}');
-    select public.before_user_created('{"user":{"email":"gone@tec.mx","app_metadata":{"provider":"email"}}}');
+    select private.signup_verified('early@tec.mx');
+    select private.signup_verified('gone@tec.mx');
     select private.approve_signup('early@tec.mx');
     select private.reject_signup('gone@tec.mx');
 $$, 'without the Vault entries, sign-ups, approvals and rejections still work');
@@ -83,11 +83,11 @@ select public.waitlist_join('test-waitlist-secret-0123456789abcdef', 'old@tec.mx
 select is((pg_temp.request('future@tec.mx')).requested_at, now(), 'a join time in the future counts as now');
 select is((pg_temp.request('old@tec.mx')).requested_at, now(), 'so does one from before the waitlist existed');
 
--- Anton signs up in the app the day after Wendy's website join.
+-- Anton signs up in the app the day after Wendy's website join, and enters his code.
 insert into auth.users (id, email) values
     ('a0000000-0000-4000-8000-00000000000a', 'anton@tec.mx'),
     ('f0000000-0000-4000-8000-00000000000f', 'future@tec.mx');
-select public.before_user_created('{"user":{"email":"anton@tec.mx","app_metadata":{"provider":"email"}}}');
+select private.signup_verified('anton@tec.mx');
 update private.signup_requests set requested_at = '2026-11-09T00:00:00Z' where email = 'anton@tec.mx';
 
 -- Places agree between the website and the app: Wendy, Anton, then future and old (same time, by email).
@@ -103,18 +103,19 @@ reset role;
 select is(public.waitlist_join('test-waitlist-secret-0123456789abcdef', 'future@tec.mx', now(), 'website') -> 'position',
     '3'::jsonb, 'and the website gets the same answer');
 
--- Wendy signs up in the app: she keeps her place and waits, and now the team hears about her.
+-- Wendy signs up in the app and enters her code: she keeps her place and waits, and now the team
+-- hears about her.
 select vault.create_secret('https://discord.example/api/webhooks/test', 'signup_alert_webhook_url');
-select is(public.before_user_created('{"user":{"email":"wendy@tec.mx","app_metadata":{"provider":"email"}}}'),
-    '{}'::jsonb, 'a website email signs up in the app');
+select lives_ok($$ select private.signup_verified('wendy@tec.mx') $$, 'a website email verifies in the app');
 select ok((select source = 'website' and requested_at = '2026-11-08T10:00:00Z' from pg_temp.request('wendy@tec.mx')),
     'and keeps its website request and time');
 select is((select convert_from(body, 'utf8')::jsonb ->> 'content' from net.http_request_queue
            where url = 'https://discord.example/api/webhooks/test' order by id desc limit 1),
-    E'New sign-up waiting for approval: wendy@tec.mx\nApprove: `select private.approve_signup(''wendy@tec.mx'');`\nReject: `select private.reject_signup(''wendy@tec.mx'');`\nRun one in the Supabase SQL editor.',
-    'the team gets the approval alert now there''s an account');
+    format(E'New sign-up waiting for approval (email verified): w•••@tec.mx\nApprove: `select private.approve_signup(email) from private.signup_requests where id = %L;`\nReject: `select private.reject_signup(email) from private.signup_requests where id = %L;`\nRun one in the Supabase SQL editor.',
+           (pg_temp.request('wendy@tec.mx')).id, (pg_temp.request('wendy@tec.mx')).id),
+    'the team gets the approval alert now there''s an account, without her email');
 create temp table q2 on commit drop as select pg_temp.queued() as n;
-select public.before_user_created('{"user":{"email":"anton@tec.mx","app_metadata":{"provider":"email"}}}');
+select private.signup_verified('anton@tec.mx');
 select is(pg_temp.queued() - (select n from q2), 0::bigint, 'an app request that''s already waiting isn''t alerted twice');
 insert into auth.users (id, email) values ('e0000000-0000-4000-8000-00000000000e', 'wendy@tec.mx');
 set local role authenticated;
@@ -127,8 +128,7 @@ reset role;
 select public.waitlist_join('test-waitlist-secret-0123456789abcdef', 'vic@tec.mx', '2026-11-11T00:00:00Z', 'website');
 select is(private.approve_signup('vic@tec.mx'), 'Approved vic@tec.mx', 'a website email can be approved in advance');
 create temp table q3 on commit drop as select count(*) as n from net.http_request_queue where url like 'https://discord.example/%';
-select is(public.before_user_created('{"user":{"email":"vic@tec.mx","app_metadata":{"provider":"email"}}}'), '{}'::jsonb,
-    'then he signs up in the app');
+select lives_ok($$ select private.signup_verified('vic@tec.mx') $$, 'then he signs up in the app and enters his code');
 select is((select count(*) from net.http_request_queue where url like 'https://discord.example/%') - (select n from q3), 0::bigint,
     'with no approval alert');
 insert into auth.users (id, email) values ('c0000000-0000-4000-8000-00000000000c', 'vic@tec.mx');

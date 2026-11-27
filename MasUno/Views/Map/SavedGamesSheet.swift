@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Figma "Saved games", from the bookmark button on the map (E17). A full game you asked to
+/// Figma "Saved plans", from the bookmark button on the map (E17). A full game you asked to
 /// hear about shows "Spot alert is on" in place of "Count me in".
 struct SavedGamesSheet: View {
     @Environment(GameStore.self) private var store
@@ -15,24 +15,19 @@ struct SavedGamesSheet: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 SheetHeader(
-                    title: Text("Saved games"),
-                    subtitle: Text("Turn on a spot alert and we'll tell you when a full game opens up.")
+                    title: Text("Saved plans"),
+                    subtitle: Text("Turn on a spot alert and we'll tell you when a full plan opens up.")
                 ) { dismiss() }
 
                 if games.isEmpty {
-                    EmptyCard(title: "Nothing saved yet", message: "Tap the bookmark on a game to keep it here.") {
-                        Button("Find a game") { dismiss() }
+                    EmptyCard(title: "Nothing saved yet", message: "Tap the bookmark on a plan to keep it here.") {
+                        Button("Find a plan") { dismiss() }
                             .pill(.primary)
                     }
                 }
 
                 ForEach(games) { event in
-                    Button {
-                        open(event)
-                    } label: {
-                        card(event)
-                    }
-                    .buttonStyle(.plain)
+                    card(event)
                 }
             }
             .padding(.horizontal, Theme.gutter)
@@ -47,10 +42,13 @@ struct SavedGamesSheet: View {
     private func card(_ event: Game) -> some View {
         GameCard(
             event: event, lineup: store.lineup(for: event),
-            status: status(for: event), time: EventFormat.cardTime(event)
+            status: status(for: event), time: EventFormat.cardTime(event), onOpen: { open(event) },
+            shortcuts: [GameCardShortcut(name: String.app("Remove bookmark")) { store.toggleSaved(event.id) }]
         ) {
             Button("Remove") { store.toggleSaved(event.id) }
                 .pill(.secondary, expands: false)
+                .accessibilityLabel(String.app("Remove \(event.title)"))
+                .accessibilityInputLabels([Text("Remove")])
             action(for: event)
         }
     }
@@ -60,15 +58,17 @@ struct SavedGamesSheet: View {
         if event.isGoing { return event.isHostedByMe ? event.hostingLine : event.goingLine }
         guard event.isFull else { return event.discoverLine() }
         return store.hasSpotAlert(event.id)
-            ? String(localized: "Full · we'll tell you if a spot opens")
-            : String(localized: "Full")
+            ? String.app("Full · we'll tell you if a spot opens")
+            : String.app("Full")
     }
 
     @ViewBuilder
     private func action(for event: Game) -> some View {
         if event.isGoing || event.isCancelled {
-            Button("View game") { open(event) }
+            Button("View plan") { open(event) }
                 .pill(.primary)
+                .accessibilityLabel(String.app("View plan, \(event.title)"))
+                .accessibilityInputLabels([Text("View plan")])
         } else if event.isFull {
             let isOn = store.hasSpotAlert(event.id)
             Button(isOn ? "Spot alert is on" : "Alert me") { store.toggleSpotAlert(event.id) }
@@ -81,6 +81,8 @@ struct SavedGamesSheet: View {
                 appViewModel.joinAndOpen(event.id, in: store)
             }
             .pill(.primary)
+            .accessibilityLabel(String.app("Count me in, \(event.title)"))
+            .accessibilityInputLabels([Text("Count me in")])
         }
     }
 
