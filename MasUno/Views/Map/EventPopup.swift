@@ -12,39 +12,27 @@ struct EventPopup: View {
     @AccessibilityFocusState private var isSummaryFocused: Bool
 
     var body: some View {
-        VStack(spacing: 0) {
-            GameCard(
-                event: event, lineup: store.lineup(for: event),
-                status: event.discoverLine(), time: EventFormat.cardTime(event), isFloating: true,
-                shortcuts: shortcuts, summaryFocus: $isSummaryFocused
-            ) {
-                // For a guest it asks them to make an account, like every other account action.
-                BookmarkButton(event: event)
-            } actions: {
-                // Once you're in, Details and View game open the same screen.
-                if event.isGoing, !event.isHostedByMe {
-                    Button("Leave") { leaving = event }
-                        .pill(.secondary, expands: false)
-                        .accessibilityLabel(String.app("Leave \(event.title)"))
-                        .accessibilityInputLabels([Text("Leave")])
-                } else {
-                    Button("Details") { appViewModel.path.append(.game(event.id)) }
-                        .pill(.secondary, expands: false)
-                        .accessibilityLabel(String.app("Details, \(event.title)"))
-                        .accessibilityInputLabels([Text("Details")])
-                }
-                primaryAction
-                    .pill(.primary)
+        PlanPopupCard(
+            event: event, lineup: store.lineup(for: event),
+            shortcuts: shortcuts, summaryFocus: $isSummaryFocused
+        ) {
+            // For a guest it asks them to make an account, like every other account action.
+            BookmarkButton(event: event)
+        } actions: {
+            // Once you're in, Details and View game open the same screen.
+            if event.isGoing, !event.isHostedByMe {
+                Button("Leave") { leaving = event }
+                    .pill(.secondary, expands: false)
+                    .accessibilityLabel(String.app("Leave \(event.title)"))
+                    .accessibilityInputLabels([Text("Leave")])
+            } else {
+                Button("Details") { appViewModel.path.append(.game(event.id)) }
+                    .pill(.secondary, expands: false)
+                    .accessibilityLabel(String.app("Details, \(event.title)"))
+                    .accessibilityInputLabels([Text("Details")])
             }
-            // Its own height, whatever MapKit offers: squeezed, the host line cut to "…".
-            .fixedSize(horizontal: false, vertical: true)
-
-            CalloutTail()
-                .fill(Theme.card)
-                .frame(width: 28, height: 13)
-                .shadow(color: Theme.shadowInk.opacity(0.12), radius: 3, y: 4)
-                // Tucked under the card so the border doesn't show between them.
-                .padding(.top, -1)
+            primaryAction
+                .pill(.primary)
         }
         // Guest previews have no names to load.
         .task(id: event.id) {
@@ -62,9 +50,6 @@ struct EventPopup: View {
             do { try await Task.sleep(for: .milliseconds(450)) } catch { return }
             isSummaryFocused = true
         }
-        // Stops growing here, so the card still fits above its pin; Game details has the full
-        // text at any size (A11Y-06). Arianna picks the cap. Before the dialog, which isn't capped.
-        .dynamicTypeSize(...DynamicTypeSize.accessibility1)
         .leaveGameDialog($leaving)
     }
 
@@ -92,5 +77,53 @@ struct EventPopup: View {
             shortcuts.append(GameCardShortcut(name: String.app("Leave")) { leaving = event })
         }
         return shortcuts
+    }
+}
+
+/// The map popup's look (Figma "Popup", 341:2046): the floating plan card with its tail pointing
+/// down at the pin. `EventPopup` fills it from the store; onboarding's practice round fills it
+/// with a pretend plan, so the two can't drift apart.
+struct PlanPopupCard<Accessory: View, Actions: View>: View {
+    var event: Game
+    var lineup: Lineup
+    var now: Date = .now
+    var shortcuts: [GameCardShortcut] = []
+    var summaryFocus: AccessibilityFocusState<Bool>.Binding? = nil
+    @ViewBuilder var accessory: Accessory
+    @ViewBuilder var actions: Actions
+
+    /// From the popup's bottom edge (the tail's tip) down to its pin's point.
+    static var lift: CGFloat { EventPin.selectedHeight + 6 }
+
+    /// 16 pt from each side of the space it opens in (the screen on a phone, one side of a
+    /// fold), as in the Figma; never wider than the Figma card.
+    static func width(in available: CGFloat) -> CGFloat {
+        min(max(available - 32, 280), 370)
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            GameCard(
+                event: event, lineup: lineup,
+                status: event.discoverLine(now: now), time: EventFormat.cardTime(event, now: now), isFloating: true,
+                shortcuts: shortcuts, summaryFocus: summaryFocus
+            ) {
+                accessory
+            } actions: {
+                actions
+            }
+            // Its own height, whatever MapKit offers: squeezed, the host line cut to "…".
+            .fixedSize(horizontal: false, vertical: true)
+
+            CalloutTail()
+                .fill(Theme.card)
+                .frame(width: 28, height: 13)
+                .shadow(color: Theme.shadowInk.opacity(0.12), radius: 3, y: 4)
+                // Tucked under the card so the border doesn't show between them.
+                .padding(.top, -1)
+        }
+        // Stops growing here, so the card still fits above its pin; Game details has the full
+        // text at any size (A11Y-06). Arianna picks the cap. Before any dialog, which isn't capped.
+        .dynamicTypeSize(...DynamicTypeSize.accessibility1)
     }
 }

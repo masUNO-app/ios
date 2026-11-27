@@ -258,7 +258,7 @@ final class EventMapViewModel {
     }
 
     /// From the popup's bottom edge down to its pin's coordinate.
-    private static let popupLift = EventPin.selectedHeight + 6
+    private static var popupLift: CGFloat { PlanPopupCard<EmptyView, EmptyView>.lift }
 
     /// Last visible region, so selecting a pin can keep the current zoom.
     private var visibleRegion: MKCoordinateRegion?

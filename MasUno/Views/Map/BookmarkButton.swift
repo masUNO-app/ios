@@ -13,16 +13,7 @@ struct BookmarkButton: View {
         Button {
             Self.toggle(event, store: store, appViewModel: appViewModel)
         } label: {
-            Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(isSaved ? Theme.accent : Theme.ink)
-                .contentTransition(.symbolEffect(.replace))
-                .frame(width: 36, height: 36)
-                .appGlass(in: .circle, interactive: true)
-                // A 44 pt target around the 36 pt circle; the padding below takes the room back,
-                // so nothing moves (A11Y-19).
-                .frame(width: 44, height: 44)
-                .contentShape(.rect)
+            BookmarkGlyph(isSaved: isSaved)
         }
         .buttonStyle(.plain)
         .padding(-4)
@@ -37,5 +28,24 @@ struct BookmarkButton: View {
             return
         }
         withAnimation(.snappy) { store.toggleSaved(event.id) }
+    }
+}
+
+/// The bookmark's glass circle: the icon fills and turns green when saved. Also the practice
+/// round's popup, where it's only a picture.
+struct BookmarkGlyph: View {
+    var isSaved = false
+
+    var body: some View {
+        Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
+            .font(.system(size: 16, weight: .semibold))
+            .foregroundStyle(isSaved ? Theme.accent : Theme.ink)
+            .contentTransition(.symbolEffect(.replace))
+            .frame(width: 36, height: 36)
+            .appGlass(in: .circle, interactive: true)
+            // A 44 pt target around the 36 pt circle; the button's padding takes the room back,
+            // so nothing moves (A11Y-19).
+            .frame(width: 44, height: 44)
+            .contentShape(.rect)
     }
 }

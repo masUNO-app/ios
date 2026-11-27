@@ -17,7 +17,14 @@ struct PracticeMapStep: View {
     /// Spotlit things that aren't pins, measured in `space`.
     @State private var frames: [Target: CGRect] = [:]
     @State private var now = Date.now
+    /// A partially open iPhone Duo's fold; nil on a flat screen.
+    @State private var fold: CGRect?
+    /// The popup's height, so its pin stands low enough for it (a default text size's, until measured).
+    @State private var popupHeight: CGFloat = 330
+    /// The coach card's height, to keep it on screen.
+    @State private var coachHeight: CGFloat = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.barLayout) private var barLayout
     @AccessibilityFocusState private var isCoachFocused: Bool
 
     enum Stage: Hashable {
@@ -56,27 +63,37 @@ struct PracticeMapStep: View {
     var body: some View {
         GeometryReader { proxy in
             let size = proxy.size
+            let full = CGRect(origin: .zero, size: size)
+            // What's tapped and read stays on one side of a partially open Duo's fold, as the
+            // map's popup and system sheets do; on a flat screen that's the whole screen.
+            let pane = fold.map { full.pane(avoiding: $0) } ?? full
+            // The popup and its pin keep clear of the vertical bar, as on the map, where the
+            // system's bar takes that room from the safe area.
+            let popupPane = pane.avoidingSideBar(barLayout)
             ZStack {
                 PracticeMapBackdrop(campus: viewModel.mapCampus)
-                pins(in: size)
+                pins(in: size, pane: pane)
                 MapChrome(
                     addButtonIsLive: stage == .addButton,
+                    // A sheet covers the bottom bar; its edge would peek out under it on wide screens.
+                    showsBottomBar: stage != .form && stage != .ready,
                     onAdd: { advance(to: .form) },
                     onAddFrame: { frames[.addButton] = $0 }
                 )
-                if stage == .popup { popupCard }
-                if stage == .form { formSheet }
+                if stage == .popup { popupCard(pane: popupPane) }
+                if stage == .form { formSheet.inPane(pane) }
 
-                SpotlightScrim(hole: spotlight(in: size), cornerRadius: spotlightRadius, alsoLit: alsoLit)
+                SpotlightScrim(hole: spotlight(in: pane), cornerRadius: spotlightRadius, alsoLit: alsoLit)
 
-                if let coach = coach { coachCard(coach, size: size) }
-                if stage == .ready { readySheet(in: size) }
+                if let coach = coach { coachCard(coach, size: size, pane: pane) }
+                if stage == .ready { readySheet(in: size, pane: pane).inPane(pane) }
 
                 practiceBar
                     .frame(maxHeight: .infinity, alignment: .top)
                     .padding(.top, 6)
             }
             .coordinateSpace(.named(Self.space))
+            .onGeometryChange(for: CGRect?.self) { $0.activeFold } action: { fold = $0 }
         }
         .environment(\.currentUserID, PracticeRound.you.id)
         .toolbar(.hidden, for: .navigationBar)
@@ -94,15 +111,42 @@ struct PracticeMapStep: View {
     private static let otherSpots: [UnitPoint] = [
         UnitPoint(x: 0.24, y: 0.3), UnitPoint(x: 0.72, y: 0.4), UnitPoint(x: 0.76, y: 0.66), UnitPoint(x: 0.2, y: 0.8),
     ]
-    private static let joinSpot = UnitPoint(x: 0.4, y: 0.47)
+    /// Centered across, like a pin the real map has panned to so its popup opens above it.
+    private static let joinSpot = UnitPoint(x: 0.5, y: 0.47)
     private static let mySpot = UnitPoint(x: 0.52, y: 0.29)
     private static let youSpot = UnitPoint(x: 0.86, y: 0.32)
 
     private func point(_ spot: UnitPoint, in size: CGSize) -> CGPoint {
-        CGPoint(x: spot.x * size.width, y: spot.y * size.height)
+        point(spot, in: CGRect(origin: .zero, size: size))
     }
 
-    private func pins(in size: CGSize) -> some View {
+    private func point(_ spot: UnitPoint, in rect: CGRect) -> CGPoint {
+        CGPoint(x: rect.minX + spot.x * rect.width, y: rect.minY + spot.y * rect.height)
+    }
+
+    /// Where the pin to join stands: low enough that its popup fits above it, under the practice
+    /// bar, as the real map pans a selected pin down to make room.
+    private func joinTip(in pane: CGRect) -> CGPoint {
+        let spot = point(Self.joinSpot, in: pane)
+        let room = Self.barRoom + popupHeight + PlanPopupCard<EmptyView, EmptyView>.lift
+        var x = spot.x
+        // Wide enough for the popup and its coach side by side (the open iPhone Duo in
+        // landscape): the pin moves left so the coach fits on its right.
+        let card = PlanPopupCard<EmptyView, EmptyView>.width(in: pane.width)
+        if stage == .popup, pane.width >= card + Self.coachWidth + 64 {
+            x = pane.minX + 20 + card / 2
+        }
+        return CGPoint(x: x, y: min(max(spot.y, pane.minY + room), pane.maxY - 60))
+    }
+
+    /// The coach card's widest.
+    private static let coachWidth: CGFloat = 328
+
+    /// The practice bar and a little air, which the popup stays below.
+    private static let barRoom: CGFloat = 62
+
+    /// The other pins spread over the whole map; the ones to tap sit in `pane`.
+    private func pins(in size: CGSize, pane: CGRect) -> some View {
         let others = PracticeRound.otherPins(besides: sport, now: now)
         let hosted = PracticeRound.hostedPlan(plan, campus: viewModel.mapCampus, now: now)
 
@@ -116,11 +160,11 @@ struct PracticeMapStep: View {
                 // The pin to tap, while it's spotlit: the whole circle of light takes the tap.
                 PlacedPin(
                     plan: joinPlan, people: PracticeRound.joinPeople, now: now,
-                    tip: point(Self.joinSpot, in: size), isSelected: stage == .popup,
+                    tip: joinTip(in: stage == .popup ? pane.avoidingSideBar(barLayout) : pane), isSelected: stage == .popup,
                     action: stage == .findPin ? { advance(to: .popup) } : nil
                 )
             } else if stage == .ready {
-                PlacedPin(plan: hosted, people: [PracticeRound.you], now: now, tip: point(Self.mySpot, in: size))
+                PlacedPin(plan: hosted, people: [PracticeRound.you], now: now, tip: point(Self.mySpot, in: pane))
                     .transition(.scale(scale: 0.4, anchor: .bottom).combined(with: .opacity))
             }
         }
@@ -131,19 +175,22 @@ struct PracticeMapStep: View {
         CGRect(x: tip.x - 66, y: tip.y - 88, width: 132, height: 132)
     }
 
-    private func spotlight(in size: CGSize) -> CGRect? {
+    private func spotlight(in pane: CGRect) -> CGRect? {
         switch stage {
         case .findPin:
-            return pinHole(at: point(Self.joinSpot, in: size))
+            return pinHole(at: joinTip(in: pane))
         case .popup:
-            return frames[.card]?.insetBy(dx: -4, dy: -4)
+            // The popup and the selected pin under it, as one.
+            guard let card = frames[.card] else { return nil }
+            let tip = joinTip(in: pane.avoidingSideBar(barLayout))
+            return card.union(CGRect(x: tip.x - 32, y: tip.y - 72, width: 64, height: 78)).insetBy(dx: -6, dy: -6)
         case .addButton:
             return frames[.addButton]?.insetBy(dx: -6, dy: -6)
         case .form:
             return frames[.people]?.insetBy(dx: -4, dy: -4)
         case .ready:
             // The pin and the face under it.
-            let tip = point(Self.mySpot, in: size)
+            let tip = point(Self.mySpot, in: pane)
             return CGRect(x: tip.x - 40, y: tip.y - 74, width: 80, height: 112)
         }
     }
@@ -166,36 +213,34 @@ struct PracticeMapStep: View {
 
     // MARK: Popup (J2)
 
-    private var popupCard: some View {
+    /// The real map's popup (`PlanPopupCard`), opened above the pin with its tail on it.
+    private func popupCard(pane: CGRect) -> some View {
         let plan = joinPlan
-        let lineup = Lineup(people: PracticeRound.joinPeople, open: plan.spotsLeft)
-        return GameCard(
-            event: plan, lineup: lineup, status: plan.discoverLine(now: now),
-            time: EventFormat.cardTime(plan, now: now), isFloating: true
+        let tip = joinTip(in: pane)
+        return PlanPopupCard(
+            event: plan, lineup: Lineup(people: PracticeRound.joinPeople, open: plan.spotsLeft), now: now
         ) {
-            Image(systemName: "bookmark")
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(Theme.ink)
-                .frame(width: 44, height: 44)
-                .background(.white.opacity(0.35), in: .circle)
+            BookmarkGlyph()
+                .padding(-4)
                 .accessibilityHidden(true)
         } actions: {
-            // Only Count me in moves the practice on; the real card's Details opens the plan.
+            // As on the map. Only Count me in moves the practice on, so Details is only a picture.
             Button("Details") {}
                 .pill(.secondary, expands: false)
-                .disabled(true)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
             Button("Count me in") { viewModel.takePracticeSpot() }
                 .pill(.primary)
                 .accessibilityLabel(String.app("Count me in, \(plan.title)"))
         }
-        .fixedSize(horizontal: false, vertical: true)
-        .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(Self.space)) } action: { frames[.card] = $0 }
-        .padding(.horizontal, 16)
-        .padding(.top, 64)
-        .frame(maxWidth: Theme.columnWidth)
-        .frame(maxHeight: .infinity, alignment: .top)
-        .dynamicTypeSize(...DynamicTypeSize.accessibility1)
-        .transition(.scale(scale: 0.92, anchor: .bottom).combined(with: .opacity))
+        .frame(width: PlanPopupCard<EmptyView, EmptyView>.width(in: pane.width))
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(Self.space)) } action: { frame in
+            frames[.card] = frame
+            if abs(frame.height - popupHeight) > 1 { popupHeight = frame.height }
+        }
+        .position(x: tip.x, y: tip.y - PlanPopupCard<EmptyView, EmptyView>.lift - popupHeight / 2)
+        // Grows out of the pin, as on the map.
+        .transition(.scale(scale: 0.1, anchor: .bottom).combined(with: .opacity))
     }
 
     // MARK: Make a plan (H2)
@@ -217,8 +262,8 @@ struct PracticeMapStep: View {
     // MARK: Your plan is ready (H3)
 
     /// Kept under your new pin's spotlight; what doesn't fit scrolls, with a hint.
-    private func readySheet(in size: CGSize) -> some View {
-        let tip = point(Self.mySpot, in: size)
+    private func readySheet(in size: CGSize, pane: CGRect) -> some View {
+        let tip = point(Self.mySpot, in: pane)
         // Clear of the spotlight's outer ring (`spotlight(in:)`), with a little air.
         let maxHeight = size.height - (tip.y + 38 + 8 + 14)
         return ReadySheet(
@@ -273,22 +318,53 @@ struct PracticeMapStep: View {
     }
 
     /// Above the spotlight when it's in the bottom half, under it otherwise, with the tail
-    /// pointing at it.
-    private func coachCard(_ coach: Coach, size: CGSize) -> some View {
-        let hole = spotlight(in: size) ?? CGRect(x: size.width / 2, y: size.height / 2, width: 0, height: 0)
-        let isAbove = hole.midY > size.height / 2
+    /// pointing at it. The popup fills the space above its pin, so its coach goes beside it when
+    /// there's room (a wide screen), else under the pin. Short of room, it sits at the bottom
+    /// edge, without a tail.
+    private func coachCard(_ coach: Coach, size: CGSize, pane: CGRect) -> some View {
+        let hole = spotlight(in: pane) ?? CGRect(x: pane.midX, y: size.height / 2, width: 0, height: 0)
         let gap: CGFloat = 12
+        // 46 pt in from the edges on a phone, as in the Figma; less on a narrow side of a fold.
+        let width = min(pane.width - (pane.width >= 360 ? 92 : 32), Self.coachWidth)
+        let height = coachHeight
+
+        var center = CGPoint(x: pane.midX, y: 0)
+        var tail: Bool? = nil // pointing up, down, or none
+        // The popup with no room for the whole coach under its pin (the folded iPhone Duo): the
+        // coach drops its explanation and sits right under the popup, over the pin. Decided from
+        // the room alone, not the coach's height, so it can't flip back and forth.
+        let isCompact = stage == .popup && size.height - 8 - (hole.maxY + gap) < 190
+        if stage == .popup, let card = frames[.card],
+           pane.maxX - card.maxX >= width + gap * 2 || card.minX - pane.minX >= width + gap * 2 {
+            let right = pane.maxX - card.maxX >= width + gap * 2
+            center.x = right ? card.maxX + gap + width / 2 : card.minX - gap - width / 2
+            center.y = min(max(card.midY, height / 2 + 8), size.height - height / 2 - 8)
+        } else if stage != .popup, hole.midY > size.height / 2 {
+            center.y = hole.minY - gap - height / 2
+            tail = false
+        } else if isCompact {
+            let top = (frames[.card]?.maxY ?? hole.minY) + gap
+            center.y = min(top + height / 2, size.height - 8 - height / 2)
+        } else {
+            let top = hole.maxY + gap
+            if top + height <= size.height - 8 {
+                center.y = top + height / 2
+                tail = true
+            } else {
+                center.y = size.height - 8 - height / 2
+            }
+        }
 
         return CoachCard(
-            step: coach.step, title: coach.title, message: coach.message, instruction: coach.instruction,
-            tailX: hole.midX, pointsUp: !isAbove, onSkip: { viewModel.skipTour() }
+            step: coach.step, title: coach.title, message: isCompact ? nil : coach.message, instruction: coach.instruction,
+            tailX: hole.midX, pointsUp: tail ?? true, showsTail: tail != nil, onSkip: { viewModel.skipTour() }
         )
         .accessibilityFocused($isCoachFocused)
-        .padding(.horizontal, 46)
-        .frame(maxWidth: 420)
-        .frame(maxWidth: .infinity)
-        .padding(isAbove ? .bottom : .top, isAbove ? size.height - hole.minY + gap : hole.maxY + gap)
-        .frame(maxHeight: .infinity, alignment: isAbove ? .bottom : .top)
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { coachHeight = $0 }
+        .frame(width: width)
+        .fixedSize(horizontal: false, vertical: true)
+        .position(center)
+        .opacity(height > 0 ? 1 : 0)
         .dynamicTypeSize(...DynamicTypeSize.accessibility2)
         .id(stage)
         .transition(.opacity)
@@ -321,6 +397,7 @@ struct PracticeMapStep: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
                 .accessibilityAddTraits(.isHeader)
+            Spacer(minLength: 4)
             Button { viewModel.endPractice() } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 15, weight: .bold))
@@ -335,6 +412,8 @@ struct PracticeMapStep: View {
         .padding(.leading, 16)
         .padding(.trailing, 8)
         .frame(minHeight: 44)
+        // The whole top row, so it covers the map's search field on any width.
+        .frame(maxWidth: .infinity)
         .background(Theme.card, in: .capsule)
         .shadow(color: Theme.shadowInk.opacity(0.18), radius: 10, y: 3)
         .padding(.horizontal, Theme.gutter)
@@ -396,76 +475,176 @@ private struct PlacedPin: View {
     }
 }
 
-/// The real map's search bar, nearby count and bottom bar, drawn for the practice. Only Make a
-/// plan works, and only when the coach says to tap it.
+/// The real map's search bar, nearby count and bars, drawn for the practice in the same places as
+/// on the map (`EventMapView.mapActions`): bottom bars on a phone; on a wide screen Make a plan at
+/// its natural size; with the iPhone Duo's vertical bar, search, saved plans, recenter, Filter and
+/// the avatar in a column on its side, and only Make a plan below. Drawn here rather than as real
+/// bars so the spotlight's dimming covers them. Only Make a plan works, and only when the coach
+/// says to tap it.
 private struct MapChrome: View {
     var addButtonIsLive: Bool
+    var showsBottomBar = true
     var onAdd: () -> Void
     var onAddFrame: (CGRect) -> Void
+    @Environment(\.barLayout) private var barLayout
+    @Environment(\.horizontalSizeClass) private var sizeClass
+
+    /// The vertical bar's buttons, from the window's top and bottom edges, as iOS places them
+    /// for the real map: measured on the iPhone Duo (Nov 26). The cover display's status column
+    /// is taller (the camera sits above the clock), so its top group starts lower.
+    private static let searchCenterCompact: CGFloat = 198
+    private static let searchCenterRegular: CGFloat = 152
+    /// Between one button and the next in a group.
+    private static let sideBarStep: CGFloat = 52
+    /// Filter's center, up from the bottom; recenter is a step above it.
+    private static let filterCenterFromBottom: CGFloat = 108
+    private static let avatarCenterFromBottom: CGFloat = 48
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
-                HStack(spacing: 8) {
-                    Image(systemName: "magnifyingglass")
-                    Text("Search plans")
-                    Spacer()
-                }
-                .font(.rounded(.body))
-                .foregroundStyle(Theme.muted)
-                .padding(.horizontal, 16)
-                .frame(height: 48)
-                .appGlass(in: .capsule)
-                Image(systemName: "bookmark")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(Theme.ink)
-                    .frame(width: 48, height: 48)
-                    .appGlass(in: .circle)
+        GeometryReader { proxy in
+            let isWide = sizeClass == .regular
+            let isLandscape = proxy.size.width > proxy.size.height
+            VStack(alignment: .leading, spacing: 12) {
+                // With a vertical bar, search and saved plans are in it.
+                if !barLayout.isVertical { searchRow }
+                nearbyChip
+                Spacer()
+                bottomRow(isWide: isWide, isLandscape: isLandscape, width: proxy.size.width)
+                    .opacity(showsBottomBar ? 1 : 0)
             }
-            HStack(spacing: 8) {
-                HStack(spacing: 3) {
-                    ForEach(Activity.builtIn.prefix(4)) { Circle().fill($0.color).frame(width: 8, height: 8) }
+            .padding(.horizontal, Theme.gutter)
+            .padding(.top, 8)
+            .padding(.bottom, 4)
+            .overlay {
+                if case .vertical(let edge) = barLayout {
+                    sideBar(edge: edge, size: proxy.size, insets: proxy.safeAreaInsets)
+                        .opacity(showsBottomBar ? 1 : 0)
                 }
-                Text("5 plans nearby")
-                    .font(.rounded(.subheadline, .bold))
-                    .foregroundStyle(Theme.ink)
-            }
-            .padding(.horizontal, 14)
-            .frame(height: 36)
-            .appGlass(in: .capsule)
-
-            Spacer()
-
-            HStack(spacing: 10) {
-                Image(systemName: "line.3.horizontal.decrease")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(Theme.ink)
-                    .frame(width: 48, height: 48)
-                    .appGlass(in: .circle)
-                Button(action: onAdd) {
-                    Label("Make a plan", systemImage: "plus")
-                        .labelStyle(IconRowLabelStyle(iconWidth: 16, spacing: 6))
-                        .font(.rounded(.headline, .bold))
-                        .foregroundStyle(Theme.onAccent)
-                        .frame(maxWidth: .infinity, minHeight: 50)
-                        .background(Theme.accent, in: .capsule)
-                }
-                .buttonStyle(.plain)
-                .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(PracticeMapStep.space)) } action: { onAddFrame($0) }
-                .allowsHitTesting(addButtonIsLive)
-                .accessibilityHidden(!addButtonIsLive)
-                MeToken(name: "", size: 44, ring: 3)
-                    .frame(width: 48, height: 48)
-                    .appGlass(in: .circle)
             }
         }
-        .padding(.horizontal, Theme.gutter)
-        .padding(.top, 8)
-        .padding(.bottom, 4)
         .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
         .allowsHitTesting(addButtonIsLive)
         .accessibilityElement(children: addButtonIsLive ? .contain : .ignore)
         .accessibilityHidden(!addButtonIsLive)
+    }
+
+    private var searchRow: some View {
+        HStack(spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                Text("Search plans")
+                Spacer()
+            }
+            .font(.rounded(.body))
+            .foregroundStyle(Theme.muted)
+            .padding(.horizontal, 16)
+            .frame(height: 48)
+            .appGlass(in: .capsule)
+            circle("bookmark")
+        }
+    }
+
+    private var nearbyChip: some View {
+        HStack(spacing: 8) {
+            HStack(spacing: 3) {
+                ForEach(Activity.builtIn.prefix(4)) { Circle().fill($0.color).frame(width: 8, height: 8) }
+            }
+            Text("5 plans nearby")
+                .font(.rounded(.subheadline, .bold))
+                .foregroundStyle(Theme.ink)
+        }
+        .padding(.horizontal, 14)
+        .frame(height: 36)
+        .appGlass(in: .capsule)
+    }
+
+    /// Phone: Filter · Make a plan · avatar, with recenter floating above the avatar; Make a plan
+    /// as wide as the map's (the screen less 240 pt). Wide: Make a plan at its natural size. With a
+    /// vertical bar: Make a plan alone, centered, or held left in landscape on a wide screen.
+    @ViewBuilder
+    private func bottomRow(isWide: Bool, isLandscape: Bool, width: CGFloat) -> some View {
+        if barLayout.isVertical {
+            HStack {
+                if !(isWide && isLandscape) { Spacer(minLength: 0) }
+                addButton(width: nil)
+                Spacer(minLength: 0)
+            }
+        } else {
+            VStack(alignment: .trailing, spacing: 12) {
+                circle("location")
+                HStack(spacing: 10) {
+                    circle("line.3.horizontal.decrease")
+                    Spacer(minLength: 0)
+                    addButton(width: isWide ? nil : max(140, width - 240))
+                    Spacer(minLength: 0)
+                    avatar
+                }
+            }
+        }
+    }
+
+    private func addButton(width: CGFloat?) -> some View {
+        Button(action: onAdd) {
+            Label("Make a plan", systemImage: "plus")
+                .labelStyle(IconRowLabelStyle(iconWidth: 16, spacing: 6))
+                .font(.rounded(.headline, .bold))
+                .foregroundStyle(Theme.onAccent)
+                .frame(width: width)
+                .padding(.horizontal, 10)
+                .frame(minHeight: 50)
+                .background(Theme.accent, in: .capsule)
+        }
+        .buttonStyle(.plain)
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(PracticeMapStep.space)) } action: { onAddFrame($0) }
+        .allowsHitTesting(addButtonIsLive)
+        .accessibilityHidden(!addButtonIsLive)
+    }
+
+    /// The vertical bar, in the side column like iOS's: search and saved plans at the top;
+    /// recenter and Filter, then the avatar, at the bottom.
+    private func sideBar(edge: HorizontalEdge, size: CGSize, insets: EdgeInsets) -> some View {
+        let inset = edge == .trailing ? insets.trailing : insets.leading
+        // In the column's middle, or just inside the edge when there's no column.
+        let x = edge == .trailing
+            ? (inset > 0 ? size.width + inset / 2 : size.width - 30)
+            : (inset > 0 ? -inset / 2 : 30)
+        let windowTop = -insets.top
+        let windowBottom = size.height + insets.bottom
+        let searchCenter = sizeClass == .regular ? Self.searchCenterRegular : Self.searchCenterCompact
+        return ZStack {
+            group(["magnifyingglass", "bookmark"])
+                .position(x: x, y: windowTop + searchCenter + Self.sideBarStep / 2)
+            group(["location", "line.3.horizontal.decrease"])
+                .position(x: x, y: windowBottom - Self.filterCenterFromBottom - Self.sideBarStep / 2)
+            avatar
+                .position(x: x, y: windowBottom - Self.avatarCenterFromBottom)
+        }
+    }
+
+    private func group(_ symbols: [String]) -> some View {
+        VStack(spacing: 0) {
+            ForEach(symbols, id: \.self) { symbol in
+                Image(systemName: symbol)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(Theme.ink)
+                    .frame(width: 46, height: Self.sideBarStep)
+            }
+        }
+        .appGlass(in: .capsule)
+    }
+
+    private func circle(_ symbol: String) -> some View {
+        Image(systemName: symbol)
+            .font(.system(size: 18, weight: .semibold))
+            .foregroundStyle(Theme.ink)
+            .frame(width: 48, height: 48)
+            .appGlass(in: .circle)
+    }
+
+    private var avatar: some View {
+        MeToken(name: "", size: 44, ring: 3)
+            .frame(width: 48, height: 48)
+            .appGlass(in: .circle)
     }
 }
 
@@ -539,11 +718,13 @@ private nonisolated struct ScrimShape: Shape {
 private struct CoachCard: View {
     var step: Int
     var title: String
-    var message: String
+    /// Left out where there's no room for it.
+    var message: String?
     var instruction: String
     /// Where the tail points, in the practice's coordinate space.
     var tailX: CGFloat
     var pointsUp: Bool
+    var showsTail = true
     var onSkip: () -> Void
     @State private var frame: CGRect = .zero
 
@@ -563,10 +744,12 @@ private struct CoachCard: View {
                 .foregroundStyle(Theme.ink)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
-            Text(verbatim: message)
-                .font(.rounded(.body))
-                .foregroundStyle(Theme.muted)
-                .fixedSize(horizontal: false, vertical: true)
+            if let message {
+                Text(verbatim: message)
+                    .font(.rounded(.body))
+                    .foregroundStyle(Theme.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             HStack(spacing: 8) {
                 Circle().fill(Theme.accent).frame(width: 9, height: 9).accessibilityHidden(true)
                 Text(verbatim: instruction)
@@ -577,12 +760,14 @@ private struct CoachCard: View {
         .padding(18)
         .background(Theme.card, in: .rect(cornerRadius: 26))
         .overlay(alignment: pointsUp ? .top : .bottom) {
-            CalloutTail()
-                .fill(Theme.card)
-                .frame(width: 26, height: 12)
-                .rotationEffect(.degrees(pointsUp ? 180 : 0))
-                .offset(x: tailOffset, y: pointsUp ? -11 : 11)
-                .accessibilityHidden(true)
+            if showsTail {
+                CalloutTail()
+                    .fill(Theme.card)
+                    .frame(width: 26, height: 12)
+                    .rotationEffect(.degrees(pointsUp ? 180 : 0))
+                    .offset(x: tailOffset, y: pointsUp ? -11 : 11)
+                    .accessibilityHidden(true)
+            }
         }
         .shadow(color: Theme.shadowInk.opacity(0.18), radius: 14, y: 6)
         .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(PracticeMapStep.space)) } action: { frame = $0 }
@@ -693,7 +878,7 @@ private struct PracticeFormSheet: View {
         .background {
             UnevenRoundedRectangle(topLeadingRadius: Theme.Radius.sheet, topTrailingRadius: Theme.Radius.sheet)
                 .fill(Theme.background)
-                .ignoresSafeArea(edges: .bottom)
+                .ignoresSafeArea(edges: [.bottom, .horizontal])
         }
         .padding(.top, 120)
     }
@@ -800,7 +985,7 @@ private struct ReadySheet: View {
         .background {
             UnevenRoundedRectangle(topLeadingRadius: Theme.Radius.sheet, topTrailingRadius: Theme.Radius.sheet)
                 .fill(Theme.card)
-                .ignoresSafeArea(edges: .bottom)
+                .ignoresSafeArea(edges: [.bottom, .horizontal])
                 .shadow(color: Theme.shadowInk.opacity(0.15), radius: 12, y: -2)
         }
     }
@@ -834,5 +1019,25 @@ private struct ReadyCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Theme.background, in: .rect(cornerRadius: Theme.Radius.card))
         .accessibilityElement(children: .combine)
+    }
+}
+
+private extension View {
+    /// Laid out across `pane`'s width and no further: one side of a fold, or the whole screen.
+    func inPane(_ pane: CGRect) -> some View {
+        frame(width: pane.width)
+            .padding(.leading, pane.minX)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private extension CGRect {
+    /// Less the room the iPhone Duo's vertical bar takes on its side.
+    func avoidingSideBar(_ layout: BarLayout) -> CGRect {
+        guard case .vertical(let edge) = layout else { return self }
+        let bar: CGFloat = 72
+        return edge == .trailing
+            ? CGRect(x: minX, y: minY, width: max(width - bar, 0), height: height)
+            : CGRect(x: minX + bar, y: minY, width: max(width - bar, 0), height: height)
     }
 }

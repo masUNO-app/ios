@@ -357,7 +357,7 @@ struct EventMapView: View {
     /// never wider than the Figma card.
     private var popupWidth: CGFloat {
         let area = popupArea
-        return min(max((area.isNull ? screenSize.width : area.width) - 32, 280), 370)
+        return PlanPopupCard<EmptyView, EmptyView>.width(in: area.isNull ? screenSize.width : area.width)
     }
 
     /// Soft fade behind the search bar ("Search backdrop" layer).

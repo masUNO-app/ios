@@ -53,6 +53,8 @@ struct OnboardingFlow: View {
                     .navigationBarBackButtonHidden(step.hidesBackButton)
                 }
         }
+        // The practice map lays out its pretend bars as the real map's: the iPhone Duo's vertical bar too.
+        .readsBarLayout()
         .onAppear { watchSignIn() }
         .onAppear(perform: leaveGuestBrowsing)
         .onAppear(perform: consumeResume)
